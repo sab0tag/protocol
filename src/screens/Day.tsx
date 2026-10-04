@@ -5,8 +5,10 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Sheet, SheetButton } from '../components/Sheet';
 import { db } from '../data/db';
-import { useDayEntries, useFoods, usePlan, useWorkouts } from '../data/queries';
+import { useAllEntries, useDayEntries, useFoods, usePlan, useWorkouts } from '../data/queries';
 import { buildChecklist } from '../domain/checklist';
+import { mealsOf } from '../domain/habits';
+import { addDays, parseISO as parseDay } from 'date-fns';
 import { amountText } from '../domain/foodSearch';
 import { exportDue } from '../data/backup';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -30,6 +32,8 @@ export function Day() {
   const navigate = useNavigate();
   const [rowFor, setRowFor] = useState<DayEntry | null>(null);
   const [adding, setAdding] = useState(false);
+  const [yesterday, setYesterday] = useState(false);
+  const all = useAllEntries();
   const [simple, setSimple] = useState<{ kind: Exclude<EntryKind, 'meal'>; entry?: DayEntry } | null>(null);
 
   const mode = activeMode(plan, date);
@@ -46,6 +50,20 @@ export function Day() {
     const time = isToday ? format(new Date(), 'HH:mm') : '12:00';
     await db.entries.add({ id: newId(), at: atLocal(date, time), kind: 'water', status: 'done', title: t.addKinds.water, waterMl: 250 });
   };
+  const nextMed = checklist?.items.find((i) => i.kind === 'med' && !i.done);
+  const tickMed = async () => {
+    if (!nextMed) return;
+    const time = isToday ? format(new Date(), 'HH:mm') : nextMed.time ?? '12:00';
+    await db.entries.add({ id: newId(), at: atLocal(date, time), kind: 'med', status: 'done', title: nextMed.title, checkKey: nextMed.key,
+      ...(nextMed.prescriptionId ? { prescriptionId: nextMed.prescriptionId } : {}) });
+  };
+  const prevDay = format(addDays(parseDay(date), -1), 'yyyy-MM-dd');
+  const copyMeal = async (e: DayEntry) => {
+    const time = timeOf(e.at);
+    const future = date > todayISO() || (isToday && time > format(new Date(), 'HH:mm'));
+    await db.entries.add({ ...e, id: newId(), at: atLocal(date, time), status: future ? 'planned' : 'done' });
+  };
+
   const edit = (e: DayEntry) => {
     setRowFor(null);
     if (e.kind === 'meal') navigate(`/meal/${e.id}`);
@@ -80,6 +98,17 @@ export function Day() {
           <button type="button" onClick={() => navigate('/more')} className="min-h-tap rounded-xl bg-warn px-3 font-medium text-surface">{t.backup.remindAction}</button>
         </div>
       )}
+
+      <div className="mb-3 flex flex-wrap gap-2" role="group" aria-label={t.day.quick}>
+        <button type="button" onClick={() => void addWater()}
+          className="flex min-h-tap items-center gap-1 rounded-full border border-line bg-surface px-3 font-medium text-water"><Droplet size={16} aria-hidden />{t.day.plusWater}</button>
+        {nextMed && (
+          <button type="button" onClick={() => void tickMed()}
+            className="flex min-h-tap items-center gap-1 rounded-full border border-line bg-surface px-3 font-medium"><Pill size={16} className="text-accent" aria-hidden />{t.day.medDone(nextMed.title)}</button>
+        )}
+        <button type="button" onClick={() => setYesterday(true)}
+          className="flex min-h-tap items-center gap-1 rounded-full border border-line bg-surface px-3 font-medium"><Undo2 size={16} className="text-accent" aria-hidden />{t.day.likeYesterday}</button>
+      </div>
 
       <div className="mb-3 grid grid-cols-2 gap-2">
         <button type="button" onClick={() => navigate('/my-day')}
@@ -162,6 +191,25 @@ export function Day() {
           })}
         </Sheet>
       )}
+      {yesterday && all && (() => {
+        const meals = mealsOf(all, prevDay);
+        return (
+          <Sheet title={t.day.yesterdayTitle} onClose={() => setYesterday(false)}>
+            {meals.length === 0 && <p className="text-muted">{t.day.yesterdayEmpty}</p>}
+            {meals.map((e) => (
+              <SheetButton key={e.id} onClick={() => void copyMeal(e).then(() => setYesterday(false))}>
+                <UtensilsCrossed size={20} className="shrink-0" />
+                <span className="min-w-0 flex-1"><span className="block font-medium">{timeOf(e.at)} · {e.title}</span>
+                  <span className="block truncate text-sm text-muted">{e.items?.map((i) => `${i.name} ${amountText(i)}`).join(', ')}</span></span>
+              </SheetButton>
+            ))}
+            {meals.length > 1 && (
+              <SheetButton tone="accent" onClick={() => void Promise.all(meals.map(copyMeal)).then(() => setYesterday(false))}>
+                <Plus size={20} />{t.day.addAll}</SheetButton>
+            )}
+          </Sheet>
+        );
+      })()}
       {simple && <SimpleEntrySheet kind={simple.kind} entry={simple.entry} date={date} onClose={() => setSimple(null)} />}
     </section>
   );

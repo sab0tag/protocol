@@ -3,13 +3,14 @@ import { Plus, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { db } from '../data/db';
-import { useDayEntries, useFoods, usePlan, useRecentEntries, useRecipes } from '../data/queries';
+import { useAllEntries, useDayEntries, useFoods, usePlan, useRecentEntries, useRecipes } from '../data/queries';
+import { earlierMeals, frequentItems } from '../domain/habits';
 import { Amount } from '../components/Amount';
 import { dishItem, recipeFrom, setPortions, withComponents } from '../domain/recipes';
 import { atLocal, dateOf, newId, timeOf, todayISO } from '../domain/dates';
 import { activeMode, dayTotals, effectiveTargets, lineNutrients, mealNutrients, round } from '../domain/nutrition';
 import { applySwaps, checkMeal, hasSwaps, mealVerdict, type ItemCheck } from '../domain/rules';
-import { itemFor, measureWord, parseQuery, searchFoods, type Query } from '../domain/foodSearch';
+import { amountText, itemFor, measureWord, parseQuery, searchFoods, type Query } from '../domain/foodSearch';
 import type { Cooking, DayEntry, Food, MealItem, Nutrients } from '../domain/types';
 import { t } from '../i18n/uk';
 import { useUi } from '../store/ui';
@@ -30,6 +31,7 @@ export function AddMeal() {
   const uiDate = useUi((s) => s.date);
   const foods = useFoods();
   const recipes = useRecipes();
+  const all = useAllEntries();
   const plan = usePlan();
   const [dishName, setDishName] = useState<string | null>(null);
   const [dishSaved, setDishSaved] = useState('');
@@ -106,6 +108,26 @@ export function AddMeal() {
           </label>
         </div>
 
+        {!id && items.length === 0 && all && (() => {
+          const before = earlierMeals(all, title, date);
+          return before.length > 0 && (
+            <div className="rounded-2xl border border-line bg-surface p-3">
+              <p className="mb-1 text-sm text-muted">{t.meal.likeBefore(title)}</p>
+              <ul className="space-y-2">
+                {before.map((e) => (
+                  <li key={e.id}>
+                    <button type="button" onClick={() => setItems(e.items!.map((x) => ({ ...x })))}
+                      className="flex min-h-tap w-full items-center gap-2 rounded-xl border border-line px-3 py-2 text-left">
+                      <span className="flex-1 text-sm">{e.items!.map((x) => `${x.name} ${amountText(x)}`).join(', ')}</span>
+                      <span className="shrink-0 text-sm font-medium text-accent">{t.meal.repeat}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          );
+        })()}
+
         <div className="rounded-2xl border border-line bg-surface p-3">
           <label className="block"><span className="text-sm text-muted">{t.meal.search}</span>
             <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t.meal.searchHint}
@@ -136,6 +158,21 @@ export function AddMeal() {
               ))}
             </ul>
           )}
+          {!query && all && (() => {
+            const freq = frequentItems(all, todayISO()).filter((f) => !items.some((it) => it.name === f.item.name));
+            return freq.length > 0 && (
+              <div className="mt-2">
+                <p className="mb-1 text-sm text-muted">{t.meal.frequent}</p>
+                <div className="flex flex-wrap gap-2">
+                  {freq.map((f) => (
+                    <button key={f.item.name} type="button" onClick={() => setItems((xs) => [...xs, f.item])}
+                      className="min-h-tap rounded-full border border-line px-3 text-sm">
+                      {f.item.name} <span className="text-muted">· {amountText(f.item)}</span></button>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
           <button type="button" onClick={() => setFree((v) => !v)} className="mt-2 min-h-tap text-accent underline">{t.meal.free}</button>
           {free && <FreeItemForm onAdd={(it) => { setItems((xs) => [...xs, it]); setFree(false); }} />}
         </div>
