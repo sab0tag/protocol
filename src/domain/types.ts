@@ -64,6 +64,11 @@ export interface Plan {
   profile?: { heightCm?: number };
   /** D17: set when onboarding was finished or skipped; until then it opens on start. */
   onboardedAt?: ISODate;
+  /** D21: the last visit to the doctor (the report starts from it) and «Мої питання» for the next one. */
+  lastVisit?: ISODate;
+  questions?: string[];
+  /** D22: the last JSON export — the weekly reminder counts from it. */
+  lastExportAt?: ISODate;
 }
 
 export interface Nutrients {

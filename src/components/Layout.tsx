@@ -16,7 +16,7 @@ export function Layout({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-dvh md:flex">
       <nav aria-label="Розділи"
-        className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-surface pb-safe md:static md:inset-auto md:w-20 md:shrink-0 md:border-r md:border-t-0 md:pt-safe">
+        className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-surface pb-safe print:hidden md:static md:inset-auto md:w-20 md:shrink-0 md:border-r md:border-t-0 md:pt-safe">
         <ul className="flex md:sticky md:top-0 md:flex-col md:gap-1 md:py-4">
           {TABS.map(({ to, label, Icon, end }) => (
             <li key={to} className="flex-1 md:flex-none">
@@ -30,7 +30,7 @@ export function Layout({ children }: { children: ReactNode }) {
           ))}
         </ul>
       </nav>
-      <main className="mx-auto w-full max-w-2xl px-4 pb-28 pt-safe md:pb-10">{children}</main>
+      <main className="mx-auto w-full max-w-2xl px-4 pb-28 pt-safe md:pb-10 print:max-w-none print:pb-0">{children}</main>
     </div>
   );
 }

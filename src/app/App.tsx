@@ -1,9 +1,7 @@
 import type { ReactNode } from 'react';
 import { HashRouter, Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom';
 import { Layout } from '../components/Layout';
-import { Soon } from '../components/Soon';
 import { usePlan } from '../data/queries';
-import { t } from '../i18n/uk';
 import { useUi } from '../store/ui';
 import { AddMeal } from '../screens/AddMeal';
 import { Day } from '../screens/Day';
@@ -11,6 +9,8 @@ import { More } from '../screens/More';
 import { MyDay } from '../screens/MyDay';
 import { Onboarding } from '../screens/Onboarding';
 import { Plan } from '../screens/Plan';
+import { Progress } from '../screens/Progress';
+import { Report } from '../screens/Report';
 import { Wellbeing } from '../screens/Wellbeing';
 import { Workout } from '../screens/Workout';
 
@@ -44,7 +44,8 @@ export function App() {
             <Route path="/workout" element={<Workout />} />
             <Route path="/plan" element={<Plan />} />
             <Route path="/welcome" element={<Onboarding />} />
-            <Route path="/progress" element={<Soon title={t.nav.progress} />} />
+            <Route path="/progress" element={<Progress />} />
+            <Route path="/report" element={<Report />} />
             <Route path="/more" element={<More />} />
             <Route path="*" element={<Day />} />
           </Routes>

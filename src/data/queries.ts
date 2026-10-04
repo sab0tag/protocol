@@ -29,3 +29,20 @@ export function useWorkouts(): Workout[] | undefined {
 export function useWellbeing(date: string): Wellbeing | undefined | null {
   return useLiveQuery(async () => (await db.wellbeing.get(date)) ?? null, [date]);
 }
+
+export function useWeights() {
+  return useLiveQuery(() => db.weights.orderBy('date').toArray(), []);
+}
+
+export function useLabs() {
+  return useLiveQuery(() => db.labs.toArray(), []);
+}
+
+export function useAllWellbeing() {
+  return useLiveQuery(() => db.wellbeing.toArray(), []);
+}
+
+/** All entries — a personal diary stays small (a few thousand rows a year). */
+export function useAllEntries() {
+  return useLiveQuery(() => db.entries.orderBy('at').toArray(), []);
+}

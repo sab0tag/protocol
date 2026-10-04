@@ -7,6 +7,8 @@ import { Sheet, SheetButton } from '../components/Sheet';
 import { db } from '../data/db';
 import { useDayEntries, useFoods, usePlan, useWorkouts } from '../data/queries';
 import { buildChecklist } from '../domain/checklist';
+import { exportDue } from '../data/backup';
+import { useLiveQuery } from 'dexie-react-hooks';
 import { atLocal, newId, timeOf, todayISO } from '../domain/dates';
 import { activeMode, dayTotals, effectiveTargets, mealNutrients, round } from '../domain/nutrition';
 import type { DayEntry, EntryKind, Food } from '../domain/types';
@@ -23,6 +25,7 @@ export function Day() {
   const foods = useFoods();
   const plan = usePlan();
   const workouts = useWorkouts();
+  const firstEntry = useLiveQuery(() => db.entries.orderBy('at').first(), []);
   const navigate = useNavigate();
   const [rowFor, setRowFor] = useState<DayEntry | null>(null);
   const [adding, setAdding] = useState(false);
@@ -68,6 +71,13 @@ export function Day() {
         <p className="-mt-1 mb-3 text-center">
           <button type="button" className="min-h-tap px-3 text-accent underline" onClick={() => setDate(todayISO())}>{t.day.today}</button>
         </p>
+      )}
+
+      {exportDue(plan?.lastExportAt, firstEntry?.at.slice(0, 10), todayISO()) && (
+        <div role="status" className="mb-3 flex items-center gap-2 rounded-2xl border border-warn/30 bg-warn-bg p-3 text-sm text-warn">
+          <span className="flex-1">{plan?.lastExportAt ? t.backup.remind : t.backup.remindFirst}</span>
+          <button type="button" onClick={() => navigate('/more')} className="min-h-tap rounded-xl bg-warn px-3 font-medium text-surface">{t.backup.remindAction}</button>
+        </div>
       )}
 
       <div className="mb-3 grid grid-cols-2 gap-2">
