@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { ensureSeeded, ProtocolDB } from '../../src/data/db';
+import { FOODS } from '../../src/data/foods';
 
 describe('storage', () => {
   it('seeds once and keeps entries after a restart', async () => {
     const first = new ProtocolDB('test-restart');
     await ensureSeeded(first);
     await ensureSeeded(first);                             // idempotent
-    expect(await first.foods.count()).toBe(15);
+    expect(await first.foods.count()).toBe(FOODS.length);
     await first.entries.add({ id: 'a', at: '2026-10-04T08:00:00+03:00', kind: 'water', status: 'done', title: 'Вода', waterMl: 250 });
     first.close();
 

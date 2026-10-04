@@ -33,10 +33,10 @@ export class ProtocolDB extends Dexie {
 
 export const db = new ProtocolDB();
 
-/** First start: the food base and a plan (the personal seed.local.ts if present, else the example). */
+/** Every start: the built-in food base; first start: a plan (the personal seed.local.ts if present, else the example). */
 export async function ensureSeeded(target: ProtocolDB = db): Promise<void> {
   await target.transaction('rw', target.plan, target.foods, async () => {
-    if ((await target.foods.count()) === 0) await target.foods.bulkAdd(FOODS);
+    await target.foods.bulkPut(FOODS); // the built-in base is refreshed on every start (new foods, units — D26)
     if (!(await target.plan.get('main'))) {
       const local = import.meta.glob<{ localPlan?: () => Plan }>('./seed.local.ts', { eager: true });
       const plan = Object.values(local)[0]?.localPlan?.() ?? examplePlan();

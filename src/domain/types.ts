@@ -79,11 +79,19 @@ export interface Nutrients {
   calciumMg?: number;
 }
 
+/** D26: a household measure of a food — «шт», «ст. л.», «склянка» — and its approximate weight. */
+export interface FoodUnit {
+  name: string; // "шт", "ст. л.", "скибка"
+  grams: number;
+}
+
 export interface Food {
   id: string;
   name: string;
   per100g: Nutrients;
   tags: string[]; // for the rules
+  units?: FoodUnit[]; // D26: the first one is offered by default
+  aliases?: string[]; // D26: other names to find it by ("грудка", "курка")
 }
 
 export type Cooking = 'raw' | 'boiled' | 'baked' | 'airfryer' | 'steamed' | 'stewed' | 'fried';
@@ -95,6 +103,8 @@ export interface MealItem {
   cooking?: Cooking;
   /** A free line not from the food base: nutrients of the whole portion, entered by hand (SPEC.md §4, decision D1). */
   manual?: Nutrients;
+  /** D26: entered in a household measure — 2 × «шт» of 50 g; `grams` = qty × grams stays the source of truth. */
+  unit?: { name: string; qty: number; grams: number };
 }
 
 export type EntryKind = 'meal' | 'med' | 'water' | 'workout' | 'note';

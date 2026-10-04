@@ -7,6 +7,7 @@ import { Sheet, SheetButton } from '../components/Sheet';
 import { db } from '../data/db';
 import { useDayEntries, useFoods, usePlan, useWorkouts } from '../data/queries';
 import { buildChecklist } from '../domain/checklist';
+import { amountText } from '../domain/foodSearch';
 import { exportDue } from '../data/backup';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { atLocal, newId, timeOf, todayISO } from '../domain/dates';
@@ -169,7 +170,7 @@ export function Day() {
 function Row({ entry, foods, onOpen }: { entry: DayEntry; foods?: Map<string, Food>; onOpen: () => void }) {
   const Icon = KIND_ICON[entry.kind];
   const carbs = entry.kind === 'meal' && entry.items && foods ? round(mealNutrients(entry.items, foods).carbs) : null;
-  const detail = entry.kind === 'meal' ? entry.items?.map((i) => i.name).join(', ')
+  const detail = entry.kind === 'meal' ? entry.items?.map((i) => `${i.name} ${amountText(i)}`).join(', ')
     : entry.kind === 'water' ? `${entry.waterMl ?? 0} ${t.units.ml}` : undefined;
   const look = entry.status === 'planned' ? 'bg-accent/5 border-l-4 border-l-accent'
     : entry.status === 'skipped' ? 'opacity-50' : '';
