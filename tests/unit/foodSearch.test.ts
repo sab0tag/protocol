@@ -64,3 +64,24 @@ describe('measure words', () => {
     expect([it('скибка', 1), it('скибка', 2), it('скибка', 5), it('скибка', 1.5), it('шт', 2)]).toEqual(['1 скибка', '2 скибки', '5 скибок', '1,5 скибки', '2 шт']);
   });
 });
+
+describe('a dictated phrase (D30)', () => {
+  it('«два варених яйця, склянку кефіру і салат» → three lines', async () => {
+    const { RECIPES } = await import('../../src/data/recipes');
+    const { dishItem } = await import('../../src/domain/recipes');
+    const { recognize } = await import('../../src/domain/foodSearch');
+    const r = recognize('Два варених яйця, склянку кефіру і салат', FOODS, RECIPES, dishItem, new Set(['kefir']));
+    expect(r.map((x) => x.item?.name)).toEqual(['Яйце варене', 'Кефір 2,5 %', 'Салат овочевий з олією']);   // the usual kefir
+    expect(recognize('кефір', FOODS, RECIPES, dishItem, new Set(['kefir-1']))[0]?.item?.name).toBe('Кефір 1 %');
+    expect(r.map((x) => x.item?.grams)).toEqual([100, 250, expect.any(Number)]);
+  });
+  it('grams in words, «та», and a part it does not know', async () => {
+    const { RECIPES } = await import('../../src/data/recipes');
+    const { dishItem } = await import('../../src/domain/recipes');
+    const { recognize } = await import('../../src/domain/foodSearch');
+    const r = recognize('двісті грам гречки варної та огірок, щось незрозуміле', FOODS, RECIPES, dishItem);
+    expect(r[0]?.item).toMatchObject({ foodId: 'buckwheat-boiled', grams: 200 });
+    expect(r[1]?.item).toMatchObject({ foodId: 'cucumber' });
+    expect(r[2]).toEqual({ text: 'щось незрозуміле' });
+  });
+});

@@ -10,7 +10,8 @@ import { dishItem, recipeFrom, setPortions, withComponents } from '../domain/rec
 import { atLocal, dateOf, newId, timeOf, todayISO } from '../domain/dates';
 import { activeMode, dayTotals, effectiveTargets, lineNutrients, mealNutrients, round } from '../domain/nutrition';
 import { applySwaps, checkMeal, hasSwaps, mealVerdict, type ItemCheck } from '../domain/rules';
-import { amountText, itemFor, measureWord, parseQuery, searchFoods, type Query } from '../domain/foodSearch';
+import { amountText, itemFor, measureWord, parseQuery, recognize, searchFoods, splitPhrase, type Query } from '../domain/foodSearch';
+import { Mic } from 'lucide-react';
 import type { Cooking, DayEntry, Food, MealItem, Nutrients } from '../domain/types';
 import { t } from '../i18n/uk';
 import { useUi } from '../store/ui';
@@ -57,8 +58,13 @@ export function AddMeal() {
   const others = useDayEntries(date)?.filter((e) => e.id !== id);
   const recent = useRecentEntries(date)?.filter((e) => e.id !== id);
   const parsed = useMemo(() => parseQuery(query), [query]);
-  const matches = useMemo(() => (foods ? searchFoods([...foods.values()], parsed.text) : []), [foods, parsed]);
+  const matches = useMemo(() => (foods ? searchFoods([...foods.values()], parsed.text, 8, usualIds(all)) : []), [foods, parsed, all]);
   const dishMatches = useMemo(() => (recipes ? searchFoods(recipes, parsed.text, 4) : []), [recipes, parsed]);
+  // D30: what this person usually eats wins among similar foods («кефір» = their kefir)
+  const usual = useMemo(() => new Set(all ? frequentItems(all, todayISO(), 60, 50).map((f) => f.item.recipe?.id ?? f.item.foodId ?? '') : []), [all]);
+  const phrase = useMemo(() => (foods && recipes && splitPhrase(query).length > 1
+    ? recognize(query, [...foods.values()], recipes, dishItem, usual) : null), [foods, recipes, query, usual]);
+  const [skip, setSkip] = useState<Set<number>>(new Set());
 
   if (!loaded || !foods) return null;
 
@@ -130,9 +136,35 @@ export function AddMeal() {
 
         <div className="rounded-2xl border border-line bg-surface p-3">
           <label className="block"><span className="text-sm text-muted">{t.meal.search}</span>
-            <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t.meal.searchHint}
+            <input type="search" value={query} onChange={(e) => { setQuery(e.target.value); setSkip(new Set()); }} placeholder={t.meal.searchHint}
               className={field} autoComplete="off" /></label>
-          {(matches.length > 0 || dishMatches.length > 0) && (
+          {!query && <p className="mt-1 flex items-start gap-1 text-xs text-muted"><Mic size={14} className="mt-0.5 shrink-0" aria-hidden />{t.meal.dictate}</p>}
+          {phrase && (
+            <div className="mt-2 rounded-xl border border-accent/40 p-2">
+              <p className="mb-1 text-sm font-medium">{t.meal.recognized}</p>
+              <ul className="space-y-1">
+                {phrase.map((r, k) => (
+                  <li key={k}>
+                    {r.item ? (
+                      <label className="flex min-h-tap items-center gap-3">
+                        <input type="checkbox" checked={!skip.has(k)} className="h-5 w-5 accent-[rgb(var(--accent))]"
+                          onChange={(e) => setSkip((s) => { const n = new Set(s); if (e.target.checked) n.delete(k); else n.add(k); return n; })} />
+                        <span className="flex-1">{r.item.name} <span className="text-muted">· {amountText(r.item)}{r.item.unit || r.item.recipe ? ` ≈ ${r.item.grams} г` : ''}</span></span>
+                      </label>
+                    ) : <p className="py-2 text-sm text-muted">«{r.text}» — {t.meal.notFound}</p>}
+                  </li>
+                ))}
+              </ul>
+              {(() => {
+                const picked = phrase.filter((r, k) => r.item && !skip.has(k)).map((r) => r.item!);
+                return picked.length > 0 && (
+                  <button type="button" onClick={() => { setItems((xs) => [...xs, ...picked]); setQuery(''); setSkip(new Set()); }}
+                    className="mt-1 min-h-tap w-full rounded-xl bg-accent px-3 font-medium text-surface">{t.meal.addRecognized(picked.length)}</button>
+                );
+              })()}
+            </div>
+          )}
+          {!phrase && (matches.length > 0 || dishMatches.length > 0) && (
             <ul className="mt-2 divide-y divide-line rounded-xl border border-line">
               {dishMatches.map((r) => {
                 const portions = parsed.qty ?? 1;
@@ -367,3 +399,8 @@ function matchHint(food: Food, q: Query): string {
   return u ? `1 ${u.name} ≈ ${u.grams} г` : `${food.per100g.carbs} г В / 100 г`;
 }
 
+
+/** Ids of the foods and dishes this person ate in the last two months (search prefers them — D30). */
+function usualIds(all: DayEntry[] | undefined): Set<string> {
+  return new Set(all ? frequentItems(all, todayISO(), 60, 50).map((f) => f.item.recipe?.id ?? f.item.foodId ?? '') : []);
+}
