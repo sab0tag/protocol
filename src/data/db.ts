@@ -1,0 +1,55 @@
+// IndexedDB through Dexie (SPEC.md §4). Everything stays on the device.
+import Dexie, { type Table } from 'dexie';
+import type { DayEntry, Food, LabResult, Plan, WeightLog, Wellbeing, Workout } from '../domain/types';
+import { FOODS } from './foods';
+import { examplePlan } from './seed.example';
+
+export interface PlanRow extends Plan {
+  id: 'main';
+}
+
+export class ProtocolDB extends Dexie {
+  plan!: Table<PlanRow, string>;
+  foods!: Table<Food, string>;
+  entries!: Table<DayEntry, string>;
+  wellbeing!: Table<Wellbeing, string>;
+  workouts!: Table<Workout, string>;
+  weights!: Table<WeightLog, string>;
+  labs!: Table<LabResult, [string, string]>;
+
+  constructor(name = 'protocol') {
+    super(name);
+    this.version(1).stores({
+      plan: 'id',
+      foods: 'id, name',
+      entries: 'id, at, kind',
+      wellbeing: 'date',
+      workouts: 'id, date',
+      weights: 'date',
+      labs: '[date+name], name',
+    });
+  }
+}
+
+export const db = new ProtocolDB();
+
+/** First start: the food base and a plan (the personal seed.local.ts if present, else the example). */
+export async function ensureSeeded(target: ProtocolDB = db): Promise<void> {
+  await target.transaction('rw', target.plan, target.foods, async () => {
+    if ((await target.foods.count()) === 0) await target.foods.bulkAdd(FOODS);
+    if (!(await target.plan.get('main'))) {
+      const local = import.meta.glob<{ localPlan?: () => Plan }>('./seed.local.ts', { eager: true });
+      const plan = Object.values(local)[0]?.localPlan?.() ?? examplePlan();
+      await target.plan.put({ id: 'main', ...plan });
+    }
+  });
+}
+
+/** Ask the browser not to evict our data (Safari may clear storage of sites unused for 7 days). */
+export async function requestPersistence(): Promise<boolean> {
+  try {
+    return (await navigator.storage?.persist?.()) ?? false;
+  } catch {
+    return false;
+  }
+}

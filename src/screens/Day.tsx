@@ -1,0 +1,178 @@
+import { format, parseISO } from 'date-fns';
+import { uk } from 'date-fns/locale';
+import { Check, ChevronLeft, ChevronRight, Droplet, NotebookPen, Pill, Plus, Dumbbell, Undo2, UtensilsCrossed, X, Pencil, Trash2 } from 'lucide-react';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Sheet, SheetButton } from '../components/Sheet';
+import { db } from '../data/db';
+import { useDayEntries, useFoods, usePlan } from '../data/queries';
+import { atLocal, newId, timeOf, todayISO } from '../domain/dates';
+import { activeMode, dayTotals, effectiveTargets, mealNutrients, round } from '../domain/nutrition';
+import type { DayEntry, EntryKind, Food } from '../domain/types';
+import { t } from '../i18n/uk';
+import { useUi } from '../store/ui';
+import { SimpleEntrySheet } from './SimpleEntrySheet';
+
+const KIND_ICON = { meal: UtensilsCrossed, med: Pill, water: Droplet, workout: Dumbbell, note: NotebookPen } as const;
+
+/** «День» as an order sheet: rows by time (Час · Позиція · Вугл), the day's totals against the targets. */
+export function Day() {
+  const { date, shift, setDate } = useUi();
+  const entries = useDayEntries(date);
+  const foods = useFoods();
+  const plan = usePlan();
+  const navigate = useNavigate();
+  const [rowFor, setRowFor] = useState<DayEntry | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [simple, setSimple] = useState<{ kind: Exclude<EntryKind, 'meal'>; entry?: DayEntry } | null>(null);
+
+  const mode = activeMode(plan, date);
+  const targets = effectiveTargets(plan, date);
+  const totals = entries && foods ? dayTotals(entries, foods) : undefined;
+  const isToday = date === todayISO();
+
+  const setStatus = async (e: DayEntry, status: DayEntry['status']) => {
+    await db.entries.update(e.id, { status });
+    setRowFor(null);
+  };
+  const addWater = async () => {
+    const time = isToday ? format(new Date(), 'HH:mm') : '12:00';
+    await db.entries.add({ id: newId(), at: atLocal(date, time), kind: 'water', status: 'done', title: t.addKinds.water, waterMl: 250 });
+  };
+  const edit = (e: DayEntry) => {
+    setRowFor(null);
+    if (e.kind === 'meal') navigate(`/meal/${e.id}`);
+    else setSimple({ kind: e.kind, entry: e });
+  };
+  const startAdd = (kind: EntryKind) => {
+    setAdding(false);
+    if (kind === 'meal') navigate('/meal/new');
+    else setSimple({ kind });
+  };
+
+  return (
+    <section className="pt-4">
+      <header className="mb-3 flex items-center gap-2">
+        <button type="button" className="flex min-h-tap min-w-tap items-center justify-center rounded-xl border border-line bg-surface"
+          onClick={() => shift(-1)} aria-label={t.day.prev}><ChevronLeft size={20} /></button>
+        <h1 className="flex-1 text-center text-xl font-semibold first-letter:uppercase">
+          {format(parseISO(date), 'EEEE, d MMMM', { locale: uk })}
+        </h1>
+        <button type="button" className="flex min-h-tap min-w-tap items-center justify-center rounded-xl border border-line bg-surface"
+          onClick={() => shift(1)} aria-label={t.day.next}><ChevronRight size={20} /></button>
+      </header>
+      {!isToday && (
+        <p className="-mt-1 mb-3 text-center">
+          <button type="button" className="min-h-tap px-3 text-accent underline" onClick={() => setDate(todayISO())}>{t.day.today}</button>
+        </p>
+      )}
+
+      {mode && (
+        <div className="mb-3 rounded-2xl border border-accent/30 bg-accent/10 p-3">
+          <div className="flex items-baseline justify-between gap-2">
+            <span className="font-semibold">{mode.mode.title}</span>
+            <span className="text-sm text-muted">{t.day.modeDay(mode.day, mode.of)}</span>
+          </div>
+          {mode.mode.notes.length > 0 && (
+            <ul className="mt-1 list-disc pl-5 text-sm">{mode.mode.notes.map((n) => <li key={n}>{n}</li>)}</ul>
+          )}
+        </div>
+      )}
+
+      <div className="overflow-hidden rounded-2xl border border-line bg-surface">
+        <div className="grid grid-cols-[3.5rem_1fr_3.5rem] gap-2 border-b border-line px-3 py-2 text-xs uppercase tracking-wide text-muted">
+          <span>{t.day.colTime}</span><span>{t.day.colItem}</span><span className="text-right">{t.day.colCarbs}</span>
+        </div>
+        {entries?.length === 0 && <p className="px-3 py-6 text-center text-muted">{t.day.empty}</p>}
+        <ul>
+          {entries?.map((e) => <Row key={e.id} entry={e} foods={foods} onOpen={() => setRowFor(e)} />)}
+        </ul>
+        <button type="button" onClick={() => setAdding(true)}
+          className="flex min-h-tap w-full items-center justify-center gap-2 border-t border-line font-medium text-accent">
+          <Plus size={18} aria-hidden />{t.day.addRow}
+        </button>
+      </div>
+
+      {totals && (
+        <div className="mt-4 rounded-2xl border border-line bg-surface p-3">
+          <h2 className="mb-2 font-semibold">{t.day.totals}</h2>
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-2 tabular">
+            <Total label={t.day.carbs} value={`${round(totals.carbs)} ${t.units.g}`}
+              target={targets.carbsG?.min != null ? t.day.atLeast(targets.carbsG.min)
+                : targets.carbsG?.max != null ? t.day.atMost(targets.carbsG.max) : undefined}
+              alert={(targets.carbsG?.max != null && totals.carbs > targets.carbsG.max)} />
+            <Total label={t.day.protein} value={`${round(totals.protein)} ${t.units.g}`}
+              target={targets.proteinG != null ? `${targets.proteinG} ${t.units.g}` : undefined} />
+            <Total label={t.day.calcium} value={`${round(totals.calciumMg)} ${t.units.mg}`}
+              target={targets.calciumMg != null ? `${targets.calciumMg} ${t.units.mg}` : undefined} />
+            <div>
+              <dt className="text-sm text-muted">{t.day.water}</dt>
+              <dd className="flex flex-wrap items-center gap-x-2">
+                <span className="whitespace-nowrap">{totals.waterMl} / {targets.waterMl ?? '—'} {t.units.ml}</span>
+                <button type="button" onClick={addWater}
+                  className="min-h-tap whitespace-nowrap rounded-xl text-sm font-medium text-water">{t.day.plusWater}</button>
+              </dd>
+            </div>
+            <Total label={t.day.kcal} value={`${round(totals.kcal)}`}
+              target={targets.kcal != null ? `${targets.kcal} ${t.units.kcal}` : undefined} />
+          </dl>
+        </div>
+      )}
+
+      {rowFor && (
+        <Sheet title={rowFor.title} onClose={() => setRowFor(null)}>
+          {rowFor.status !== 'done' && <SheetButton tone="accent" onClick={() => setStatus(rowFor, 'done')}><Check size={20} />{t.rowActions.done}</SheetButton>}
+          {rowFor.status !== 'skipped' && <SheetButton onClick={() => setStatus(rowFor, 'skipped')}><X size={20} />{t.rowActions.skipped}</SheetButton>}
+          {rowFor.status !== 'planned' && <SheetButton onClick={() => setStatus(rowFor, 'planned')}><Undo2 size={20} />{t.rowActions.planned}</SheetButton>}
+          <SheetButton onClick={() => edit(rowFor)}><Pencil size={20} />{t.rowActions.edit}</SheetButton>
+          <SheetButton tone="danger" onClick={async () => { await db.entries.delete(rowFor.id); setRowFor(null); }}>
+            <Trash2 size={20} />{t.rowActions.delete}</SheetButton>
+        </Sheet>
+      )}
+      {adding && (
+        <Sheet title={t.day.addRow} onClose={() => setAdding(false)}>
+          {(Object.keys(KIND_ICON) as EntryKind[]).map((k) => {
+            const Icon = KIND_ICON[k];
+            return <SheetButton key={k} onClick={() => startAdd(k)}><Icon size={20} />{t.addKinds[k]}</SheetButton>;
+          })}
+        </Sheet>
+      )}
+      {simple && <SimpleEntrySheet kind={simple.kind} entry={simple.entry} date={date} onClose={() => setSimple(null)} />}
+    </section>
+  );
+}
+
+function Row({ entry, foods, onOpen }: { entry: DayEntry; foods?: Map<string, Food>; onOpen: () => void }) {
+  const Icon = KIND_ICON[entry.kind];
+  const carbs = entry.kind === 'meal' && entry.items && foods ? round(mealNutrients(entry.items, foods).carbs) : null;
+  const detail = entry.kind === 'meal' ? entry.items?.map((i) => i.name).join(', ')
+    : entry.kind === 'water' ? `${entry.waterMl ?? 0} ${t.units.ml}` : undefined;
+  const look = entry.status === 'planned' ? 'bg-accent/5 border-l-4 border-l-accent'
+    : entry.status === 'skipped' ? 'opacity-50' : '';
+  return (
+    <li className="border-t border-line first:border-t-0">
+      <button type="button" onClick={onOpen} aria-label={`${entry.title}, ${t.status[entry.status]}`}
+        className={`grid min-h-tap w-full grid-cols-[3.5rem_1fr_3.5rem] items-center gap-2 px-3 py-2 text-left ${look}`}>
+        <span className="tabular text-muted">{timeOf(entry.at)}</span>
+        <span className="min-w-0">
+          <span className={`flex items-center gap-1.5 ${entry.status === 'skipped' ? 'line-through' : ''}`}>
+            <Icon size={16} className="shrink-0 text-muted" aria-hidden />
+            <span className="truncate font-medium">{entry.title}</span>
+            {entry.status === 'done' && <Check size={16} className="shrink-0 text-accent" aria-label={t.status.done} />}
+          </span>
+          {detail && <span className="block truncate text-sm text-muted">{detail}</span>}
+        </span>
+        <span className="tabular text-right">{carbs ?? ''}</span>
+      </button>
+    </li>
+  );
+}
+
+function Total({ label, value, target, alert }: { label: string; value: string; target?: string; alert?: boolean }) {
+  return (
+    <div>
+      <dt className="text-sm text-muted">{label}</dt>
+      <dd className={alert ? 'font-semibold text-warn' : ''}>{value}{target && <span className="text-muted"> / {target}</span>}</dd>
+    </div>
+  );
+}

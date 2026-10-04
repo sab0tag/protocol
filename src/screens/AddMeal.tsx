@@ -1,0 +1,205 @@
+import { format } from 'date-fns';
+import { Plus, Trash2 } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { db } from '../data/db';
+import { useDayEntries, useFoods, usePlan } from '../data/queries';
+import { atLocal, dateOf, newId, timeOf, todayISO } from '../domain/dates';
+import { dayTotals, effectiveTargets, itemNutrients, mealNutrients, normalize, round } from '../domain/nutrition';
+import type { Cooking, DayEntry, MealItem, Nutrients } from '../domain/types';
+import { t } from '../i18n/uk';
+import { useUi } from '../store/ui';
+
+const COOKING: Cooking[] = ['raw', 'boiled', 'baked', 'airfryer', 'steamed', 'stewed', 'fried'];
+const field = 'mt-1 block min-h-tap w-full rounded-xl border border-line bg-bg px-3';
+
+function defaultMealName(time: string): string {
+  const h = Number(time.slice(0, 2));
+  return h < 11 ? t.meal.names[0] : h < 16 ? t.meal.names[1] : t.meal.names[2];
+}
+
+/** Add or edit a meal: food base search with grams and cooking, or a free line with hand-entered nutrients.
+ *  The dish check against the doctor's plan arrives in M2 — here the meal is written as is. */
+export function AddMeal() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const uiDate = useUi((s) => s.date);
+  const foods = useFoods();
+  const plan = usePlan();
+
+  const [loaded, setLoaded] = useState(id === undefined);
+  const [date, setDate] = useState(uiDate);
+  const [time, setTime] = useState(uiDate === todayISO() ? format(new Date(), 'HH:mm') : '13:00');
+  const [title, setTitle] = useState(() => defaultMealName(time));
+  const [eaten, setEaten] = useState(uiDate <= todayISO());
+  const [items, setItems] = useState<MealItem[]>([]);
+  const [query, setQuery] = useState('');
+  const [free, setFree] = useState(false);
+
+  useEffect(() => {
+    if (id === undefined) return;
+    void db.entries.get(id).then((e) => {
+      if (!e) return navigate('/', { replace: true });
+      setDate(dateOf(e.at)); setTime(timeOf(e.at)); setTitle(e.title);
+      setEaten(e.status === 'done'); setItems(e.items ?? []); setLoaded(true);
+    });
+  }, [id, navigate]);
+
+  const others = useDayEntries(date)?.filter((e) => e.id !== id);
+  const matches = useMemo(() => {
+    const q = normalize(query);
+    if (!foods || q.length < 2) return [];
+    return [...foods.values()].filter((f) => normalize(f.name).includes(q)).slice(0, 8);
+  }, [foods, query]);
+
+  if (!loaded || !foods) return null;
+
+  const meal = mealNutrients(items, foods);
+  const before = others ? dayTotals(others, foods) : undefined;
+  const targets = effectiveTargets(plan, date);
+  const after = before && (eaten ? { ...before, carbs: before.carbs + meal.carbs, protein: before.protein + meal.protein,
+    calciumMg: before.calciumMg + meal.calciumMg, kcal: before.kcal + meal.kcal } : before);
+
+  const setItem = (i: number, patch: Partial<MealItem>) => setItems((xs) => xs.map((x, j) => (j === i ? { ...x, ...patch } : x)));
+
+  const save = async () => {
+    if (items.length === 0) return;
+    const entry: DayEntry = { id: id ?? newId(), at: atLocal(date, time), kind: 'meal', status: eaten ? 'done' : 'planned',
+      title: title.trim() || defaultMealName(time), items };
+    await db.entries.put(entry);
+    useUi.getState().setDate(date);
+    navigate('/');
+  };
+
+  return (
+    <section className="pt-4">
+      <h1 className="mb-3 text-2xl font-semibold">{id ? t.meal.editTitle : t.meal.title}</h1>
+      <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); void save(); }}>
+        <div className="rounded-2xl border border-line bg-surface p-3">
+          <div className="mb-2 flex flex-wrap gap-2" role="group" aria-label={t.meal.name}>
+            {t.meal.names.map((n) => (
+              <button key={n} type="button" onClick={() => setTitle(n)} aria-pressed={title === n}
+                className={`min-h-tap rounded-full border px-3 ${title === n ? 'border-accent bg-accent/10 text-accent' : 'border-line'}`}>{n}</button>
+            ))}
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block"><span className="text-sm text-muted">{t.meal.name}</span>
+              <input value={title} onChange={(e) => setTitle(e.target.value)} className={field} /></label>
+            <label className="block"><span className="text-sm text-muted">{t.meal.time}</span>
+              <input type="time" value={time} onChange={(e) => setTime(e.target.value)} required className={field} /></label>
+          </div>
+          <label className="mt-2 flex min-h-tap items-center gap-3">
+            <input type="checkbox" checked={eaten} onChange={(e) => setEaten(e.target.checked)} className="h-5 w-5 accent-[rgb(var(--accent))]" />
+            <span>{t.meal.eaten}</span>
+          </label>
+        </div>
+
+        <div className="rounded-2xl border border-line bg-surface p-3">
+          <label className="block"><span className="text-sm text-muted">{t.meal.search}</span>
+            <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t.meal.searchHint}
+              className={field} autoComplete="off" /></label>
+          {matches.length > 0 && (
+            <ul className="mt-2 divide-y divide-line rounded-xl border border-line">
+              {matches.map((f) => (
+                <li key={f.id}>
+                  <button type="button" className="flex min-h-tap w-full items-center justify-between gap-2 px-3 text-left"
+                    onClick={() => { setItems((xs) => [...xs, { foodId: f.id, name: f.name, grams: 100 }]); setQuery(''); }}>
+                    <span>{f.name}</span>
+                    <span className="tabular text-sm text-muted">{f.per100g.carbs} {t.units.g} В / 100 г</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <button type="button" onClick={() => setFree((v) => !v)} className="mt-2 min-h-tap text-accent underline">{t.meal.free}</button>
+          {free && <FreeItemForm onAdd={(it) => { setItems((xs) => [...xs, it]); setFree(false); }} />}
+        </div>
+
+        <div className="rounded-2xl border border-line bg-surface p-3">
+          <h2 className="mb-2 font-semibold">{t.meal.items}</h2>
+          {items.length === 0 && <p className="text-muted">{t.meal.noItems}</p>}
+          <ul className="space-y-3">
+            {items.map((it, i) => {
+              const n = itemNutrients(it, it.foodId ? foods.get(it.foodId) : undefined);
+              return (
+                <li key={i} className="rounded-xl border border-line p-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="font-medium">{it.name}</span>
+                    <button type="button" onClick={() => setItems((xs) => xs.filter((_, j) => j !== i))}
+                      className="flex min-h-tap min-w-tap items-center justify-center text-warn" aria-label={`${t.meal.remove}: ${it.name}`}>
+                      <Trash2 size={18} /></button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <label className="block"><span className="text-sm text-muted">{t.meal.grams}</span>
+                      <input type="number" inputMode="decimal" min={0} value={it.grams}
+                        onChange={(e) => setItem(i, { grams: Math.max(0, Number(e.target.value) || 0) })}
+                        readOnly={!!it.manual} className={field} /></label>
+                    <label className="block"><span className="text-sm text-muted">{t.meal.cooking}</span>
+                      <select value={it.cooking ?? ''} onChange={(e) => setItem(i, { cooking: (e.target.value || undefined) as Cooking | undefined })}
+                        className={field}>
+                        <option value="">—</option>
+                        {COOKING.map((c) => <option key={c} value={c}>{t.cooking[c]}</option>)}
+                      </select></label>
+                  </div>
+                  <p className="mt-1 tabular text-sm text-muted">
+                    {round(n.kcal)} {t.units.kcal} · Б {round(n.protein, 1)} · Ж {round(n.fat, 1)} · В {round(n.carbs, 1)} · Ca {round(n.calciumMg)} {t.units.mg}
+                  </p>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+
+        <div className="rounded-2xl border border-line bg-surface p-3 tabular">
+          <p><span className="text-muted">{t.meal.mealTotal}: </span>
+            {round(meal.kcal)} {t.units.kcal} · Б {round(meal.protein)} · Ж {round(meal.fat)} · В {round(meal.carbs)} · Ca {round(meal.calciumMg)} {t.units.mg}</p>
+          {after && (
+            <p className="mt-1"><span className="text-muted">{t.meal.dayLeft}: </span>
+              {t.day.carbs.toLowerCase()} {round(after.carbs)}
+              {targets.carbsG?.min != null ? ` (${t.day.atLeast(targets.carbsG.min)})`
+                : targets.carbsG?.max != null ? ` / ${targets.carbsG.max} ${t.units.g}` : ''}
+              {targets.proteinG != null && ` · білок ${round(after.protein)} / ${targets.proteinG}`}
+              {targets.calciumMg != null && ` · кальцій ${round(after.calciumMg)} / ${targets.calciumMg}`}
+            </p>
+          )}
+        </div>
+
+        <div className="flex gap-2">
+          <button type="submit" disabled={items.length === 0}
+            className="min-h-tap flex-1 rounded-xl bg-accent px-4 font-medium text-surface disabled:opacity-40">{t.meal.save}</button>
+          <button type="button" onClick={() => navigate(-1)} className="min-h-tap rounded-xl border border-line px-4">{t.meal.cancel}</button>
+        </div>
+      </form>
+    </section>
+  );
+}
+
+function FreeItemForm({ onAdd }: { onAdd: (item: MealItem) => void }) {
+  const [name, setName] = useState('');
+  const [grams, setGrams] = useState('');
+  const [n, setN] = useState<Record<keyof Nutrients, string>>({ kcal: '', protein: '', fat: '', carbs: '', calciumMg: '' });
+  const num = (s: string) => Math.max(0, Number(s.replace(',', '.')) || 0);
+  const labels: [keyof Nutrients, string][] = [['kcal', t.units.kcal], ['protein', 'Б, г'], ['fat', 'Ж, г'], ['carbs', 'В, г'], ['calciumMg', 'Ca, мг']];
+  return (
+    <div className="mt-2 space-y-2 rounded-xl border border-line p-2">
+      <div className="grid grid-cols-[1fr_6rem] gap-2">
+        <label className="block"><span className="text-sm text-muted">{t.meal.freeName}</span>
+          <input value={name} onChange={(e) => setName(e.target.value)} className={field} /></label>
+        <label className="block"><span className="text-sm text-muted">{t.meal.grams}</span>
+          <input type="number" inputMode="decimal" min={0} value={grams} onChange={(e) => setGrams(e.target.value)} className={field} /></label>
+      </div>
+      <p className="text-sm text-muted">{t.meal.manualHint}</p>
+      <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+        {labels.map(([k, label]) => (
+          <label key={k} className="block"><span className="text-sm text-muted">{label}</span>
+            <input type="text" inputMode="decimal" value={n[k] ?? ''} onChange={(e) => setN((x) => ({ ...x, [k]: e.target.value }))} className={field} /></label>
+        ))}
+      </div>
+      <button type="button" disabled={!name.trim() || !grams}
+        onClick={() => onAdd({ name: name.trim(), grams: num(grams),
+          manual: { kcal: num(n.kcal), protein: num(n.protein), fat: num(n.fat), carbs: num(n.carbs), calciumMg: num(n.calciumMg ?? '') } })}
+        className="flex min-h-tap items-center gap-2 rounded-xl border border-accent px-3 text-accent disabled:opacity-40">
+        <Plus size={18} />{t.meal.add}</button>
+    </div>
+  );
+}

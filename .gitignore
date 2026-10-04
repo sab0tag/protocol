@@ -1,0 +1,8 @@
+node_modules
+dist
+dev-dist
+coverage
+.DS_Store
+# Real medical data never leaves the device or enters git (SPEC.md §8)
+src/data/seed.local.ts
+*.local
