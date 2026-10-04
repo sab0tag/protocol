@@ -4,6 +4,7 @@ import { Soon } from '../components/Soon';
 import { t } from '../i18n/uk';
 import { AddMeal } from '../screens/AddMeal';
 import { Day } from '../screens/Day';
+import { Plan } from '../screens/Plan';
 import { More } from '../screens/More';
 
 /** A fresh form for every meal: /meal/new after editing /meal/:id must not keep the old state. */
@@ -21,7 +22,7 @@ export function App() {
           <Route path="/" element={<Day />} />
           <Route path="/meal/new" element={<MealRoute />} />
           <Route path="/meal/:id" element={<MealRoute />} />
-          <Route path="/plan" element={<Soon title={t.nav.plan} note={t.plan.disclaimer} />} />
+          <Route path="/plan" element={<Plan />} />
           <Route path="/progress" element={<Soon title={t.nav.progress} />} />
           <Route path="/more" element={<More />} />
           <Route path="*" element={<Day />} />

@@ -1,0 +1,177 @@
+// The dish check (SPEC.md §6): deterministic pure functions, no React, no storage. A rule fires only when
+// its constraint is active in the plan; it speaks only the words of the SPEC rule table.
+import { dateOf } from '../dates';
+import { itemNutrients, normalize } from '../nutrition';
+import type { ConstraintTag, DayEntry, Food, ISODate, MealItem, Mode, Plan } from '../types';
+import * as K from './keywords.uk';
+
+export type Verdict = 'ok' | 'replace' | 'remove' | 'adjust';
+
+/** What «Записати заміну» does with an item (decision D13). */
+export type Swap =
+  | { kind: 'food'; foodId: string; grams: 'same' | 'same-carbs' }
+  | { kind: 'cooking'; cooking: 'airfryer' }
+  | { kind: 'drop' };
+
+export interface RuleHit {
+  itemName: string;
+  verdict: Verdict;
+  message: string;
+  reason: ConstraintTag;
+  suggestion?: string;
+  swap?: Swap;
+}
+
+export interface RuleContext {
+  plan: Plan;
+  activeMode?: Mode;
+  dayEntries: DayEntry[]; // the day's other entries (this meal excluded)
+  date: ISODate;
+  /** D14: the whole meal (for «add calcium to this meal») and the last days (liver once a week). */
+  meal: MealItem[];
+  recentEntries: DayEntry[];
+  foods: Map<string, Food>;
+}
+
+export type Rule = (item: MealItem, food: Food | undefined, ctx: RuleContext) => RuleHit | null;
+
+// ------------------------------------------------------------------ matching
+const startsWord = (name: string, stem: string) =>
+  new RegExp(`(?<![\\p{L}\\p{N}])${stem.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'u').test(name);
+export const matchesAny = (name: string, stems: string[]) => stems.some((s) => startsWord(normalize(name), normalize(s)));
+
+const active = (ctx: RuleContext, tag: ConstraintTag) => ctx.plan.constraints.some((c) => c.tag === tag && c.active);
+const carbsMin = (ctx: RuleContext) => ctx.activeMode?.targetsOverride.carbsG?.min;
+
+// ------------------------------------------------------------------ rules (SPEC §6.1)
+const oxalate: Rule = (item, _food, ctx) => {
+  if (!active(ctx, 'oxalate')) return null;
+  if (matchesAny(item.name, K.OXALATE_HIGH))
+    return { itemName: item.name, verdict: 'replace', reason: 'oxalate', message: 'Багато оксалатів',
+      suggestion: 'Броколі, капуста, огірок', swap: { kind: 'food', foodId: 'broccoli', grams: 'same' } };
+  if (matchesAny(item.name, K.OXALATE_NUTS) && item.grams > K.NUTS_OXALATE_G)
+    return { itemName: item.name, verdict: 'replace', reason: 'oxalate', message: 'Багато оксалатів',
+      suggestion: `Не більше ${K.NUTS_OXALATE_G} г` };
+  return null;
+};
+
+const isOxalateish = (it: MealItem) =>
+  matchesAny(it.name, K.OXALATE_HIGH) || matchesAny(it.name, K.OXALATE_MODERATE) || matchesAny(it.name, K.OXALATE_NUTS);
+const isCalciumSource = (it: MealItem, foods: Map<string, Food>) =>
+  (it.foodId !== undefined && foods.get(it.foodId)?.tags.includes('calcium')) || matchesAny(it.name, K.CALCIUM_SOURCES);
+
+/** Said once per meal, on its first oxalate item: «Додай кальцій у цей прийом». */
+const oxalateCalcium: Rule = (item, _food, ctx) => {
+  if (!active(ctx, 'oxalate')) return null;
+  const first = ctx.meal.find(isOxalateish);
+  if (first !== item || ctx.meal.some((it) => isCalciumSource(it, ctx.foods))) return null;
+  return { itemName: item.name, verdict: 'adjust', reason: 'oxalate', message: 'Додай кальцій у цей прийом',
+    suggestion: '25 г твердого сиру або кефір' };
+};
+
+const gallbladder: Rule = (item, _food, ctx) => {
+  if (!active(ctx, 'gallbladder')) return null;
+  if (item.cooking === 'fried' || matchesAny(item.name, K.GALLBLADDER))
+    return { itemName: item.name, verdict: 'replace', reason: 'gallbladder', message: 'Смажене навантажує жовчний',
+      suggestion: 'Аерогриль, запікання', ...(item.cooking === 'fried' ? { swap: { kind: 'cooking' as const, cooking: 'airfryer' as const } } : {}) };
+  return null;
+};
+
+const lactose: Rule = (item, food, ctx) => {
+  if (!active(ctx, 'lactose') || food?.tags.includes('dairy-low-lactose') || food?.tags.includes('cheese-aged')) return null;
+  if (!matchesAny(item.name, K.LACTOSE)) return null;
+  const milk = matchesAny(item.name, ['молоко']);
+  return { itemName: item.name, verdict: 'replace', reason: 'lactose', message: 'Лактоза',
+    suggestion: 'Кефір, тверді витримані сири, безлактозне',
+    ...(milk ? { swap: { kind: 'food' as const, foodId: 'kefir', grams: 'same' as const } } : {}) };
+};
+
+const glycemic: Rule = (item, _food, ctx) => {
+  if (!active(ctx, 'glycemic')) return null;
+  const toSlow: Swap = { kind: 'food', foodId: 'buckwheat', grams: 'same-carbs' };
+  const preparing = carbsMin(ctx) !== undefined; // §6.2: a mode with a carbs minimum never cuts carbs
+  if (matchesAny(item.name, K.GLYCEMIC_REPLACE) || (preparing && matchesAny(item.name, K.GLYCEMIC_REMOVE)))
+    return { itemName: item.name, verdict: 'replace', reason: 'glycemic',
+      message: preparing ? 'Швидкі вуглеводи — замініть на повільні, не зменшуючи кількість' : 'Швидкі вуглеводи',
+      suggestion: 'Гречка, кіноа, бурий рис', swap: toSlow };
+  if (matchesAny(item.name, K.GLYCEMIC_REMOVE))
+    return { itemName: item.name, verdict: 'remove', reason: 'glycemic', message: 'Швидкі вуглеводи',
+      suggestion: 'Прибрати', swap: { kind: 'drop' } };
+  return null;
+};
+
+const iron: Rule = (item, _food, ctx) => {
+  if (!active(ctx, 'iron') || !matchesAny(item.name, K.LIVER)) return null;
+  const since = shiftDate(ctx.date, -(K.LIVER_EVERY_DAYS - 1));
+  const recently = ctx.recentEntries.some((e) => e.kind === 'meal' && e.status !== 'skipped'
+    && dateOf(e.at) >= since && dateOf(e.at) <= ctx.date && e.items?.some((it) => matchesAny(it.name, K.LIVER)));
+  if (!recently && item.grams <= K.LIVER_MAX_G) return null;
+  return { itemName: item.name, verdict: 'adjust', reason: 'iron', message: `Печінка — раз на тиждень, до ${K.LIVER_MAX_G} г` };
+};
+
+const sodium: Rule = (item, _food, ctx) => {
+  if (!active(ctx, 'sodium') || !matchesAny(item.name, K.SALTY)) return null;
+  const salty = (items: MealItem[] = []) => items.filter((it) => matchesAny(it.name, K.SALTY)).reduce((g, it) => g + it.grams, 0);
+  const day = ctx.dayEntries.filter((e) => e.kind === 'meal' && e.status !== 'skipped').reduce((g, e) => g + salty(e.items), 0);
+  if (day + salty(ctx.meal) <= K.SODIUM_PORTION_G * K.SODIUM_MAX_PORTIONS) return null;
+  return { itemName: item.name, verdict: 'adjust', reason: 'sodium', message: 'Багато солі за день' };
+};
+
+export const RULES: Rule[] = [oxalate, oxalateCalcium, gallbladder, lactose, glycemic, iron, sodium];
+
+// ------------------------------------------------------------------ the meal as a whole (SPEC §6.3)
+export interface ItemCheck {
+  item: MealItem;
+  hits: RuleHit[]; // empty = «Так»
+}
+
+export function checkMeal(ctx: RuleContext): ItemCheck[] {
+  return ctx.meal.map((item) => {
+    const food = item.foodId ? ctx.foods.get(item.foodId) : undefined;
+    return { item, hits: RULES.map((r) => r(item, food, ctx)).filter((h): h is RuleHit => h !== null) };
+  });
+}
+
+export interface MealVerdict {
+  fits: boolean; // «Підходить» / «Підходить частково»
+  okCount: number;
+  total: number;
+}
+
+export function mealVerdict(checks: ItemCheck[]): MealVerdict {
+  const okCount = checks.filter((c) => c.hits.every((h) => h.verdict === 'ok')).length;
+  return { fits: okCount === checks.length, okCount, total: checks.length };
+}
+
+/** «Записати заміну»: every swap an item's hits offer, together — drop wins; then the food swap (first one);
+ *  then the cooking swap, so «spinach, fried» becomes «broccoli, air fryer», not «broccoli, fried». */
+export function applySwaps(checks: ItemCheck[], foods: Map<string, Food>): MealItem[] {
+  const out: MealItem[] = [];
+  for (const { item, hits } of checks) {
+    const swaps = hits.flatMap((h) => (h.swap ? [h.swap] : []));
+    if (swaps.some((s) => s.kind === 'drop')) continue;
+    let next: MealItem = item;
+    const foodSwap = swaps.find((s): s is Extract<Swap, { kind: 'food' }> => s.kind === 'food');
+    const food = foodSwap && foods.get(foodSwap.foodId);
+    if (foodSwap && food) {
+      let grams = item.grams;
+      if (foodSwap.grams === 'same-carbs') {
+        const carbs = itemNutrients(item, item.foodId ? foods.get(item.foodId) : undefined).carbs;
+        // Unknown carbs (a free line without nutrients): a usual dry-grain portion, shown before saving.
+        grams = carbs > 0 && food.per100g.carbs > 0 ? Math.round((carbs / food.per100g.carbs) * 100) : K.DEFAULT_GRAIN_PORTION_G;
+      }
+      next = { foodId: food.id, name: food.name, grams, ...(item.cooking ? { cooking: item.cooking } : {}) };
+    }
+    const cookingSwap = swaps.find((s): s is Extract<Swap, { kind: 'cooking' }> => s.kind === 'cooking');
+    if (cookingSwap) next = { ...next, cooking: cookingSwap.cooking };
+    out.push(next);
+  }
+  return out;
+}
+
+export const hasSwaps = (checks: ItemCheck[]) => checks.some((c) => c.hits.some((h) => h.swap));
+
+function shiftDate(date: ISODate, days: number): ISODate {
+  const d = new Date(Date.parse(date + 'T00:00:00Z') + days * 86_400_000);
+  return d.toISOString().slice(0, 10);
+}

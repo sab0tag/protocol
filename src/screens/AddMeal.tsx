@@ -3,9 +3,10 @@ import { Plus, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { db } from '../data/db';
-import { useDayEntries, useFoods, usePlan } from '../data/queries';
+import { useDayEntries, useFoods, usePlan, useRecentEntries } from '../data/queries';
 import { atLocal, dateOf, newId, timeOf, todayISO } from '../domain/dates';
-import { dayTotals, effectiveTargets, itemNutrients, mealNutrients, normalize, round } from '../domain/nutrition';
+import { activeMode, dayTotals, effectiveTargets, itemNutrients, mealNutrients, normalize, round } from '../domain/nutrition';
+import { applySwaps, checkMeal, hasSwaps, mealVerdict, type ItemCheck } from '../domain/rules';
 import type { Cooking, DayEntry, MealItem, Nutrients } from '../domain/types';
 import { t } from '../i18n/uk';
 import { useUi } from '../store/ui';
@@ -46,6 +47,7 @@ export function AddMeal() {
   }, [id, navigate]);
 
   const others = useDayEntries(date)?.filter((e) => e.id !== id);
+  const recent = useRecentEntries(date)?.filter((e) => e.id !== id);
   const matches = useMemo(() => {
     const q = normalize(query);
     if (!foods || q.length < 2) return [];
@@ -60,12 +62,18 @@ export function AddMeal() {
   const after = before && (eaten ? { ...before, carbs: before.carbs + meal.carbs, protein: before.protein + meal.protein,
     calciumMg: before.calciumMg + meal.calciumMg, kcal: before.kcal + meal.kcal } : before);
 
+  const checks: ItemCheck[] = plan && others && recent
+    ? checkMeal({ plan, activeMode: activeMode(plan, date)?.mode, dayEntries: others, date, meal: items, recentEntries: recent, foods })
+    : [];
+  const swapped = hasSwaps(checks) ? applySwaps(checks, foods) : null;
+  const anyActive = plan?.constraints.some((c) => c.active) ?? false;
+
   const setItem = (i: number, patch: Partial<MealItem>) => setItems((xs) => xs.map((x, j) => (j === i ? { ...x, ...patch } : x)));
 
-  const save = async () => {
-    if (items.length === 0) return;
+  const save = async (what: MealItem[] = items) => {
+    if (what.length === 0) return;
     const entry: DayEntry = { id: id ?? newId(), at: atLocal(date, time), kind: 'meal', status: eaten ? 'done' : 'planned',
-      title: title.trim() || defaultMealName(time), items };
+      title: title.trim() || defaultMealName(time), items: what };
     await db.entries.put(entry);
     useUi.getState().setDate(date);
     navigate('/');
@@ -150,6 +158,8 @@ export function AddMeal() {
           </ul>
         </div>
 
+        {items.length > 0 && <CheckPanel checks={checks} anyActive={anyActive} swapped={swapped} />}
+
         <div className="rounded-2xl border border-line bg-surface p-3 tabular">
           <p><span className="text-muted">{t.meal.mealTotal}: </span>
             {round(meal.kcal)} {t.units.kcal} · Б {round(meal.protein)} · Ж {round(meal.fat)} · В {round(meal.carbs)} · Ca {round(meal.calciumMg)} {t.units.mg}</p>
@@ -164,9 +174,17 @@ export function AddMeal() {
           )}
         </div>
 
-        <div className="flex gap-2">
-          <button type="submit" disabled={items.length === 0}
-            className="min-h-tap flex-1 rounded-xl bg-accent px-4 font-medium text-surface disabled:opacity-40">{t.meal.save}</button>
+        <div className="flex flex-wrap gap-2">
+          {swapped ? (
+            <>
+              <button type="button" onClick={() => void save(swapped)} disabled={swapped.length === 0}
+                className="min-h-tap flex-1 rounded-xl bg-accent px-4 font-medium text-surface disabled:opacity-40">{t.check.saveSwap}</button>
+              <button type="submit" className="min-h-tap flex-1 rounded-xl border border-accent px-4 font-medium text-accent">{t.check.saveAsIs}</button>
+            </>
+          ) : (
+            <button type="submit" disabled={items.length === 0}
+              className="min-h-tap flex-1 rounded-xl bg-accent px-4 font-medium text-surface disabled:opacity-40">{t.meal.save}</button>
+          )}
           <button type="button" onClick={() => navigate(-1)} className="min-h-tap rounded-xl border border-line px-4">{t.meal.cancel}</button>
         </div>
       </form>
@@ -202,4 +220,40 @@ function FreeItemForm({ onAdd }: { onAdd: (item: MealItem) => void }) {
         <Plus size={18} />{t.meal.add}</button>
     </div>
   );
+}
+
+/** «Перевірка»: each item's verdict with the reason, the meal as a whole, and what «Записати заміну» would write. */
+function CheckPanel({ checks, anyActive, swapped }: { checks: ItemCheck[]; anyActive: boolean; swapped: MealItem[] | null }) {
+  if (!anyActive) return <p className="rounded-2xl border border-line bg-surface p-3 text-muted">{t.check.noPlan}</p>;
+  const v = mealVerdict(checks);
+  return (
+    <section aria-live="polite" className={`rounded-2xl border p-3 ${v.fits ? 'border-accent/40 bg-accent/5' : 'border-warn/30 bg-warn-bg'}`}>
+      <h2 className="font-semibold">{t.check.title}</h2>
+      <p className={`mb-2 font-medium ${v.fits ? 'text-accent' : 'text-warn'}`}>{v.fits ? t.check.fits : t.check.partly(v.okCount, v.total)}</p>
+      <ul className="space-y-2">
+        {checks.map(({ item, hits }, i) => (
+          <li key={i} className="rounded-xl bg-surface p-2">
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-medium">{item.name}</span>
+              <Badge verdict={hits[0]?.verdict ?? 'ok'} />
+            </div>
+            {hits.map((h, j) => (
+              <p key={j} className="text-sm">
+                {j > 0 && <Badge verdict={h.verdict} small />} {h.message}{h.suggestion && <span className="text-muted"> → {h.suggestion}</span>}
+              </p>
+            ))}
+          </li>
+        ))}
+      </ul>
+      {swapped && (
+        <p className="mt-2 text-sm"><span className="text-muted">{t.check.swapTo}: </span>
+          {swapped.length ? swapped.map((it) => `${it.name} ${it.grams} г${it.cooking ? ` (${t.cooking[it.cooking].toLowerCase()})` : ''}`).join(', ') : '—'}</p>
+      )}
+    </section>
+  );
+}
+
+function Badge({ verdict, small }: { verdict: 'ok' | 'replace' | 'remove' | 'adjust'; small?: boolean }) {
+  const look = verdict === 'ok' ? 'bg-accent/10 text-accent' : 'bg-warn-bg text-warn';
+  return <span className={`shrink-0 rounded-full px-2 ${small ? 'text-xs' : 'py-0.5 text-sm'} font-medium ${look}`}>{t.check.verdict[verdict]}</span>;
 }
