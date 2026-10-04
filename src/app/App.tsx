@@ -5,6 +5,7 @@ import { usePlan } from '../data/queries';
 import { useUi } from '../store/ui';
 import { AddMeal } from '../screens/AddMeal';
 import { Day } from '../screens/Day';
+import { Dishes } from '../screens/Dishes';
 import { More } from '../screens/More';
 import { MyDay } from '../screens/MyDay';
 import { Onboarding } from '../screens/Onboarding';
@@ -46,6 +47,7 @@ export function App() {
             <Route path="/welcome" element={<Onboarding />} />
             <Route path="/progress" element={<Progress />} />
             <Route path="/report" element={<Report />} />
+            <Route path="/dishes" element={<Dishes />} />
             <Route path="/more" element={<More />} />
             <Route path="*" element={<Day />} />
           </Routes>

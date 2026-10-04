@@ -3,9 +3,11 @@ import { Plus, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { db } from '../data/db';
-import { useDayEntries, useFoods, usePlan, useRecentEntries } from '../data/queries';
+import { useDayEntries, useFoods, usePlan, useRecentEntries, useRecipes } from '../data/queries';
+import { Amount } from '../components/Amount';
+import { dishItem, recipeFrom, setPortions, withComponents } from '../domain/recipes';
 import { atLocal, dateOf, newId, timeOf, todayISO } from '../domain/dates';
-import { activeMode, dayTotals, effectiveTargets, itemNutrients, mealNutrients, round } from '../domain/nutrition';
+import { activeMode, dayTotals, effectiveTargets, lineNutrients, mealNutrients, round } from '../domain/nutrition';
 import { applySwaps, checkMeal, hasSwaps, mealVerdict, type ItemCheck } from '../domain/rules';
 import { itemFor, measureWord, parseQuery, searchFoods, type Query } from '../domain/foodSearch';
 import type { Cooking, DayEntry, Food, MealItem, Nutrients } from '../domain/types';
@@ -27,7 +29,10 @@ export function AddMeal() {
   const navigate = useNavigate();
   const uiDate = useUi((s) => s.date);
   const foods = useFoods();
+  const recipes = useRecipes();
   const plan = usePlan();
+  const [dishName, setDishName] = useState<string | null>(null);
+  const [dishSaved, setDishSaved] = useState('');
 
   const [loaded, setLoaded] = useState(id === undefined);
   const [date, setDate] = useState(uiDate);
@@ -51,6 +56,7 @@ export function AddMeal() {
   const recent = useRecentEntries(date)?.filter((e) => e.id !== id);
   const parsed = useMemo(() => parseQuery(query), [query]);
   const matches = useMemo(() => (foods ? searchFoods([...foods.values()], parsed.text) : []), [foods, parsed]);
+  const dishMatches = useMemo(() => (recipes ? searchFoods(recipes, parsed.text, 4) : []), [recipes, parsed]);
 
   if (!loaded || !foods) return null;
 
@@ -104,8 +110,21 @@ export function AddMeal() {
           <label className="block"><span className="text-sm text-muted">{t.meal.search}</span>
             <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t.meal.searchHint}
               className={field} autoComplete="off" /></label>
-          {matches.length > 0 && (
+          {(matches.length > 0 || dishMatches.length > 0) && (
             <ul className="mt-2 divide-y divide-line rounded-xl border border-line">
+              {dishMatches.map((r) => {
+                const portions = parsed.qty ?? 1;
+                const dish = dishItem(r, portions);
+                return (
+                  <li key={r.id}>
+                    <button type="button" className="flex min-h-tap w-full items-center justify-between gap-2 px-3 text-left"
+                      onClick={() => { setItems((xs) => [...xs, dish]); setQuery(''); }}>
+                      <span><span className="mr-1 rounded-full bg-accent/10 px-2 text-xs font-medium text-accent">{t.meal.dish}</span>{r.name}</span>
+                      <span className="tabular shrink-0 text-right text-sm text-muted">{fmt(portions)} {measureWord('порція', portions)} ≈ {dish.grams} г</span>
+                    </button>
+                  </li>
+                );
+              })}
               {matches.map((f) => (
                 <li key={f.id}>
                   <button type="button" className="flex min-h-tap w-full items-center justify-between gap-2 px-3 text-left"
@@ -126,7 +145,39 @@ export function AddMeal() {
           {items.length === 0 && <p className="text-muted">{t.meal.noItems}</p>}
           <ul className="space-y-3">
             {items.map((it, i) => {
-              const n = itemNutrients(it, it.foodId ? foods.get(it.foodId) : undefined);
+              const n = lineNutrients(it, foods);
+              if (it.components) return (
+                <li key={i} className="rounded-xl border border-line p-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="font-medium"><span className="mr-1 rounded-full bg-accent/10 px-2 text-xs font-medium text-accent">{t.meal.dish}</span>{it.name}</span>
+                    <button type="button" onClick={() => setItems((xs) => xs.filter((_, j) => j !== i))}
+                      className="flex min-h-tap min-w-tap items-center justify-center text-warn" aria-label={`${t.meal.remove}: ${it.name}`}>
+                      <Trash2 size={18} /></button>
+                  </div>
+                  <label className="block w-40"><span className="text-sm text-muted">{t.meal.portions}</span>
+                    <input type="number" inputMode="decimal" min={0.5} step={0.5} value={it.recipe?.portions ?? 1} className={field}
+                      onChange={(e) => { const v = Number(e.target.value); if (v > 0) setItems((xs) => xs.map((x, j) => (j === i ? setPortions(x, v) : x))); }} /></label>
+                  <span className="text-xs text-muted">≈ {it.grams} г</span>
+                  <details className="mt-1">
+                    <summary className="min-h-tap cursor-pointer py-2 text-sm text-accent">{t.meal.composition(it.components.length)}</summary>
+                    <ul className="space-y-2">
+                      {it.components.map((c, k) => (
+                        <li key={k} className="rounded-lg bg-bg p-2">
+                          <div className="flex items-center justify-between gap-2"><span className="text-sm font-medium">{c.name}</span>
+                            <button type="button" aria-label={`${t.meal.remove}: ${c.name}`} className="flex min-h-tap min-w-tap items-center justify-center text-warn"
+                              onClick={() => setItems((xs) => xs.map((x, j) => (j === i ? withComponents(x, x.components!.filter((_, m) => m !== k)) : x)))}>
+                              <Trash2 size={16} /></button></div>
+                          <Amount item={c} food={c.foodId ? foods.get(c.foodId) : undefined}
+                            onChange={(patch) => setItems((xs) => xs.map((x, j) => (j === i ? withComponents(x, x.components!.map((y, m) => (m === k ? { ...y, ...patch } : y))) : x)))} />
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                  <p className="mt-1 tabular text-sm text-muted">
+                    {round(n.kcal)} {t.units.kcal} · Б {fmt(n.protein)} · Ж {fmt(n.fat)} · В {fmt(n.carbs)} · Ca {round(n.calciumMg)} {t.units.mg}
+                  </p>
+                </li>
+              );
               return (
                 <li key={i} className="rounded-xl border border-line p-2">
                   <div className="flex items-start justify-between gap-2">
@@ -151,6 +202,20 @@ export function AddMeal() {
               );
             })}
           </ul>
+          {items.length > 0 && (dishName === null
+            ? <button type="button" onClick={() => { setDishName(items.length === 1 && items[0]!.components ? '' : title); setDishSaved(''); }}
+                className="mt-2 min-h-tap text-accent underline">{t.meal.saveAsDish}</button>
+            : (
+              <div className="mt-2 flex gap-2">
+                <label className="flex-1"><span className="sr-only">{t.meal.dishName}</span>
+                  <input value={dishName} onChange={(e) => setDishName(e.target.value)} placeholder={t.meal.dishName}
+                    className="block min-h-tap w-full rounded-xl border border-line bg-bg px-3" /></label>
+                <button type="button" disabled={!dishName.trim()}
+                  onClick={async () => { await db.recipes.put(recipeFrom(dishName, items, newId())); setDishSaved(t.meal.dishSaved(dishName.trim())); setDishName(null); }}
+                  className="min-h-tap rounded-xl bg-accent px-3 font-medium text-surface disabled:opacity-40">{t.dishes.save}</button>
+              </div>
+            ))}
+          {dishSaved && <p role="status" className="mt-1 text-sm text-accent">{dishSaved}</p>}
         </div>
 
         {items.length > 0 && <CheckPanel checks={checks} anyActive={anyActive} swapped={swapped} />}
@@ -234,7 +299,7 @@ function CheckPanel({ checks, anyActive, swapped }: { checks: ItemCheck[]; anyAc
             </div>
             {hits.map((h, j) => (
               <p key={j} className="text-sm">
-                {j > 0 && <Badge verdict={h.verdict} small />} {h.message}{h.suggestion && <span className="text-muted"> → {h.suggestion}</span>}
+                {j > 0 && <Badge verdict={h.verdict} small />} {h.itemName !== item.name && <span className="font-medium">{h.itemName}: </span>}{h.message}{h.suggestion && <span className="text-muted"> → {h.suggestion}</span>}
               </p>
             ))}
           </li>
@@ -265,33 +330,3 @@ function matchHint(food: Food, q: Query): string {
   return u ? `1 ${u.name} ≈ ${u.grams} г` : `${food.per100g.carbs} г В / 100 г`;
 }
 
-/** The amount of a line: grams, or a household measure of the food with its weight shown («≈ 100 г»). */
-function Amount({ item, food, onChange }: { item: MealItem; food?: Food; onChange: (patch: Partial<MealItem>) => void }) {
-  const units = item.manual ? [] : food?.units ?? [];
-  const pick = (name: string) => {
-    const u = units.find((x) => x.name === name);
-    if (!u) return onChange({ unit: undefined });
-    const qty = Math.max(0.5, Math.round((item.grams / u.grams) * 2) / 2);
-    onChange({ unit: { name: u.name, qty, grams: u.grams }, grams: Math.round(qty * u.grams) });
-  };
-  return (
-    <div className="grid grid-cols-[1fr_auto] items-end gap-1">
-      <label className="block"><span className="text-sm text-muted">{item.unit ? t.meal.qty : t.meal.grams}</span>
-        <input type="number" inputMode="decimal" min={0} step={item.unit ? 0.5 : 1} readOnly={!!item.manual}
-          value={item.unit ? item.unit.qty : item.grams}
-          onChange={(e) => {
-            const v = Math.max(0, Number(e.target.value) || 0);
-            onChange(item.unit ? { unit: { ...item.unit, qty: v }, grams: Math.round(v * item.unit.grams) } : { grams: v });
-          }}
-          className={field} /></label>
-      {units.length > 0 && (
-        <label className="block"><span className="sr-only">{t.meal.unit}</span>
-          <select value={item.unit?.name ?? 'г'} onChange={(e) => pick(e.target.value)} className={`${field} w-auto`}>
-            <option value="г">г</option>
-            {units.map((u) => <option key={u.name} value={u.name}>{u.name}</option>)}
-          </select></label>
-      )}
-      {item.unit && <span className="col-span-2 text-xs text-muted">≈ {item.grams} г</span>}
-    </div>
-  );
-}

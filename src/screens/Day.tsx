@@ -39,7 +39,7 @@ export function Day() {
   const checklist = entries && foods && workouts ? buildChecklist({ plan, date, entries, workouts, foods, now: new Date() }) : undefined;
 
   const setStatus = async (e: DayEntry, status: DayEntry['status']) => {
-    await db.entries.update(e.id, { status });
+    await db.entries.put({ ...e, status });
     setRowFor(null);
   };
   const addWater = async () => {

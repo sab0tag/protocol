@@ -94,6 +94,15 @@ export interface Food {
   aliases?: string[]; // D26: other names to find it by ("грудка", "курка")
 }
 
+/** D27: a dish made of foods — ingredients for one portion. */
+export interface Recipe {
+  id: string;
+  name: string;
+  aliases?: string[];
+  items: MealItem[];
+  builtIn?: boolean;
+}
+
 export type Cooking = 'raw' | 'boiled' | 'baked' | 'airfryer' | 'steamed' | 'stewed' | 'fried';
 
 export interface MealItem {
@@ -105,6 +114,10 @@ export interface MealItem {
   manual?: Nutrients;
   /** D26: entered in a household measure — 2 × «шт» of 50 g; `grams` = qty × grams stays the source of truth. */
   unit?: { name: string; qty: number; grams: number };
+  /** D27: a dish — the recipe and how many portions; `components` are its ingredients as eaten (a copy, so
+   *  editing the recipe later does not change history); `grams` = their sum. */
+  recipe?: { id: string; portions: number };
+  components?: MealItem[];
 }
 
 export type EntryKind = 'meal' | 'med' | 'water' | 'workout' | 'note';

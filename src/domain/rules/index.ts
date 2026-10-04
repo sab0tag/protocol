@@ -86,8 +86,8 @@ const lactose: Rule = (item, food, ctx) => {
     ...(milk ? { swap: { kind: 'food' as const, foodId: 'kefir', grams: 'same' as const } } : {}) };
 };
 
-const glycemic: Rule = (item, _food, ctx) => {
-  if (!active(ctx, 'glycemic')) return null;
+const glycemic: Rule = (item, food, ctx) => {
+  if (!active(ctx, 'glycemic') || food?.tags.includes('condiment')) return null; // a teaspoon of lemon juice is no «сік»
   const toSlow: Swap = { kind: 'food', foodId: 'buckwheat', grams: 'same-carbs' };
   const preparing = carbsMin(ctx) !== undefined; // §6.2: a mode with a carbs minimum never cuts carbs
   if (matchesAny(item.name, K.GLYCEMIC_REPLACE) || (preparing && matchesAny(item.name, K.GLYCEMIC_REMOVE)))
@@ -104,7 +104,7 @@ const iron: Rule = (item, _food, ctx) => {
   if (!active(ctx, 'iron') || !matchesAny(item.name, K.LIVER)) return null;
   const since = shiftDate(ctx.date, -(K.LIVER_EVERY_DAYS - 1));
   const recently = ctx.recentEntries.some((e) => e.kind === 'meal' && e.status !== 'skipped'
-    && dateOf(e.at) >= since && dateOf(e.at) <= ctx.date && e.items?.some((it) => matchesAny(it.name, K.LIVER)));
+    && dateOf(e.at) >= since && dateOf(e.at) <= ctx.date && flatItems(e.items).some((it) => matchesAny(it.name, K.LIVER)));
   if (!recently && item.grams <= K.LIVER_MAX_G) return null;
   return { itemName: item.name, verdict: 'adjust', reason: 'iron', message: `Печінка — раз на тиждень, до ${K.LIVER_MAX_G} г` };
 };
@@ -112,7 +112,7 @@ const iron: Rule = (item, _food, ctx) => {
 const sodium: Rule = (item, _food, ctx) => {
   if (!active(ctx, 'sodium') || !matchesAny(item.name, K.SALTY)) return null;
   const salty = (items: MealItem[] = []) => items.filter((it) => matchesAny(it.name, K.SALTY)).reduce((g, it) => g + it.grams, 0);
-  const day = ctx.dayEntries.filter((e) => e.kind === 'meal' && e.status !== 'skipped').reduce((g, e) => g + salty(e.items), 0);
+  const day = ctx.dayEntries.filter((e) => e.kind === 'meal' && e.status !== 'skipped').reduce((g, e) => g + salty(flatItems(e.items)), 0);
   if (day + salty(ctx.meal) <= K.SODIUM_PORTION_G * K.SODIUM_MAX_PORTIONS) return null;
   return { itemName: item.name, verdict: 'adjust', reason: 'sodium', message: 'Багато солі за день' };
 };
@@ -122,13 +122,24 @@ export const RULES: Rule[] = [oxalate, oxalateCalcium, gallbladder, lactose, gly
 // ------------------------------------------------------------------ the meal as a whole (SPEC §6.3)
 export interface ItemCheck {
   item: MealItem;
-  hits: RuleHit[]; // empty = «Так»
+  hits: RuleHit[]; // empty = «Так»; for a dish — the hits of its ingredients
+  parts?: ItemCheck[]; // D27: a dish, ingredient by ingredient
 }
 
+/** Dishes opened up into their ingredients. */
+export const flatItems = (items: MealItem[] = []): MealItem[] => items.flatMap((it) => (it.components?.length ? it.components : [it]));
+
+/** Every rule runs on the ingredients (a dish is checked by what is in it — D27); the result is per meal line. */
 export function checkMeal(ctx: RuleContext): ItemCheck[] {
-  return ctx.meal.map((item) => {
+  const fctx = { ...ctx, meal: flatItems(ctx.meal) };
+  const one = (item: MealItem): ItemCheck => {
     const food = item.foodId ? ctx.foods.get(item.foodId) : undefined;
-    return { item, hits: RULES.map((r) => r(item, food, ctx)).filter((h): h is RuleHit => h !== null) };
+    return { item, hits: RULES.map((r) => r(item, food, fctx)).filter((h): h is RuleHit => h !== null) };
+  };
+  return ctx.meal.map((item) => {
+    if (!item.components?.length) return one(item);
+    const parts = item.components.map(one);
+    return { item, hits: parts.flatMap((p) => p.hits), parts };
   });
 }
 
@@ -147,7 +158,12 @@ export function mealVerdict(checks: ItemCheck[]): MealVerdict {
  *  then the cooking swap, so «spinach, fried» becomes «broccoli, air fryer», not «broccoli, fried». */
 export function applySwaps(checks: ItemCheck[], foods: Map<string, Food>): MealItem[] {
   const out: MealItem[] = [];
-  for (const { item, hits } of checks) {
+  for (const { item, hits, parts } of checks) {
+    if (parts) { // a dish: swap inside it
+      const components = applySwaps(parts, foods);
+      out.push({ ...item, components, grams: components.reduce((g, c) => g + c.grams, 0) });
+      continue;
+    }
     const swaps = hits.flatMap((h) => (h.swap ? [h.swap] : []));
     if (swaps.some((s) => s.kind === 'drop')) continue;
     let next: MealItem = item;
@@ -169,7 +185,7 @@ export function applySwaps(checks: ItemCheck[], foods: Map<string, Food>): MealI
   return out;
 }
 
-export const hasSwaps = (checks: ItemCheck[]) => checks.some((c) => c.hits.some((h) => h.swap));
+export const hasSwaps = (checks: ItemCheck[]): boolean => checks.some((c) => c.hits.some((h) => h.swap));
 
 function shiftDate(date: ISODate, days: number): ISODate {
   const d = new Date(Date.parse(date + 'T00:00:00Z') + days * 86_400_000);

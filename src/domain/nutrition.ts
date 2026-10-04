@@ -28,8 +28,14 @@ export function add(a: Required<Nutrients>, b: Required<Nutrients>): Required<Nu
   };
 }
 
+/** One meal line: a dish sums its components, anything else is the food (or the hand-entered values). */
+export function lineNutrients(item: MealItem, foods: Map<string, Food>): Required<Nutrients> {
+  if (item.components?.length) return mealNutrients(item.components, foods);
+  return itemNutrients(item, item.foodId ? foods.get(item.foodId) : undefined);
+}
+
 export function mealNutrients(items: MealItem[], foods: Map<string, Food>): Required<Nutrients> {
-  return items.reduce((sum, it) => add(sum, itemNutrients(it, it.foodId ? foods.get(it.foodId) : undefined)), { ...ZERO });
+  return items.reduce((sum, it) => add(sum, lineNutrients(it, foods)), { ...ZERO });
 }
 
 export interface DayTotals extends Required<Nutrients> {

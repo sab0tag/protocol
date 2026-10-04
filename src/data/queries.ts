@@ -46,3 +46,7 @@ export function useAllWellbeing() {
 export function useAllEntries() {
   return useLiveQuery(() => db.entries.orderBy('at').toArray(), []);
 }
+
+export function useRecipes() {
+  return useLiveQuery(() => db.recipes.orderBy('name').toArray(), []);
+}

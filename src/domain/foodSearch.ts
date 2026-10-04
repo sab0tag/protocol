@@ -1,7 +1,7 @@
 // Find a food by how people say it («2 варених яйця», «150 г гречки», «склянка кефіру») and turn the amount
 // into grams through the food's household measures (D26). Pure.
 import { normalize } from './nutrition';
-import type { Food, FoodUnit, MealItem } from './types';
+import type { Food, FoodUnit, MealItem, Recipe } from './types';
 
 /** Measure words in the query → the unit name stored in foods.ts ("г" = grams). */
 const MEASURES: [RegExp, string][] = [
@@ -46,16 +46,16 @@ function stem(word: string): string {
   return w.slice(0, Math.max(3, Math.min(w.length - 3, 4)));
 }
 
-function words(food: Food): string[] {
+function words(food: { name: string; aliases?: string[] }): string[] {
   return [food.name, ...(food.aliases ?? [])].flatMap((s) => normalize(s).split(/[\s(),/%]+/)).filter(Boolean)
     .map((w) => (w.startsWith('відвар') ? w.slice(3) : w));
 }
 
-/** Foods whose name or aliases contain every query word (by stem); the closest first. */
-export function searchFoods(foods: Food[], text: string, limit = 8): Food[] {
+/** Foods (or dishes) whose name or aliases contain every query word (by stem); the closest first. */
+export function searchFoods<T extends { name: string; aliases?: string[] }>(foods: T[], text: string, limit = 8): T[] {
   const tokens = normalize(text).split(' ').filter((t) => t.length >= 2).map(stem);
   if (tokens.length === 0) return [];
-  const scored: [Food, number][] = [];
+  const scored: [T, number][] = [];
   for (const food of foods) {
     const ws = words(food);
     if (!tokens.every((t) => ws.some((w) => w.startsWith(t)))) continue;
@@ -102,7 +102,10 @@ export function measureWord(name: string, qty: number): string {
 
 /** «2 шт» / «2 скибки» / «150 г» — how an item's amount reads. */
 export function amountText(item: MealItem): string {
+  if (item.recipe) return `${String(item.recipe.portions).replace('.', ',')} ${measureWord('порція', item.recipe.portions)}`;
   if (!item.unit) return `${item.grams} г`;
   const q = Number.isInteger(item.unit.qty) ? String(item.unit.qty) : String(item.unit.qty).replace('.', ',');
   return `${q} ${measureWord(item.unit.name, item.unit.qty)}`;
 }
+
+export type { Recipe };
