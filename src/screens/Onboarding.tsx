@@ -133,6 +133,7 @@ function Steps({ plan }: { plan: PlanRow }) {
         {step > 1 && <button type="button" onClick={() => setStep(step - 1)} className="min-h-tap rounded-xl border border-line px-4">{L.back}</button>}
       </div>
       <button type="button" onClick={() => void done(true)} className="min-h-tap text-muted underline">{L.skip}</button>
+      {step === 1 && <button type="button" onClick={() => navigate('/sync')} className="block min-h-tap text-accent underline">{t.sync.welcome}</button>}
       <p className="text-sm text-muted">{P.disclaimer}</p>
     </section>
   );

@@ -12,6 +12,7 @@ import { Onboarding } from '../screens/Onboarding';
 import { Plan } from '../screens/Plan';
 import { Progress } from '../screens/Progress';
 import { Report } from '../screens/Report';
+import { Sync } from '../screens/Sync';
 import { Wellbeing } from '../screens/Wellbeing';
 import { Workout } from '../screens/Workout';
 
@@ -26,7 +27,7 @@ function OnboardingGate({ children }: { children: ReactNode }) {
   const plan = usePlan();
   const onboarded = useUi((s) => s.onboarded);
   const { pathname } = useLocation();
-  if (plan && !plan.onboardedAt && !onboarded && pathname !== '/welcome') return <Navigate to="/welcome" replace />;
+  if (plan && !plan.onboardedAt && !onboarded && pathname !== '/welcome' && pathname !== '/sync') return <Navigate to="/welcome" replace />;
   return <>{children}</>;
 }
 
@@ -49,6 +50,7 @@ export function App() {
             <Route path="/report" element={<Report />} />
             <Route path="/dishes" element={<Dishes />} />
             <Route path="/more" element={<More />} />
+            <Route path="/sync" element={<Sync />} />
             <Route path="*" element={<Day />} />
           </Routes>
         </OnboardingGate>

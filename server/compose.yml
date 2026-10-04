@@ -1,0 +1,27 @@
+# Протокол API on the Харчоблок server: Caddy of /opt/harch proxies api.<domain> to it over the shared `harch_edge`
+# network (created by harch's compose.prod.yml). Secrets live in .env next to this file (see .env.example).
+services:
+  api:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DB_PATH: /data/protocol.db
+      PORT: "8080"
+    volumes:
+      - data:/data
+    networks:
+      default: {}
+      edge:
+        aliases: [protocol-api]
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+volumes:
+  data:
+
+networks:
+  edge:
+    external: true
+    name: harch_edge

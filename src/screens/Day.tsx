@@ -17,6 +17,7 @@ import { activeMode, dayTotals, effectiveTargets, mealNutrients, round } from '.
 import type { DayEntry, EntryKind, Food } from '../domain/types';
 import { t } from '../i18n/uk';
 import { useUi } from '../store/ui';
+import { useSync } from '../sync/runner';
 import { SimpleEntrySheet } from './SimpleEntrySheet';
 
 const KIND_ICON = { meal: UtensilsCrossed, med: Pill, water: Droplet, workout: Dumbbell, note: NotebookPen } as const;
@@ -27,6 +28,9 @@ export function Day() {
   const entries = useDayEntries(date);
   const foods = useFoods();
   const plan = usePlan();
+  // D31: a recent sync is an encrypted copy too — no weekly «save a copy» nagging then
+  const syncLast = useSync((s) => (s.status === 'off' ? undefined : s.lastAt));
+  const syncedRecently = syncLast !== undefined && Date.now() - syncLast < 7 * 86_400_000;
   const workouts = useWorkouts();
   const firstEntry = useLiveQuery(() => db.entries.orderBy('at').first(), []);
   const navigate = useNavigate();
@@ -92,7 +96,7 @@ export function Day() {
         </p>
       )}
 
-      {exportDue(plan?.lastExportAt, firstEntry?.at.slice(0, 10), todayISO()) && (
+      {!syncedRecently && exportDue(plan?.lastExportAt, firstEntry?.at.slice(0, 10), todayISO()) && (
         <div role="status" className="mb-3 flex items-center gap-2 rounded-2xl border border-warn/30 bg-warn-bg p-3 text-sm text-warn">
           <span className="flex-1">{plan?.lastExportAt ? t.backup.remind : t.backup.remindFirst}</span>
           <button type="button" onClick={() => navigate('/more')} className="min-h-tap rounded-xl bg-warn px-3 font-medium text-surface">{t.backup.remindAction}</button>

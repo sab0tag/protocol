@@ -9,6 +9,24 @@ export interface PlanRow extends Plan {
   id: 'main';
 }
 
+/** D31: the last state of a row both this device and the vault agree on (`h`), and a local change not yet sent
+ *  (`dh` — its hash, `dat` — when it was first seen). `tid` = "table:id". */
+export interface SyncRow {
+  tid: string;
+  k: string; // the record's name on the server
+  h?: string; // agreed hash; "-" = deleted; absent = never synced
+  dh?: string;
+  dat?: number;
+}
+
+export interface SyncMeta {
+  key: 'sync';
+  code: string;
+  seq: number; // the last server change pulled
+  lastAt?: number;
+  photoConsent?: boolean;
+}
+
 export class ProtocolDB extends Dexie {
   plan!: Table<PlanRow, string>;
   foods!: Table<Food, string>;
@@ -18,6 +36,8 @@ export class ProtocolDB extends Dexie {
   weights!: Table<WeightLog, string>;
   labs!: Table<LabResult, [string, string]>;
   recipes!: Table<Recipe, string>;
+  sync!: Table<SyncRow, string>;
+  meta!: Table<SyncMeta, string>;
 
   constructor(name = 'protocol') {
     super(name);
@@ -31,6 +51,7 @@ export class ProtocolDB extends Dexie {
       labs: '[date+name], name',
     });
     this.version(2).stores({ recipes: 'id, name' }); // D27: dishes
+    this.version(3).stores({ sync: 'tid', meta: 'key' }); // D31: sync state (not in exports)
   }
 }
 

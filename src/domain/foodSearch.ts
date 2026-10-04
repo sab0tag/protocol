@@ -127,6 +127,8 @@ export function splitPhrase(raw: string): string[] {
 export interface Recognized {
   text: string;
   item?: MealItem; // undefined = nothing found for this part
+  estimate?: boolean; // D32: not in the base — nutrients are the photo's estimate
+  unsure?: boolean; // D32: the photo was hard to read
 }
 
 /** Each part of a phrase matched to a dish (when the words name one) or a food, with its amount. */

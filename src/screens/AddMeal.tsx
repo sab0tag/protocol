@@ -1,6 +1,7 @@
 import { format } from 'date-fns';
-import { Plus, Trash2 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { Camera, Plus, Trash2 } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { db } from '../data/db';
 import { useAllEntries, useDayEntries, useFoods, usePlan, useRecentEntries, useRecipes } from '../data/queries';
@@ -10,7 +11,11 @@ import { dishItem, recipeFrom, setPortions, withComponents } from '../domain/rec
 import { atLocal, dateOf, newId, timeOf, todayISO } from '../domain/dates';
 import { activeMode, dayTotals, effectiveTargets, lineNutrients, mealNutrients, round } from '../domain/nutrition';
 import { applySwaps, checkMeal, hasSwaps, mealVerdict, type ItemCheck } from '../domain/rules';
-import { amountText, itemFor, measureWord, parseQuery, recognize, searchFoods, splitPhrase, type Query } from '../domain/foodSearch';
+import { amountText, itemFor, measureWord, parseQuery, recognize, searchFoods, splitPhrase, type Query, type Recognized } from '../domain/foodSearch';
+import { fromPhoto } from '../domain/photo';
+import { ApiError, photo as recognizePhoto } from '../sync/api';
+import { currentKeys } from '../sync/runner';
+import { shrink } from '../sync/shrink';
 import { Mic } from 'lucide-react';
 import type { Cooking, DayEntry, Food, MealItem, Nutrients } from '../domain/types';
 import { t } from '../i18n/uk';
@@ -64,9 +69,33 @@ export function AddMeal() {
   const usual = useMemo(() => new Set(all ? frequentItems(all, todayISO(), 60, 50).map((f) => f.item.recipe?.id ?? f.item.foodId ?? '') : []), [all]);
   const phrase = useMemo(() => (foods && recipes && splitPhrase(query).length > 1
     ? recognize(query, [...foods.values()], recipes, dishItem, usual) : null), [foods, recipes, query, usual]);
-  const [skip, setSkip] = useState<Set<number>>(new Set());
+  const [photo, setPhoto] = useState<PhotoState>({ state: 'none' });
+  const photoInput = useRef<HTMLInputElement>(null);
+  const syncMeta = useLiveQuery(async () => (await db.meta.get('sync')) ?? null, []);
 
   if (!loaded || !foods) return null;
+
+  // D32: a photo of the plate → a «Розпізнано» draft to confirm
+  const pickPhoto = () => {
+    if (!syncMeta || !currentKeys()) return setPhoto({ state: 'nosync' });
+    if (!syncMeta.photoConsent) return setPhoto({ state: 'consent' });
+    photoInput.current?.click();
+  };
+  const onPhoto = async (file: File | undefined) => {
+    if (photoInput.current) photoInput.current.value = '';
+    const keys = currentKeys();
+    if (!file || !keys) return;
+    setPhoto({ state: 'busy' });
+    try {
+      const image = await shrink(file);
+      const all = [...foods.values()];
+      const result = await recognizePhoto(keys, image, all.map((f) => f.name), (recipes ?? []).map((r) => r.name));
+      setPhoto({ state: 'done', rows: fromPhoto(result, all, recipes ?? [], dishItem, usual), note: result.note ?? undefined });
+    } catch (e) {
+      const code = e instanceof ApiError ? (e.status === 0 ? 'offline' : e.code) : 'other';
+      setPhoto({ state: 'error', message: (t.meal.photoErrors as Record<string, string>)[code] ?? t.meal.photoErrors.other });
+    }
+  };
 
   const meal = mealNutrients(items, foods);
   const before = others ? dayTotals(others, foods) : undefined;
@@ -135,35 +164,32 @@ export function AddMeal() {
         })()}
 
         <div className="rounded-2xl border border-line bg-surface p-3">
-          <label className="block"><span className="text-sm text-muted">{t.meal.search}</span>
-            <input type="search" value={query} onChange={(e) => { setQuery(e.target.value); setSkip(new Set()); }} placeholder={t.meal.searchHint}
-              className={field} autoComplete="off" /></label>
-          {!query && <p className="mt-1 flex items-start gap-1 text-xs text-muted"><Mic size={14} className="mt-0.5 shrink-0" aria-hidden />{t.meal.dictate}</p>}
-          {phrase && (
-            <div className="mt-2 rounded-xl border border-accent/40 p-2">
-              <p className="mb-1 text-sm font-medium">{t.meal.recognized}</p>
-              <ul className="space-y-1">
-                {phrase.map((r, k) => (
-                  <li key={k}>
-                    {r.item ? (
-                      <label className="flex min-h-tap items-center gap-3">
-                        <input type="checkbox" checked={!skip.has(k)} className="h-5 w-5 accent-[rgb(var(--accent))]"
-                          onChange={(e) => setSkip((s) => { const n = new Set(s); if (e.target.checked) n.delete(k); else n.add(k); return n; })} />
-                        <span className="flex-1">{r.item.name} <span className="text-muted">· {amountText(r.item)}{r.item.unit || r.item.recipe ? ` ≈ ${r.item.grams} г` : ''}</span></span>
-                      </label>
-                    ) : <p className="py-2 text-sm text-muted">«{r.text}» — {t.meal.notFound}</p>}
-                  </li>
-                ))}
-              </ul>
-              {(() => {
-                const picked = phrase.filter((r, k) => r.item && !skip.has(k)).map((r) => r.item!);
-                return picked.length > 0 && (
-                  <button type="button" onClick={() => { setItems((xs) => [...xs, ...picked]); setQuery(''); setSkip(new Set()); }}
-                    className="mt-1 min-h-tap w-full rounded-xl bg-accent px-3 font-medium text-surface">{t.meal.addRecognized(picked.length)}</button>
-                );
-              })()}
+          <div className="flex items-end gap-2">
+            <label className="block flex-1"><span className="text-sm text-muted">{t.meal.search}</span>
+              <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t.meal.searchHint}
+                className={field} autoComplete="off" /></label>
+            <button type="button" onClick={pickPhoto} disabled={photo.state === 'busy'} aria-label={t.meal.photo}
+              className="flex min-h-tap items-center gap-1 rounded-xl border border-accent px-3 font-medium text-accent disabled:opacity-40">
+              <Camera size={18} aria-hidden /><span className="hidden min-[380px]:inline">{t.meal.photo}</span></button>
+            <input ref={photoInput} type="file" accept="image/*" className="hidden" onChange={(e) => void onPhoto(e.target.files?.[0])} />
+          </div>
+          {photo.state === 'consent' && (
+            <div className="mt-2 space-y-2 rounded-xl border border-accent/40 p-2 text-sm">
+              <p>{t.meal.photoConsent}</p>
+              <button type="button" onClick={() => { void db.meta.update('sync', { photoConsent: true }); setPhoto({ state: 'none' }); photoInput.current?.click(); }}
+                className="min-h-tap rounded-xl bg-accent px-3 font-medium text-surface">{t.meal.photoAllow}</button>
             </div>
           )}
+          {photo.state === 'nosync' && <p className="mt-2 text-sm text-muted">{t.meal.photoNeedsSync}</p>}
+          {!query && <p className="mt-1 flex items-start gap-1 text-xs text-muted"><Mic size={14} className="mt-0.5 shrink-0" aria-hidden />{t.meal.dictate}</p>}
+          {phrase && <RecognizedPanel key={query} title={t.meal.recognized} rows={phrase}
+            onAdd={(picked) => { setItems((xs) => [...xs, ...picked]); setQuery(''); }} />}
+          {photo.state === 'busy' && <p role="status" className="mt-2 text-sm text-muted">{t.meal.photoBusy}</p>}
+          {photo.state === 'error' && <p role="alert" className="mt-2 text-sm text-warn">{photo.message}</p>}
+          {photo.state === 'done' && (photo.rows.length > 0
+            ? <RecognizedPanel title={t.meal.photoTitle} rows={photo.rows} note={photo.note}
+                onAdd={(picked) => { setItems((xs) => [...xs, ...picked]); setPhoto({ state: 'none' }); }} />
+            : <p role="status" className="mt-2 text-sm text-muted">{photo.note ?? t.meal.photoEmpty}</p>)}
           {!phrase && (matches.length > 0 || dishMatches.length > 0) && (
             <ul className="mt-2 divide-y divide-line rounded-xl border border-line">
               {dishMatches.map((r) => {
@@ -318,6 +344,40 @@ export function AddMeal() {
         </div>
       </form>
     </section>
+  );
+}
+
+type PhotoState = { state: 'none' | 'busy' | 'consent' | 'nosync' } | { state: 'error'; message: string }
+  | { state: 'done'; rows: Recognized[]; note?: string };
+
+/** Lines recognized from a dictated phrase (D30) or a photo (D32), each with a tick; nothing is added until «Додати». */
+function RecognizedPanel({ title, rows, note, onAdd }: { title: string; rows: Recognized[]; note?: string; onAdd: (items: MealItem[]) => void }) {
+  const [skip, setSkip] = useState<Set<number>>(new Set());
+  const picked = rows.filter((r, k) => r.item && !skip.has(k)).map((r) => r.item!);
+  return (
+    <div className="mt-2 rounded-xl border border-accent/40 p-2">
+      <p className="mb-1 text-sm font-medium">{title}</p>
+      {note && <p className="mb-1 text-sm text-muted">{note}</p>}
+      <ul className="space-y-1">
+        {rows.map((r, k) => (
+          <li key={k}>
+            {r.item ? (
+              <label className="flex min-h-tap items-center gap-3">
+                <input type="checkbox" checked={!skip.has(k)} className="h-5 w-5 accent-[rgb(var(--accent))]"
+                  onChange={(e) => setSkip((s) => { const n = new Set(s); if (e.target.checked) n.delete(k); else n.add(k); return n; })} />
+                <span className="flex-1">{r.item.name} <span className="text-muted">· {amountText(r.item)}{r.item.unit || r.item.recipe ? ` ≈ ${r.item.grams} г` : ''}</span>
+                  {(r.unsure || r.estimate) && <span className="block text-xs text-warn">{[r.unsure && t.meal.photoUnsure, r.estimate && t.meal.photoEstimate].filter(Boolean).join(' · ')}</span>}
+                </span>
+              </label>
+            ) : <p className="py-2 text-sm text-muted">«{r.text}» — {t.meal.notFound}</p>}
+          </li>
+        ))}
+      </ul>
+      {picked.length > 0 && (
+        <button type="button" onClick={() => onAdd(picked)}
+          className="mt-1 min-h-tap w-full rounded-xl bg-accent px-3 font-medium text-surface">{t.meal.addRecognized(picked.length)}</button>
+      )}
+    </div>
   );
 }
 
