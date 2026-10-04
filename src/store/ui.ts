@@ -6,10 +6,15 @@ interface UiState {
   date: string; // the day being looked at
   setDate: (d: string) => void;
   shift: (days: number) => void;
+  /** Onboarding finished or skipped in this session — the gate must not wait for the live query to catch up. */
+  onboarded: boolean;
+  setOnboarded: () => void;
 }
 
 export const useUi = create<UiState>((set, get) => ({
   date: todayISO(),
   setDate: (date) => set({ date }),
   shift: (days) => set({ date: format(addDays(parseISO(get().date), days), 'yyyy-MM-dd') }),
+  onboarded: false,
+  setOnboarded: () => set({ onboarded: true }),
 }));

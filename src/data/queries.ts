@@ -1,5 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks';
-import type { DayEntry, Food } from '../domain/types';
+import type { DayEntry, Food, Wellbeing, Workout } from '../domain/types';
 import { db } from './db';
 
 export function useDayEntries(date: string): DayEntry[] | undefined {
@@ -20,4 +20,12 @@ export function useFoods(): Map<string, Food> | undefined {
 
 export function usePlan() {
   return useLiveQuery(() => db.plan.get('main'), []);
+}
+
+export function useWorkouts(): Workout[] | undefined {
+  return useLiveQuery(() => db.workouts.orderBy('date').toArray(), []);
+}
+
+export function useWellbeing(date: string): Wellbeing | undefined | null {
+  return useLiveQuery(async () => (await db.wellbeing.get(date)) ?? null, [date]);
 }

@@ -1,11 +1,12 @@
 import { format, parseISO } from 'date-fns';
 import { uk } from 'date-fns/locale';
-import { Check, ChevronLeft, ChevronRight, Droplet, NotebookPen, Pill, Plus, Dumbbell, Undo2, UtensilsCrossed, X, Pencil, Trash2 } from 'lucide-react';
+import { Activity, Check, ChevronLeft, ListChecks, ChevronRight, Droplet, NotebookPen, Pill, Plus, Dumbbell, Undo2, UtensilsCrossed, X, Pencil, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Sheet, SheetButton } from '../components/Sheet';
 import { db } from '../data/db';
-import { useDayEntries, useFoods, usePlan } from '../data/queries';
+import { useDayEntries, useFoods, usePlan, useWorkouts } from '../data/queries';
+import { buildChecklist } from '../domain/checklist';
 import { atLocal, newId, timeOf, todayISO } from '../domain/dates';
 import { activeMode, dayTotals, effectiveTargets, mealNutrients, round } from '../domain/nutrition';
 import type { DayEntry, EntryKind, Food } from '../domain/types';
@@ -21,6 +22,7 @@ export function Day() {
   const entries = useDayEntries(date);
   const foods = useFoods();
   const plan = usePlan();
+  const workouts = useWorkouts();
   const navigate = useNavigate();
   const [rowFor, setRowFor] = useState<DayEntry | null>(null);
   const [adding, setAdding] = useState(false);
@@ -30,6 +32,7 @@ export function Day() {
   const targets = effectiveTargets(plan, date);
   const totals = entries && foods ? dayTotals(entries, foods) : undefined;
   const isToday = date === todayISO();
+  const checklist = entries && foods && workouts ? buildChecklist({ plan, date, entries, workouts, foods, now: new Date() }) : undefined;
 
   const setStatus = async (e: DayEntry, status: DayEntry['status']) => {
     await db.entries.update(e.id, { status });
@@ -66,6 +69,17 @@ export function Day() {
           <button type="button" className="min-h-tap px-3 text-accent underline" onClick={() => setDate(todayISO())}>{t.day.today}</button>
         </p>
       )}
+
+      <div className="mb-3 grid grid-cols-2 gap-2">
+        <button type="button" onClick={() => navigate('/my-day')}
+          className="flex min-h-tap items-center justify-center gap-2 rounded-xl border border-line bg-surface px-3 font-medium">
+          <ListChecks size={18} className="text-accent" aria-hidden />{t.myday.title}
+          {checklist && checklist.total > 0 && <span className="tabular text-accent">{t.myday.counter(checklist.done, checklist.total)}</span>}
+        </button>
+        <button type="button" onClick={() => navigate('/wellbeing')}
+          className="flex min-h-tap items-center justify-center gap-2 rounded-xl border border-line bg-surface px-3 font-medium">
+          <Activity size={18} className="text-accent" aria-hidden />{t.well.title}</button>
+      </div>
 
       {mode && (
         <div className="mb-3 rounded-2xl border border-accent/30 bg-accent/10 p-3">

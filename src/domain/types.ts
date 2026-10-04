@@ -60,6 +60,10 @@ export interface Plan {
   targets: Targets;
   modes: Mode[];
   nextCheckup?: { date: ISODate; tests: string[] };
+  /** D17: «про себе» from onboarding. */
+  profile?: { heightCm?: number };
+  /** D17: set when onboarding was finished or skipped; until then it opens on start. */
+  onboardedAt?: ISODate;
 }
 
 export interface Nutrients {
@@ -101,6 +105,8 @@ export interface DayEntry {
   waterMl?: number; // water
   workoutId?: string; // workout
   prescriptionId?: string; // med
+  /** D18: which «Мій день» item this entry ticks (e.g. "med:p-vitd:08:30", "dinner", "mode:0"). */
+  checkKey?: string;
 }
 
 export interface Wellbeing {

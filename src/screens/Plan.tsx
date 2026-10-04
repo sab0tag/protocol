@@ -208,7 +208,7 @@ function ConstraintForm({ plan, item, onClose }: { plan: PlanRow; item?: Constra
   );
 }
 
-function TargetFields({ value, onChange }: { value: Partial<Targets>; onChange: (v: Partial<Targets>) => void }) {
+export function TargetFields({ value, onChange }: { value: Partial<Targets>; onChange: (v: Partial<Targets>) => void }) {
   const T = P.target;
   const n = (key: 'kcal' | 'proteinG' | 'fatG' | 'calciumMg' | 'waterMl' | 'weightGoalKg' | 'maxWeightLossKgPerWeek') => (
     <Field label={T[key]}><input inputMode="decimal" value={str(value[key])} onChange={(e) => onChange({ ...value, [key]: num(e.target.value) })} className={field} /></Field>
