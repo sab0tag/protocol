@@ -1,4 +1,5 @@
 import { format, parseISO } from 'date-fns';
+import { saved } from '../components/Toast';
 import { uk } from 'date-fns/locale';
 import { Activity, Check, ChevronLeft, ListChecks, ChevronRight, Droplet, NotebookPen, Pill, Plus, Dumbbell, Undo2, UtensilsCrossed, X, Pencil, Trash2, Sparkles } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -58,25 +59,29 @@ export function Day() {
   const checklist = entries && foods && workouts ? buildChecklist({ plan, date, entries, workouts, foods, now: new Date() }) : undefined;
 
   const setStatus = async (e: DayEntry, status: DayEntry['status']) => {
-    await db.entries.put({ ...e, status });
     setRowFor(null);
+    const say = status === 'done' ? t.toast.done : status === 'skipped' ? t.toast.skipped : t.toast.backToPlan;
+    await saved(db.entries.put({ ...e, status }), say(e.title), () => db.entries.put(e));
   };
   const addWater = async () => {
     const time = isToday ? format(new Date(), 'HH:mm') : '12:00';
-    await db.entries.add({ id: newId(), at: atLocal(date, time), kind: 'water', status: 'done', title: t.addKinds.water, waterMl: 250 });
+    const id = newId();
+    await saved(db.entries.add({ id, at: atLocal(date, time), kind: 'water', status: 'done', title: t.addKinds.water, waterMl: 250 }), t.toast.water(250), () => db.entries.delete(id));
   };
   const nextMed = checklist?.items.find((i) => i.kind === 'med' && !i.done);
   const tickMed = async () => {
     if (!nextMed) return;
     const time = isToday ? format(new Date(), 'HH:mm') : nextMed.time ?? '12:00';
-    await db.entries.add({ id: newId(), at: atLocal(date, time), kind: 'med', status: 'done', title: nextMed.title, checkKey: nextMed.key,
-      ...(nextMed.prescriptionId ? { prescriptionId: nextMed.prescriptionId } : {}) });
+    const id = newId();
+    await saved(db.entries.add({ id, at: atLocal(date, time), kind: 'med', status: 'done', title: nextMed.title, checkKey: nextMed.key,
+      ...(nextMed.prescriptionId ? { prescriptionId: nextMed.prescriptionId } : {}) }), t.toast.med(nextMed.title), () => db.entries.delete(id));
   };
   const prevDay = format(addDays(parseDay(date), -1), 'yyyy-MM-dd');
   const copyMeal = async (e: DayEntry) => {
     const time = timeOf(e.at);
     const future = date > todayISO() || (isToday && time > format(new Date(), 'HH:mm'));
-    await db.entries.add({ ...e, id: newId(), at: atLocal(date, time), status: future ? 'planned' : 'done' });
+    const id = newId();
+    await saved(db.entries.add({ ...e, id, at: atLocal(date, time), status: future ? 'planned' : 'done' }), t.toast.copied(e.title), () => db.entries.delete(id));
   };
 
   const edit = (e: DayEntry) => {
@@ -207,7 +212,7 @@ export function Day() {
           {rowFor.status !== 'skipped' && <SheetButton onClick={() => setStatus(rowFor, 'skipped')}><X size={20} />{t.rowActions.skipped}</SheetButton>}
           {rowFor.status !== 'planned' && <SheetButton onClick={() => setStatus(rowFor, 'planned')}><Undo2 size={20} />{t.rowActions.planned}</SheetButton>}
           <SheetButton onClick={() => edit(rowFor)}><Pencil size={20} />{t.rowActions.edit}</SheetButton>
-          <SheetButton tone="danger" onClick={async () => { await db.entries.delete(rowFor.id); setRowFor(null); }}>
+          <SheetButton tone="danger" onClick={async () => { const e = rowFor; setRowFor(null); await saved(db.entries.delete(e.id), t.toast.deleted(e.title), () => db.entries.put(e)); }}>
             <Trash2 size={20} />{t.rowActions.delete}</SheetButton>
         </Sheet>
       )}

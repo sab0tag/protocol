@@ -1,4 +1,5 @@
 import { format } from 'date-fns';
+import { saved } from '../components/Toast';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Camera, Plus, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -115,7 +116,7 @@ export function AddMeal() {
     if (what.length === 0) return;
     const entry: DayEntry = { id: id ?? newId(), at: atLocal(date, time), kind: 'meal', status: eaten ? 'done' : 'planned',
       title: title.trim() || defaultMealName(time), items: what };
-    await db.entries.put(entry);
+    if (!await saved(db.entries.put(entry).then(() => true), (entry.status === 'done' ? t.toast.meal : t.toast.planned)(entry.title))) return;
     useUi.getState().setDate(date);
     navigate('/');
   };
@@ -279,7 +280,7 @@ export function AddMeal() {
                     <span className="font-medium">{it.name}
                       {it.manual && it.grams > 0 && (
                         <button type="button" className="ml-2 text-sm font-normal text-accent underline"
-                          onClick={async () => { const f = foodFromLine(it, `u-${newId()}`); if (f) { await db.foods.put(f); setItem(i, { foodId: f.id, manual: undefined }); } }}>
+                          onClick={async () => { const f = foodFromLine(it, `u-${newId()}`); if (f && await saved(db.foods.put(f).then(() => true), t.toast.food(f.name))) setItem(i, { foodId: f.id, manual: undefined }); }}>
                           {t.meal.toBase}</button>
                       )}</span>
                     <button type="button" onClick={() => setItems((xs) => xs.filter((_, j) => j !== i))}
@@ -311,7 +312,7 @@ export function AddMeal() {
                   <input value={dishName} onChange={(e) => setDishName(e.target.value)} placeholder={t.meal.dishName}
                     className="block min-h-tap w-full rounded-xl border border-line bg-bg px-3" /></label>
                 <button type="button" disabled={!dishName.trim()}
-                  onClick={async () => { await db.recipes.put(recipeFrom(dishName, items, newId())); setDishSaved(t.meal.dishSaved(dishName.trim())); setDishName(null); }}
+                  onClick={async () => { await saved(db.recipes.put(recipeFrom(dishName, items, newId())), t.toast.dish(dishName.trim())); setDishSaved(t.meal.dishSaved(dishName.trim())); setDishName(null); }}
                   className="min-h-tap rounded-xl bg-accent px-3 font-medium text-surface disabled:opacity-40">{t.dishes.save}</button>
               </div>
             ))}
@@ -417,7 +418,7 @@ function FreeItemForm({ onAdd }: { onAdd: (item: MealItem) => void }) {
           const item: MealItem = { name: name.trim(), grams: num(grams),
             manual: { kcal: num(n.kcal), protein: num(n.protein), fat: num(n.fat), carbs: num(n.carbs), calciumMg: num(n.calciumMg ?? '') } };
           const food = save ? foodFromLine(item, `u-${newId()}`) : null;
-          if (food) await db.foods.put(food);
+          if (food) await saved(db.foods.put(food), t.toast.food(food.name));
           onAdd(food ? { foodId: food.id, name: food.name, grams: item.grams } : item);
         }}
         className="flex min-h-tap items-center gap-2 rounded-xl border border-accent px-3 text-accent disabled:opacity-40">

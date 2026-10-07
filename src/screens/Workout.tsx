@@ -1,4 +1,5 @@
 import { format, parseISO } from 'date-fns';
+import { saved as withToast } from '../components/Toast';
 import { uk } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, Info } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -37,12 +38,12 @@ export function Workout() {
 
   const setEx = (i: number, ex: WorkoutExercise) => setDraft({ ...draft, exercises: draft.exercises.map((x, j) => (j === i ? ex : x)) });
   const save = async () => {
-    await db.transaction('rw', db.workouts, db.entries, async () => {
+    await withToast(() => db.transaction('rw', db.workouts, db.entries, async () => {
       await db.workouts.put(draft);
       const entry = await db.entries.where('at').startsWith(date).filter((e) => e.workoutId === draft.id).first();
       await db.entries.put({ id: entry?.id ?? newId(), at: entry?.at ?? atLocal(date, date === todayISO() ? format(new Date(), 'HH:mm') : '18:00'),
         kind: 'workout', status: 'done', title: L.title, workoutId: draft.id, checkKey: 'workout' });
-    });
+    }), t.toast.workout);
     setSaved(true);
   };
 

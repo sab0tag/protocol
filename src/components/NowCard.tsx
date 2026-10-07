@@ -1,4 +1,5 @@
 import { format } from 'date-fns';
+import { saved } from './Toast';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { AlarmClock, Check, Pill, UtensilsCrossed, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -23,14 +24,15 @@ export function NowCard({ entries, plan, date }: { entries: DayEntry[]; plan: Pl
   if (!item) return null;
 
   const done = async () => {
-    if (item.entry) await db.entries.put({ ...item.entry, status: 'done' });
-    for (const m of item.meds ?? []) {
-      await db.entries.add({ id: newId(), at: atLocal(date, format(new Date(), 'HH:mm')), kind: 'med', status: 'done',
-        title: m.title, checkKey: m.key, prescriptionId: m.prescriptionId });
-    }
+    const e = item.entry;
+    if (e) { await saved(db.entries.put({ ...e, status: 'done' }), t.toast.done(e.title), () => db.entries.put(e)); return; }
+    const ids = (item.meds ?? []).map(() => newId());
+    await saved(db.entries.bulkAdd((item.meds ?? []).map((m, i) => ({ id: ids[i]!, at: atLocal(date, format(new Date(), 'HH:mm')), kind: 'med' as const,
+      status: 'done' as const, title: m.title, checkKey: m.key, prescriptionId: m.prescriptionId }))),
+    t.toast.med((item.meds ?? []).map((m) => m.title).join(', ')), () => db.entries.bulkDelete(ids));
   };
-  const later = () => snooze(item.key, Date.now() + SNOOZE_MIN * 60_000).then(() => setNow(new Date()));
-  const skip = async () => { if (item.entry) await db.entries.put({ ...item.entry, status: 'skipped' }); };
+  const later = () => saved(snooze(item.key, Date.now() + SNOOZE_MIN * 60_000), t.toast.later(SNOOZE_MIN)).then(() => setNow(new Date()));
+  const skip = async () => { const e = item.entry; if (e) await saved(db.entries.put({ ...e, status: 'skipped' }), t.toast.skipped(e.title), () => db.entries.put(e)); };
   const Icon = item.kind === 'meal' ? UtensilsCrossed : Pill;
   const detail = item.entry?.items?.map((x) => `${x.name} ${amountText(x)}`).join(', ') ?? item.meds?.map((m) => m.title).join(', ');
 

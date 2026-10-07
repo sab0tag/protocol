@@ -1,4 +1,5 @@
 import { addDays, format, parseISO } from 'date-fns';
+import { saved } from '../components/Toast';
 import { uk } from 'date-fns/locale';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { RefreshCw, ShoppingCart, Sparkles, Undo2, X } from 'lucide-react';
@@ -93,13 +94,21 @@ export function Menu() {
     setDrafts((ds) => ds.map((d, i) => (i === di ? { ...d, meals: d.meals.map((m, j) => (j === mi ? { ...m, time } : m)) } : d)));
 
   const accept = async () => {
-    await db.transaction('rw', db.entries, async () => {
+    const removed = all.filter((e) => drafts.some((d) => dateOf(e.at) === d.date) && e.menu && e.status === 'planned');
+    const added: string[] = [];
+    const ok = await saved(() => db.transaction('rw', db.entries, async () => {
       for (const d of drafts) {
         const { remove, add } = acceptPlan(d, all.filter((e) => dateOf(e.at) === d.date), newId, atLocal);
         await db.entries.bulkDelete(remove);
         await db.entries.bulkPut(add);
+        added.push(...add.map((e) => e.id));
       }
-    });
+      return true;
+    }), t.toast.menu(drafts.length), () => db.transaction('rw', db.entries, async () => {
+      await db.entries.bulkDelete(added);
+      await db.entries.bulkPut(removed);
+    }));
+    if (!ok) return;
     useUi.getState().setDate(drafts[0]!.date);
     navigate('/');
   };

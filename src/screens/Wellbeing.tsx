@@ -1,4 +1,5 @@
 import { format, parseISO } from 'date-fns';
+import { saved } from '../components/Toast';
 import { uk } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { useState } from 'react';
@@ -18,7 +19,7 @@ export function Wellbeing() {
   const [own, setOwn] = useState('');
   if (rec === undefined) return null;
   const w: W = rec ?? { date, symptoms: [] };
-  const put = (patch: Partial<W>) => db.wellbeing.put({ ...w, ...patch, date });
+  const put = (patch: Partial<W>) => saved(db.wellbeing.put({ ...w, ...patch, date }), t.toast.wellbeing);
   const chips = [...new Set([...L.defaults, ...w.symptoms])];
   const toggle = (s: string) => put({ symptoms: w.symptoms.includes(s) ? w.symptoms.filter((x) => x !== s) : [...w.symptoms, s] });
 
@@ -67,7 +68,7 @@ export function Wellbeing() {
       </fieldset>
 
       <label className="block rounded-2xl border border-line bg-surface p-3"><span className="font-medium">{L.note}</span>
-        <textarea defaultValue={w.note ?? ''} key={date} rows={3} onBlur={(e) => void put({ note: e.target.value.trim() || undefined })}
+        <textarea defaultValue={w.note ?? ''} key={date} rows={3} onBlur={(e) => { const note = e.target.value.trim() || undefined; if (note !== w.note) void put({ note }); }}
           className="mt-2 block w-full rounded-xl border border-line bg-bg p-3" /></label>
     </section>
   );

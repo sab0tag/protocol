@@ -2,6 +2,7 @@ import { CalendarDays, ClipboardList, LineChart, MoreHorizontal, UtensilsCrossed
 import type { ReactNode } from 'react';
 import { NavLink } from 'react-router-dom';
 import { t } from '../i18n/uk';
+import { Toaster } from './Toast';
 
 const TABS = [
   { to: '/', label: t.nav.day, Icon: CalendarDays, end: true },
@@ -30,6 +31,7 @@ export function Layout({ children }: { children: ReactNode }) {
           ))}
         </ul>
       </nav>
+      <Toaster />
       <main className="mx-auto w-full max-w-2xl px-4 pb-28 pt-safe md:pb-10 print:max-w-none print:pb-0">{children}</main>
     </div>
   );

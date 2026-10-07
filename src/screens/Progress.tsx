@@ -1,4 +1,5 @@
 import { format, parseISO } from 'date-fns';
+import { saved } from '../components/Toast';
 import { AlertTriangle, FileText, Plus } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -124,7 +125,7 @@ function AddWeight() {
   const [value, setValue] = useState('');
   const save = async () => {
     const n = Number(value.replace(',', '.'));
-    if (n > 0) { await db.weights.put({ date, kg: Math.round(n * 10) / 10 }); setValue(''); }
+    if (n > 0) { const v = Math.round(n * 10) / 10; await saved(db.weights.put({ date, kg: v }), t.toast.weight(kg(v))); setValue(''); }
   };
   return (
     <form className="mt-3 grid grid-cols-[1fr_1fr_auto] items-end gap-2" onSubmit={(e) => { e.preventDefault(); void save(); }}>
@@ -143,7 +144,7 @@ function Labs({ rows }: { rows: ReturnType<typeof labRows> }) {
   const save = async () => {
     const value = Number(lab.value.replace(',', '.'));
     if (!lab.name.trim() || Number.isNaN(value)) return;
-    await db.labs.put({ date: lab.date, name: lab.name.trim(), value, unit: lab.unit.trim(), ...(lab.target.trim() ? { target: lab.target.trim() } : {}) });
+    await saved(db.labs.put({ date: lab.date, name: lab.name.trim(), value, unit: lab.unit.trim(), ...(lab.target.trim() ? { target: lab.target.trim() } : {}) }), t.toast.lab(lab.name.trim()));
     setLab({ ...lab, value: '', target: '' }); setOpen(false);
   };
   return (

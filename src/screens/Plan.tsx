@@ -1,4 +1,5 @@
 import { format, parseISO } from 'date-fns';
+import { saved } from '../components/Toast';
 import { uk } from 'date-fns/locale';
 import { Pencil, Plus } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
@@ -21,7 +22,7 @@ type Editing =
   | { what: 'targets' }
   | { what: 'checkup' };
 
-const save = (patch: Partial<PlanT>) => db.plan.update('main', patch);
+const save = (patch: Partial<PlanT>) => saved(db.plan.update('main', patch), t.toast.plan);
 const dmy = (d: string) => format(parseISO(d), 'd MMMM', { locale: uk });
 
 /** «План лікаря»: what the doctor said, as the user entered it. Nothing here is decided by the app. */

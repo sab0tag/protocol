@@ -1,4 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks';
+import { toast } from '../components/Toast';
 import { BellRing } from 'lucide-react';
 import { useState } from 'react';
 import { db } from '../data/db';
@@ -33,6 +34,7 @@ export function Reminders() {
   const change = (patch: Partial<ReminderSettings>) => run(async () => {
     await db.meta.update('sync', { reminders: { ...s, ...patch } });
     if (on && keys) await pushSchedule(keys, true);
+    toast(t.toast.settings);
   });
 
   return (

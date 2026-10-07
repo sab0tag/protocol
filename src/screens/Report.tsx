@@ -1,4 +1,5 @@
 import { addDays, format, parseISO } from 'date-fns';
+import { saved } from '../components/Toast';
 import { uk } from 'date-fns/locale';
 import { Plus, Printer, Share2, Trash2 } from 'lucide-react';
 import { useState } from 'react';
@@ -31,7 +32,7 @@ export function Report() {
   const from = range.from ?? plan.lastVisit ?? first ?? format(addDays(new Date(), -13), 'yyyy-MM-dd');
   const r = buildReport({ from, to: range.to, plan, entries, workouts, wellbeing, weights, foods });
   const questions = plan.questions ?? [];
-  const setQuestions = (q: string[]) => db.plan.update('main', { questions: q });
+  const setQuestions = (q: string[], say: string = t.toast.saved) => saved(db.plan.update('main', { questions: q }), say);
 
   const share = async () => {
     const text = reportText(r, dmy);
@@ -73,11 +74,11 @@ export function Report() {
         <ol className="list-decimal space-y-1 pl-5">
           {questions.map((q, i) => (
             <li key={i}><span className="flex items-start justify-between gap-2"><span className="py-2">{q}</span>
-              <button type="button" onClick={() => void setQuestions(questions.filter((_, j) => j !== i))} aria-label={`${t.plan.delete}: ${q}`}
+              <button type="button" onClick={() => void saved(db.plan.update('main', { questions: questions.filter((_, j) => j !== i) }), t.toast.deleted(q), () => db.plan.update('main', { questions }))} aria-label={`${t.plan.delete}: ${q}`}
                 className="flex min-h-tap min-w-tap items-center justify-center text-muted print:hidden"><Trash2 size={18} /></button></span></li>
           ))}
         </ol>
-        <form className="mt-2 flex gap-2 print:hidden" onSubmit={(e) => { e.preventDefault(); const q = question.trim(); if (q) void setQuestions([...questions, q]); setQuestion(''); }}>
+        <form className="mt-2 flex gap-2 print:hidden" onSubmit={(e) => { e.preventDefault(); const q = question.trim(); if (q) void setQuestions([...questions, q], t.toast.question); setQuestion(''); }}>
           <label className="flex-1"><span className="sr-only">{L.addQuestion}</span>
             <input value={question} onChange={(e) => setQuestion(e.target.value)} placeholder={L.questionPh} className="block min-h-tap w-full rounded-xl border border-line bg-bg px-3" /></label>
           <button type="submit" className="flex min-h-tap items-center gap-1 rounded-xl border border-accent px-3 text-accent"><Plus size={18} />{t.well.add}</button>
@@ -89,7 +90,7 @@ export function Report() {
         <button type="button" onClick={() => void share()} className="flex min-h-tap flex-1 items-center justify-center gap-2 rounded-xl border border-accent px-4 font-medium text-accent"><Share2 size={18} />{shared || L.share}</button>
       </div>
       <div className="print:hidden">
-        <button type="button" onClick={() => { void db.plan.update('main', { lastVisit: today }); setRange({ to: today }); }}
+        <button type="button" onClick={() => { void saved(db.plan.update('main', { lastVisit: today }), t.toast.visit); setRange({ to: today }); }}
           className="min-h-tap text-accent underline">{L.visited}</button>
         {plan.lastVisit && <p className="text-sm text-muted">{L.visitedNote(dmy(plan.lastVisit))}</p>}
       </div>

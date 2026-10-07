@@ -1,4 +1,5 @@
 import { format, parseISO } from 'date-fns';
+import { saved } from '../components/Toast';
 import { uk } from 'date-fns/locale';
 import { Activity, Check, ChevronLeft, ChevronRight, Circle, Dumbbell, Info } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -29,14 +30,17 @@ export function MyDay() {
     if (item.kind === 'workout') return navigate('/workout');
     if (!item.tappable) return;
     const tick = entries.find((e) => e.checkKey === item.key && e.status === 'done');
-    if (tick) return db.entries.delete(tick.id);
-    await db.entries.add({
-      id: newId(), at: stamp(item.kind === 'dinner' ? plan?.targets.lastMealBy : item.time), status: 'done', checkKey: item.key,
+    if (tick) return saved(db.entries.delete(tick.id), t.toast.medUndone(item.title), () => db.entries.put(tick));
+    const id = newId();
+    await saved(db.entries.add({
+      at: stamp(item.kind === 'dinner' ? plan?.targets.lastMealBy : item.time), status: 'done', checkKey: item.key,
       ...(item.kind === 'med' ? { kind: 'med' as const, title: item.title, ...(item.prescriptionId ? { prescriptionId: item.prescriptionId } : {}) }
         : { kind: 'note' as const, title: item.title }),
-    });
+      id,
+    }), t.toast.ticked(item.title), () => db.entries.delete(id));
   };
-  const addWater = () => db.entries.add({ id: newId(), at: stamp(), kind: 'water', status: 'done', title: t.addKinds.water, waterMl: WATER_SEGMENT_ML });
+  const addWater = () => { const id = newId(); return saved(db.entries.add({ id, at: stamp(), kind: 'water', status: 'done', title: t.addKinds.water, waterMl: WATER_SEGMENT_ML }),
+    t.toast.water(WATER_SEGMENT_ML), () => db.entries.delete(id)); };
 
   return (
     <section className="pt-4">

@@ -1,4 +1,5 @@
 import { Plus, Trash2 } from 'lucide-react';
+import { toast } from '../components/Toast';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { db, type PlanRow } from '../data/db';
@@ -52,6 +53,7 @@ function Steps({ plan }: { plan: PlanRow }) {
       });
     }
     useUi.getState().setOnboarded();
+    if (!skip) toast(t.toast.plan);
     navigate('/', { replace: true });
   };
 

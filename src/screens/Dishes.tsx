@@ -1,4 +1,5 @@
 import { Trash2 } from 'lucide-react';
+import { saved } from '../components/Toast';
 import { useState } from 'react';
 import { db } from '../data/db';
 import { useFoods, useRecipes } from '../data/queries';
@@ -68,10 +69,10 @@ function FoodCard({ food }: { food: Food }) {
         ))}
       </div>
       <div className="flex gap-2">
-        <button type="button" disabled={!changed || !f.name.trim()} onClick={() => void db.foods.put({ ...f, name: f.name.trim() })}
+        <button type="button" disabled={!changed || !f.name.trim()} onClick={() => void saved(db.foods.put({ ...f, name: f.name.trim() }), t.toast.saved)}
           className="min-h-tap rounded-xl bg-accent px-3 font-medium text-surface disabled:opacity-40">{L.save}</button>
         {asking
-          ? <button type="button" onClick={() => void removeFood(food)} className="min-h-tap rounded-xl bg-warn px-3 font-medium text-surface">{L.confirmDelete(food.name)}</button>
+          ? <button type="button" onClick={() => void saved(removeFood(food), t.toast.deleted(food.name))} className="min-h-tap rounded-xl bg-warn px-3 font-medium text-surface">{L.confirmDelete(food.name)}</button>
           : <button type="button" onClick={() => setAsking(true)} aria-label={`${L.delete}: ${food.name}`}
               className="flex min-h-tap min-w-tap items-center justify-center rounded-xl border border-line text-warn"><Trash2 size={18} /></button>}
       </div>
@@ -90,7 +91,7 @@ function Card({ recipe, foods }: { recipe: Recipe; foods: Parameters<typeof meal
       ) : (
         <div className="flex items-end gap-2">
           <label className="flex-1"><span className="text-sm text-muted">{L.rename}</span>
-            <input value={name} onChange={(e) => setName(e.target.value)} onBlur={() => name.trim() && void db.recipes.put({ ...recipe, name: name.trim() })}
+            <input value={name} onChange={(e) => setName(e.target.value)} onBlur={() => name.trim() && name.trim() !== recipe.name && void saved(db.recipes.put({ ...recipe, name: name.trim() }), t.toast.saved)}
               className="mt-1 block min-h-tap w-full rounded-xl border border-line bg-bg px-3 font-semibold" /></label>
           <button type="button" onClick={() => setAsking(true)} aria-label={`${L.delete}: ${recipe.name}`}
             className="flex min-h-tap min-w-tap items-center justify-center text-warn"><Trash2 size={18} /></button>
@@ -102,7 +103,7 @@ function Card({ recipe, foods }: { recipe: Recipe; foods: Parameters<typeof meal
         <div role="alertdialog" className="mt-2 rounded-xl bg-warn-bg p-2 text-sm text-warn">
           <p className="mb-2">{L.confirmDelete(recipe.name)}</p>
           <div className="flex gap-2">
-            <button type="button" onClick={() => void db.recipes.delete(recipe.id)} className="min-h-tap rounded-xl bg-warn px-3 font-medium text-surface">{L.delete}</button>
+            <button type="button" onClick={() => void saved(db.recipes.delete(recipe.id), t.toast.deleted(recipe.name), () => db.recipes.put(recipe))} className="min-h-tap rounded-xl bg-warn px-3 font-medium text-surface">{L.delete}</button>
             <button type="button" onClick={() => setAsking(false)} className="min-h-tap rounded-xl border border-line bg-surface px-3 text-ink">{t.backup.no}</button>
           </div>
         </div>

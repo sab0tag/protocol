@@ -1,4 +1,5 @@
 import { format } from 'date-fns';
+import { saved } from '../components/Toast';
 import { useState } from 'react';
 import { Sheet } from '../components/Sheet';
 import { db } from '../data/db';
@@ -22,8 +23,9 @@ export function SimpleEntrySheet({ kind, entry, date, onClose }: {
       status: entry?.status === 'skipped' && !done ? 'skipped' : done ? 'done' : 'planned',
       ...(waterMl !== undefined ? { waterMl } : {}),
     };
-    await db.entries.put(row);
     onClose();
+    await saved(db.entries.put(row), kind === 'water' && row.waterMl ? t.toast.water(row.waterMl)
+      : kind === 'med' && row.status === 'done' ? t.toast.med(row.title) : t.toast.entry(row.title));
   };
 
   return (
