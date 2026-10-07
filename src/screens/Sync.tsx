@@ -1,4 +1,5 @@
 import { format } from 'date-fns';
+import { Loading } from '../components/Recovery';
 import { Copy, RefreshCw, Share2 } from 'lucide-react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import qrcode from 'qrcode-generator';
@@ -22,7 +23,7 @@ const errorText = (e: unknown) => {
 /** «Синхронізація» (SPEC.md D31): turn on with a new code, join with a code from another device, see the state. */
 export function Sync() {
   const meta = useLiveQuery(async () => (await db.meta.get('sync')) ?? null, []);
-  if (meta === undefined) return null;
+  if (meta === undefined) return <Loading />;
   return (
     <section className="space-y-4 pt-6">
       <h1 className="text-2xl font-semibold">{L.title}</h1>

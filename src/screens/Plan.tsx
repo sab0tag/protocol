@@ -1,4 +1,5 @@
 import { format, parseISO } from 'date-fns';
+import { Loading } from '../components/Recovery';
 import { saved } from '../components/Toast';
 import { uk } from 'date-fns/locale';
 import { Pencil, Plus } from 'lucide-react';
@@ -29,7 +30,7 @@ const dmy = (d: string) => format(parseISO(d), 'd MMMM', { locale: uk });
 export function Plan() {
   const plan = usePlan();
   const [editing, setEditing] = useState<Editing | null>(null);
-  if (!plan) return null;
+  if (!plan) return <Loading />;
   const tg = plan.targets;
 
   return (

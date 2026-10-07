@@ -1,4 +1,5 @@
 import { Trash2 } from 'lucide-react';
+import { Loading } from '../components/Recovery';
 import { saved } from '../components/Toast';
 import { useState } from 'react';
 import { db } from '../data/db';
@@ -16,7 +17,7 @@ const L = t.dishes;
 export function Dishes() {
   const recipes = useRecipes();
   const foods = useFoods();
-  if (!recipes || !foods) return null;
+  if (!recipes || !foods) return <Loading />;
   const mine = [...foods.values()].filter((f) => f.custom).sort((a, b) => a.name.localeCompare(b.name, 'uk'));
   const own = recipes.filter((r) => !r.builtIn), builtIn = recipes.filter((r) => r.builtIn);
   return (

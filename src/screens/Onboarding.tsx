@@ -1,4 +1,5 @@
 import { Plus, Trash2 } from 'lucide-react';
+import { Loading } from '../components/Recovery';
 import { toast } from '../components/Toast';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -20,7 +21,7 @@ const EXAMPLE = 'Приклад';
  *  the example plan's items are not pre-ticked; every item is confirmed by a tick or typed in. */
 export function Onboarding() {
   const plan = usePlan();
-  if (!plan) return null;
+  if (!plan) return <Loading />;
   return <Steps plan={plan} />;
 }
 

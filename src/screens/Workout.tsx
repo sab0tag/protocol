@@ -1,4 +1,5 @@
 import { format, parseISO } from 'date-fns';
+import { Loading } from '../components/Recovery';
 import { saved as withToast } from '../components/Toast';
 import { uk } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, Info } from 'lucide-react';
@@ -32,7 +33,7 @@ export function Workout() {
     setDraft(existing ?? { id: newId(), date, durationMin: 30, equipment: EQUIPMENT, exercises: programme(week).map(blankExercise) });
   }, [date, workouts === undefined]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (!workouts || !draft) return null;
+  if (!workouts || !draft) return <Loading />;
   const schedule = workoutDay(plan, workouts.filter((w) => w.date !== date), date);
   const templates = programme(week);
 

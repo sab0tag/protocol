@@ -1,4 +1,5 @@
 import { format, parseISO } from 'date-fns';
+import { Loading } from '../components/Recovery';
 import { saved } from '../components/Toast';
 import { uk } from 'date-fns/locale';
 import { Activity, Check, ChevronLeft, ChevronRight, Circle, Dumbbell, Info } from 'lucide-react';
@@ -20,7 +21,7 @@ export function MyDay() {
   const foods = useFoods();
   const workouts = useWorkouts();
   const navigate = useNavigate();
-  if (!entries || !foods || !workouts) return null;
+  if (!entries || !foods || !workouts) return <Loading />;
 
   const isToday = date === todayISO();
   const c = buildChecklist({ plan, date, entries, workouts, foods, now: new Date() });

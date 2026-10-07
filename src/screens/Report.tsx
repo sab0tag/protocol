@@ -1,4 +1,5 @@
 import { addDays, format, parseISO } from 'date-fns';
+import { Loading } from '../components/Recovery';
 import { saved } from '../components/Toast';
 import { uk } from 'date-fns/locale';
 import { Plus, Printer, Share2, Trash2 } from 'lucide-react';
@@ -26,7 +27,7 @@ export function Report() {
   const [range, setRange] = useState<{ from?: string; to: string }>({ to: today });
   const [question, setQuestion] = useState('');
   const [shared, setShared] = useState('');
-  if (!plan || !entries || !wellbeing || !workouts || !weights || !foods) return null;
+  if (!plan || !entries || !wellbeing || !workouts || !weights || !foods) return <Loading />;
 
   const first = [entries[0] && dateOf(entries[0].at), weights[0]?.date].filter(Boolean).sort()[0];
   const from = range.from ?? plan.lastVisit ?? first ?? format(addDays(new Date(), -13), 'yyyy-MM-dd');

@@ -1,4 +1,5 @@
 import { addDays, format, parseISO } from 'date-fns';
+import { Loading } from '../components/Recovery';
 import { saved } from '../components/Toast';
 import { uk } from 'date-fns/locale';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -45,7 +46,7 @@ export function Menu() {
   const [drafts, setDrafts] = useState<MenuDraft[]>([]);
   const [consent, setConsent] = useState(false);
 
-  if (!plan || !foods || !recipes || !all || meta === undefined) return null;
+  if (!plan || !foods || !recipes || !all || meta === undefined) return <Loading />;
   const keys = currentKeys();
   const recentFor = (d: string) => all.filter((e) => dateOf(e.at) < d && dateOf(e.at) >= plus(d, -7));
   const build = (result: MenuResult, d: string, scale = true) =>

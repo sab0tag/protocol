@@ -1,4 +1,5 @@
 import { format, parseISO } from 'date-fns';
+import { Loading } from '../components/Recovery';
 import { saved } from '../components/Toast';
 import { uk } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
@@ -17,7 +18,7 @@ export function Wellbeing() {
   const { date, shift } = useUi();
   const rec = useWellbeing(date);
   const [own, setOwn] = useState('');
-  if (rec === undefined) return null;
+  if (rec === undefined) return <Loading />;
   const w: W = rec ?? { date, symptoms: [] };
   const put = (patch: Partial<W>) => saved(db.wellbeing.put({ ...w, ...patch, date }), t.toast.wellbeing);
   const chips = [...new Set([...L.defaults, ...w.symptoms])];

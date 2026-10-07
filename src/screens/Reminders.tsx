@@ -1,4 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks';
+import { Loading } from '../components/Recovery';
 import { toast } from '../components/Toast';
 import { BellRing } from 'lucide-react';
 import { useState } from 'react';
@@ -22,7 +23,7 @@ export function Reminders() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
-  if (meta === undefined) return null;
+  if (meta === undefined) return <Loading />;
   const keys = currentKeys();
   const s: ReminderSettings & { on: boolean } = { ...DEFAULT_REMINDERS, on: false, ...meta?.reminders };
   const on = s.on && pushSupported() && Notification.permission === 'granted';

@@ -1,4 +1,5 @@
 import { addDays, format } from 'date-fns';
+import { Loading } from '../components/Recovery';
 import { Copy, Share2 } from 'lucide-react';
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
@@ -24,7 +25,7 @@ export function Shopping() {
   const [to, setTo] = useState(() => params.get('to') ?? format(addDays(new Date(), 3), 'yyyy-MM-dd'));
   const [ticks, setTicks] = useState(loadTicks);
   const [copied, setCopied] = useState(false);
-  if (!all || !foods) return null;
+  if (!all || !foods) return <Loading />;
   const rows = shoppingList(all, foods, from, to);
   const toggle = (key: string) => setTicks((s) => {
     const n = new Set(s);

@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { HashRouter, Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom';
 import { Layout } from '../components/Layout';
+import { ErrorBoundary } from '../components/Recovery';
 import { usePlan } from '../data/queries';
 import { useUi } from '../store/ui';
 import { AddMeal } from '../screens/AddMeal';
@@ -34,12 +35,18 @@ function OnboardingGate({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
+/** D42: a new screen gets a fresh error boundary — leaving a broken screen clears its error. */
+function ScreenBoundary({ children }: { children: ReactNode }) {
+  return <ErrorBoundary key={useLocation().pathname}>{children}</ErrorBoundary>;
+}
+
 // Hash routing works on any static host without rewrite rules.
 export function App() {
   return (
     <HashRouter>
       <Layout>
         <OnboardingGate>
+          <ScreenBoundary>
           <Routes>
             <Route path="/" element={<Day />} />
             <Route path="/meal/new" element={<MealRoute />} />
@@ -59,6 +66,7 @@ export function App() {
             <Route path="/shopping" element={<Shopping />} />
             <Route path="*" element={<Day />} />
           </Routes>
+          </ScreenBoundary>
         </OnboardingGate>
       </Layout>
     </HashRouter>

@@ -1,4 +1,5 @@
 import { format, parseISO } from 'date-fns';
+import { Loading } from '../components/Recovery';
 import { saved } from '../components/Toast';
 import { AlertTriangle, FileText, Plus } from 'lucide-react';
 import { useState } from 'react';
@@ -27,7 +28,7 @@ export function Progress() {
   const wellbeing = useAllWellbeing();
   const workouts = useWorkouts();
   const foods = useFoods();
-  if (!weights || !labs || !entries || !wellbeing || !workouts || !foods) return null;
+  if (!weights || !labs || !entries || !wellbeing || !workouts || !foods) return <Loading />;
 
   const max = plan?.targets.maxWeightLossKgPerWeek;
   const weeks = weeklyWeights(weights, max);

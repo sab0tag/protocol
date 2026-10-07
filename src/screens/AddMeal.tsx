@@ -1,4 +1,5 @@
 import { format } from 'date-fns';
+import { Loading } from '../components/Recovery';
 import { saved } from '../components/Toast';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Camera, Plus, Trash2 } from 'lucide-react';
@@ -74,7 +75,7 @@ export function AddMeal() {
   const photoInput = useRef<HTMLInputElement>(null);
   const syncMeta = useLiveQuery(async () => (await db.meta.get('sync')) ?? null, []);
 
-  if (!loaded || !foods) return null;
+  if (!loaded || !foods) return <Loading />;
 
   // D32: a photo of the plate → a «Розпізнано» draft to confirm
   const pickPhoto = () => {
