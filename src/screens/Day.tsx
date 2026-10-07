@@ -1,4 +1,5 @@
 import { format, parseISO } from 'date-fns';
+import { EntryPreview } from '../components/EntryPreview';
 import { saved } from '../components/Toast';
 import { uk } from 'date-fns/locale';
 import { Activity, Check, ChevronLeft, ListChecks, ChevronRight, Droplet, NotebookPen, Pill, Plus, Dumbbell, Undo2, UtensilsCrossed, X, Pencil, Trash2, Sparkles } from 'lucide-react';
@@ -218,6 +219,7 @@ export function Day() {
 
       {rowFor && (
         <Sheet title={rowFor.title} onClose={() => setRowFor(null)}>
+          <EntryPreview entry={rowFor} foods={foods} />
           {rowFor.status !== 'done' && <SheetButton tone="accent" onClick={() => setStatus(rowFor, 'done')}><Check size={20} />{t.rowActions.done}</SheetButton>}
           {rowFor.status !== 'skipped' && <SheetButton onClick={() => setStatus(rowFor, 'skipped')}><X size={20} />{t.rowActions.skipped}</SheetButton>}
           {rowFor.status !== 'planned' && <SheetButton onClick={() => setStatus(rowFor, 'planned')}><Undo2 size={20} />{t.rowActions.planned}</SheetButton>}

@@ -6,13 +6,13 @@ export function Sheet({ title, onClose, children }: { title: string; onClose: ()
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
     document.addEventListener('keydown', onKey);
-    panel.current?.querySelector<HTMLElement>('button, input, select, textarea')?.focus();
+    panel.current?.querySelector<HTMLElement>('button:not(summary *), input, select, textarea')?.focus({ preventScroll: true });
     return () => document.removeEventListener('keydown', onKey);
   }, [onClose]);
   return (
     <div className="fixed inset-0 z-30 flex items-end justify-center bg-black/40 md:items-center" onClick={onClose}>
       <div ref={panel} role="dialog" aria-modal="true" aria-label={title}
-        className="w-full max-w-md rounded-t-2xl bg-surface p-4 pb-safe shadow-xl md:rounded-2xl"
+        className="max-h-[88dvh] w-full max-w-md overflow-y-auto rounded-t-2xl bg-surface p-4 pb-safe shadow-xl md:rounded-2xl"
         onClick={(e) => e.stopPropagation()}>
         <h2 className="mb-3 text-lg font-semibold">{title}</h2>
         {children}

@@ -34,6 +34,14 @@ test('a 2-day menu (model stubbed): checked by the plan, accepted with undo, the
   await expect(page.getByText('Разом за день')).toHaveCount(2);
   await page.getByRole('button', { name: /^Прийняти в план/ }).click();
   await expect(toast(page)).toContainText('Меню на 2 дні в плані');
+  // D46: a tap on a planned meal shows what is in it, above the actions
+  await page.getByRole('button', { name: /^Обід, Заплановано/ }).click();
+  const sheet = page.getByRole('dialog', { name: 'Обід' });
+  await expect(sheet.getByText(/Гречка з куркою|Вінегрет/).first()).toBeVisible();
+  await expect(sheet.getByText(/\d+ ккал · Б/)).toBeVisible();
+  await expect(sheet.getByRole('button', { name: 'Виконано' })).toBeVisible();
+  await page.screenshot({ path: 'test-results/meal-preview.png' });
+  await page.keyboard.press('Escape');
   const tomorrow = ymd(new Date(Date.now() + 86_400_000));
   await page.goto(`./#/shopping?from=${tomorrow}&to=${ymd(new Date(Date.now() + 2 * 86_400_000))}`);
   await expect(page.getByText('Яйце куряче')).toBeVisible();
