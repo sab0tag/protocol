@@ -25,6 +25,7 @@ export interface SyncMeta {
   seq: number; // the last server change pulled
   lastAt?: number;
   photoConsent?: boolean;
+  menuConsent?: boolean; // D33
 }
 
 export class ProtocolDB extends Dexie {

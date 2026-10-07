@@ -1,4 +1,5 @@
 // The Протокол API over fetch (server/: SPEC.md D31, D32).
+import type { MenuResult } from '../domain/menu';
 import type { PhotoResult } from '../domain/photo';
 import type { Keys } from './crypto';
 import type { Api, RemoteRecord } from './engine';
@@ -35,3 +36,10 @@ export function vaultApi(keys: Keys): Api {
 
 export const photo = (keys: Keys, image: string, foods: string[], dishes: string[]) =>
   call<PhotoResult>(keys, 'POST', '/photo', { image, foods, dishes });
+
+export interface MenuBody {
+  date: string; targets: Record<string, number | string>; rules: string[];
+  foods: string[]; dishes: string[]; usual: string[]; wish: string;
+}
+
+export const menu = (keys: Keys, body: MenuBody) => call<MenuResult>(keys, 'POST', '/menu', body);

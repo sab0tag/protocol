@@ -4,6 +4,7 @@ import { createHash, timingSafeEqual } from 'node:crypto';
 import { Hono, type Context } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { cors } from 'hono/cors';
+import type { MenuMaker } from './menu.ts';
 import type { Recognizer } from './photo.ts';
 import type { Store } from './store.ts';
 
@@ -12,13 +13,15 @@ export interface Limits {
   vaultBytes: number;
   photosPerVaultPerDay: number;
   photosPerDay: number;
+  menusPerVaultPerDay: number;
 }
 
-export const DEFAULT_LIMITS: Limits = { vaultsPerIpPerDay: 5, vaultBytes: 50_000_000, photosPerVaultPerDay: 30, photosPerDay: 150 };
+export const DEFAULT_LIMITS: Limits = { vaultsPerIpPerDay: 5, vaultBytes: 50_000_000, photosPerVaultPerDay: 30, photosPerDay: 150, menusPerVaultPerDay: 15 };
 
 export interface Deps {
   store: Store;
   recognize?: Recognizer; // absent = photos are off (no API key)
+  menu?: MenuMaker; // the same
   origins: string[];
   limits?: Limits;
   now?: () => Date;
@@ -33,13 +36,13 @@ const MAX_IMAGE = 2_000_000; // decoded bytes; the app sends ~1280 px JPEG of 15
 const hash = (s: string) => createHash('sha256').update(s).digest('hex');
 
 export function createApp(deps: Deps) {
-  const { store, recognize, origins } = deps;
+  const { store, recognize, menu, origins } = deps;
   const limits = deps.limits ?? DEFAULT_LIMITS;
   const now = deps.now ?? (() => new Date());
   const app = new Hono();
 
   app.use('*', cors({ origin: origins, allowMethods: ['GET', 'POST', 'PUT'], allowHeaders: ['Authorization', 'Content-Type'], maxAge: 86400 }));
-  app.get('/health', (c) => c.json({ ok: true, photo: !!recognize }));
+  app.get('/health', (c) => c.json({ ok: true, photo: !!recognize, menu: !!menu }));
 
   const token = (c: Context) => c.req.header('Authorization')?.match(/^Bearer ([A-Za-z0-9_-]{40,64})$/)?.[1];
   const ip = (c: Context) => c.req.header('X-Forwarded-For')?.split(',')[0]?.trim() || 'unknown';
@@ -114,6 +117,34 @@ export function createApp(deps: Deps) {
       return c.json(result);
     } catch (e) {
       console.error('photo failed:', (e as Error).message);
+      return c.json({ error: 'upstream' }, 502);
+    }
+  });
+
+  app.post('/v1/vaults/:id/menu', bodyLimit({ maxSize: 200_000, onError: (c) => c.json({ error: 'too_large' }, 413) }), async (c) => {
+    const id = authed(c);
+    if (typeof id !== 'string') return id;
+    if (!menu) return c.json({ error: 'ai_off' }, 503);
+    const b = await c.req.json().catch(() => null) as Record<string, unknown> | null;
+    const list = (x: unknown, max = 400, len = 300) =>
+      (Array.isArray(x) ? x.filter((s): s is string => typeof s === 'string' && s.trim() !== '').map((s) => s.slice(0, len)).slice(0, max) : []);
+    const foods = list(b?.foods, 400, 80);
+    const date = typeof b?.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(b.date) ? b.date : null;
+    if (!date || foods.length === 0) return c.json({ error: 'bad_request' }, 400);
+    const targets: Record<string, number | string> = {};
+    if (b?.targets && typeof b.targets === 'object') {
+      for (const [k, v] of Object.entries(b.targets).slice(0, 20)) {
+        if (/^[a-zA-Z]{1,30}$/.test(k) && (typeof v === 'number' || (typeof v === 'string' && /^\d{2}:\d{2}$/.test(v)))) targets[k] = v;
+      }
+    }
+    if (!store.take(`menu:${id}`, limits.menusPerVaultPerDay, now())) return c.json({ error: 'too_many' }, 429);
+    try {
+      const result = await menu({ date, targets, rules: list(b?.rules, 30), foods, dishes: list(b?.dishes, 100, 80),
+        usual: list(b?.usual, 50, 80), wish: typeof b?.wish === 'string' ? b.wish.slice(0, 300) : '' });
+      if (result === 'refused') return c.json({ error: 'refused' }, 422);
+      return c.json(result);
+    } catch (e) {
+      console.error('menu failed:', (e as Error).message);
       return c.json({ error: 'upstream' }, 502);
     }
   });

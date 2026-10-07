@@ -123,3 +123,30 @@ describe('cors', () => {
     expect(no.headers.get('Access-Control-Allow-Origin')).toBeNull();
   });
 });
+
+describe('menu', () => {
+  const MENU = { meals: [{ title: 'Сніданок' as const, time: '08:00', items: [{ name: 'Яйце варене', grams: 100, count: 2 }] }], tips: ['Зваріть яйця звечора'] };
+
+  it('passes cleaned input to the maker and returns its menu', async () => {
+    const store = new Store(':memory:');
+    let seen: unknown;
+    const app = createApp({ store, origins: [], menu: async (input) => { seen = input; return MENU; } });
+    const call = (body: unknown) => app.request(`/v1/vaults/${VAULT}/menu`, { method: 'POST',
+      headers: { Authorization: `Bearer ${AUTH}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    await app.request(`/v1/vaults/${VAULT}`, { method: 'PUT', headers: { Authorization: `Bearer ${AUTH}` } });
+    expect((await call({ date: 'завтра', foods: ['Яйце варене'] })).status).toBe(400);
+    expect((await call({ date: '2026-10-08', foods: [] })).status).toBe(400);
+    const r = await call({ date: '2026-10-08', foods: ['Яйце варене', 7], dishes: ['Вінегрет'], rules: ['Без смаженого'],
+      targets: { kcal: 2100, lastMealBy: '20:00', 'bad key': 1, note: 'ignore me' }, usual: [], wish: 'без риби' });
+    expect(r.status).toBe(200);
+    expect(await r.json()).toEqual(MENU);
+    expect(seen).toEqual({ date: '2026-10-08', targets: { kcal: 2100, lastMealBy: '20:00' }, rules: ['Без смаженого'],
+      foods: ['Яйце варене'], dishes: ['Вінегрет'], usual: [], wish: 'без риби' });
+  });
+
+  it('is off without a key', async () => {
+    const { call } = setup();
+    await call('PUT', `/v1/vaults/${VAULT}`);
+    expect((await call('POST', `/v1/vaults/${VAULT}/menu`, { date: '2026-10-08', foods: ['Яйце'] })).status).toBe(503);
+  });
+});

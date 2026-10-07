@@ -13,6 +13,7 @@ import { Plan } from '../screens/Plan';
 import { Progress } from '../screens/Progress';
 import { Report } from '../screens/Report';
 import { Sync } from '../screens/Sync';
+import { Menu } from '../screens/Menu';
 import { Wellbeing } from '../screens/Wellbeing';
 import { Workout } from '../screens/Workout';
 
@@ -51,6 +52,7 @@ export function App() {
             <Route path="/dishes" element={<Dishes />} />
             <Route path="/more" element={<More />} />
             <Route path="/sync" element={<Sync />} />
+            <Route path="/menu" element={<Menu />} />
             <Route path="*" element={<Day />} />
           </Routes>
         </OnboardingGate>

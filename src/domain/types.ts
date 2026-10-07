@@ -135,6 +135,9 @@ export interface DayEntry {
   prescriptionId?: string; // med
   /** D18: which «Мій день» item this entry ticks (e.g. "med:p-vitd:08:30", "dinner", "mode:0"). */
   checkKey?: string;
+  /** D33: a meal from «Меню на завтра» (replaced when a new menu is accepted while still planned); the day's
+   *  practical tips ride on its first meal. */
+  menu?: { tips?: string[] };
 }
 
 export interface Wellbeing {

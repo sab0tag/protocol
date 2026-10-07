@@ -1,6 +1,6 @@
 import { format, parseISO } from 'date-fns';
 import { uk } from 'date-fns/locale';
-import { Activity, Check, ChevronLeft, ListChecks, ChevronRight, Droplet, NotebookPen, Pill, Plus, Dumbbell, Undo2, UtensilsCrossed, X, Pencil, Trash2 } from 'lucide-react';
+import { Activity, Check, ChevronLeft, ListChecks, ChevronRight, Droplet, NotebookPen, Pill, Plus, Dumbbell, Undo2, UtensilsCrossed, X, Pencil, Trash2, Sparkles } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Sheet, SheetButton } from '../components/Sheet';
@@ -30,6 +30,7 @@ export function Day() {
   const plan = usePlan();
   // D31: a recent sync is an encrypted copy too — no weekly «save a copy» nagging then
   const syncLast = useSync((s) => (s.status === 'off' ? undefined : s.lastAt));
+  const tips = [...new Set((entries ?? []).flatMap((e) => e.menu?.tips ?? []))]; // D33
   const syncedRecently = syncLast !== undefined && Date.now() - syncLast < 7 * 86_400_000;
   const workouts = useWorkouts();
   const firstEntry = useLiveQuery(() => db.entries.orderBy('at').first(), []);
@@ -112,7 +113,16 @@ export function Day() {
         )}
         <button type="button" onClick={() => setYesterday(true)}
           className="flex min-h-tap items-center gap-1 rounded-full border border-line bg-surface px-3 font-medium"><Undo2 size={16} className="text-accent" aria-hidden />{t.day.likeYesterday}</button>
+        <button type="button" onClick={() => navigate(`/menu?date=${date}`)}
+          className="flex min-h-tap items-center gap-1 rounded-full border border-line bg-surface px-3 font-medium"><Sparkles size={16} className="text-accent" aria-hidden />{t.menu.quick}</button>
       </div>
+
+      {tips.length > 0 && (
+        <details className="mb-3 rounded-2xl border border-line bg-surface p-3">
+          <summary className="min-h-tap cursor-pointer py-1 font-medium">{t.menu.tips}</summary>
+          <ul className="list-disc space-y-1 pl-5 text-sm">{tips.map((x) => <li key={x}>{x}</li>)}</ul>
+        </details>
+      )}
 
       <div className="mb-3 grid grid-cols-2 gap-2">
         <button type="button" onClick={() => navigate('/my-day')}
