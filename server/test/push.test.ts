@@ -74,6 +74,15 @@ describe('push', () => {
     expect(store.hasDevice(VAULT, DEV)).toBe(false);
   });
 
+  it('«once» items are never repeated', async () => {
+    const { store, send, call } = setup();
+    await call('PUT', `/v1/vaults/${VAULT}`);
+    await call('PUT', `/v1/vaults/${VAULT}/devices/${DEV}`, { subscription: SUB });
+    await call('PUT', `/v1/vaults/${VAULT}/devices/${DEV}/reminders`, { items: [{ rid: rid('morning'), at: T0, once: true, payload: { t: 'План', k: 'morning' } }], repeatEvery: 15, repeats: 2 });
+    expect(await tick(store, send, T0)).toBe(1);
+    expect(await tick(store, send, T0 + 20 * 60_000)).toBe(0);
+  });
+
   it('VAPID keys are made once and kept', () => {
     const store = new Store(':memory:');
     const a = vapidKeys(store, {}), b = vapidKeys(store, {});

@@ -15,6 +15,23 @@ function idbGet(store, key) {
   });
 }
 
+function idbDay(date) {
+  return new Promise((resolve) => {
+    const open = indexedDB.open('protocol');
+    open.onerror = () => resolve([]);
+    open.onsuccess = () => {
+      try {
+        const req = open.result.transaction('entries', 'readonly').objectStore('entries').index('at').getAll(IDBKeyRange.bound(date, date + '\uffff'));
+        req.onsuccess = () => { resolve(req.result || []); open.result.close(); };
+        req.onerror = () => { resolve([]); open.result.close(); };
+      } catch (e) { resolve([]); }
+    };
+  });
+}
+
+const hm = (at) => at.slice(11, 16);
+const isMed = (p) => p.kind === 'medication' || p.kind === 'supplement';
+
 const amount = (it) => it.recipe ? `${it.recipe.portions} порц.` : it.unit ? `${it.unit.qty} ${it.unit.name}` : `${it.grams} г`;
 
 async function detail(d) {
@@ -28,6 +45,31 @@ async function detail(d) {
       && (p.kind === 'medication' || p.kind === 'supplement'));
     if (meds.length) return meds.map((p) => [p.title, p.dose, p.schedule.withFood ? 'під час їжі' : ''].filter(Boolean).join(' ')).join(', ');
   }
+  if (d.k === 'morning' && d.d) {
+    const [entries, plan] = await Promise.all([idbDay(d.d), idbGet('plan', 'main')]);
+    const meals = entries.filter((e) => e.kind === 'meal' && e.status === 'planned').sort((a, b) => a.at.localeCompare(b.at))
+      .map((e) => `${hm(e.at)} ${e.title}`);
+    const times = [...new Set(((plan && plan.prescriptions) || []).filter(isMed).flatMap((p) => (p.schedule && p.schedule.times) || []))].sort();
+    const parts = [meals.join(', '), times.length ? `ліки: ${times.join(', ')}` : ''].filter(Boolean);
+    return parts.length ? parts.join(' · ') : 'Меню на сьогодні немає — можна скласти в «Меню».';
+  }
+  if (d.k === 'evening' && d.d) {
+    const entries = await idbDay(d.d);
+    const planned = entries.filter((e) => e.kind === 'meal' && e.status === 'planned');
+    if (!planned.length) return { body: 'Меню на завтра ще не складено — скласти?', url: `./#/menu?date=${d.d}` };
+    const tips = [...new Set(entries.flatMap((e) => (e.menu && e.menu.tips) || []))];
+    return tips.length ? tips.slice(0, 3).join(' · ') : planned.sort((a, b) => a.at.localeCompare(b.at)).map((e) => `${hm(e.at)} ${e.title}`).join(', ');
+  }
+  if (d.k === 'test' && d.d) {
+    const plan = await idbGet('plan', 'main');
+    const tests = ((plan && plan.prescriptions) || []).filter((p) => p.kind === 'test' && p.dueDate === d.d).map((p) => [p.title, p.notes].filter(Boolean).join(' — '));
+    if (tests.length) return tests.join('; ');
+  }
+  if (d.k === 'visit') {
+    const plan = await idbGet('plan', 'main');
+    const q = (plan && plan.questions) || [];
+    if (q.length) return `Ваші питання: ${q.length}. Звіт — у «Звіт для лікаря».`;
+  }
   return undefined;
 }
 
@@ -36,10 +78,15 @@ self.addEventListener('push', (event) => {
   try { d = event.data ? event.data.json() : {}; } catch (e) { d = {}; }
   event.waitUntil((async () => {
     let body = d.b || '';
-    try { body = (await detail(d)) || body; } catch (e) { /* the generic words stay */ }
+    let url = d.u || './';
+    try {
+      const x = await detail(d);
+      if (typeof x === 'string') body = x;
+      else if (x) { body = x.body; url = x.url; }
+    } catch (e) { /* the generic words stay */ }
     const title = (d.n > 0 ? '⏰ Ще раз: ' : '') + (d.t || 'Протокол');
     await self.registration.showNotification(title, {
-      body, tag: d.tag || undefined, renotify: true, icon: 'icon-192.png', badge: 'icon-192.png', data: { url: d.u || './' },
+      body, tag: d.tag || undefined, renotify: true, icon: 'icon-192.png', badge: 'icon-192.png', data: { url },
     });
   })());
 });

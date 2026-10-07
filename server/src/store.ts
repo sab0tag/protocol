@@ -117,7 +117,7 @@ export class Store {
 
   /** The device's whole schedule: unknown reminders go away; a known one keeps its progress (sent, repeats)
    *  unless its time moved; `done` ones are acknowledged for every device of the vault. */
-  setReminders(vault: string, device: string, items: { rid: string; at: number; payload: string }[],
+  setReminders(vault: string, device: string, items: { rid: string; at: number; payload: string; once?: boolean }[],
     repeatEvery: number, repeats: number, done: string[], now: number) {
     const old = new Map((this.db.prepare('SELECT rid, at FROM reminders WHERE vault = ? AND device = ?').all(vault, device) as { rid: string; at: number }[])
       .map((r) => [r.rid, r.at]));
@@ -131,8 +131,9 @@ export class Store {
       const moved = this.db.prepare('UPDATE reminders SET at = ?, next_at = ?, repeats_left = ?, sent = 0 WHERE vault = ? AND device = ? AND rid = ?');
       for (const i of items) {
         if (!old.has(i.rid) && i.at < now - 60_000) continue; // already past when it first arrives: not ours to send late
-        if (old.has(i.rid) && old.get(i.rid) !== i.at) moved.run(i.at, i.at, repeats, vault, device, i.rid);
-        ins.run(vault, device, i.rid, i.at, i.payload, i.at, repeats, repeatEvery);
+        const n = i.once ? 0 : repeats;
+        if (old.has(i.rid) && old.get(i.rid) !== i.at) moved.run(i.at, i.at, n, vault, device, i.rid);
+        ins.run(vault, device, i.rid, i.at, i.payload, i.at, n, repeatEvery);
       }
       const ack = this.db.prepare('INSERT OR IGNORE INTO acks (vault, rid, at) VALUES (?, ?, ?)');
       for (const rid of done) ack.run(vault, rid, now);

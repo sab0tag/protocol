@@ -68,12 +68,22 @@ export function Reminders() {
 
       {meta && keys && pushSupported() && (
         <div className="space-y-2 rounded-2xl border border-line bg-surface p-3">
-          {([['meals', L.meals], ['meds', L.meds]] as const).map(([k, label]) => (
+          {([['meals', L.meals], ['meds', L.meds], ['visits', L.visits]] as const).map(([k, label]) => (
             <label key={k} className="flex min-h-tap items-center gap-3">
               <input type="checkbox" checked={s[k]} onChange={(e) => void change({ [k]: e.target.checked })} className="h-5 w-5 accent-[rgb(var(--accent))]" />
               <span>{label}</span>
             </label>
           ))}
+          <label className="block"><span className="text-sm text-muted">{L.morning}</span>
+            <select value={s.morning} onChange={(e) => void change({ morning: e.target.value })} className={select}>
+              <option value="">{L.timeOff}</option>
+              {['06:30', '07:00', '07:30', '08:00', '08:30', '09:00'].map((x) => <option key={x} value={x}>{x}</option>)}
+            </select></label>
+          <label className="block"><span className="text-sm text-muted">{L.evening}</span>
+            <select value={s.evening} onChange={(e) => void change({ evening: e.target.value })} className={select}>
+              <option value="">{L.timeOff}</option>
+              {['19:00', '19:30', '20:00', '20:30', '21:00', '21:30'].map((x) => <option key={x} value={x}>{x}</option>)}
+            </select></label>
           <label className="block"><span className="text-sm text-muted">{L.water}</span>
             <select value={s.waterEveryH} onChange={(e) => void change({ waterEveryH: Number(e.target.value) as ReminderSettings['waterEveryH'] })} className={select}>
               <option value={0}>{L.waterOff}</option><option value={2}>{L.waterEvery(2)}</option><option value={3}>{L.waterEvery(3)}</option>

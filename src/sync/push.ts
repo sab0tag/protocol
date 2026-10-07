@@ -55,11 +55,12 @@ export async function pushSchedule(keys: Keys, force = false) {
   const s = meta?.reminders;
   if (!meta || !s?.on || !meta.device || !pushSupported() || Notification.permission !== 'granted') return;
   const now = new Date();
-  const entries = await db.entries.where('at').between(format(addDays(now, -2), 'yyyy-MM-dd'), format(addDays(now, 9), 'yyyy-MM-dd')).toArray();
-  const { items, done } = reminders({ entries, plan: await db.plan.get('main'), settings: s, now });
+  const entries = await db.entries.where('at').between(format(addDays(now, -2), 'yyyy-MM-dd'), format(addDays(now, 33), 'yyyy-MM-dd')).toArray();
+  const { items, done } = reminders({ entries, plan: await db.plan.get('main'), settings: { ...DEFAULT_REMINDERS, ...s }, now, snoozed: meta.snoozed });
   const rid = (k: string) => recordKey(keys, `rem:${k}`);
   const body = {
-    items: await Promise.all(items.map(async (i) => ({ rid: await rid(i.key), at: i.at, payload: { ...i.payload, tag: await rid(i.key) } }))),
+    items: await Promise.all(items.map(async (i) => ({ rid: await rid(i.key), at: i.at, ...(i.once ? { once: true } : {}),
+      payload: { ...i.payload, tag: await rid(i.payload.tag) } }))),
     done: await Promise.all(done.map(rid)),
     repeatEvery: s.repeatMin || 15, repeats: s.repeatMin ? 2 : 0,
   };
@@ -82,3 +83,14 @@ export async function renewPush(keys: Keys) {
   await subscribe(keys, meta.device).catch(() => undefined);
   await pushSchedule(keys, true).catch(() => undefined);
 }
+
+/** «Пізніше 15 хв» (D35): this reminder stops repeating and comes again at `until`. */
+export async function snooze(key: string, until: number) {
+  const meta = await db.meta.get('sync');
+  const now = Date.now();
+  const kept = Object.fromEntries(Object.entries(meta?.snoozed ?? {}).filter(([, t]) => t > now - 86_400_000));
+  if (meta) await db.meta.update('sync', { snoozed: { ...kept, [key]: until } });
+  else localSnoozed[key] = until;
+}
+/** Without sync the snooze lives in memory only (no reminders then anyway). */
+export const localSnoozed: Record<string, number> = {};

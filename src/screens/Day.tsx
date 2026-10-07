@@ -19,6 +19,7 @@ import { t } from '../i18n/uk';
 import { useUi } from '../store/ui';
 import { useSync } from '../sync/runner';
 import { SimpleEntrySheet } from './SimpleEntrySheet';
+import { NowCard } from '../components/NowCard';
 
 const KIND_ICON = { meal: UtensilsCrossed, med: Pill, water: Droplet, workout: Dumbbell, note: NotebookPen } as const;
 
@@ -102,6 +103,8 @@ export function Day() {
           <button type="button" className="min-h-tap px-3 text-accent underline" onClick={() => setDate(todayISO())}>{t.day.today}</button>
         </p>
       )}
+
+      {isToday && entries && <NowCard entries={entries} plan={plan} date={date} />}
 
       {!syncedRecently && exportDue(plan?.lastExportAt, firstEntry?.at.slice(0, 10), todayISO()) && (
         <div role="status" className="mb-3 flex items-center gap-2 rounded-2xl border border-warn/30 bg-warn-bg p-3 text-sm text-warn">

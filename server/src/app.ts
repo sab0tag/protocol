@@ -78,13 +78,13 @@ export function createApp(deps: Deps) {
     if (!store.hasDevice(id, dev)) return c.json({ error: 'not_found' }, 404);
     const b = await c.req.json().catch(() => null) as { items?: unknown; done?: unknown; repeatEvery?: unknown; repeats?: unknown } | null;
     if (!Array.isArray(b?.items) || b.items.length > 500) return c.json({ error: 'bad_request' }, 400);
-    const items: { rid: string; at: number; payload: string }[] = [];
+    const items: { rid: string; at: number; payload: string; once?: boolean }[] = [];
     for (const x of b.items as Record<string, unknown>[]) {
       const p = x.payload as Record<string, unknown> | undefined;
       if (typeof x.rid !== 'string' || !RID.test(x.rid) || typeof x.at !== 'number' || !p || typeof p !== 'object') return c.json({ error: 'bad_request' }, 400);
       const payload = JSON.stringify(p);
       if (payload.length > 600) return c.json({ error: 'bad_request' }, 400);
-      items.push({ rid: x.rid, at: Math.round(x.at), payload });
+      items.push({ rid: x.rid, at: Math.round(x.at), payload, ...(x.once === true ? { once: true } : {}) });
     }
     const done = Array.isArray(b.done) ? (b.done as unknown[]).filter((r): r is string => typeof r === 'string' && RID.test(r)).slice(0, 1000) : [];
     const every = Math.min(60, Math.max(5, Number(b.repeatEvery) || 15));
