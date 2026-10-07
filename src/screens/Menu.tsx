@@ -197,7 +197,8 @@ export function Menu() {
               <p className="text-sm text-muted">
                 Б {round(totals.protein)}{targets.proteinG ? ` / ${targets.proteinG}` : ''} ·
                 {' '}Ж {round(totals.fat)}{targets.fatG ? ` / ${targets.fatG}` : ''} ·
-                {' '}В {round(totals.carbs)}{targets.carbsG?.max != null ? ` / до ${targets.carbsG.max}` : targets.carbsG?.min != null ? ` / ≥ ${targets.carbsG.min}` : ''} ·
+                {' '}<span className={(targets.carbsG?.max != null && totals.carbs > targets.carbsG.max) || (targets.carbsG?.min != null && totals.carbs < targets.carbsG.min)
+                  ? 'font-semibold text-warn' : ''}>В {round(totals.carbs)}{targets.carbsG?.max != null ? ` / до ${targets.carbsG.max}` : targets.carbsG?.min != null ? ` / ≥ ${targets.carbsG.min}` : ''}</span> ·
                 {' '}Ca {round(totals.calciumMg)}{targets.calciumMg ? ` / ${targets.calciumMg}` : ''} {t.units.mg}
               </p>
               <p className="mt-1 text-xs text-muted">✓ {L.checked}</p>
