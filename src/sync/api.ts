@@ -68,3 +68,7 @@ export async function takePair(pid: string): Promise<string> {
   if (!res.ok || !data.blob) throw new ApiError(res.status, res.status === 404 ? 'pair_not_found' : data.error ?? 'error');
   return data.blob;
 }
+
+// D44: sealed records from the server's nightly copies
+export const backups = (keys: Keys) => call<{ backups: string[] }>(keys, 'GET', '/backups');
+export const backupRecords = (keys: Keys, name: string) => call<{ records: RemoteRecord[] }>(keys, 'GET', `/backups/${name}`);

@@ -1,6 +1,6 @@
 import { serve } from '@hono/node-server';
 import { createApp, DEFAULT_LIMITS } from './app.ts';
-import { backupAgeH, backupOnce } from './backup.ts';
+import { backupAgeH, backupOnce, backupRecords, listBackups } from './backup.ts';
 import { claudeMenu } from './menu.ts';
 import { claudeRecognizer } from './photo.ts';
 import { tick, vapidKeys, webPushSender } from './push.ts';
@@ -16,6 +16,7 @@ const app = createApp({
   store,
   push: { publicKey: vapid.publicKey, send },
   backupAgeH: () => backupAgeH(backups, new Date()),
+  backups: { list: () => listBackups(backups), records: (name, vault) => backupRecords(backups, name, vault) },
   origins: (env.ALLOWED_ORIGINS ?? 'https://protocol.beyondthesignal.to').split(',').map((s) => s.trim()),
   recognize: env.ANTHROPIC_API_KEY ? claudeRecognizer({ model: env.PHOTO_MODEL ?? 'claude-opus-5-5', effort }) : undefined,
   menu: env.ANTHROPIC_API_KEY

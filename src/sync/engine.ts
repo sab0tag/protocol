@@ -182,3 +182,28 @@ export async function repairPlan(db: ProtocolDB, keys: Keys, api: Api): Promise<
   });
   return true;
 }
+
+// ------------------------------------------------------------------ earlier versions of the plan (D44)
+export interface PlanVersion { source: string; at: number; plan: Row }
+
+/** The plan as a set of records had it: the whole-plan record with its parts on top, each by its own time;
+ *  deletions of the backbone are ignored (D43). */
+export async function planFromRecords(keys: Keys, records: { k: string; v: string | null }[], source: string): Promise<PlanVersion | null> {
+  const whole = await recordKey(keys, `plan:${PLAN}`);
+  const parts = new Map<string, string>();
+  const fields = ['constraints', 'prescriptions', 'targets', 'modes', 'nextCheckup', 'profile', 'onboardedAt', 'lastVisit', 'questions', 'lastExportAt'];
+  for (const f of fields) parts.set(await recordKey(keys, `plan:${PLAN}#${f}`), f);
+  let plan: Row | null = null, at = 0;
+  const byField: Record<string, { v: unknown; at: number }> = {};
+  for (const r of records) {
+    if (!r.v || (r.k !== whole && !parts.has(r.k))) continue;
+    let p: Payload;
+    try { p = await open<Payload>(keys, r.k, r.v); } catch { continue; }
+    if (r.k === whole && p.d) { plan = { ...p.d }; at = Math.max(at, p.at); continue; }
+    const f = parts.get(r.k)!;
+    if (p.d) byField[f] = { v: p.d.v, at: p.at };
+  }
+  const merged: Row = { id: PLAN, ...(plan ?? {}) };
+  for (const [f, x] of Object.entries(byField)) { merged[f] = x.v; at = Math.max(at, x.at); }
+  return plan || Object.keys(byField).length ? { source, at, plan: merged } : null;
+}

@@ -45,7 +45,7 @@ describe('backup', () => {
     const dir = mkdtempSync(join(tmpdir(), 'pbk-'));
     const dbPath = join(dir, 'live.db');
     const store = new Store(dbPath);
-    store.createVault(VAULT, 'h', new Date());
+    store.createVault(VAULT, (await import('node:crypto')).createHash('sha256').update(AUTH).digest('hex'), new Date());
     const now = new Date('2026-10-08T01:00:00Z');
     expect(await backupOnce(store, dir, now)).toBe('protocol-2026-10-08.db.gz');
     expect(await backupOnce(store, dir, now)).toBeNull();
@@ -56,6 +56,17 @@ describe('backup', () => {
     db.close();
     expect(readdirSync(dir).filter((f) => f.startsWith('.protocol'))).toEqual([]);
     expect(backupAgeH(dir, new Date(Date.now() + 3 * 3600_000))).toBeCloseTo(3, 0);
+    // D44: a vault reads its own sealed records from a copy
+    store.put(VAULT, [{ k: 'r'.repeat(43), v: 'QUJD' }]);
+    await backupOnce(store, dir, new Date('2026-10-09T01:00:00Z'));
+    const { listBackups, backupRecords } = await import('../src/backup.ts');
+    expect(listBackups(dir)).toEqual(['protocol-2026-10-09.db.gz', 'protocol-2026-10-08.db.gz']);
+    const app = createApp({ store, origins: [], backups: { list: () => listBackups(dir), records: (n, v) => backupRecords(dir, n, v) } });
+    const H = { Authorization: `Bearer ${AUTH}` };
+    expect(await (await app.request(`/v1/vaults/${VAULT}/backups`, { headers: H })).json()).toEqual({ backups: ['protocol-2026-10-09.db.gz', 'protocol-2026-10-08.db.gz'] });
+    expect(await (await app.request(`/v1/vaults/${VAULT}/backups/protocol-2026-10-08.db.gz`, { headers: H })).json()).toEqual({ records: [] });
+    expect((await (await app.request(`/v1/vaults/${VAULT}/backups/protocol-2026-10-09.db.gz`, { headers: H })).json() as { records: unknown[] }).records).toHaveLength(1);
+    expect((await app.request(`/v1/vaults/${VAULT}/backups/..%2Fetc%2Fpasswd`, { headers: H })).status).toBe(400);
     store.close();
     rmSync(dir, { recursive: true });
   });

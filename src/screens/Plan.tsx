@@ -1,4 +1,5 @@
 import { format, parseISO } from 'date-fns';
+import { PlanVersions } from '../components/PlanVersions';
 import { Loading } from '../components/Recovery';
 import { saved } from '../components/Toast';
 import { uk } from 'date-fns/locale';
@@ -86,6 +87,7 @@ export function Plan() {
       {editing?.what === 'mode' && <ModeForm plan={plan} item={editing.item} onClose={() => setEditing(null)} />}
       {editing?.what === 'targets' && <TargetsForm plan={plan} onClose={() => setEditing(null)} />}
       {editing?.what === 'checkup' && <CheckupForm plan={plan} onClose={() => setEditing(null)} />}
+      <PlanVersions current={plan} />
     </section>
   );
 }

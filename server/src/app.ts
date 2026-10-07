@@ -26,6 +26,7 @@ export interface Deps {
   menu?: MenuMaker; // the same
   push?: { publicKey: string; send: Sender };
   backupAgeH?: () => number | null;
+  backups?: { list: () => string[]; records: (name: string, vault: string) => { k: string; v: string | null; seq: number }[] | null };
   origins: string[];
   limits?: Limits;
   now?: () => Date;
@@ -145,6 +146,24 @@ export function createApp(deps: Deps) {
     return blob ? c.json({ blob }) : c.json({ error: 'not_found' }, 404);
   });
 
+  /** D44: the vault's records as they were in a nightly copy — still sealed; only the person's device can open them
+   *  (to find an earlier plan after a sync mishap). */
+  app.get('/v1/vaults/:id/backups', (c) => {
+    const id = authed(c);
+    if (typeof id !== 'string') return id;
+    return c.json({ backups: deps.backups?.list() ?? [] });
+  });
+
+  app.get('/v1/vaults/:id/backups/:name', (c) => {
+    const id = authed(c);
+    if (typeof id !== 'string') return id;
+    const name = c.req.param('name');
+    if (!/^protocol-\d{4}-\d{2}-\d{2}\.db\.gz$/.test(name)) return c.json({ error: 'bad_request' }, 400);
+    if (!store.take(`backupread:${id}`, 30, now())) return c.json({ error: 'too_many' }, 429);
+    const records = deps.backups?.records(name, id);
+    return records ? c.json({ records }) : c.json({ error: 'not_found' }, 404);
+  });
+
   /** This month's AI use of the vault: calls and an estimate in dollars (D36). */
   app.get('/v1/vaults/:id/usage', (c) => {
     const id = authed(c);
@@ -169,7 +188,8 @@ export function createApp(deps: Deps) {
     if (!VAULT.test(id) || !t) return c.json({ error: 'bad_request' }, 400);
     const stored = store.vaultAuth(id);
     if (!stored) return c.json({ error: 'not_found' }, 404);
-    const ok = timingSafeEqual(Buffer.from(stored, 'hex'), Buffer.from(hash(t), 'hex'));
+    const a = Buffer.from(stored, 'hex'), b = Buffer.from(hash(t), 'hex');
+    const ok = a.length === b.length && timingSafeEqual(a, b);
     return ok ? id : c.json({ error: 'unauthorized' }, 401);
   };
 

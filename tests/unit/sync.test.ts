@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ensureSeeded, ProtocolDB } from '../../src/data/db';
 import { deriveKeys, formatCode, newCode, open, parseCode, recordKey, seal } from '../../src/sync/crypto';
-import { hashOf, repairPlan, syncOnce, type Api, type RemoteRecord } from '../../src/sync/engine';
+import { hashOf, planFromRecords, repairPlan, syncOnce, type Api, type RemoteRecord } from '../../src/sync/engine';
 import type { DayEntry } from '../../src/domain/types';
 
 /** The server as the app sees it: opaque records with a growing seq. */
@@ -235,6 +235,21 @@ describe('sync between two devices', () => {
     await syncOnce(fresh, keys, server.api, 2000);
     expect(await fresh.plan.get('main')).toMatchObject({ constraints: real.constraints, onboardedAt: '2026-10-01' });
     expect(await repairPlan(phone, keys, server.api)).toBe(false); // nothing to do any more
+  });
+
+  it('D44: an earlier plan from records — the whole plan, its later parts on top, backbone deletions ignored', async () => {
+    const keys = await deriveKeys(parseCode(newCode())!);
+    const rec = async (id: string, d: unknown, at: number) => { const k = await recordKey(keys, `plan:${id}`); return { k, v: await seal(keys, k, { t: 'plan', id, d, at }) }; };
+    const records = [
+      await rec('main', { id: 'main', constraints: [{ title: 'Лактоза' }], prescriptions: [], modes: [], targets: { kcal: 2100 }, onboardedAt: '2026-10-01' }, 100),
+      await rec('main#targets', { v: { kcal: 1900, proteinG: 140 } }, 200),
+      await rec('main#constraints', null, 300),
+      { k: 'x'.repeat(43), v: 'garbage' },
+    ];
+    const v = (await planFromRecords(keys, records, 'тест'))!;
+    expect(v.plan).toMatchObject({ targets: { kcal: 1900, proteinG: 140 }, constraints: [{ title: 'Лактоза' }], onboardedAt: '2026-10-01' });
+    expect(v.at).toBe(200);
+    expect(await planFromRecords(keys, [], 'порожньо')).toBeNull();
   });
 
   it('hash ignores key order and undefined fields', () => {
