@@ -5,6 +5,7 @@ import { Hono, type Context } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { cors } from 'hono/cors';
 import type { MenuMaker } from './menu.ts';
+import type { Usage } from './photo.ts';
 import type { Recognizer } from './photo.ts';
 import type { Sender } from './push.ts';
 import type { Store } from './store.ts';
@@ -24,6 +25,7 @@ export interface Deps {
   recognize?: Recognizer; // absent = photos are off (no API key)
   menu?: MenuMaker; // the same
   push?: { publicKey: string; send: Sender };
+  backupAgeH?: () => number | null;
   origins: string[];
   limits?: Limits;
   now?: () => Date;
@@ -35,6 +37,16 @@ const B64 = /^[A-Za-z0-9+/]*={0,2}$/;
 const PAGE = 1000;
 const MAX_IMAGE = 2_000_000; // decoded bytes; the app sends ~1280 px JPEG of 150–400 KB
 
+/** $ per million tokens, input / output (D36: an estimate; the Anthropic console has the real bill). */
+const PRICES: Record<string, [number, number]> = {
+  'claude-opus-5-5': [4, 20], 'claude-opus-5': [5, 25], 'claude-opus-4-8': [5, 25], 'claude-opus-4-7': [5, 25],
+  'claude-sonnet-5-5': [2, 10], 'claude-sonnet-5': [2, 10], 'claude-sonnet-4-6': [3, 15], 'claude-haiku-4-5': [1, 5],
+};
+export const usdMicro = (u: Usage) => {
+  const [i, o] = PRICES[u.model] ?? PRICES[Object.keys(PRICES).find((k) => u.model.startsWith(k)) ?? ''] ?? [5, 25];
+  return u.input * i + u.output * o; // tokens × $/M = micro-dollars
+};
+
 const hash = (s: string) => createHash('sha256').update(s).digest('hex');
 
 export function createApp(deps: Deps) {
@@ -42,6 +54,8 @@ export function createApp(deps: Deps) {
   const limits = deps.limits ?? DEFAULT_LIMITS;
   const now = deps.now ?? (() => new Date());
   const app = new Hono();
+  const ai = { lastOk: 0, lastError: 0 };
+  const spent = (vault: string, kind: string, usage?: Usage) => { if (usage) store.addUsage(vault, kind, usdMicro(usage), now()); };
 
   app.use('*', cors({ origin: origins, allowMethods: ['GET', 'POST', 'PUT', 'DELETE'], allowHeaders: ['Authorization', 'Content-Type'], maxAge: 86400 }));
   const DEVICE = /^[0-9a-f]{32}$/;
@@ -103,7 +117,19 @@ export function createApp(deps: Deps) {
     return r === 'ok' ? c.json({ ok: true }) : c.json({ error: r }, 502);
   });
 
-  app.get('/health', (c) => c.json({ ok: true, photo: !!recognize, menu: !!menu, push: !!deps.push }));
+  /** This month's AI use of the vault: calls and an estimate in dollars (D36). */
+  app.get('/v1/vaults/:id/usage', (c) => {
+    const id = authed(c);
+    if (typeof id !== 'string') return id;
+    const month = now().toISOString().slice(0, 7);
+    const rows = store.usage(id, month);
+    return c.json({ month, kinds: Object.fromEntries(rows.map((r) => [r.kind, r.calls])),
+      usd: Math.round(rows.reduce((s, r) => s + r.usd_micro, 0) / 10_000) / 100 });
+  });
+
+  app.get('/health', (c) => c.json({ ok: true, photo: !!recognize, menu: !!menu, push: !!deps.push,
+    ai: { lastOk: ai.lastOk || null, lastError: ai.lastError || null, failing: ai.lastError > ai.lastOk },
+    backupAgeH: deps.backupAgeH?.() ?? null }));
 
   const token = (c: Context) => c.req.header('Authorization')?.match(/^Bearer ([A-Za-z0-9_-]{40,64})$/)?.[1];
   const ip = (c: Context) => c.req.header('X-Forwarded-For')?.split(',')[0]?.trim() || 'unknown';
@@ -173,10 +199,13 @@ export function createApp(deps: Deps) {
       return c.json({ error: 'too_many' }, 429);
     }
     try {
-      const result = await recognize({ image, foods: list(body?.foods), dishes: list(body?.dishes) });
+      const { result, usage } = await recognize({ image, foods: list(body?.foods), dishes: list(body?.dishes) });
+      spent(id, 'photo', usage);
+      ai.lastOk = Date.now();
       if (result === 'refused') return c.json({ error: 'refused' }, 422);
       return c.json(result);
     } catch (e) {
+      ai.lastError = Date.now();
       console.error('photo failed:', (e as Error).message);
       return c.json({ error: 'upstream' }, 502);
     }
@@ -200,11 +229,14 @@ export function createApp(deps: Deps) {
     }
     if (!store.take(`menu:${id}`, limits.menusPerVaultPerDay, now())) return c.json({ error: 'too_many' }, 429);
     try {
-      const result = await menu({ date, targets, rules: list(b?.rules, 30), foods, dishes: list(b?.dishes, 100, 80),
-        usual: list(b?.usual, 50, 80), wish: typeof b?.wish === 'string' ? b.wish.slice(0, 300) : '' });
+      const { result, usage } = await menu({ date, targets, rules: list(b?.rules, 30), foods, dishes: list(b?.dishes, 100, 80),
+        usual: list(b?.usual, 50, 80), wish: typeof b?.wish === 'string' ? b.wish.slice(0, 300) : '', avoid: list(b?.avoid, 60, 80) });
+      spent(id, 'menu', usage);
+      ai.lastOk = Date.now();
       if (result === 'refused') return c.json({ error: 'refused' }, 422);
       return c.json(result);
     } catch (e) {
+      ai.lastError = Date.now();
       console.error('menu failed:', (e as Error).message);
       return c.json({ error: 'upstream' }, 502);
     }

@@ -79,7 +79,7 @@ describe('records', () => {
 describe('photo', () => {
   it('needs a vault, a JPEG and an API key; returns the recognizer result', async () => {
     let seen: unknown;
-    const { call } = setup({ recognize: async (input) => { seen = input; return RESULT; } });
+    const { call } = setup({ recognize: async (input) => { seen = input; return { result: RESULT, usage: { model: 'claude-opus-5-5', input: 1000, output: 500 } }; } });
     await call('PUT', `/v1/vaults/${VAULT}`);
     expect((await call('POST', `/v1/vaults/${'d'.repeat(32)}/photo`, { image: JPEG })).status).toBe(404);
     expect((await call('POST', `/v1/vaults/${VAULT}/photo`, { image: Buffer.from('GIF89a').toString('base64') })).status).toBe(400);
@@ -94,11 +94,11 @@ describe('photo', () => {
     await off.call('PUT', `/v1/vaults/${VAULT}`);
     expect((await off.call('POST', `/v1/vaults/${VAULT}/photo`, { image: JPEG })).status).toBe(503);
 
-    const refused = setup({ recognize: async () => 'refused' });
+    const refused = setup({ recognize: async () => ({ result: 'refused' as const }) });
     await refused.call('PUT', `/v1/vaults/${VAULT}`);
     expect((await refused.call('POST', `/v1/vaults/${VAULT}/photo`, { image: JPEG })).status).toBe(422);
 
-    const limited = setup({ recognize: async () => RESULT, limits: { photosPerVaultPerDay: 1 } });
+    const limited = setup({ recognize: async () => ({ result: RESULT }), limits: { photosPerVaultPerDay: 1 } });
     await limited.call('PUT', `/v1/vaults/${VAULT}`);
     expect((await limited.call('POST', `/v1/vaults/${VAULT}/photo`, { image: JPEG })).status).toBe(200);
     expect((await limited.call('POST', `/v1/vaults/${VAULT}/photo`, { image: JPEG })).status).toBe(429);
@@ -130,7 +130,7 @@ describe('menu', () => {
   it('passes cleaned input to the maker and returns its menu', async () => {
     const store = new Store(':memory:');
     let seen: unknown;
-    const app = createApp({ store, origins: [], menu: async (input) => { seen = input; return MENU; } });
+    const app = createApp({ store, origins: [], menu: async (input) => { seen = input; return { result: MENU }; } });
     const call = (body: unknown) => app.request(`/v1/vaults/${VAULT}/menu`, { method: 'POST',
       headers: { Authorization: `Bearer ${AUTH}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     await app.request(`/v1/vaults/${VAULT}`, { method: 'PUT', headers: { Authorization: `Bearer ${AUTH}` } });
@@ -141,7 +141,7 @@ describe('menu', () => {
     expect(r.status).toBe(200);
     expect(await r.json()).toEqual(MENU);
     expect(seen).toEqual({ date: '2026-10-08', targets: { kcal: 2100, lastMealBy: '20:00' }, rules: ['Без смаженого'],
-      foods: ['Яйце варене'], dishes: ['Вінегрет'], usual: [], wish: 'без риби' });
+      foods: ['Яйце варене'], dishes: ['Вінегрет'], usual: [], wish: 'без риби', avoid: [] });
   });
 
   it('is off without a key', async () => {

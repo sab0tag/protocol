@@ -24,7 +24,15 @@ export const PhotoResult = z.object({
 
 export type PhotoResult = z.infer<typeof PhotoResult>;
 export interface PhotoInput { image: string; foods: string[]; dishes: string[] }
-export type Recognizer = (input: PhotoInput) => Promise<PhotoResult | 'refused'>;
+export interface Usage { model: string; input: number; output: number }
+export type Recognizer = (input: PhotoInput) => Promise<{ result: PhotoResult | 'refused'; usage?: Usage }>;
+
+/** Tokens of a response, cache writes and reads counted as input (D36: the spend counter is an estimate). */
+export function usageOf(r: { model: string; usage: { input_tokens: number; output_tokens: number;
+  cache_creation_input_tokens?: number | null; cache_read_input_tokens?: number | null } }): Usage {
+  const u = r.usage;
+  return { model: r.model, input: u.input_tokens + (u.cache_creation_input_tokens ?? 0) + (u.cache_read_input_tokens ?? 0), output: u.output_tokens };
+}
 
 const SYSTEM = `Ти допомагаєш людині вести щоденник харчування за планом лікаря. На фото — її їжа.
 Визнач кожну окрему позицію на тарілці (продукт, страву, напій, соус чи заправку) і оціни вагу порції в грамах за розміром тарілки, приборів, руки.
@@ -51,8 +59,9 @@ export function claudeRecognizer(opts: { model: string; effort: 'low' | 'medium'
         ],
       }],
     });
-    if (response.stop_reason === 'refusal') return 'refused';
+    const usage = usageOf(response);
+    if (response.stop_reason === 'refusal') return { result: 'refused', usage };
     if (!response.parsed_output) throw new Error(`no parsed output (stop_reason ${response.stop_reason})`);
-    return response.parsed_output;
+    return { result: response.parsed_output, usage };
   };
 }

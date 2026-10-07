@@ -1,6 +1,6 @@
 // SQLite (node:sqlite): vaults, their encrypted records and daily counters. The server never sees plain data —
 // a record is an opaque key and an opaque ciphertext (SPEC.md D31).
-import { DatabaseSync } from 'node:sqlite';
+import { backup, DatabaseSync } from 'node:sqlite';
 
 export interface StoredRecord { k: string; v: string | null; seq: number }
 
@@ -24,6 +24,8 @@ export class Store {
         payload TEXT NOT NULL, next_at INTEGER NOT NULL, repeats_left INTEGER NOT NULL, repeat_every INTEGER NOT NULL, sent INTEGER NOT NULL DEFAULT 0,
         PRIMARY KEY (vault, device, rid));
       CREATE INDEX IF NOT EXISTS reminders_due ON reminders (next_at);
+      CREATE TABLE IF NOT EXISTS usage (vault TEXT NOT NULL, month TEXT NOT NULL, kind TEXT NOT NULL, calls INTEGER NOT NULL,
+        usd_micro INTEGER NOT NULL, PRIMARY KEY (vault, month, kind));
       CREATE TABLE IF NOT EXISTS acks (vault TEXT NOT NULL, rid TEXT NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (vault, rid));
     `);
   }
@@ -154,6 +156,22 @@ export class Store {
     else this.db.prepare('UPDATE reminders SET next_at = ?, repeats_left = repeats_left - 1, sent = sent + 1 WHERE vault = ? AND device = ? AND rid = ?')
       .run(nextAt, vault, device, rid);
   }
+
+  // ---------------------------------------------------------------- AI spend (D36)
+  addUsage(vault: string, kind: string, usdMicro: number, now: Date) {
+    this.db.prepare(`INSERT INTO usage (vault, month, kind, calls, usd_micro) VALUES (?, ?, ?, 1, ?)
+      ON CONFLICT (vault, month, kind) DO UPDATE SET calls = calls + 1, usd_micro = usd_micro + excluded.usd_micro`)
+      .run(vault, now.toISOString().slice(0, 7), kind, Math.round(usdMicro));
+  }
+
+  usage(vault: string | null, month: string): { kind: string; calls: number; usd_micro: number }[] {
+    return (vault
+      ? this.db.prepare('SELECT kind, calls, usd_micro FROM usage WHERE vault = ? AND month = ? ORDER BY kind').all(vault, month)
+      : this.db.prepare('SELECT kind, SUM(calls) AS calls, SUM(usd_micro) AS usd_micro FROM usage WHERE month = ? GROUP BY kind ORDER BY kind').all(month)) as never;
+  }
+
+  /** A consistent copy of the live database (D36: nightly backups). */
+  backupTo(path: string) { return backup(this.db, path); }
 
   close() { this.db.close(); }
 }

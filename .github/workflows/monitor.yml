@@ -1,0 +1,23 @@
+# D36: every 30 minutes — is everything up? A failed run sends GitHub's e-mail to the repository owner.
+name: monitor
+on:
+  schedule: [{ cron: '*/30 * * * *' }]
+  workflow_dispatch:
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Протокол app
+        run: curl -fsS -o /dev/null --retry 2 --retry-delay 10 https://protocol.beyondthesignal.to/
+      - name: Протокол API (sync, photo, menu, push, AI, backup)
+        run: |
+          h=$(curl -fsS --retry 2 --retry-delay 10 https://api.beyondthesignal.to/health)
+          echo "$h"
+          echo "$h" | jq -e '.ok and .photo and .menu and .push' >/dev/null || { echo "::error::a feature is off"; exit 1; }
+          echo "$h" | jq -e '.ai.failing | not' >/dev/null || { echo "::error::Claude calls are failing"; exit 1; }
+          echo "$h" | jq -e '.backupAgeH != null and .backupAgeH < 30' >/dev/null || { echo "::error::no backup in 30 h"; exit 1; }
+      - name: Харчоблок
+        run: |
+          curl -fsS -o /dev/null --retry 2 --retry-delay 10 https://beyondthesignal.to/healthz/full/
+          curl -fsS -o /dev/null --retry 2 --retry-delay 10 https://demo.beyondthesignal.to/healthz/

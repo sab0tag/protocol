@@ -4,6 +4,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { betaZodOutputFormat } from '@anthropic-ai/sdk/helpers/beta/zod';
 import { z } from 'zod';
+import { usageOf, type Usage } from './photo.ts';
 
 export interface MenuInput {
   date: string;
@@ -13,6 +14,7 @@ export interface MenuInput {
   dishes: string[];
   usual: string[]; // what the person often eats — to keep the menu familiar
   wish: string;
+  avoid: string[]; // dishes of the days before in the same request (D36: a menu for 2–3 days)
 }
 
 export function menuSchema(names: [string, ...string[]]) {
@@ -31,7 +33,7 @@ export function menuSchema(names: [string, ...string[]]) {
 }
 
 export type MenuResult = z.infer<ReturnType<typeof menuSchema>>;
-export type MenuMaker = (input: MenuInput) => Promise<MenuResult | 'refused'>;
+export type MenuMaker = (input: MenuInput) => Promise<{ result: MenuResult | 'refused'; usage?: Usage }>;
 
 const SYSTEM = `Ти складаєш меню на один день для людини, яка виконує план свого лікаря. Лікар вирішує — ти лише допомагаєш виконати його план.
 Дотримуйся цілей (калорії, білок, вуглеводи, жири, кальцій) настільки близько, наскільки можна, і всіх обмежень лікаря. Останній прийом — не пізніше вказаного часу.
@@ -51,6 +53,7 @@ export function claudeMenu(opts: { model: string; effort: 'low' | 'medium' | 'hi
       `Продукти: ${input.foods.join('; ')}`,
       `Людина часто їсть: ${input.usual.join('; ') || '—'}`,
       input.wish ? `Побажання на цей день: ${input.wish}` : '',
+      input.avoid.length ? `Попередні дні вже мають: ${input.avoid.join('; ')} — склади інакше, щоб не повторювалось.` : '',
     ].filter(Boolean);
     const response = await client.beta.messages.parse({
       model: opts.model,
@@ -61,8 +64,9 @@ export function claudeMenu(opts: { model: string; effort: 'low' | 'medium' | 'hi
       output_config: { effort: opts.effort, format: betaZodOutputFormat(menuSchema(names)) },
       messages: [{ role: 'user', content: lines.join('\n\n') }],
     });
-    if (response.stop_reason === 'refusal') return 'refused';
+    const usage = usageOf(response);
+    if (response.stop_reason === 'refusal') return { result: 'refused', usage };
     if (!response.parsed_output) throw new Error(`no parsed output (stop_reason ${response.stop_reason})`);
-    return response.parsed_output;
+    return { result: response.parsed_output, usage };
   };
 }

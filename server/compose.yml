@@ -10,6 +10,7 @@ services:
       PORT: "8080"
     volumes:
       - data:/data
+      - ./backups:/backups
     networks:
       default: {}
       edge:
@@ -17,6 +18,29 @@ services:
     logging:
       driver: json-file
       options: { max-size: "10m", max-file: "3" }
+
+  # D36: the nightly copies (made by api into ./backups) go to the Storage Box Харчоблок already uses — same SSH key,
+  # its own folder. Set PROTOCOL_BACKUP_REMOTE and RCLONE_CONFIG_OFFSITE_* in .env; empty = local copies only.
+  offsite:
+    image: rclone/rclone:1
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - ./backups:/backups:ro
+      - /opt/harch/secrets/storagebox:/keys:ro
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >-
+        while true; do
+        if [ -n "$$PROTOCOL_BACKUP_REMOTE" ]; then
+        rclone copy /backups "$$PROTOCOL_BACKUP_REMOTE" --include "protocol-*.db.gz"
+        && rclone delete --min-age 30d --include "protocol-*.db.gz" "$$PROTOCOL_BACKUP_REMOTE"
+        && date -u +%FT%TZ > /tmp/offsite_ok;
+        fi;
+        sleep 3600; done
+    logging:
+      driver: json-file
+      options: { max-size: "5m", max-file: "2" }
 
 volumes:
   data:

@@ -1,5 +1,6 @@
 import { serve } from '@hono/node-server';
 import { createApp, DEFAULT_LIMITS } from './app.ts';
+import { backupAgeH, backupOnce } from './backup.ts';
 import { claudeMenu } from './menu.ts';
 import { claudeRecognizer } from './photo.ts';
 import { tick, vapidKeys, webPushSender } from './push.ts';
@@ -8,11 +9,13 @@ import { Store } from './store.ts';
 const env = process.env;
 const store = new Store(env.DB_PATH ?? './data/protocol.db');
 const effort = (env.PHOTO_EFFORT ?? 'low') as 'low' | 'medium' | 'high';
+const backups = env.BACKUP_DIR ?? '/backups';
 const vapid = vapidKeys(store, env);
 const send = webPushSender(vapid, env.VAPID_SUBJECT ?? 'https://protocol.beyondthesignal.to');
 const app = createApp({
   store,
   push: { publicKey: vapid.publicKey, send },
+  backupAgeH: () => backupAgeH(backups, new Date()),
   origins: (env.ALLOWED_ORIGINS ?? 'https://protocol.beyondthesignal.to').split(',').map((s) => s.trim()),
   recognize: env.ANTHROPIC_API_KEY ? claudeRecognizer({ model: env.PHOTO_MODEL ?? 'claude-opus-5-5', effort }) : undefined,
   menu: env.ANTHROPIC_API_KEY
@@ -33,4 +36,9 @@ const timer = setInterval(() => {
   busy = true;
   tick(store, send, Date.now()).catch((e) => console.error('tick failed:', (e as Error).message)).finally(() => { busy = false; });
 }, 20_000);
-for (const sig of ['SIGINT', 'SIGTERM'] as const) process.on(sig, () => { clearInterval(timer); server.close(); store.close(); process.exit(0); });
+// D36: a backup a day — checked hourly, made once per date (after 03:00 Kyiv ≈ 00:00–01:00 UTC)
+const backupTimer = setInterval(() => {
+  backupOnce(store, backups, new Date()).catch((e) => console.error('backup failed:', (e as Error).message));
+}, 3600_000);
+setTimeout(() => backupOnce(store, backups, new Date()).catch((e) => console.error('backup failed:', (e as Error).message)), 60_000);
+for (const sig of ['SIGINT', 'SIGTERM'] as const) process.on(sig, () => { clearInterval(timer); clearInterval(backupTimer); server.close(); store.close(); process.exit(0); });
