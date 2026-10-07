@@ -4,8 +4,8 @@ import { db } from '../data/db';
 import { useFoods, useRecipes } from '../data/queries';
 import { amountText } from '../domain/foodSearch';
 import { mealNutrients, round } from '../domain/nutrition';
-import { sumGrams } from '../domain/recipes';
-import type { Recipe } from '../domain/types';
+import { detachFood, sumGrams } from '../domain/recipes';
+import type { Food, Recipe } from '../domain/types';
 import { t } from '../i18n/uk';
 
 const L = t.dishes;
@@ -16,6 +16,7 @@ export function Dishes() {
   const recipes = useRecipes();
   const foods = useFoods();
   if (!recipes || !foods) return null;
+  const mine = [...foods.values()].filter((f) => f.custom).sort((a, b) => a.name.localeCompare(b.name, 'uk'));
   const own = recipes.filter((r) => !r.builtIn), builtIn = recipes.filter((r) => r.builtIn);
   return (
     <section className="space-y-4 pt-4">
@@ -24,7 +25,57 @@ export function Dishes() {
       {own.length === 0 && <p className="text-muted">{L.empty}</p>}
       <ul className="space-y-3">{own.map((r) => <Card key={r.id} recipe={r} foods={foods} />)}</ul>
       <ul className="space-y-3">{builtIn.map((r) => <Card key={r.id} recipe={r} foods={foods} />)}</ul>
+
+      <h2 className="pt-2 text-xl font-semibold">{L.foods}</h2>
+      <p className="text-sm text-muted">{L.foodsHint}</p>
+      {mine.length === 0 ? <p className="text-muted">{L.foodsEmpty}</p>
+        : <ul className="space-y-3">{mine.map((f) => <FoodCard key={f.id} food={f} />)}</ul>}
     </section>
+  );
+}
+
+async function removeFood(food: Food) {
+  await db.transaction('rw', db.entries, db.recipes, db.foods, async () => {
+    for (const e of await db.entries.filter((e) => !!e.items?.length).toArray()) {
+      const r = detachFood(e.items!, food);
+      if (r.changed) await db.entries.put({ ...e, items: r.items });
+    }
+    for (const rec of await db.recipes.toArray()) {
+      const r = detachFood(rec.items, food);
+      if (r.changed) await db.recipes.put({ ...rec, items: r.items });
+    }
+    await db.foods.delete(food.id);
+  });
+}
+
+/** D36: an own food — name and nutrients per 100 g; deleting it turns the lines that used it into free lines
+ *  with the same nutrients, so the history does not change. */
+function FoodCard({ food }: { food: Food }) {
+  const [f, setF] = useState(food);
+  const [asking, setAsking] = useState(false);
+  const num = (v: string) => Math.max(0, Number(v.replace(',', '.')) || 0);
+  const fields: [keyof Food['per100g'], string][] = [['kcal', 'ккал'], ['protein', 'Б'], ['fat', 'Ж'], ['carbs', 'В']];
+  const changed = JSON.stringify(f) !== JSON.stringify(food);
+  return (
+    <li className="space-y-2 rounded-2xl border border-line bg-surface p-3">
+      <input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} aria-label={L.rename}
+        className="block min-h-tap w-full rounded-xl border border-line bg-bg px-3 font-semibold" />
+      <div className="grid grid-cols-4 gap-2">
+        {fields.map(([k, label]) => (
+          <label key={k} className="block"><span className="text-xs text-muted">{label} / 100 г</span>
+            <input inputMode="decimal" value={String(f.per100g[k] ?? 0)} onChange={(e) => setF({ ...f, per100g: { ...f.per100g, [k]: num(e.target.value) } })}
+              className="block min-h-tap w-full rounded-xl border border-line bg-bg px-2" /></label>
+        ))}
+      </div>
+      <div className="flex gap-2">
+        <button type="button" disabled={!changed || !f.name.trim()} onClick={() => void db.foods.put({ ...f, name: f.name.trim() })}
+          className="min-h-tap rounded-xl bg-accent px-3 font-medium text-surface disabled:opacity-40">{L.save}</button>
+        {asking
+          ? <button type="button" onClick={() => void removeFood(food)} className="min-h-tap rounded-xl bg-warn px-3 font-medium text-surface">{L.confirmDelete(food.name)}</button>
+          : <button type="button" onClick={() => setAsking(true)} aria-label={`${L.delete}: ${food.name}`}
+              className="flex min-h-tap min-w-tap items-center justify-center rounded-xl border border-line text-warn"><Trash2 size={18} /></button>}
+      </div>
+    </li>
   );
 }
 

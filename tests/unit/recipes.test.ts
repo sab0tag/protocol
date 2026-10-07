@@ -73,3 +73,19 @@ describe('dishes (D27)', () => {
     a.close(); b.close();
   });
 });
+
+describe('own foods (D36)', () => {
+  it('a free line becomes a food per 100 g; deleting it keeps the nutrients of lines that used it', async () => {
+    const { foodFromLine, detachFood } = await import('../../src/domain/recipes');
+    const food = foodFromLine({ name: ' Сирники ', grams: 150, manual: { kcal: 330, protein: 21, fat: 15, carbs: 27 } }, 'u-1')!;
+    expect(food).toMatchObject({ id: 'u-1', name: 'Сирники', custom: true, per100g: { kcal: 220, protein: 14, fat: 10, carbs: 18 } });
+    expect(foodFromLine({ name: 'x', grams: 0, manual: { kcal: 1, protein: 0, fat: 0, carbs: 0 } }, 'u-2')).toBeNull();
+    const r = detachFood([{ foodId: 'u-1', name: 'Сирники', grams: 300 },
+      { name: 'Страва', grams: 450, recipe: { id: 'r', portions: 1 }, components: [{ foodId: 'u-1', name: 'Сирники', grams: 150 }, { foodId: 'egg', name: 'Яйце', grams: 50 }] }], food);
+    expect(r.changed).toBe(true);
+    expect(r.items[0]).toMatchObject({ name: 'Сирники', grams: 300, manual: { kcal: 660, protein: 42 } });
+    expect(r.items[0]!.foodId).toBeUndefined();
+    expect(r.items[1]!.components![1]).toMatchObject({ foodId: 'egg' });
+    expect(r.items[1]!.components![0]!.manual?.kcal).toBe(330);
+  });
+});

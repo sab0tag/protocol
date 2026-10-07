@@ -68,9 +68,9 @@ export function Reminders() {
 
       {meta && keys && pushSupported() && (
         <div className="space-y-2 rounded-2xl border border-line bg-surface p-3">
-          {([['meals', L.meals], ['meds', L.meds], ['visits', L.visits]] as const).map(([k, label]) => (
+          {([['meals', L.meals], ['meds', L.meds], ['visits', L.visits], ['weekly', L.weekly]] as const).map(([k, label]) => (
             <label key={k} className="flex min-h-tap items-center gap-3">
-              <input type="checkbox" checked={s[k]} onChange={(e) => void change({ [k]: e.target.checked })} className="h-5 w-5 accent-[rgb(var(--accent))]" />
+              <input type="checkbox" checked={!!s[k]} onChange={(e) => void change({ [k]: e.target.checked })} className="h-5 w-5 accent-[rgb(var(--accent))]" />
               <span>{label}</span>
             </label>
           ))}
@@ -83,6 +83,11 @@ export function Reminders() {
             <select value={s.evening} onChange={(e) => void change({ evening: e.target.value })} className={select}>
               <option value="">{L.timeOff}</option>
               {['19:00', '19:30', '20:00', '20:30', '21:00', '21:30'].map((x) => <option key={x} value={x}>{x}</option>)}
+            </select></label>
+          <label className="block"><span className="text-sm text-muted">{L.weight}</span>
+            <select value={s.weightDay ?? 0} onChange={(e) => void change({ weightDay: Number(e.target.value) })} className={select}>
+              <option value={0}>{L.weightOff}</option>
+              {[1, 2, 3, 4, 5, 6, 7].map((d) => <option key={d} value={d}>{L.weekdays[d]}</option>)}
             </select></label>
           <label className="block"><span className="text-sm text-muted">{L.water}</span>
             <select value={s.waterEveryH} onChange={(e) => void change({ waterEveryH: Number(e.target.value) as ReminderSettings['waterEveryH'] })} className={select}>

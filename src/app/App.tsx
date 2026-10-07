@@ -15,6 +15,7 @@ import { Report } from '../screens/Report';
 import { Sync } from '../screens/Sync';
 import { Menu } from '../screens/Menu';
 import { Reminders } from '../screens/Reminders';
+import { Shopping } from '../screens/Shopping';
 import { Wellbeing } from '../screens/Wellbeing';
 import { Workout } from '../screens/Workout';
 
@@ -55,6 +56,7 @@ export function App() {
             <Route path="/sync" element={<Sync />} />
             <Route path="/menu" element={<Menu />} />
             <Route path="/reminders" element={<Reminders />} />
+            <Route path="/shopping" element={<Shopping />} />
             <Route path="*" element={<Day />} />
           </Routes>
         </OnboardingGate>

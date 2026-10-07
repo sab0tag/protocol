@@ -1,10 +1,10 @@
 // One sync round (SPEC.md D31): find local changes by hash, pull what other devices sent, push ours.
 // A conflict on the same row goes to the later change; on a device's first sync the vault wins (a new phone's
-// example plan must not overwrite the real one). Built-in foods and dishes are not synced — every device has them.
+// example plan must not overwrite the real one). Built-in foods and dishes are not synced — every device has them; own foods are (D36).
 import type { ProtocolDB, SyncMeta, SyncRow } from '../data/db';
 import { open, recordKey, seal, type Keys } from './crypto';
 
-export const TABLES = ['plan', 'entries', 'wellbeing', 'workouts', 'weights', 'labs', 'recipes'] as const;
+export const TABLES = ['plan', 'entries', 'wellbeing', 'workouts', 'weights', 'labs', 'recipes', 'foods'] as const;
 export type SyncTable = (typeof TABLES)[number];
 
 type Row = Record<string, unknown>;
@@ -13,7 +13,7 @@ const DELETED = '-';
 const idOf = (t: SyncTable, row: Row): string =>
   t === 'labs' ? JSON.stringify([row.date, row.name]) : String(t === 'wellbeing' || t === 'weights' ? row.date : row.id);
 const pkOf = (t: SyncTable, id: string): string | [string, string] => (t === 'labs' ? JSON.parse(id) as [string, string] : id);
-const synced = (t: SyncTable, row: Row) => !(t === 'recipes' && row.builtIn);
+const synced = (t: SyncTable, row: Row) => (t === 'foods' ? !!row.custom : !(t === 'recipes' && row.builtIn)); // D36: own foods only
 
 /** Same content → same string, whatever the key order; `undefined` fields are skipped as JSON does. */
 export function stable(v: unknown): string {

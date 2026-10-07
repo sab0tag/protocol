@@ -7,7 +7,7 @@ import { Sheet, SheetButton } from '../components/Sheet';
 import { db } from '../data/db';
 import { useAllEntries, useDayEntries, useFoods, usePlan, useWorkouts } from '../data/queries';
 import { buildChecklist } from '../domain/checklist';
-import { mealsOf } from '../domain/habits';
+import { habits, mealsOf } from '../domain/habits';
 import { addDays, parseISO as parseDay } from 'date-fns';
 import { amountText } from '../domain/foodSearch';
 import { exportDue } from '../data/backup';
@@ -46,6 +46,9 @@ export function Day() {
   const [adding, setAdding] = useState(false);
   const [yesterday, setYesterday] = useState(false);
   const all = useAllEntries();
+  const best = foods && all && workouts
+    ? habits({ plan, entries: all, workouts, foods, today: todayISO() }).filter((h) => h.streak >= 3).sort((a, b) => b.streak - a.streak)[0]
+    : undefined; // D38
   const [simple, setSimple] = useState<{ kind: Exclude<EntryKind, 'meal'>; entry?: DayEntry } | null>(null);
 
   const mode = activeMode(plan, date);
@@ -125,6 +128,8 @@ export function Day() {
         <button type="button" onClick={() => navigate(`/menu?date=${date}`)}
           className="flex min-h-tap items-center gap-1 rounded-full border border-line bg-surface px-3 font-medium"><Sparkles size={16} className="text-accent" aria-hidden />{t.menu.quick}</button>
       </div>
+
+      {isToday && best && <p className="mb-3 text-sm text-accent">{t.day.streak(t.progress.habit[best.key], best.streak)}</p>}
 
       {tips.length > 0 && (
         <details className="mb-3 rounded-2xl border border-line bg-surface p-3">

@@ -48,3 +48,18 @@ describe('week summary (D29)', () => {
     expect(s).toMatchObject({ from: '2026-09-28', days: 2, carbsOk: 1, proteinOk: 1, waterOk: 1, workouts: 1 });
   });
 });
+
+describe('good habits (D38)', () => {
+  it('a run up to today, an unfinished today breaks nothing, days without entries are skipped', async () => {
+    const { habits } = await import('../../src/domain/habits');
+    const { FOODS } = await import('../../src/data/foods');
+    const foods = new Map(FOODS.map((f) => [f.id, f]));
+    const plan = { constraints: [], prescriptions: [], modes: [], targets: { proteinG: 100 } };
+    const day = (d: string, g: number) => ({ id: d, at: `${d}T13:00:00+03:00`, kind: 'meal' as const, status: 'done' as const, title: 'Обід',
+      items: [{ foodId: 'chicken-breast', name: 'Куряче філе (сире)', grams: g }] });
+    // 23 g protein per 100 g: 450 g ≈ 103 g ✓, 200 g ✗
+    const entries = [day('2026-10-01', 450), day('2026-10-02', 200), day('2026-10-03', 450), day('2026-10-05', 450), day('2026-10-06', 450), day('2026-10-07', 200)];
+    const [h] = habits({ plan, entries, workouts: [], foods, today: '2026-10-07' });
+    expect(h).toMatchObject({ key: 'protein', streak: 3, best: 3, last7: 4, days7: 6 }); // 3, 5, 6 in a row (4 has no entries); 7 is today, not over
+  });
+});

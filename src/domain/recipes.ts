@@ -1,5 +1,5 @@
 // Dishes (D27): a recipe is ingredients for one portion; in a meal it becomes one line with a copy of them.
-import type { MealItem, Recipe } from './types';
+import type { Food, MealItem, Recipe } from './types';
 
 const round1 = (n: number) => Math.round(n * 10) / 10;
 
@@ -37,4 +37,30 @@ export function recipeFrom(name: string, items: MealItem[], id: string): Recipe 
   const flat = items.flatMap((it) => (it.components?.length ? scaleItems(it.components, 1 / (it.recipe?.portions ?? 1)) : [it]))
     .map(({ recipe: _r, components: _c, ...rest }) => rest);
   return { id, name: name.trim(), items: flat };
+}
+
+/** D36: «У мою базу» — a free line (nutrients for the whole portion) becomes a food per 100 g; null without weight. */
+export function foodFromLine(item: MealItem, id: string): Food | null {
+  if (!item.manual || !(item.grams > 0) || !item.name.trim()) return null;
+  const k = 100 / item.grams, r = (n: number) => Math.round(n * k * 10) / 10;
+  const m = item.manual;
+  return { id, name: item.name.trim(), custom: true, tags: [],
+    per100g: { kcal: Math.round(m.kcal * k), protein: r(m.protein), fat: r(m.fat), carbs: r(m.carbs), calciumMg: Math.round((m.calciumMg ?? 0) * k) } };
+}
+
+/** D36: before an own food is deleted, lines that use it keep their nutrients as a free line. */
+export function detachFood(items: MealItem[], food: Food): { items: MealItem[]; changed: boolean } {
+  let changed = false;
+  const walk = (xs: MealItem[]): MealItem[] => xs.map((it) => {
+    if (it.components?.length) {
+      const components = walk(it.components);
+      return components === it.components ? it : { ...it, components };
+    }
+    if (it.foodId !== food.id) return it;
+    changed = true;
+    const k = it.grams / 100, p = food.per100g;
+    const { foodId: _f, unit: _u, ...rest } = it;
+    return { ...rest, manual: { kcal: p.kcal * k, protein: p.protein * k, fat: p.fat * k, carbs: p.carbs * k, calciumMg: (p.calciumMg ?? 0) * k } };
+  });
+  return { items: walk(items), changed };
 }

@@ -92,6 +92,7 @@ export interface Food {
   tags: string[]; // for the rules
   units?: FoodUnit[]; // D26: the first one is offered by default
   aliases?: string[]; // D26: other names to find it by ("грудка", "курка")
+  custom?: boolean; // D36: the person's own food (from a free line or a photo), synced; the base is not
 }
 
 /** D27: a dish made of foods — ingredients for one portion. */

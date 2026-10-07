@@ -7,7 +7,8 @@ import { setPortions, sumGrams } from './recipes';
 import type { DayEntry, Food, ISODate, MealItem, Nutrients, Plan, Recipe } from './types';
 
 export interface MenuResult {
-  meals: { title: string; time: string; items: { name: string; grams: number; count: number | null }[] }[];
+  /** `line` — an existing meal line taken as is (D37: «Як учора», an edited draft); the model never sends it */
+  meals: { title: string; time: string; items: { name: string; grams: number; count: number | null; line?: MealItem }[] }[];
   tips: string[];
 }
 
@@ -59,7 +60,7 @@ export function scaleLine(it: MealItem, f: number): MealItem {
 
 export function draftFrom(result: MenuResult, ctx: {
   plan: Plan; date: ISODate; foods: Map<string, Food>; recipes: Recipe[]; recentEntries: DayEntry[];
-  dishItem: (r: Recipe, portions: number) => MealItem;
+  dishItem: (r: Recipe, portions: number) => MealItem; scale?: boolean;
 }): MenuDraft {
   const { plan, date, foods, recipes } = ctx;
   const byName = new Map<string, Food | Recipe>();
@@ -72,6 +73,7 @@ export function draftFrom(result: MenuResult, ctx: {
   for (const m of result.meals) {
     let items: MealItem[] = [];
     for (const x of m.items) {
+      if (x.line) { items.push(x.line); continue; }
       const hit = byName.get(normalize(x.name));
       if (!hit || !(x.grams > 0)) continue;
       if ('items' in hit) {
@@ -105,7 +107,7 @@ export function draftFrom(result: MenuResult, ctx: {
   // portions to the calorie target (±10 % is left as is; never more than a quarter either way)
   const kcal = effectiveTargets(plan, date).kcal;
   const total = draftTotals(meals, foods).kcal;
-  if (kcal && total > 0 && Math.abs(total / kcal - 1) > 0.1) {
+  if (ctx.scale !== false && kcal && total > 0 && Math.abs(total / kcal - 1) > 0.1) {
     const f = Math.min(1.25, Math.max(0.75, kcal / total));
     for (const m of meals) m.items = m.items.map((it) => scaleLine(it, f));
   }
@@ -124,4 +126,45 @@ export function acceptPlan(draft: MenuDraft, existing: DayEntry[], newId: () => 
     menu: i === 0 && draft.tips.length ? { tips: draft.tips } : {},
   }));
   return { remove, add };
+}
+
+// ------------------------------------------------------------------ editing a draft (D37)
+const pieces = (it: MealItem) => (it.unit?.name.startsWith('шт') ? it.unit.qty : null);
+
+/** A draft (or written meals) back to the model's shape — to check it again after an edit, or to start from. */
+export function asResult(meals: { title: string; time: string; items: MealItem[] }[], tips: string[] = []): MenuResult {
+  return { tips, meals: meals.map((m) => ({ title: m.title, time: m.time,
+    items: m.items.map((it) => ({ name: it.name, grams: it.grams, count: pieces(it), line: it })) })) };
+}
+
+/** «Як учора»: the meals of the day before as a draft for `date` (no model, no cost). */
+export function likeYesterday(entries: DayEntry[], date: ISODate): MenuResult | null {
+  const prev = new Date(Date.parse(`${date}T12:00:00Z`) - 86_400_000).toISOString().slice(0, 10);
+  const meals = entries.filter((e) => e.kind === 'meal' && e.status !== 'skipped' && e.items?.length && e.at.startsWith(prev))
+    .sort((a, b) => a.at.localeCompare(b.at))
+    .map((e) => ({ title: e.title, time: e.at.slice(11, 16), items: e.items! }));
+  return meals.length ? asResult(meals) : null;
+}
+
+const KEEP_GRAMS = new Set(['veg', 'fruit', 'condiment', 'fat']);
+
+/** ↻: the next food of the same kind (first tag), or the next dish; about the same calories (vegetables and fruit
+ *  keep their grams). Pass the current line; null when there is nothing to swap to. */
+export function nextAlternative(it: MealItem, foods: Map<string, Food>, recipes: Recipe[], dishItem: (r: Recipe, portions: number) => MealItem): MealItem | null {
+  if (it.recipe) {
+    const list = [...recipes].sort((a, b) => a.name.localeCompare(b.name, 'uk'));
+    if (list.length < 2) return null;
+    const i = list.findIndex((r) => r.id === it.recipe!.id);
+    return dishItem(list[(i + 1) % list.length]!, it.recipe.portions);
+  }
+  const food = it.foodId ? foods.get(it.foodId) : undefined;
+  const tag = food?.tags[0];
+  if (!food || !tag) return null;
+  const dry = (f: Food) => /\((сух|сир)/i.test(f.name); // «Гречка (суха)», «Куряче філе (сире)» — not ready to eat
+  const list = [...foods.values()].filter((f) => f.tags[0] === tag && dry(f) === dry(food)).sort((a, b) => a.name.localeCompare(b.name, 'uk'));
+  if (list.length < 2) return null;
+  const next = list[(list.findIndex((f) => f.id === food.id) + 1) % list.length]!;
+  const kcal = (food.per100g.kcal * it.grams) / 100;
+  const grams = KEEP_GRAMS.has(tag) || next.per100g.kcal <= 0 ? it.grams : Math.min(600, Math.max(20, Math.round(kcal / next.per100g.kcal * 100 / 5) * 5));
+  return { foodId: next.id, name: next.name, grams, ...(it.cooking ? { cooking: it.cooking } : {}) };
 }

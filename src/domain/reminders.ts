@@ -13,11 +13,14 @@ export interface ReminderSettings {
   morning: string; // D35: '' = off, else "HH:MM" — the day's plan in one message
   evening: string; // D35: '' = off — tomorrow's prep tips, or «скласти меню?»
   visits: boolean; // D35: lab tests due and the next checkup
+  weekly?: boolean; // D38: Sunday 19:00 — the week in numbers
+  weightDay?: number; // D38: 0 = off, 1–7 = ISO weekday of a weighing reminder (at the morning time or 08:00)
 }
 
-export const DEFAULT_REMINDERS: ReminderSettings = { meals: true, meds: true, waterEveryH: 0, repeatMin: 15, morning: '07:30', evening: '20:30', visits: true };
+export const DEFAULT_REMINDERS: ReminderSettings = { meals: true, meds: true, waterEveryH: 0, repeatMin: 15, morning: '07:30', evening: '20:30', visits: true,
+  weekly: true, weightDay: 1 };
 
-export type ReminderKind = 'meal' | 'med' | 'water' | 'morning' | 'evening' | 'test' | 'visit';
+export type ReminderKind = 'meal' | 'med' | 'water' | 'morning' | 'evening' | 'test' | 'visit' | 'week' | 'weight';
 
 export interface Reminder {
   key: string;
@@ -82,6 +85,15 @@ export function reminders(args: { entries: DayEntry[]; plan: Plan | undefined; s
     if (settings.morning) {
       push({ key: `morning:${d}`, at: at(d, settings.morning), once: true,
         payload: { t: 'План на сьогодні', b: 'Відкрийте, щоб подивитися день', k: 'morning', u: url(d), tag: `morning:${d}`, d } });
+    }
+    const wd = ((new Date(`${d}T12:00:00`).getDay() + 6) % 7) + 1; // ISO weekday
+    if (settings.weekly && wd === 7) {
+      push({ key: `week:${d}`, at: at(d, '19:00'), once: true,
+        payload: { t: 'Тиждень у цифрах', b: 'Подивіться «Прогрес»', k: 'week', u: './#/progress', tag: `week:${d}`, d } });
+    }
+    if (settings.weightDay && wd === settings.weightDay) {
+      push({ key: `weight:${d}`, at: at(d, settings.morning || '08:00') + 5 * 60_000, once: true,
+        payload: { t: 'Зважування', b: 'Зранку, до сніданку — і запишіть у «Прогрес»', k: 'weight', u: './#/progress', tag: `weight:${d}`, d } });
     }
     if (settings.evening) {
       const next = format(addDays(new Date(`${d}T12:00:00`), 1), 'yyyy-MM-dd');

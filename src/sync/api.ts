@@ -39,7 +39,7 @@ export const photo = (keys: Keys, image: string, foods: string[], dishes: string
 
 export interface MenuBody {
   date: string; targets: Record<string, number | string>; rules: string[];
-  foods: string[]; dishes: string[]; usual: string[]; wish: string;
+  foods: string[]; dishes: string[]; usual: string[]; wish: string; avoid: string[];
 }
 
 export const menu = (keys: Keys, body: MenuBody) => call<MenuResult>(keys, 'POST', '/menu', body);
@@ -56,3 +56,5 @@ export const putDevice = (keys: Keys, dev: string, subscription: PushSubscriptio
 export const dropDevice = (keys: Keys, dev: string) => call<{ ok: true }>(keys, 'DELETE', `/devices/${dev}`);
 export const putReminders = (keys: Keys, dev: string, body: unknown) => call<{ ok: true; count: number }>(keys, 'PUT', `/devices/${dev}/reminders`, body);
 export const testPush = (keys: Keys, dev: string) => call<{ ok: true }>(keys, 'POST', `/devices/${dev}/test`);
+
+export const usage = (keys: Keys) => call<{ month: string; kinds: Record<string, number>; usd: number }>(keys, 'GET', '/usage');

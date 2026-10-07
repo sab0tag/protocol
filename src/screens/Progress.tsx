@@ -6,8 +6,8 @@ import { Bar, BarChart, CartesianGrid, Cell, LabelList, ReferenceLine, Responsiv
 import { db } from '../data/db';
 import { useAllEntries, useAllWellbeing, useFoods, useLabs, usePlan, useWeights, useWorkouts } from '../data/queries';
 import { todayISO } from '../domain/dates';
-import { labRows, patterns, tooFastTwoWeeks, weeklyWeights, weightSummary, type WeekWeight } from '../domain/progress';
-import { weekSummary } from '../domain/habits';
+import { labRows, pace, patterns, tooFastTwoWeeks, weeklyWeights, weightSummary, type WeekWeight } from '../domain/progress';
+import { habits, weekSummary, type Habit } from '../domain/habits';
 import { t } from '../i18n/uk';
 
 const L = t.progress;
@@ -42,6 +42,7 @@ export function Progress() {
       </div>
 
       <WeekCard summary={weekSummary({ plan, entries, workouts, foods, today: todayISO() })} />
+      <HabitsCard list={habits({ plan, entries, workouts, foods, today: todayISO() })} />
 
       <section className="rounded-2xl border border-line bg-surface p-3">
         <h2 className="mb-2 font-semibold">{L.weight}</h2>
@@ -57,6 +58,10 @@ export function Progress() {
             <AlertTriangle size={18} className="mt-0.5 shrink-0" aria-hidden />{L.tooFast(max)}</p>
         )}
 
+        {pace(weeks) !== undefined && (
+          <p className={`mb-2 text-sm ${max != null && -pace(weeks)! > max ? 'text-warn' : 'text-muted'}`}>
+            {L.pace(signed(pace(weeks)!))}{max != null ? L.paceLimit(kg(max)) : ''}</p>
+        )}
         {weeks.length > 1 && <WeeklyChart weeks={weeks} max={max} />}
         <AddWeight />
       </section>
@@ -179,6 +184,28 @@ function Labs({ rows }: { rows: ReturnType<typeof labRows> }) {
           </table>
         </div>
       ) : <p className="text-muted">{L.noLabs}</p>}
+    </section>
+  );
+}
+
+/** D38: gentle — a run when there is one, otherwise how many days of the week; nothing is «lost». */
+function HabitsCard({ list }: { list: Habit[] }) {
+  if (!list.length) return null;
+  return (
+    <section className="rounded-2xl border border-line bg-surface p-3">
+      <h2 className="font-semibold">{L.habits}</h2>
+      <p className="mb-2 text-sm text-muted">{L.habitsHint}</p>
+      <ul className="space-y-2">
+        {list.map((h) => (
+          <li key={h.key} className="flex items-baseline justify-between gap-2">
+            <span>{L.habit[h.key]}</span>
+            <span className="text-right tabular">
+              <span className={h.streak >= 2 ? 'font-semibold text-accent' : ''}>{h.streak >= 2 ? `🌱 ${L.streak(h.streak)}` : L.ofWeek(h.last7, h.days7)}</span>
+              {h.best >= 3 && h.best > h.streak && <span className="block text-xs text-muted">{L.best(h.best)}</span>}
+            </span>
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }

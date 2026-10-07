@@ -36,6 +36,12 @@ export function tooFastTwoWeeks(weeks: WeekWeight[]): boolean {
   return withChange.length >= 2 && withChange.slice(-2).every((w) => w.tooFast);
 }
 
+/** D38: the weight's pace — the average change of the last (up to) two weeks with a change, kg per week. */
+export function pace(weeks: WeekWeight[]): number | undefined {
+  const ch = weeks.filter((w) => w.change !== undefined).slice(-2).map((w) => w.change!);
+  return ch.length ? r1(ch.reduce((a, b) => a + b, 0) / ch.length) : undefined;
+}
+
 export function weightSummary(logs: WeightLog[]): { start?: WeightLog; now?: WeightLog; delta?: number } {
   const sorted = [...logs].sort((a, b) => a.date.localeCompare(b.date));
   const start = sorted[0], now = sorted.at(-1);

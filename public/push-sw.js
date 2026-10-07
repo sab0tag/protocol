@@ -15,6 +15,20 @@ function idbGet(store, key) {
   });
 }
 
+function idbAll(store) {
+  return new Promise((resolve) => {
+    const open = indexedDB.open('protocol');
+    open.onerror = () => resolve([]);
+    open.onsuccess = () => {
+      try {
+        const req = open.result.transaction(store, 'readonly').objectStore(store).getAll();
+        req.onsuccess = () => { resolve(req.result || []); open.result.close(); };
+        req.onerror = () => { resolve([]); open.result.close(); };
+      } catch (e) { resolve([]); }
+    };
+  });
+}
+
 function idbDay(date) {
   return new Promise((resolve) => {
     const open = indexedDB.open('protocol');
@@ -64,6 +78,25 @@ async function detail(d) {
     const plan = await idbGet('plan', 'main');
     const tests = ((plan && plan.prescriptions) || []).filter((p) => p.kind === 'test' && p.dueDate === d.d).map((p) => [p.title, p.notes].filter(Boolean).join(' — '));
     if (tests.length) return tests.join('; ');
+  }
+  if (d.k === 'week' && d.d) {
+    const from = new Date(Date.parse(d.d + 'T12:00:00Z') - 6 * 86400000).toISOString().slice(0, 10);
+    const [entries, plan] = await Promise.all([idbAll('entries'), idbGet('plan', 'main')]);
+    const week = entries.filter((e) => e.at.slice(0, 10) >= from && e.at.slice(0, 10) <= d.d);
+    const meals = week.filter((e) => e.kind === 'meal' && e.status === 'done').length;
+    const days = new Set(week.map((e) => e.at.slice(0, 10))).size;
+    const perDay = ((plan && plan.prescriptions) || []).filter(isMed).reduce((n, p) => n + ((p.schedule && p.schedule.times.length) || 0), 0);
+    const meds = week.filter((e) => e.kind === 'med' && e.status === 'done' && e.checkKey).length;
+    const parts = [`записи — ${days} з 7 днів`, `прийомів їжі — ${meals}`];
+    if (perDay) parts.push(`ліки — ${Math.min(meds, perDay * 7)} з ${perDay * 7}`);
+    return parts.join(' · ') + '. Подробиці — у «Прогрес».';
+  }
+  if (d.k === 'weight') {
+    const w = (await idbAll('weights')).sort((a, b) => a.date.localeCompare(b.date)).at(-1);
+    if (w) {
+      const ago = Math.round((Date.parse((d.d || w.date) + 'T12:00:00Z') - Date.parse(w.date + 'T12:00:00Z')) / 86400000);
+      return `Останнє — ${String(w.kg).replace('.', ',')} кг${ago > 0 ? `, ${ago} дн. тому` : ''}. Зранку, до сніданку.`;
+    }
   }
   if (d.k === 'visit') {
     const plan = await idbGet('plan', 'main');

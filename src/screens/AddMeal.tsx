@@ -7,7 +7,7 @@ import { db } from '../data/db';
 import { useAllEntries, useDayEntries, useFoods, usePlan, useRecentEntries, useRecipes } from '../data/queries';
 import { earlierMeals, frequentItems } from '../domain/habits';
 import { Amount } from '../components/Amount';
-import { dishItem, recipeFrom, setPortions, withComponents } from '../domain/recipes';
+import { dishItem, foodFromLine, recipeFrom, setPortions, withComponents } from '../domain/recipes';
 import { atLocal, dateOf, newId, timeOf, todayISO } from '../domain/dates';
 import { activeMode, dayTotals, effectiveTargets, lineNutrients, mealNutrients, round } from '../domain/nutrition';
 import { applySwaps, checkMeal, hasSwaps, mealVerdict, type ItemCheck } from '../domain/rules';
@@ -276,7 +276,12 @@ export function AddMeal() {
               return (
                 <li key={i} className="rounded-xl border border-line p-2">
                   <div className="flex items-start justify-between gap-2">
-                    <span className="font-medium">{it.name}</span>
+                    <span className="font-medium">{it.name}
+                      {it.manual && it.grams > 0 && (
+                        <button type="button" className="ml-2 text-sm font-normal text-accent underline"
+                          onClick={async () => { const f = foodFromLine(it, `u-${newId()}`); if (f) { await db.foods.put(f); setItem(i, { foodId: f.id, manual: undefined }); } }}>
+                          {t.meal.toBase}</button>
+                      )}</span>
                     <button type="button" onClick={() => setItems((xs) => xs.filter((_, j) => j !== i))}
                       className="flex min-h-tap min-w-tap items-center justify-center text-warn" aria-label={`${t.meal.remove}: ${it.name}`}>
                       <Trash2 size={18} /></button>
@@ -382,6 +387,7 @@ function RecognizedPanel({ title, rows, note, onAdd }: { title: string; rows: Re
 }
 
 function FreeItemForm({ onAdd }: { onAdd: (item: MealItem) => void }) {
+  const [save, setSave] = useState(true);
   const [name, setName] = useState('');
   const [grams, setGrams] = useState('');
   const [n, setN] = useState<Record<keyof Nutrients, string>>({ kcal: '', protein: '', fat: '', carbs: '', calciumMg: '' });
@@ -402,9 +408,18 @@ function FreeItemForm({ onAdd }: { onAdd: (item: MealItem) => void }) {
             <input type="text" inputMode="decimal" value={n[k] ?? ''} onChange={(e) => setN((x) => ({ ...x, [k]: e.target.value }))} className={field} /></label>
         ))}
       </div>
+      <label className="flex min-h-tap items-center gap-3 text-sm">
+        <input type="checkbox" checked={save} onChange={(e) => setSave(e.target.checked)} className="h-5 w-5 accent-[rgb(var(--accent))]" />
+        <span>{t.meal.saveToBase}</span>
+      </label>
       <button type="button" disabled={!name.trim() || !grams}
-        onClick={() => onAdd({ name: name.trim(), grams: num(grams),
-          manual: { kcal: num(n.kcal), protein: num(n.protein), fat: num(n.fat), carbs: num(n.carbs), calciumMg: num(n.calciumMg ?? '') } })}
+        onClick={async () => {
+          const item: MealItem = { name: name.trim(), grams: num(grams),
+            manual: { kcal: num(n.kcal), protein: num(n.protein), fat: num(n.fat), carbs: num(n.carbs), calciumMg: num(n.calciumMg ?? '') } };
+          const food = save ? foodFromLine(item, `u-${newId()}`) : null;
+          if (food) await db.foods.put(food);
+          onAdd(food ? { foodId: food.id, name: food.name, grams: item.grams } : item);
+        }}
         className="flex min-h-tap items-center gap-2 rounded-xl border border-accent px-3 text-accent disabled:opacity-40">
         <Plus size={18} />{t.meal.add}</button>
     </div>
