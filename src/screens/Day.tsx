@@ -1,8 +1,8 @@
 import { format, parseISO } from 'date-fns';
 import { uk } from 'date-fns/locale';
 import { Activity, Check, ChevronLeft, ListChecks, ChevronRight, Droplet, NotebookPen, Pill, Plus, Dumbbell, Undo2, UtensilsCrossed, X, Pencil, Trash2, Sparkles } from 'lucide-react';
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Sheet, SheetButton } from '../components/Sheet';
 import { db } from '../data/db';
 import { useAllEntries, useDayEntries, useFoods, usePlan, useWorkouts } from '../data/queries';
@@ -25,6 +25,12 @@ const KIND_ICON = { meal: UtensilsCrossed, med: Pill, water: Droplet, workout: D
 /** «День» as an order sheet: rows by time (Час · Позиція · Вугл), the day's totals against the targets. */
 export function Day() {
   const { date, shift, setDate } = useUi();
+  // D34: a reminder opens its day (#/?date=…)
+  const [params, setParams] = useSearchParams();
+  const linked = params.get('date');
+  useEffect(() => {
+    if (linked && /^\d{4}-\d{2}-\d{2}$/.test(linked)) { setDate(linked); setParams({}, { replace: true }); }
+  }, [linked, setDate, setParams]);
   const entries = useDayEntries(date);
   const foods = useFoods();
   const plan = usePlan();

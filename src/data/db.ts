@@ -1,5 +1,6 @@
 // IndexedDB through Dexie (SPEC.md §4). Everything stays on the device.
 import Dexie, { type Table } from 'dexie';
+import type { ReminderSettings } from '../domain/reminders';
 import type { DayEntry, Food, LabResult, Plan, Recipe, WeightLog, Wellbeing, Workout } from '../domain/types';
 import { FOODS } from './foods';
 import { RECIPES } from './recipes';
@@ -26,6 +27,8 @@ export interface SyncMeta {
   lastAt?: number;
   photoConsent?: boolean;
   menuConsent?: boolean; // D33
+  device?: string; // D34: this device's id for push
+  reminders?: ReminderSettings & { on: boolean };
 }
 
 export class ProtocolDB extends Dexie {

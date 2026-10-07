@@ -145,6 +145,7 @@ export function Menu() {
           )}
 
           {replacing && <p className="text-sm text-muted">{L.replaces}</p>}
+          {!meta?.reminders?.on && <p className="text-sm text-muted">{t.remind.menuHint}</p>}
           <button type="button" onClick={() => void accept()} disabled={draft.meals.length === 0}
             className="min-h-tap w-full rounded-xl bg-accent px-4 font-medium text-surface disabled:opacity-40">{L.accept(format(parseISO(draft.date), 'd MMMM', { locale: uk }))}</button>
         </>

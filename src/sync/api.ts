@@ -10,7 +10,7 @@ export class ApiError extends Error {
   constructor(public status: number, public code: string) { super(code); }
 }
 
-async function call<T>(keys: Keys, method: string, path: string, body?: unknown): Promise<T> {
+export async function call<T>(keys: Keys, method: string, path: string, body?: unknown): Promise<T> {
   let res: Response;
   try {
     res = await fetch(`${API_URL}/v1/vaults/${keys.vaultId}${path}`, {
@@ -43,3 +43,16 @@ export interface MenuBody {
 }
 
 export const menu = (keys: Keys, body: MenuBody) => call<MenuResult>(keys, 'POST', '/menu', body);
+
+// D34: reminders
+export async function pushKey(): Promise<string> {
+  let res: Response;
+  try { res = await fetch(`${API_URL}/v1/push/key`); } catch { throw new ApiError(0, 'offline'); }
+  if (!res.ok) throw new ApiError(res.status, 'push_off');
+  return ((await res.json()) as { key: string }).key;
+}
+export const putDevice = (keys: Keys, dev: string, subscription: PushSubscriptionJSON) =>
+  call<{ ok: true }>(keys, 'PUT', `/devices/${dev}`, { subscription });
+export const dropDevice = (keys: Keys, dev: string) => call<{ ok: true }>(keys, 'DELETE', `/devices/${dev}`);
+export const putReminders = (keys: Keys, dev: string, body: unknown) => call<{ ok: true; count: number }>(keys, 'PUT', `/devices/${dev}/reminders`, body);
+export const testPush = (keys: Keys, dev: string) => call<{ ok: true }>(keys, 'POST', `/devices/${dev}/test`);

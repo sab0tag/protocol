@@ -1,10 +1,11 @@
-import { Activity, ChevronRight, Dumbbell, FileText, ListChecks, RefreshCw, Salad, Sparkles, UserRound } from 'lucide-react';
+import { Activity, BellRing, ChevronRight, Dumbbell, FileText, ListChecks, RefreshCw, Salad, Sparkles, UserRound } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Backup } from '../components/Backup';
 import { t } from '../i18n/uk';
 
 const LINKS = [
   { to: '/menu', Icon: Sparkles, title: t.menu.title },
+  { to: '/reminders', Icon: BellRing, title: t.remind.title },
   { to: '/sync', Icon: RefreshCw, title: t.sync.title },
   { to: '/report', Icon: FileText, title: t.report.title },
   { to: '/dishes', Icon: Salad, title: t.dishes.title },

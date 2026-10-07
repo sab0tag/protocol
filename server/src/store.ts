@@ -17,6 +17,14 @@ export class Store {
       CREATE TABLE IF NOT EXISTS counters (day TEXT NOT NULL, scope TEXT NOT NULL, n INTEGER NOT NULL, PRIMARY KEY (day, scope));
       CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, n INTEGER NOT NULL);
       INSERT OR IGNORE INTO meta (k, n) VALUES ('seq', 0);
+      CREATE TABLE IF NOT EXISTS settings (k TEXT PRIMARY KEY, v TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS push_subs (vault TEXT NOT NULL, device TEXT NOT NULL, sub TEXT NOT NULL, updated INTEGER NOT NULL,
+        PRIMARY KEY (vault, device));
+      CREATE TABLE IF NOT EXISTS reminders (vault TEXT NOT NULL, device TEXT NOT NULL, rid TEXT NOT NULL, at INTEGER NOT NULL,
+        payload TEXT NOT NULL, next_at INTEGER NOT NULL, repeats_left INTEGER NOT NULL, repeat_every INTEGER NOT NULL, sent INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY (vault, device, rid));
+      CREATE INDEX IF NOT EXISTS reminders_due ON reminders (next_at);
+      CREATE TABLE IF NOT EXISTS acks (vault TEXT NOT NULL, rid TEXT NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (vault, rid));
     `);
   }
 
@@ -74,6 +82,76 @@ export class Store {
     if (n >= limit) return false;
     this.db.prepare('INSERT INTO counters (day, scope, n) VALUES (?, ?, 1) ON CONFLICT (day, scope) DO UPDATE SET n = n + 1').run(day, scope);
     return true;
+  }
+
+  setting(k: string): string | undefined {
+    return (this.db.prepare('SELECT v FROM settings WHERE k = ?').get(k) as { v: string } | undefined)?.v;
+  }
+
+  setSetting(k: string, v: string) {
+    this.db.prepare('INSERT INTO settings (k, v) VALUES (?, ?) ON CONFLICT (k) DO UPDATE SET v = excluded.v').run(k, v);
+  }
+
+  // ---------------------------------------------------------------- push (SPEC.md D34)
+  devices(vault: string): number {
+    return (this.db.prepare('SELECT COUNT(*) AS n FROM push_subs WHERE vault = ?').get(vault) as { n: number }).n;
+  }
+
+  hasDevice(vault: string, device: string): boolean {
+    return !!this.db.prepare('SELECT 1 FROM push_subs WHERE vault = ? AND device = ?').get(vault, device);
+  }
+
+  putSub(vault: string, device: string, sub: string, now: number) {
+    this.db.prepare('INSERT INTO push_subs (vault, device, sub, updated) VALUES (?, ?, ?, ?) ON CONFLICT (vault, device) DO UPDATE SET sub = excluded.sub, updated = excluded.updated')
+      .run(vault, device, sub, now);
+  }
+
+  sub(vault: string, device: string): string | undefined {
+    return (this.db.prepare('SELECT sub FROM push_subs WHERE vault = ? AND device = ?').get(vault, device) as { sub: string } | undefined)?.sub;
+  }
+
+  dropDevice(vault: string, device: string) {
+    this.db.prepare('DELETE FROM push_subs WHERE vault = ? AND device = ?').run(vault, device);
+    this.db.prepare('DELETE FROM reminders WHERE vault = ? AND device = ?').run(vault, device);
+  }
+
+  /** The device's whole schedule: unknown reminders go away; a known one keeps its progress (sent, repeats)
+   *  unless its time moved; `done` ones are acknowledged for every device of the vault. */
+  setReminders(vault: string, device: string, items: { rid: string; at: number; payload: string }[],
+    repeatEvery: number, repeats: number, done: string[], now: number) {
+    const old = new Map((this.db.prepare('SELECT rid, at FROM reminders WHERE vault = ? AND device = ?').all(vault, device) as { rid: string; at: number }[])
+      .map((r) => [r.rid, r.at]));
+    const keep = new Set(items.map((i) => i.rid));
+    this.db.exec('BEGIN');
+    try {
+      const del = this.db.prepare('DELETE FROM reminders WHERE vault = ? AND device = ? AND rid = ?');
+      for (const rid of old.keys()) if (!keep.has(rid)) del.run(vault, device, rid);
+      const ins = this.db.prepare(`INSERT INTO reminders (vault, device, rid, at, payload, next_at, repeats_left, repeat_every) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT (vault, device, rid) DO UPDATE SET payload = excluded.payload, repeat_every = excluded.repeat_every`);
+      const moved = this.db.prepare('UPDATE reminders SET at = ?, next_at = ?, repeats_left = ?, sent = 0 WHERE vault = ? AND device = ? AND rid = ?');
+      for (const i of items) {
+        if (!old.has(i.rid) && i.at < now - 60_000) continue; // already past when it first arrives: not ours to send late
+        if (old.has(i.rid) && old.get(i.rid) !== i.at) moved.run(i.at, i.at, repeats, vault, device, i.rid);
+        ins.run(vault, device, i.rid, i.at, i.payload, i.at, repeats, repeatEvery);
+      }
+      const ack = this.db.prepare('INSERT OR IGNORE INTO acks (vault, rid, at) VALUES (?, ?, ?)');
+      for (const rid of done) ack.run(vault, rid, now);
+      this.db.prepare('DELETE FROM acks WHERE at < ?').run(now - 7 * 86_400_000);
+      this.db.exec('COMMIT');
+    } catch (e) { this.db.exec('ROLLBACK'); throw e; }
+  }
+
+  due(now: number): { vault: string; device: string; rid: string; at: number; next_at: number; payload: string; repeats_left: number; repeat_every: number; sent: number; sub: string | null; acked: number }[] {
+    return this.db.prepare(`SELECT r.vault, r.device, r.rid, r.at, r.next_at, r.payload, r.repeats_left, r.repeat_every, r.sent, s.sub,
+        EXISTS (SELECT 1 FROM acks a WHERE a.vault = r.vault AND a.rid = r.rid) AS acked
+      FROM reminders r LEFT JOIN push_subs s ON s.vault = r.vault AND s.device = r.device WHERE r.next_at <= ? ORDER BY r.next_at LIMIT 200`)
+      .all(now) as never;
+  }
+
+  afterSend(vault: string, device: string, rid: string, nextAt: number | null) {
+    if (nextAt === null) this.db.prepare('DELETE FROM reminders WHERE vault = ? AND device = ? AND rid = ?').run(vault, device, rid);
+    else this.db.prepare('UPDATE reminders SET next_at = ?, repeats_left = repeats_left - 1, sent = sent + 1 WHERE vault = ? AND device = ? AND rid = ?')
+      .run(nextAt, vault, device, rid);
   }
 
   close() { this.db.close(); }

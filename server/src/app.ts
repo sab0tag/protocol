@@ -6,6 +6,7 @@ import { bodyLimit } from 'hono/body-limit';
 import { cors } from 'hono/cors';
 import type { MenuMaker } from './menu.ts';
 import type { Recognizer } from './photo.ts';
+import type { Sender } from './push.ts';
 import type { Store } from './store.ts';
 
 export interface Limits {
@@ -22,6 +23,7 @@ export interface Deps {
   store: Store;
   recognize?: Recognizer; // absent = photos are off (no API key)
   menu?: MenuMaker; // the same
+  push?: { publicKey: string; send: Sender };
   origins: string[];
   limits?: Limits;
   now?: () => Date;
@@ -41,8 +43,67 @@ export function createApp(deps: Deps) {
   const now = deps.now ?? (() => new Date());
   const app = new Hono();
 
-  app.use('*', cors({ origin: origins, allowMethods: ['GET', 'POST', 'PUT'], allowHeaders: ['Authorization', 'Content-Type'], maxAge: 86400 }));
-  app.get('/health', (c) => c.json({ ok: true, photo: !!recognize, menu: !!menu }));
+  app.use('*', cors({ origin: origins, allowMethods: ['GET', 'POST', 'PUT', 'DELETE'], allowHeaders: ['Authorization', 'Content-Type'], maxAge: 86400 }));
+  const DEVICE = /^[0-9a-f]{32}$/;
+  const RID = /^[A-Za-z0-9_-]{16,64}$/;
+
+  app.get('/v1/push/key', (c) => (deps.push ? c.json({ key: deps.push.publicKey }) : c.json({ error: 'push_off' }, 503)));
+
+  /** A device subscribes (or renews its subscription). */
+  app.put('/v1/vaults/:id/devices/:dev', bodyLimit({ maxSize: 10_000 }), async (c) => {
+    const id = authed(c);
+    if (typeof id !== 'string') return id;
+    const dev = c.req.param('dev');
+    const b = await c.req.json().catch(() => null) as { subscription?: { endpoint?: unknown; keys?: { p256dh?: unknown; auth?: unknown } } } | null;
+    const sub = b?.subscription;
+    if (!DEVICE.test(dev) || typeof sub?.endpoint !== 'string' || !sub.endpoint.startsWith('https://')
+      || typeof sub.keys?.p256dh !== 'string' || typeof sub.keys?.auth !== 'string') return c.json({ error: 'bad_request' }, 400);
+    if (!store.hasDevice(id, dev) && store.devices(id) >= 8) return c.json({ error: 'too_many' }, 429);
+    store.putSub(id, dev, JSON.stringify({ endpoint: sub.endpoint, keys: { p256dh: sub.keys.p256dh, auth: sub.keys.auth } }), now().getTime());
+    return c.json({ ok: true });
+  });
+
+  app.delete('/v1/vaults/:id/devices/:dev', (c) => {
+    const id = authed(c);
+    if (typeof id !== 'string') return id;
+    store.dropDevice(id, c.req.param('dev'));
+    return c.json({ ok: true });
+  });
+
+  /** The device's schedule for the coming days; `done` — reminders ticked anywhere (no more repeats). */
+  app.put('/v1/vaults/:id/devices/:dev/reminders', bodyLimit({ maxSize: 300_000 }), async (c) => {
+    const id = authed(c);
+    if (typeof id !== 'string') return id;
+    const dev = c.req.param('dev');
+    if (!store.hasDevice(id, dev)) return c.json({ error: 'not_found' }, 404);
+    const b = await c.req.json().catch(() => null) as { items?: unknown; done?: unknown; repeatEvery?: unknown; repeats?: unknown } | null;
+    if (!Array.isArray(b?.items) || b.items.length > 500) return c.json({ error: 'bad_request' }, 400);
+    const items: { rid: string; at: number; payload: string }[] = [];
+    for (const x of b.items as Record<string, unknown>[]) {
+      const p = x.payload as Record<string, unknown> | undefined;
+      if (typeof x.rid !== 'string' || !RID.test(x.rid) || typeof x.at !== 'number' || !p || typeof p !== 'object') return c.json({ error: 'bad_request' }, 400);
+      const payload = JSON.stringify(p);
+      if (payload.length > 600) return c.json({ error: 'bad_request' }, 400);
+      items.push({ rid: x.rid, at: Math.round(x.at), payload });
+    }
+    const done = Array.isArray(b.done) ? (b.done as unknown[]).filter((r): r is string => typeof r === 'string' && RID.test(r)).slice(0, 1000) : [];
+    const every = Math.min(60, Math.max(5, Number(b.repeatEvery) || 15));
+    const repeats = Math.min(3, Math.max(0, Math.round(Number(b.repeats) || 0)));
+    store.setReminders(id, dev, items, every, repeats, done, now().getTime());
+    return c.json({ ok: true, count: items.length });
+  });
+
+  app.post('/v1/vaults/:id/devices/:dev/test', async (c) => {
+    const id = authed(c);
+    if (typeof id !== 'string') return id;
+    const sub = store.sub(id, c.req.param('dev'));
+    if (!deps.push || !sub) return c.json({ error: 'not_found' }, 404);
+    if (!store.take(`test:${id}`, 20, now())) return c.json({ error: 'too_many' }, 429);
+    const r = await deps.push.send(sub, JSON.stringify({ t: 'Протокол', b: 'Нагадування працюють ✓', k: 'test', u: './#/', tag: 'test', n: 0 }));
+    return r === 'ok' ? c.json({ ok: true }) : c.json({ error: r }, 502);
+  });
+
+  app.get('/health', (c) => c.json({ ok: true, photo: !!recognize, menu: !!menu, push: !!deps.push }));
 
   const token = (c: Context) => c.req.header('Authorization')?.match(/^Bearer ([A-Za-z0-9_-]{40,64})$/)?.[1];
   const ip = (c: Context) => c.req.header('X-Forwarded-For')?.split(',')[0]?.trim() || 'unknown';

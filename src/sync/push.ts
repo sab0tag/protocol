@@ -1,0 +1,84 @@
+// Reminders on this device (SPEC.md D34): subscribe to Web Push and keep the server's schedule in step with the
+// day's plan. Called after every sync round, so a tick on another device stops the repeats here too.
+import { addDays, format } from 'date-fns';
+import { db } from '../data/db';
+import { DEFAULT_REMINDERS, reminders, type ReminderSettings } from '../domain/reminders';
+import { ApiError, dropDevice, pushKey, putDevice, putReminders, testPush } from './api';
+import { recordKey, type Keys } from './crypto';
+
+export const pushSupported = () => typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+/** iPhone: push only for a Протокол added to the home screen and opened from there. */
+export const needsHomeScreen = () => /iPhone|iPad|iPod/.test(navigator.userAgent)
+  && !(window.matchMedia?.('(display-mode: standalone)').matches || (navigator as { standalone?: boolean }).standalone);
+
+const b64ToBytes = (b64: string) => {
+  const s = atob(b64.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(b64.length / 4) * 4, '='));
+  return Uint8Array.from(s, (c) => c.charCodeAt(0));
+};
+const randomId = () => [...crypto.getRandomValues(new Uint8Array(16))].map((x) => x.toString(16).padStart(2, '0')).join('');
+
+async function subscribe(keys: Keys, device: string) {
+  const reg = await navigator.serviceWorker.ready;
+  let sub = await reg.pushManager.getSubscription();
+  if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(await pushKey()) as BufferSource });
+  await putDevice(keys, device, sub.toJSON());
+}
+
+export async function enablePush(keys: Keys, settings?: ReminderSettings) {
+  if (!pushSupported()) throw new ApiError(400, 'unsupported');
+  if (await Notification.requestPermission() !== 'granted') throw new ApiError(403, 'denied');
+  const meta = await db.meta.get('sync');
+  const device = meta?.device ?? randomId();
+  await subscribe(keys, device);
+  await db.meta.update('sync', { device, reminders: { ...DEFAULT_REMINDERS, ...meta?.reminders, ...settings, on: true } });
+  await pushSchedule(keys, true);
+}
+
+export async function disablePush(keys: Keys | undefined) {
+  const meta = await db.meta.get('sync');
+  try { await (await navigator.serviceWorker.ready).pushManager.getSubscription().then((s) => s?.unsubscribe()); } catch { /* none */ }
+  if (keys && meta?.device) await dropDevice(keys, meta.device).catch(() => undefined);
+  if (meta?.reminders) await db.meta.update('sync', { reminders: { ...meta.reminders, on: false } });
+  last = '';
+}
+
+export async function sendTest(keys: Keys) {
+  const meta = await db.meta.get('sync');
+  if (meta?.device) await testPush(keys, meta.device);
+}
+
+let last = '';
+
+/** Send this device's schedule if it changed (or `force`). On app start the subscription is renewed too. */
+export async function pushSchedule(keys: Keys, force = false) {
+  const meta = await db.meta.get('sync');
+  const s = meta?.reminders;
+  if (!meta || !s?.on || !meta.device || !pushSupported() || Notification.permission !== 'granted') return;
+  const now = new Date();
+  const entries = await db.entries.where('at').between(format(addDays(now, -2), 'yyyy-MM-dd'), format(addDays(now, 9), 'yyyy-MM-dd')).toArray();
+  const { items, done } = reminders({ entries, plan: await db.plan.get('main'), settings: s, now });
+  const rid = (k: string) => recordKey(keys, `rem:${k}`);
+  const body = {
+    items: await Promise.all(items.map(async (i) => ({ rid: await rid(i.key), at: i.at, payload: { ...i.payload, tag: await rid(i.key) } }))),
+    done: await Promise.all(done.map(rid)),
+    repeatEvery: s.repeatMin || 15, repeats: s.repeatMin ? 2 : 0,
+  };
+  const sig = JSON.stringify(body);
+  if (!force && sig === last) return;
+  try {
+    await putReminders(keys, meta.device, body);
+  } catch (e) {
+    if (!(e instanceof ApiError) || e.status !== 404) throw e;
+    await subscribe(keys, meta.device); // the server forgot this device (a gone subscription): register again
+    await putReminders(keys, meta.device, body);
+  }
+  last = sig;
+}
+
+/** On start: make sure the server still has a fresh subscription for this device. */
+export async function renewPush(keys: Keys) {
+  const meta = await db.meta.get('sync');
+  if (!meta?.reminders?.on || !meta.device || !pushSupported() || Notification.permission !== 'granted') return;
+  await subscribe(keys, meta.device).catch(() => undefined);
+  await pushSchedule(keys, true).catch(() => undefined);
+}

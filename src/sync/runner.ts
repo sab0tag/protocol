@@ -6,6 +6,7 @@ import { db } from '../data/db';
 import { ApiError, createVault, vaultApi } from './api';
 import { deriveKeys, parseCode, type Keys } from './crypto';
 import { syncOnce } from './engine';
+import { disablePush, pushSchedule, renewPush } from './push';
 
 export type SyncStatus = 'off' | 'idle' | 'syncing' | 'offline' | 'error';
 
@@ -32,6 +33,7 @@ async function run() {
   try {
     await syncOnce(db, keys, vaultApi(keys));
     useSync.setState({ status: 'idle', lastAt: Date.now(), error: undefined });
+    await pushSchedule(keys).catch((e) => console.warn('reminders:', (e as Error).message)); // D34
   } catch (e) {
     const offline = e instanceof ApiError && e.status === 0;
     useSync.setState({ status: offline ? 'offline' : 'error', error: e instanceof ApiError ? e.code : (e as Error).message });
@@ -59,6 +61,7 @@ export async function startSync() {
   useSync.setState({ status: 'idle', lastAt: meta.lastAt });
   wire();
   requestSync();
+  void renewPush(keys);
 }
 
 /** Turn sync on with a new code (`create`) or one from another device. Throws ApiError('not_found') for a code
@@ -81,6 +84,7 @@ export async function enableSync(code: string, mode: 'create' | 'join') {
 
 /** Stop syncing on this device; its data stays here, the vault stays for the other devices. */
 export async function disableSync() {
+  await disablePush(keys);
   keys = undefined;
   clearTimeout(timer);
   await db.transaction('rw', db.meta, db.sync, async () => { await db.meta.delete('sync'); await db.sync.clear(); });
