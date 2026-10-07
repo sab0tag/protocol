@@ -63,6 +63,12 @@ export class ProtocolDB extends Dexie {
 
 export const db = new ProtocolDB();
 
+/** D43: a plan missing a part (a sync mishap) still reads as a plan for the screens — never `undefined` lists.
+ *  Only for reading: sync sees the stored row as it is, so the defaults are never sent anywhere. */
+export function normalizePlan<T extends PlanRow | undefined>(p: T): T {
+  return (p && { ...p, constraints: p.constraints ?? [], prescriptions: p.prescriptions ?? [], targets: p.targets ?? {}, modes: p.modes ?? [] }) as T;
+}
+
 /** Every start: the built-in food base; first start: a plan (the personal seed.local.ts if present, else the example). */
 export async function ensureSeeded(target: ProtocolDB = db): Promise<void> {
   await target.transaction('rw', target.plan, target.foods, target.recipes, async () => {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ensureSeeded, ProtocolDB } from '../../src/data/db';
 import { deriveKeys, formatCode, newCode, open, parseCode, recordKey, seal } from '../../src/sync/crypto';
-import { hashOf, syncOnce, type Api, type RemoteRecord } from '../../src/sync/engine';
+import { hashOf, repairPlan, syncOnce, type Api, type RemoteRecord } from '../../src/sync/engine';
 import type { DayEntry } from '../../src/domain/types';
 
 /** The server as the app sees it: opaque records with a growing seq. */
@@ -186,6 +186,55 @@ describe('sync between two devices', () => {
     await syncOnce(other, keys, server.api, 3000);
     expect((await other.plan.get('main'))!).toMatchObject({ targets: { kcal: 1800 }, onboardedAt: '2026-10-01' });
     expect((await syncOnce(laptop, keys, server.api, 4000)).pushed).toBe(0);
+  });
+
+  it('D43: a device that misreads its plan sends no deletions; a deletion of the plan\'s backbone is never applied', async () => {
+    const code = newCode();
+    const keys = await deriveKeys(parseCode(code)!);
+    const server = fakeServer();
+    const phone = await device(code), laptop = await device(code);
+    await phone.plan.update('main', { onboardedAt: '2026-10-01' });
+    await syncOnce(phone, keys, server.api, 1000);
+    await syncOnce(laptop, keys, server.api, 1100);
+    const before = server.records.size;
+    await phone.plan.delete('main'); // what a lost IndexedDB connection looks like to the sync
+    expect((await syncOnce(phone, keys, server.api, 2000)).pushed).toBe(0);
+    expect(server.records.size).toBe(before);
+
+    // and if some (older) device did send such deletions, nobody applies them
+    for (const f of ['constraints', 'targets']) {
+      const k = await recordKey(keys, `plan:main#${f}`);
+      await server.api.push([{ k, v: await seal(keys, k, { t: 'plan', id: `main#${f}`, d: null, at: 3000 }) }]);
+    }
+    await syncOnce(laptop, keys, server.api, 4000);
+    const p = (await laptop.plan.get('main'))!;
+    expect(p.constraints.length).toBeGreaterThan(0);
+    expect(p.targets).toBeDefined();
+  });
+
+  it('D43: a plan that lost its parts is filled in from the vault\'s whole-plan copy and sent up again', async () => {
+    const code = newCode();
+    const keys = await deriveKeys(parseCode(code)!);
+    const server = fakeServer();
+    const real = { id: 'main', constraints: [{ id: 'c1', tag: 'lactose', title: 'Лактоза', reason: '', source: 'Лікар', active: true }],
+      prescriptions: [], modes: [], targets: { proteinG: 120 }, onboardedAt: '2026-10-01' };
+    const lk = await recordKey(keys, 'plan:main');
+    await server.api.push([{ k: lk, v: await seal(keys, lk, { t: 'plan', id: 'main', d: real, at: 500 }) }]);
+    for (const f of ['constraints', 'onboardedAt']) { // the incident: deletions of parts in the vault
+      const k = await recordKey(keys, `plan:main#${f}`);
+      await server.api.push([{ k, v: await seal(keys, k, { t: 'plan', id: `main#${f}`, d: null, at: 900 }) }]);
+    }
+    const phone = await device(code);
+    await phone.plan.put({ id: 'main', prescriptions: [], modes: [], targets: { proteinG: 120 } } as never); // broken
+    await phone.meta.update('sync', { seq: 9 });
+    await phone.sync.put({ tid: 'plan:main#targets', k: await recordKey(keys, 'plan:main#targets'), h: hashOf({ v: { proteinG: 120 } }) });
+    expect(await repairPlan(phone, keys, server.api)).toBe(true);
+    expect(await phone.plan.get('main')).toMatchObject({ constraints: real.constraints, onboardedAt: '2026-10-01' });
+    await syncOnce(phone, keys, server.api, 1000);
+    const fresh = await device(code); // a new device takes the repaired plan
+    await syncOnce(fresh, keys, server.api, 2000);
+    expect(await fresh.plan.get('main')).toMatchObject({ constraints: real.constraints, onboardedAt: '2026-10-01' });
+    expect(await repairPlan(phone, keys, server.api)).toBe(false); // nothing to do any more
   });
 
   it('hash ignores key order and undefined fields', () => {

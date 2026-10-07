@@ -1,7 +1,7 @@
 // Reminders on this device (SPEC.md D34): subscribe to Web Push and keep the server's schedule in step with the
 // day's plan. Called after every sync round, so a tick on another device stops the repeats here too.
 import { addDays, format } from 'date-fns';
-import { db } from '../data/db';
+import { db, normalizePlan } from '../data/db';
 import { DEFAULT_REMINDERS, reminders, type ReminderSettings } from '../domain/reminders';
 import { ApiError, dropDevice, pushKey, putDevice, putReminders, testPush } from './api';
 import { recordKey, type Keys } from './crypto';
@@ -56,7 +56,7 @@ export async function pushSchedule(keys: Keys, force = false) {
   if (!meta || !s?.on || !meta.device || !pushSupported() || Notification.permission !== 'granted') return;
   const now = new Date();
   const entries = await db.entries.where('at').between(format(addDays(now, -2), 'yyyy-MM-dd'), format(addDays(now, 33), 'yyyy-MM-dd')).toArray();
-  const { items, done } = reminders({ entries, plan: await db.plan.get('main'), settings: { ...DEFAULT_REMINDERS, ...s }, now, snoozed: meta.snoozed });
+  const { items, done } = reminders({ entries, plan: normalizePlan(await db.plan.get('main')), settings: { ...DEFAULT_REMINDERS, ...s }, now, snoozed: meta.snoozed });
   const rid = (k: string) => recordKey(keys, `rem:${k}`);
   const body = {
     items: await Promise.all(items.map(async (i) => ({ rid: await rid(i.key), at: i.at, ...(i.once ? { once: true } : {}),

@@ -3,9 +3,10 @@
 import Dexie from 'dexie';
 import { create } from 'zustand';
 import { db } from '../data/db';
+import { useUi } from '../store/ui';
 import { ApiError, createVault, putPair, takePair, vaultApi } from './api';
 import { deriveKeys, newPairCode, pairId, parseCode, parsePairCode, sealForPairing, type Keys } from './crypto';
-import { syncOnce } from './engine';
+import { repairPlan, syncOnce } from './engine';
 import { disablePush, pushSchedule, renewPush } from './push';
 
 export type SyncStatus = 'off' | 'idle' | 'syncing' | 'offline' | 'error';
@@ -15,7 +16,7 @@ export const useSync = create<SyncState>(() => ({ status: 'off' }));
 
 let keys: Keys | undefined;
 let timer: ReturnType<typeof setTimeout> | undefined;
-let running = false, again = false, wired = false;
+let running = false, again = false, wired = false, repairTried = false;
 
 export const currentKeys = () => keys;
 
@@ -31,6 +32,10 @@ async function run() {
   running = true;
   useSync.setState({ status: 'syncing' });
   try {
+    if (!repairTried) { // D43: once a run, before syncing — a plan that lost its parts is filled in from the vault's copy
+      repairTried = true;
+      if (await repairPlan(db, keys, vaultApi(keys))) useUi.getState().setOnboarded();
+    }
     await syncOnce(db, keys, vaultApi(keys));
     useSync.setState({ status: 'idle', lastAt: Date.now(), error: undefined });
     await pushSchedule(keys).catch((e) => console.warn('reminders:', (e as Error).message)); // D34

@@ -14,6 +14,10 @@ const DELETED = '-';
 // and the limits on another at the same time keeps both. A legacy whole-plan record («main») is still applied.
 const PLAN = 'main';
 const planParts = (row: Row) => Object.entries(row).filter(([k, v]) => k !== 'id' && v !== undefined);
+/** D43: the plan's backbone is never deleted by sync — neither sent nor applied. A device that misreads its plan
+ *  (iOS can drop the database connection in the background) must not wipe the plan everywhere. */
+export const PLAN_REQUIRED = ['constraints', 'prescriptions', 'targets', 'modes'] as const;
+const required = (tid: string) => PLAN_REQUIRED.some((f) => tid === `plan:${PLAN}#${f}`);
 
 const idOf = (t: SyncTable, row: Row): string =>
   t === 'labs' ? JSON.stringify([row.date, row.name]) : String(t === 'wellbeing' || t === 'weights' ? row.date : row.id);
@@ -82,8 +86,14 @@ export async function syncOnce(db: ProtocolDB, keys: Keys, api: Api, now = Date.
     dirty.set(tid, row);
   };
   for (const [tid, l] of local) await mark(tid, l.h);
+  // D43: a table read as empty while the vault knows its rows is a misread, not «everything deleted»
+  const known = new Map<string, number>();
+  for (const [tid, b] of base) if (b.h !== undefined && b.h !== DELETED) known.set(tid.split(':')[0]!, (known.get(tid.split(':')[0]!) ?? 0) + 1);
+  const seen = new Set([...local.keys()].map((tid) => tid.split(':')[0]!));
+  const misread = (t: string) => !seen.has(t) && (known.get(t) ?? 0) >= 3; // deleting the last one or two rows is real
   for (const [tid, b] of base) {
-    if (tid === `plan:${PLAN}`) continue; // the legacy whole plan is never deleted — its parts replace it
+    if (tid === `plan:${PLAN}` || required(tid)) continue; // the legacy whole plan and the plan's backbone are never deleted
+    if (misread(tid.split(':')[0]!)) continue;
     if (!local.has(tid) && b.h !== undefined && b.h !== DELETED) await mark(tid, DELETED);
   }
   await db.sync.bulkPut([...dirty.values()]);
@@ -98,6 +108,7 @@ export async function syncOnce(db: ProtocolDB, keys: Keys, api: Api, now = Date.
       try { p = await open<Payload>(keys, r.k, r.v); } catch { continue; } // not ours / damaged — skip
       if (!TABLES.includes(p.t)) continue;
       const tid = `${p.t}:${p.id}`;
+      if (!p.d && required(tid)) continue; // D43: such a deletion is a misread elsewhere
       const h = p.d ? hashOf(p.d) : DELETED;
       const mine = dirty.get(tid);
       if (mine && !first && (mine.dat ?? 0) > p.at) continue; // ours is later: it will be pushed
@@ -142,4 +153,32 @@ export async function syncOnce(db: ProtocolDB, keys: Keys, api: Api, now = Date.
   }
   await db.meta.update('sync', { lastAt: now } satisfies Partial<SyncMeta>);
   return { pulled, pushed: out.length };
+}
+
+/** D43: a plan that lost its backbone (or the «onboarded» mark) is filled in from the whole-plan record the vault
+ *  keeps from before the plan went by parts; only missing fields are taken, nothing present is overwritten.
+ *  Returns true when something was restored — the next round sends the parts back to every device. */
+export async function repairPlan(db: ProtocolDB, keys: Keys, api: Api): Promise<boolean> {
+  const plan = (await db.plan.get(PLAN)) as Row | undefined;
+  const broken = !plan || PLAN_REQUIRED.some((f) => plan[f] === undefined) || plan.onboardedAt === undefined;
+  if (!broken) return false;
+  const k = await recordKey(keys, `plan:${PLAN}`);
+  let since = 0, sealed: string | null = null;
+  for (;;) {
+    const page = await api.pull(since);
+    for (const r of page.records) if (r.k === k && r.v) sealed = r.v;
+    since = page.seq;
+    if (!page.more) break;
+  }
+  const old = sealed ? (await open<Payload>(keys, k, sealed)).d : null;
+  const next: Row = { id: PLAN, ...(plan ?? {}) };
+  let changed = false;
+  for (const [f, v] of Object.entries(old ?? {})) if (f !== 'id' && next[f] === undefined && v !== undefined) { next[f] = v; changed = true; }
+  if (!changed) return false;
+  // a deletion of these parts may be the vault's latest word: forget the agreed state, so they go up again
+  await db.transaction('rw', db.plan, db.sync, async () => {
+    await db.plan.put(next as never);
+    await db.sync.bulkDelete(Object.keys(next).filter((f) => f !== 'id' && plan?.[f] === undefined).map((f) => `plan:${PLAN}#${f}`));
+  });
+  return true;
 }
