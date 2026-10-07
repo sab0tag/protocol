@@ -60,3 +60,21 @@ describe('backup', () => {
     rmSync(dir, { recursive: true });
   });
 });
+
+describe('pairing (D40)', () => {
+  it('a sealed code left for 10 minutes, taken once', async () => {
+    const store = new Store(':memory:');
+    let now = Date.parse('2026-10-08T10:00:00Z');
+    const app = createApp({ store, origins: [], now: () => new Date(now) });
+    const H = { Authorization: `Bearer ${AUTH}`, 'Content-Type': 'application/json' };
+    await app.request(`/v1/vaults/${VAULT}`, { method: 'PUT', headers: H });
+    const pid = 'f'.repeat(32);
+    expect((await app.request(`/v1/vaults/${VAULT}/pair`, { method: 'POST', headers: H, body: JSON.stringify({ pid, blob: 'not base64!' }) })).status).toBe(400);
+    expect((await app.request(`/v1/vaults/${VAULT}/pair`, { method: 'POST', headers: H, body: JSON.stringify({ pid, blob: 'QUJD' }) })).status).toBe(200);
+    expect(await (await app.request(`/v1/pair/${pid}`)).json()).toEqual({ blob: 'QUJD' });
+    expect((await app.request(`/v1/pair/${pid}`)).status).toBe(404); // once
+    await app.request(`/v1/vaults/${VAULT}/pair`, { method: 'POST', headers: H, body: JSON.stringify({ pid, blob: 'QUJD' }) });
+    now += 11 * 60_000;
+    expect((await app.request(`/v1/pair/${pid}`)).status).toBe(404); // expired
+  });
+});

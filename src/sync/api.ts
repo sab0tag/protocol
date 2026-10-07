@@ -58,3 +58,13 @@ export const putReminders = (keys: Keys, dev: string, body: unknown) => call<{ o
 export const testPush = (keys: Keys, dev: string) => call<{ ok: true }>(keys, 'POST', `/devices/${dev}/test`);
 
 export const usage = (keys: Keys) => call<{ month: string; kinds: Record<string, number>; usd: number }>(keys, 'GET', '/usage');
+
+// D40: pairing
+export const putPair = (keys: Keys, pid: string, blob: string) => call<{ ok: true }>(keys, 'POST', '/pair', { pid, blob });
+export async function takePair(pid: string): Promise<string> {
+  let res: Response;
+  try { res = await fetch(`${API_URL}/v1/pair/${pid}`); } catch { throw new ApiError(0, 'offline'); }
+  const data = await res.json().catch(() => ({})) as { blob?: string; error?: string };
+  if (!res.ok || !data.blob) throw new ApiError(res.status, res.status === 404 ? 'pair_not_found' : data.error ?? 'error');
+  return data.blob;
+}

@@ -2,6 +2,7 @@
 import { addDays, differenceInCalendarDays, format, parseISO } from 'date-fns';
 import { buildChecklist } from './checklist';
 import { dateOf } from './dates';
+import { dayFlags, type HabitKey } from './habits';
 import type { DayEntry, Food, ISODate, Plan, WeightLog, Wellbeing, Workout } from './types';
 
 export interface Report {
@@ -15,6 +16,13 @@ export interface Report {
   avgEnergy?: number;
   symptoms: { name: string; count: number }[];
   questions: string[];
+  /** D40: the pace of the weight over the period, kg a week, and the plan's limit */
+  weightPace?: number;
+  maxLossPerWeek?: number;
+  /** D40: of the days with entries, how many met each target */
+  habits: { key: HabitKey; met: number; of: number }[];
+  /** D40: meals from «Меню на завтра» in the period that are past: eaten, skipped, not marked */
+  menu?: { done: number; skipped: number; open: number };
 }
 
 export function buildReport(args: {
@@ -26,12 +34,21 @@ export function buildReport(args: {
   const days = differenceInCalendarDays(parseISO(to), parseISO(from)) + 1;
 
   let done = 0, total = 0;
+  const hab = new Map<HabitKey, { met: number; of: number }>();
   for (let i = 0; i < days; i++) {
     const d = format(addDays(parseISO(from), i), 'yyyy-MM-dd');
-    const c = buildChecklist({ plan, date: d, entries: entries.filter((e) => dateOf(e.at) === d), workouts, foods,
-      now: new Date(`${d}T23:59:00`) });
+    const day = entries.filter((e) => dateOf(e.at) === d);
+    const c = buildChecklist({ plan, date: d, entries: day, workouts, foods, now: new Date(`${d}T23:59:00`) });
     done += c.done; total += c.total;
+    if (!day.length) continue;
+    for (const [k, ok] of Object.entries(dayFlags(plan, day, d, workouts, foods)) as [HabitKey, boolean][]) {
+      const h = hab.get(k) ?? { met: 0, of: 0 };
+      h.of += 1; if (ok) h.met += 1;
+      hab.set(k, h);
+    }
   }
+  const now = new Date().toISOString();
+  const menuMeals = entries.filter((e) => e.menu && e.kind === 'meal' && inside(dateOf(e.at)) && e.at < now);
   const w = weights.filter((x) => inside(x.date)).sort((a, b) => a.date.localeCompare(b.date));
   const scored = wellbeing.filter((x) => inside(x.date) && x.energy != null);
   const counts = new Map<string, number>();
@@ -41,6 +58,12 @@ export function buildReport(args: {
     from, to, days,
     ...(total ? { checklistPct: Math.round((done / total) * 100) } : {}),
     ...(w.length ? { weightStart: w[0]!.kg, weightNow: w.at(-1)!.kg } : {}),
+    ...(w.length > 1 && differenceInCalendarDays(parseISO(w.at(-1)!.date), parseISO(w[0]!.date)) >= 7
+      ? { weightPace: Math.round(((w.at(-1)!.kg - w[0]!.kg) / (differenceInCalendarDays(parseISO(w.at(-1)!.date), parseISO(w[0]!.date)) / 7)) * 10) / 10 } : {}),
+    ...(plan?.targets.maxWeightLossKgPerWeek != null ? { maxLossPerWeek: plan.targets.maxWeightLossKgPerWeek } : {}),
+    habits: (['protein', 'carbs', 'water', 'meds', 'plan'] as HabitKey[]).flatMap((key) => { const h = hab.get(key); return h ? [{ key, ...h }] : []; }),
+    ...(menuMeals.length ? { menu: { done: menuMeals.filter((e) => e.status === 'done').length,
+      skipped: menuMeals.filter((e) => e.status === 'skipped').length, open: menuMeals.filter((e) => e.status === 'planned').length } } : {}),
     workouts: workouts.filter((x) => inside(x.date)).length,
     ...(scored.length ? { avgEnergy: Math.round((scored.reduce((a, x) => a + (x.energy ?? 0), 0) / scored.length) * 10) / 10 } : {}),
     symptoms: [...counts.entries()].map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name)),
@@ -49,6 +72,9 @@ export function buildReport(args: {
 }
 
 const dec = (n: number) => String(n).replace('.', ',');
+const HABIT: Record<HabitKey, string> = { protein: 'Білок ≥ 90 % цілі', carbs: 'Вуглеводи в межах', water: 'Вода — норма', meds: 'Ліки — всі вчасно', plan: 'План дня ≥ 80 %' };
+export const habitLabel = (k: HabitKey) => HABIT[k];
+const signedKg = (n: number) => `${n > 0 ? '+' : n < 0 ? '−' : ''}${dec(Math.abs(n))}`;
 
 /** The report as plain text for «Поділитися» (and for a doctor without the app). */
 export function reportText(r: Report, dm: (d: ISODate) => string): string {
@@ -56,6 +82,9 @@ export function reportText(r: Report, dm: (d: ISODate) => string): string {
     `Звіт за ${dm(r.from)} — ${dm(r.to)} (${r.days} дн.)`,
     r.checklistPct != null ? `План дня виконано: ${r.checklistPct} %` : '',
     r.weightStart != null ? `Вага: ${dec(r.weightStart)} → ${dec(r.weightNow!)} кг` : '',
+    r.weightPace != null ? `Темп: ${signedKg(r.weightPace)} кг на тиждень${r.maxLossPerWeek != null ? ` (межа — не швидше ${dec(r.maxLossPerWeek)})` : ''}` : '',
+    r.habits.length ? `Дні з записами, коли виконано:\n${r.habits.map((h) => `• ${HABIT[h.key]}: ${h.met} з ${h.of}`).join('\n')}` : '',
+    r.menu ? `Меню з застосунку: з’їдено ${r.menu.done}, пропущено ${r.menu.skipped}, не відмічено ${r.menu.open}` : '',
     `Тренувань: ${r.workouts}`,
     r.avgEnergy != null ? `Середня енергія: ${dec(r.avgEnergy)} з 5` : '',
     r.symptoms.length ? `Симптоми: ${r.symptoms.map((s) => `${s.name} — ${s.count}`).join('; ')}` : '',

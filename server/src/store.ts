@@ -26,6 +26,7 @@ export class Store {
       CREATE INDEX IF NOT EXISTS reminders_due ON reminders (next_at);
       CREATE TABLE IF NOT EXISTS usage (vault TEXT NOT NULL, month TEXT NOT NULL, kind TEXT NOT NULL, calls INTEGER NOT NULL,
         usd_micro INTEGER NOT NULL, PRIMARY KEY (vault, month, kind));
+      CREATE TABLE IF NOT EXISTS pairs (pid TEXT PRIMARY KEY, blob TEXT NOT NULL, expires INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS acks (vault TEXT NOT NULL, rid TEXT NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (vault, rid));
     `);
   }
@@ -155,6 +156,18 @@ export class Store {
     if (nextAt === null) this.db.prepare('DELETE FROM reminders WHERE vault = ? AND device = ? AND rid = ?').run(vault, device, rid);
     else this.db.prepare('UPDATE reminders SET next_at = ?, repeats_left = repeats_left - 1, sent = sent + 1 WHERE vault = ? AND device = ? AND rid = ?')
       .run(nextAt, vault, device, rid);
+  }
+
+  // ---------------------------------------------------------------- pairing a new device (D40)
+  putPair(pid: string, blob: string, expires: number, now: number) {
+    this.db.prepare('DELETE FROM pairs WHERE expires < ?').run(now);
+    this.db.prepare('INSERT OR REPLACE INTO pairs (pid, blob, expires) VALUES (?, ?, ?)').run(pid, blob, expires);
+  }
+
+  /** One time only: the blob is gone once read. */
+  takePair(pid: string, now: number): string | undefined {
+    const row = this.db.prepare('DELETE FROM pairs WHERE pid = ? RETURNING blob, expires').get(pid) as { blob: string; expires: number } | undefined;
+    return row && row.expires >= now ? row.blob : undefined;
   }
 
   // ---------------------------------------------------------------- AI spend (D36)

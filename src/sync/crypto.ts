@@ -81,3 +81,45 @@ export async function open<T>(keys: Keys, k: string, sealed: string): Promise<T>
   const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: raw.slice(0, 12), additionalData: te.encode(k) }, keys.enc, raw.slice(12));
   return JSON.parse(td.decode(pt)) as T;
 }
+
+// ------------------------------------------------------------------ pairing a new device (D40)
+/** «7KQF-3MZD»: 40 random bits, lives 10 minutes on the server, once. */
+export function newPairCode(): string {
+  const b = crypto.getRandomValues(new Uint8Array(5));
+  let n = 0n;
+  for (const x of b) n = (n << 8n) | BigInt(x);
+  let s = '';
+  for (let i = 0; i < 8; i++) { s = ALPHABET[Number(n & 31n)] + s; n >>= 5n; }
+  return `${s.slice(0, 4)}-${s.slice(4)}`;
+}
+
+export function parsePairCode(text: string): string | undefined {
+  const s = text.toUpperCase().replace(/[\s-]/g, '').replace(/O/g, '0').replace(/[IL]/g, '1');
+  return s.length === 8 && [...s].every((c) => ALPHABET.includes(c)) ? s : undefined;
+}
+
+/** A slow derivation (PBKDF2, 300 000 rounds): the pairing code is short, so whoever holds the server's copy
+ *  cannot try all codes before it expires. The id the server knows is derived apart from the key. */
+async function pairKeys(code: string): Promise<{ pid: string; key: CryptoKey }> {
+  const base = await crypto.subtle.importKey('raw', te.encode(code), 'PBKDF2', false, ['deriveBits']);
+  const bits = new Uint8Array(await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt: te.encode('protocol-pair-v1'), iterations: 300_000 }, base, 384));
+  const key = await crypto.subtle.importKey('raw', bits.slice(0, 32), 'AES-GCM', false, ['encrypt', 'decrypt']);
+  return { pid: hex(bits.slice(32).buffer), key };
+}
+
+export async function sealForPairing(pairCode: string, syncCode: string): Promise<{ pid: string; blob: string }> {
+  const { pid, key } = await pairKeys(pairCode);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, te.encode(syncCode)));
+  const out = new Uint8Array(12 + ct.length);
+  out.set(iv); out.set(ct, 12);
+  return { pid, blob: b64(out) };
+}
+
+export async function pairId(pairCode: string): Promise<{ pid: string; open: (blob: string) => Promise<string> }> {
+  const { pid, key } = await pairKeys(pairCode);
+  return { pid, open: async (blob) => {
+    const raw = unb64(blob);
+    return td.decode(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: raw.slice(0, 12) }, key, raw.slice(12)));
+  } };
+}

@@ -97,22 +97,11 @@ export function habits(args: { plan: Plan | undefined; entries: DayEntry[]; work
   const { plan, entries, workouts, foods, today } = args;
   const byDay = new Map<string, DayEntry[]>();
   for (const e of entries) { const d = dateOf(e.at); if (d <= today) byDay.set(d, [...(byDay.get(d) ?? []), e]); }
-  const hasMeds = (plan?.prescriptions ?? []).some((p) => (p.kind === 'medication' || p.kind === 'supplement') && p.schedule?.times.length);
   const flags: { d: string; f: Partial<Record<HabitKey, boolean>> }[] = [];
   for (let i = 29; i >= 0; i--) {
     const d = format(addDays(parseISO(today), -i), 'yyyy-MM-dd');
     const day = byDay.get(d);
-    if (!day?.length) continue;
-    const tg = effectiveTargets(plan, d);
-    const tot = dayTotals(day, foods);
-    const c = buildChecklist({ plan, date: d, entries: day, workouts, foods, now: new Date(`${d}T23:59:00`) });
-    const f: Partial<Record<HabitKey, boolean>> = {};
-    if (tg.proteinG) f.protein = tot.protein >= tg.proteinG * 0.9;
-    if (tg.carbsG?.max != null || tg.carbsG?.min != null) f.carbs = (tg.carbsG.max == null || tot.carbs <= tg.carbsG.max) && (tg.carbsG.min == null || tot.carbs >= tg.carbsG.min);
-    if (tg.waterMl) f.water = tot.waterMl >= tg.waterMl;
-    if (hasMeds) f.meds = c.items.filter((x) => x.kind === 'med').every((x) => x.done);
-    if (c.total) f.plan = c.done / c.total >= 0.8;
-    flags.push({ d, f });
+    if (day?.length) flags.push({ d, f: dayFlags(plan, day, d, workouts, foods) });
   }
   const keys: HabitKey[] = ['protein', 'carbs', 'water', 'meds', 'plan'];
   const week = format(addDays(parseISO(today), -6), 'yyyy-MM-dd');
@@ -131,4 +120,19 @@ export function habits(args: { plan: Plan | undefined; entries: DayEntry[]; work
     const w = rows.filter((r) => r.d >= week);
     return [{ key, streak, best, last7: w.filter((r) => r.f[key]).length, days7: w.length }];
   });
+}
+
+/** One day against the plan: which habits were met (only those the plan has a target for). */
+export function dayFlags(plan: Plan | undefined, day: DayEntry[], d: ISODate, workouts: Workout[], foods: Map<string, Food>): Partial<Record<HabitKey, boolean>> {
+  const hasMeds = (plan?.prescriptions ?? []).some((p) => (p.kind === 'medication' || p.kind === 'supplement') && p.schedule?.times.length);
+  const tg = effectiveTargets(plan, d);
+  const tot = dayTotals(day, foods);
+  const c = buildChecklist({ plan, date: d, entries: day, workouts, foods, now: new Date(`${d}T23:59:00`) });
+  const f: Partial<Record<HabitKey, boolean>> = {};
+  if (tg.proteinG) f.protein = tot.protein >= tg.proteinG * 0.9;
+  if (tg.carbsG?.max != null || tg.carbsG?.min != null) f.carbs = (tg.carbsG.max == null || tot.carbs <= tg.carbsG.max) && (tg.carbsG.min == null || tot.carbs >= tg.carbsG.min);
+  if (tg.waterMl) f.water = tot.waterMl >= tg.waterMl;
+  if (hasMeds) f.meds = c.items.filter((x) => x.kind === 'med').every((x) => x.done);
+  if (c.total) f.plan = c.done / c.total >= 0.8;
+  return f;
 }

@@ -104,3 +104,23 @@ describe('backup (§5.8, §8)', () => {
     expect(exportDue('2026-09-27', '2026-09-01', '2026-10-04')).toBe(true);
   });
 });
+
+describe('report — how the plan went (D40)', () => {
+  it('weight pace, targets met on days with entries, the menu eaten / skipped / not marked', async () => {
+    const { buildReport, reportText } = await import('../../src/domain/report');
+    const { FOODS } = await import('../../src/data/foods');
+    const foods = new Map(FOODS.map((f) => [f.id, f]));
+    const plan = { constraints: [], prescriptions: [], modes: [], targets: { proteinG: 100, maxWeightLossKgPerWeek: 0.5 } };
+    const meal = (id: string, d: string, g: number, status: 'done' | 'skipped' | 'planned', menu = true) => ({ id, at: `${d}T13:00:00+03:00`,
+      kind: 'meal' as const, status, title: 'Обід', items: [{ foodId: 'chicken-breast', name: 'Куряче філе', grams: g }], ...(menu ? { menu: {} } : {}) });
+    const r = buildReport({ from: '2026-09-01', to: '2026-09-15', plan, workouts: [], wellbeing: [], foods,
+      entries: [meal('a', '2026-09-02', 450, 'done'), meal('b', '2026-09-03', 450, 'skipped'), meal('c', '2026-09-04', 450, 'planned'), meal('d', '2026-09-05', 200, 'done', false)],
+      weights: [{ date: '2026-09-01', kg: 100 }, { date: '2026-09-15', kg: 98.6 }] });
+    expect(r.weightPace).toBe(-0.7);
+    expect(r.habits).toContainEqual({ key: 'protein', met: 1, of: 4 }); // the skipped day counts as a day with entries
+    expect(r.menu).toEqual({ done: 1, skipped: 1, open: 1 });
+    const text = reportText(r, (d) => d);
+    expect(text).toContain('Темп: −0,7 кг на тиждень (межа — не швидше 0,5)');
+    expect(text).toContain('Білок ≥ 90 % цілі: 1 з 4');
+  });
+});

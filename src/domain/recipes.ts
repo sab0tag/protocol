@@ -64,3 +64,11 @@ export function detachFood(items: MealItem[], food: Food): { items: MealItem[]; 
   });
   return { items: walk(items), changed };
 }
+
+/** D40: a free line weighed anew — its nutrients (for the whole portion) follow the weight. */
+export function regram(it: MealItem, grams: number): MealItem {
+  if (!it.manual || !(it.grams > 0)) return { ...it, grams };
+  const k = grams / it.grams, m = it.manual;
+  return { ...it, grams, manual: { kcal: m.kcal * k, protein: m.protein * k, fat: m.fat * k, carbs: m.carbs * k,
+    ...(m.calciumMg !== undefined ? { calciumMg: m.calciumMg * k } : {}) } };
+}

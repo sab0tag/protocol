@@ -37,6 +37,8 @@ export function Day() {
   const foods = useFoods();
   const plan = usePlan();
   // D31: a recent sync is an encrypted copy too — no weekly «save a copy» nagging then
+  const syncMeta = useLiveQuery(async () => (await db.meta.get('sync')) ?? null, []); // D40: «код записаний?»
+  const codeDue = !!syncMeta && Date.now() - (syncMeta.codeCheckedAt ?? 0) > 30 * 86_400_000;
   const syncLast = useSync((s) => (s.status === 'off' ? undefined : s.lastAt));
   const tips = [...new Set((entries ?? []).flatMap((e) => e.menu?.tips ?? []))]; // D33
   const syncedRecently = syncLast !== undefined && Date.now() - syncLast < 7 * 86_400_000;
@@ -114,45 +116,29 @@ export function Day() {
 
       {isToday && entries && <NowCard entries={entries} plan={plan} date={date} />}
 
-      {!syncedRecently && exportDue(plan?.lastExportAt, firstEntry?.at.slice(0, 10), todayISO()) && (
+
+
+
+
+
+
+      {/* D40: one notice at a time — the code first, then the backup */}
+      {isToday && codeDue && Date.now() - (syncMeta.codeCheckedAt ?? 0) > 30 * 86_400_000 && (
+        <div role="status" className="mb-3 space-y-2 rounded-2xl border border-line bg-surface p-3 text-sm">
+          <p>{t.sync.codeCheck}</p>
+          <div className="flex gap-2">
+            <button type="button" onClick={() => void saved(db.meta.update('sync', { codeCheckedAt: Date.now() }), t.sync.codeKept)}
+              className="min-h-tap rounded-xl border border-line px-3">{t.sync.codeCheckYes}</button>
+            <button type="button" onClick={() => navigate('/sync')} className="min-h-tap rounded-xl border border-accent px-3 font-medium text-accent">{t.sync.codeCheckShow}</button>
+          </div>
+        </div>
+      )}
+      {!codeDue && !syncedRecently && exportDue(plan?.lastExportAt, firstEntry?.at.slice(0, 10), todayISO()) && (
         <div role="status" className="mb-3 flex items-center gap-2 rounded-2xl border border-warn/30 bg-warn-bg p-3 text-sm text-warn">
           <span className="flex-1">{plan?.lastExportAt ? t.backup.remind : t.backup.remindFirst}</span>
           <button type="button" onClick={() => navigate('/more')} className="min-h-tap rounded-xl bg-warn px-3 font-medium text-surface">{t.backup.remindAction}</button>
         </div>
       )}
-
-      <div className="mb-3 flex flex-wrap gap-2" role="group" aria-label={t.day.quick}>
-        <button type="button" onClick={() => void addWater()}
-          className="flex min-h-tap items-center gap-1 rounded-full border border-line bg-surface px-3 font-medium text-water"><Droplet size={16} aria-hidden />{t.day.plusWater}</button>
-        {nextMed && (
-          <button type="button" onClick={() => void tickMed()}
-            className="flex min-h-tap items-center gap-1 rounded-full border border-line bg-surface px-3 font-medium"><Pill size={16} className="text-accent" aria-hidden />{t.day.medDone(nextMed.title)}</button>
-        )}
-        <button type="button" onClick={() => setYesterday(true)}
-          className="flex min-h-tap items-center gap-1 rounded-full border border-line bg-surface px-3 font-medium"><Undo2 size={16} className="text-accent" aria-hidden />{t.day.likeYesterday}</button>
-        <button type="button" onClick={() => navigate(`/menu?date=${date}`)}
-          className="flex min-h-tap items-center gap-1 rounded-full border border-line bg-surface px-3 font-medium"><Sparkles size={16} className="text-accent" aria-hidden />{t.menu.quick}</button>
-      </div>
-
-      {isToday && best && <p className="mb-3 text-sm text-accent">{t.day.streak(t.progress.habit[best.key], best.streak)}</p>}
-
-      {tips.length > 0 && (
-        <details className="mb-3 rounded-2xl border border-line bg-surface p-3">
-          <summary className="min-h-tap cursor-pointer py-1 font-medium">{t.menu.tips}</summary>
-          <ul className="list-disc space-y-1 pl-5 text-sm">{tips.map((x) => <li key={x}>{x}</li>)}</ul>
-        </details>
-      )}
-
-      <div className="mb-3 grid grid-cols-2 gap-2">
-        <button type="button" onClick={() => navigate('/my-day')}
-          className="flex min-h-tap items-center justify-center gap-2 rounded-xl border border-line bg-surface px-3 font-medium">
-          <ListChecks size={18} className="text-accent" aria-hidden />{t.myday.title}
-          {checklist && checklist.total > 0 && <span className="tabular text-accent">{t.myday.counter(checklist.done, checklist.total)}</span>}
-        </button>
-        <button type="button" onClick={() => navigate('/wellbeing')}
-          className="flex min-h-tap items-center justify-center gap-2 rounded-xl border border-line bg-surface px-3 font-medium">
-          <Activity size={18} className="text-accent" aria-hidden />{t.well.title}</button>
-      </div>
 
       {mode && (
         <div className="mb-3 rounded-2xl border border-accent/30 bg-accent/10 p-3">
@@ -165,6 +151,22 @@ export function Day() {
           )}
         </div>
       )}
+
+      {/* D40: one row of quick actions — the day's list stays near the top */}
+      <div className="mb-3 flex flex-wrap gap-2" role="group" aria-label={t.day.quick}>
+        <button type="button" onClick={() => void addWater()}
+          className="flex min-h-tap shrink-0 items-center gap-1 rounded-full border border-line bg-surface px-3 font-medium text-water"><Droplet size={16} aria-hidden />{t.day.plusWater}</button>
+        {nextMed && (
+          <button type="button" onClick={() => void tickMed()}
+            className="flex min-h-tap shrink-0 items-center gap-1 rounded-full border border-line bg-surface px-3 font-medium"><Pill size={16} className="text-accent" aria-hidden />{t.day.medDone(nextMed.title)}</button>
+        )}
+        <button type="button" onClick={() => navigate('/my-day')} className="flex min-h-tap shrink-0 items-center gap-1 rounded-full border border-line bg-surface px-3 font-medium">
+          <ListChecks size={16} className="text-accent" aria-hidden />{t.myday.title}
+          {checklist && checklist.total > 0 && <span className="tabular text-accent">{t.myday.counter(checklist.done, checklist.total)}</span>}</button>
+        <button type="button" onClick={() => navigate('/wellbeing')} className="flex min-h-tap shrink-0 items-center gap-1 rounded-full border border-line bg-surface px-3 font-medium"><Activity size={16} className="text-accent" aria-hidden />{t.well.title}</button>
+        <button type="button" onClick={() => setYesterday(true)} className="flex min-h-tap shrink-0 items-center gap-1 rounded-full border border-line bg-surface px-3 font-medium"><Undo2 size={16} className="text-accent" aria-hidden />{t.day.likeYesterday}</button>
+        <button type="button" onClick={() => navigate(`/menu?date=${date}`)} className="flex min-h-tap shrink-0 items-center gap-1 rounded-full border border-line bg-surface px-3 font-medium"><Sparkles size={16} className="text-accent" aria-hidden />{t.menu.quick}</button>
+      </div>
 
       <div className="overflow-hidden rounded-2xl border border-line bg-surface">
         <div className="grid grid-cols-[3.5rem_1fr_3.5rem] gap-2 border-b border-line px-3 py-2 text-xs uppercase tracking-wide text-muted">
@@ -179,6 +181,13 @@ export function Day() {
           <Plus size={18} aria-hidden />{t.day.addRow}
         </button>
       </div>
+
+      {tips.length > 0 && (
+        <details className="mt-3 rounded-2xl border border-line bg-surface p-3">
+          <summary className="min-h-tap cursor-pointer py-1 font-medium">{t.menu.tips}</summary>
+          <ul className="list-disc space-y-1 pl-5 text-sm">{tips.map((x) => <li key={x}>{x}</li>)}</ul>
+        </details>
+      )}
 
       {totals && (
         <div className="mt-4 rounded-2xl border border-line bg-surface p-3">
@@ -203,6 +212,7 @@ export function Day() {
             <Total label={t.day.kcal} value={`${round(totals.kcal)}`}
               target={targets.kcal != null ? `${targets.kcal} ${t.units.kcal}` : undefined} />
           </dl>
+          {isToday && best && <p className="mt-2 text-sm text-accent">{t.day.streak(t.progress.habit[best.key], best.streak)}</p>}
         </div>
       )}
 

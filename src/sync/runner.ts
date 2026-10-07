@@ -3,8 +3,8 @@
 import Dexie from 'dexie';
 import { create } from 'zustand';
 import { db } from '../data/db';
-import { ApiError, createVault, vaultApi } from './api';
-import { deriveKeys, parseCode, type Keys } from './crypto';
+import { ApiError, createVault, putPair, takePair, vaultApi } from './api';
+import { deriveKeys, newPairCode, pairId, parseCode, parsePairCode, sealForPairing, type Keys } from './crypto';
 import { syncOnce } from './engine';
 import { disablePush, pushSchedule, renewPush } from './push';
 
@@ -74,12 +74,30 @@ export async function enableSync(code: string, mode: 'create' | 'join') {
   else await vaultApi(k).pull(Number.MAX_SAFE_INTEGER); // 404 for an unknown code, nothing downloaded
   await db.transaction('rw', db.meta, db.sync, async () => {
     await db.sync.clear();
-    await db.meta.put({ key: 'sync', code, seq: 0 });
+    await db.meta.put({ key: 'sync', code, seq: 0, codeCheckedAt: Date.now() }); // just written down or typed in
   });
   keys = k;
   useSync.setState({ status: 'idle', lastAt: undefined, error: undefined });
   wire();
   await run();
+}
+
+/** D40: a short one-time code for another device (10 minutes). */
+export async function offerPairing(): Promise<string> {
+  const meta = await db.meta.get('sync');
+  if (!keys || !meta) throw new ApiError(400, 'off');
+  const pair = newPairCode();
+  const { pid, blob } = await sealForPairing(parsePairCode(pair)!, meta.code);
+  await putPair(keys, pid, blob);
+  return pair;
+}
+
+/** D40: the long code from a short one, taken from the server once. */
+export async function codeFromPairing(pair: string): Promise<string> {
+  const p = parsePairCode(pair);
+  if (!p) throw new ApiError(400, 'bad_code');
+  const { pid, open } = await pairId(p);
+  return open(await takePair(pid));
 }
 
 /** Stop syncing on this device; its data stays here, the vault stays for the other devices. */

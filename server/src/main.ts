@@ -25,6 +25,7 @@ const app = createApp({
     ...(env.PHOTOS_PER_DAY ? { photosPerDay: Number(env.PHOTOS_PER_DAY) } : {}),
     ...(env.PHOTOS_PER_VAULT_PER_DAY ? { photosPerVaultPerDay: Number(env.PHOTOS_PER_VAULT_PER_DAY) } : {}),
     ...(env.MENUS_PER_VAULT_PER_DAY ? { menusPerVaultPerDay: Number(env.MENUS_PER_VAULT_PER_DAY) } : {}),
+    ...(env.VAULTS_PER_IP_PER_DAY ? { vaultsPerIpPerDay: Number(env.VAULTS_PER_IP_PER_DAY) } : {}), // e2e only
   },
 });
 

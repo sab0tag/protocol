@@ -10,6 +10,11 @@ export type SyncTable = (typeof TABLES)[number];
 type Row = Record<string, unknown>;
 const DELETED = '-';
 
+// D40: the plan travels by its parts («main#targets», «main#constraints»…), so editing the targets on one device
+// and the limits on another at the same time keeps both. A legacy whole-plan record («main») is still applied.
+const PLAN = 'main';
+const planParts = (row: Row) => Object.entries(row).filter(([k, v]) => k !== 'id' && v !== undefined);
+
 const idOf = (t: SyncTable, row: Row): string =>
   t === 'labs' ? JSON.stringify([row.date, row.name]) : String(t === 'wellbeing' || t === 'weights' ? row.date : row.id);
 const pkOf = (t: SyncTable, id: string): string | [string, string] => (t === 'labs' ? JSON.parse(id) as [string, string] : id);
@@ -58,6 +63,13 @@ export async function syncOnce(db: ProtocolDB, keys: Keys, api: Api, now = Date.
   for (const t of TABLES) {
     for (const row of await db.table(t).toArray() as Row[]) {
       if (!synced(t, row)) continue;
+      if (t === 'plan') {
+        for (const [k, v] of planParts(row)) {
+          const id = `${PLAN}#${k}`, part = { v };
+          local.set(`plan:${id}`, { t, id, row: part, h: hashOf(part) });
+        }
+        continue;
+      }
       const id = idOf(t, row);
       local.set(`${t}:${id}`, { t, id, row, h: hashOf(row) });
     }
@@ -70,7 +82,10 @@ export async function syncOnce(db: ProtocolDB, keys: Keys, api: Api, now = Date.
     dirty.set(tid, row);
   };
   for (const [tid, l] of local) await mark(tid, l.h);
-  for (const [tid, b] of base) if (!local.has(tid) && b.h !== undefined && b.h !== DELETED) await mark(tid, DELETED);
+  for (const [tid, b] of base) {
+    if (tid === `plan:${PLAN}`) continue; // the legacy whole plan is never deleted — its parts replace it
+    if (!local.has(tid) && b.h !== undefined && b.h !== DELETED) await mark(tid, DELETED);
+  }
   await db.sync.bulkPut([...dirty.values()]);
 
   // 2. pull
@@ -86,15 +101,25 @@ export async function syncOnce(db: ProtocolDB, keys: Keys, api: Api, now = Date.
       const h = p.d ? hashOf(p.d) : DELETED;
       const mine = dirty.get(tid);
       if (mine && !first && (mine.dat ?? 0) > p.at) continue; // ours is later: it will be pushed
+      const legacyPlan = p.t === 'plan' && p.id === PLAN;
+      const myParts = legacyPlan ? [...dirty.values()].filter((x) => x.tid.startsWith(`plan:${PLAN}#`)) : [];
+      if (legacyPlan && !first && myParts.some((x) => (x.dat ?? 0) > p.at)) continue; // our parts are later
       if (!mine && base.get(tid)?.h === h) continue; // our own change coming back
       await db.transaction('rw', [db.table(p.t), db.sync], async () => {
-        if (p.d) await db.table(p.t).put(p.d);
+        if (p.t === 'plan' && p.id.startsWith(`${PLAN}#`)) {
+          const field = p.id.slice(PLAN.length + 1);
+          const plan = (await db.plan.get(PLAN)) ?? { id: PLAN, constraints: [], prescriptions: [], targets: {}, modes: [] };
+          const next: Row = { ...plan };
+          if (p.d) next[field] = p.d.v; else delete next[field];
+          await db.plan.put(next as never);
+        } else if (p.d) await db.table(p.t).put(p.d);
         else await db.table(p.t).delete(pkOf(p.t, p.id));
         const row: SyncRow = { tid, k: r.k, h };
         await db.sync.put(row);
         base.set(tid, row);
       });
       dirty.delete(tid);
+      for (const x of myParts) dirty.delete(x.tid); // the whole plan replaced them; they go up next round, as they are now
       pulled += 1;
     }
     since = page.seq;

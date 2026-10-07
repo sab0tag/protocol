@@ -89,3 +89,12 @@ describe('own foods (D36)', () => {
     expect(r.items[1]!.components![0]!.manual?.kcal).toBe(330);
   });
 });
+
+describe('free line weighed anew (D40)', () => {
+  it('nutrients follow the grams; a food line just changes grams', async () => {
+    const { regram } = await import('../../src/domain/recipes');
+    expect(regram({ name: 'Сирники', grams: 150, manual: { kcal: 330, protein: 21, fat: 15, carbs: 27 } }, 300))
+      .toEqual({ name: 'Сирники', grams: 300, manual: { kcal: 660, protein: 42, fat: 30, carbs: 54 } });
+    expect(regram({ foodId: 'egg', name: 'Яйце', grams: 50 }, 100)).toEqual({ foodId: 'egg', name: 'Яйце', grams: 100 });
+  });
+});

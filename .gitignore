@@ -6,3 +6,7 @@ coverage
 # Real medical data never leaves the device or enters git (SPEC.md §8)
 src/data/seed.local.ts
 *.local
+dist-e2e
+test-results
+playwright-report
+.e2e

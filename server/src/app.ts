@@ -59,6 +59,13 @@ export function createApp(deps: Deps) {
 
   app.use('*', cors({ origin: origins, allowMethods: ['GET', 'POST', 'PUT', 'DELETE'], allowHeaders: ['Authorization', 'Content-Type'], maxAge: 86400 }));
   const DEVICE = /^[0-9a-f]{32}$/;
+  /** D40: the server POSTs to a subscription's endpoint — only to the browsers' own push services, never to an
+   *  address someone typed (that would let anyone make this server call any host). */
+  const PUSH_HOSTS = [/^fcm\.googleapis\.com$/, /^android\.googleapis\.com$/, /^web\.push\.apple\.com$/, /\.push\.apple\.com$/,
+    /^updates\.push\.services\.mozilla\.com$/, /\.notify\.windows\.com$/];
+  const pushEndpoint = (u: string) => {
+    try { const url = new URL(u); return url.protocol === 'https:' && !url.port && PUSH_HOSTS.some((h) => h.test(url.hostname)); } catch { return false; }
+  };
   const RID = /^[A-Za-z0-9_-]{16,64}$/;
 
   app.get('/v1/push/key', (c) => (deps.push ? c.json({ key: deps.push.publicKey }) : c.json({ error: 'push_off' }, 503)));
@@ -70,7 +77,7 @@ export function createApp(deps: Deps) {
     const dev = c.req.param('dev');
     const b = await c.req.json().catch(() => null) as { subscription?: { endpoint?: unknown; keys?: { p256dh?: unknown; auth?: unknown } } } | null;
     const sub = b?.subscription;
-    if (!DEVICE.test(dev) || typeof sub?.endpoint !== 'string' || !sub.endpoint.startsWith('https://')
+    if (!DEVICE.test(dev) || typeof sub?.endpoint !== 'string' || !pushEndpoint(sub.endpoint) || sub.endpoint.length > 1000
       || typeof sub.keys?.p256dh !== 'string' || typeof sub.keys?.auth !== 'string') return c.json({ error: 'bad_request' }, 400);
     if (!store.hasDevice(id, dev) && store.devices(id) >= 8) return c.json({ error: 'too_many' }, 429);
     store.putSub(id, dev, JSON.stringify({ endpoint: sub.endpoint, keys: { p256dh: sub.keys.p256dh, auth: sub.keys.auth } }), now().getTime());
@@ -115,6 +122,27 @@ export function createApp(deps: Deps) {
     if (!store.take(`test:${id}`, 20, now())) return c.json({ error: 'too_many' }, 429);
     const r = await deps.push.send(sub, JSON.stringify({ t: 'Протокол', b: 'Нагадування працюють ✓', k: 'test', u: './#/', tag: 'test', n: 0 }));
     return r === 'ok' ? c.json({ ok: true }) : c.json({ error: r }, 502);
+  });
+
+  /** D40: a device with the code leaves it here for 10 minutes, sealed with a short one-time pairing code that the
+   *  server never sees; the new device takes it once. */
+  app.post('/v1/vaults/:id/pair', bodyLimit({ maxSize: 4_000 }), async (c) => {
+    const id = authed(c);
+    if (typeof id !== 'string') return id;
+    const b = await c.req.json().catch(() => null) as { pid?: unknown; blob?: unknown } | null;
+    if (typeof b?.pid !== 'string' || !DEVICE.test(b.pid) || typeof b.blob !== 'string' || !B64.test(b.blob) || b.blob.length > 2000) return c.json({ error: 'bad_request' }, 400);
+    if (!store.take(`pair:${id}`, 20, now())) return c.json({ error: 'too_many' }, 429);
+    const t0 = now().getTime();
+    store.putPair(b.pid, b.blob, t0 + 10 * 60_000, t0);
+    return c.json({ ok: true });
+  });
+
+  app.get('/v1/pair/:pid', (c) => {
+    const pid = c.req.param('pid');
+    if (!DEVICE.test(pid)) return c.json({ error: 'bad_request' }, 400);
+    if (!store.take(`pairget:${ip(c)}`, 30, now())) return c.json({ error: 'too_many' }, 429);
+    const blob = store.takePair(pid, now().getTime());
+    return blob ? c.json({ blob }) : c.json({ error: 'not_found' }, 404);
   });
 
   /** This month's AI use of the vault: calls and an estimate in dollars (D36). */

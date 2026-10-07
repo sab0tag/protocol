@@ -1,14 +1,16 @@
 import { format } from 'date-fns';
 import { Copy, RefreshCw, Share2 } from 'lucide-react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import qrcode from 'qrcode-generator';
+import { useEffect, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { db } from '../data/db';
 import { t } from '../i18n/uk';
 import { ApiError } from '../sync/api';
-import { newCode, parseCode } from '../sync/crypto';
+import { newCode, parseCode, parsePairCode } from '../sync/crypto';
 import { useUi } from '../store/ui';
-import { disableSync, enableSync, requestSync, useSync } from '../sync/runner';
+import { codeFromPairing, disableSync, enableSync, offerPairing, requestSync, useSync } from '../sync/runner';
+import { saved } from '../components/Toast';
 
 const L = t.sync;
 const field = 'mt-1 block min-h-tap w-full rounded-xl border border-line bg-bg px-3 font-mono uppercase tracking-wider';
@@ -31,13 +33,16 @@ export function Sync() {
 
 function Off() {
   const navigate = useNavigate();
-  const [mode, setMode] = useState<'none' | 'new' | 'join'>('none');
-  const [code, setCode] = useState('');
+  const [params] = useSearchParams();
+  const linked = params.get('pair') ?? ''; // D40: the QR of another device
+  const [mode, setMode] = useState<'none' | 'new' | 'join'>(linked ? 'join' : 'none');
+  const [code, setCode] = useState(linked);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const go = async (c: string, how: 'create' | 'join') => {
     setBusy(true); setError('');
     try {
+      if (how === 'join' && !parseCode(c)) c = await codeFromPairing(c); // the short one-time code (D40)
       await enableSync(c, how);
       if (how === 'join') { // the plan and the days have arrived
         if ((await db.plan.get('main'))?.onboardedAt) useUi.getState().setOnboarded();
@@ -73,9 +78,10 @@ function Off() {
         <form className="space-y-2" onSubmit={(e) => { e.preventDefault(); void go(code, 'join'); }}>
           <label className="block"><span className="text-sm text-muted">{L.enterCode}</span>
             <input value={code} onChange={(e) => setCode(e.target.value)} autoComplete="off" autoCapitalize="characters" spellCheck={false}
-              placeholder="XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XX" className={field} /></label>
+              placeholder="XXXX-XXXX" className={field} /></label>
+          <p className="text-sm text-muted">{L.enterHint}</p>
           <div className="flex flex-wrap gap-2">
-            <button type="submit" disabled={busy || !parseCode(code)}
+            <button type="submit" disabled={busy || !(parseCode(code) || parsePairCode(code))}
               className="min-h-tap rounded-xl bg-accent px-3 font-medium text-surface disabled:opacity-40">{L.join}</button>
             <button type="button" onClick={() => setMode('none')} className="min-h-tap rounded-xl border border-line px-3">{L.cancel}</button>
           </div>
@@ -108,6 +114,47 @@ function CodeBox({ code }: { code: string }) {
   );
 }
 
+/** D40: «Підключити ще пристрій» — a short code for 10 minutes and its QR. */
+function Pairing() {
+  const [pair, setPair] = useState<{ code: string; until: number } | null>(null);
+  const [error, setError] = useState('');
+  const [left, setLeft] = useState(0);
+  useEffect(() => {
+    if (!pair) return;
+    const tick = () => { const s = Math.max(0, Math.round((pair.until - Date.now()) / 1000)); setLeft(s); if (!s) setPair(null); };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [pair]);
+  const start = async () => {
+    setError('');
+    try { setPair({ code: await offerPairing(), until: Date.now() + 10 * 60_000 }); } catch (e) { setError(errorText(e)); }
+  };
+  const link = pair ? `${location.origin}${location.pathname}#/sync?pair=${pair.code.replace('-', '')}` : '';
+  const svg = (() => { if (!link) return ''; const q = qrcode(0, 'M'); q.addData(link); q.make(); return q.createSvgTag({ cellSize: 5, margin: 2, scalable: true }); })();
+  return (
+    <div className="space-y-3 rounded-2xl border border-line bg-surface p-3">
+      <h2 className="font-semibold">{L.pairTitle}</h2>
+      {!pair ? (
+        <>
+          <p className="text-sm text-muted">{L.pairText}</p>
+          <button type="button" onClick={() => void start()} className="min-h-tap rounded-xl bg-accent px-3 font-medium text-surface">{L.pairStart}</button>
+        </>
+      ) : (
+        <>
+          <p className="select-all text-center font-mono text-4xl font-semibold tracking-widest">{pair.code}</p>
+          <p className="text-center text-sm text-muted">{L.pairLeft(`${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`)}</p>
+          <p className="text-sm">{L.pairHow}</p>
+          {/* the QR is drawn by qrcode-generator from our own link — no user input inside */}
+          <div className="mx-auto w-48 rounded-xl bg-white p-2 [&>svg]:h-auto [&>svg]:w-full" aria-label={L.pairQr} role="img" dangerouslySetInnerHTML={{ __html: svg }} />
+          <p className="text-xs text-muted">{L.pairIphone}</p>
+        </>
+      )}
+      {error && <p role="alert" className="text-sm text-warn">{error}</p>}
+    </div>
+  );
+}
+
 function On({ code, photo }: { code: string; photo: boolean }) {
   const { status, lastAt, error } = useSync();
   const [show, setShow] = useState(false);
@@ -125,8 +172,12 @@ function On({ code, photo }: { code: string; photo: boolean }) {
             <RefreshCw size={18} aria-hidden />{L.now}</button>
           <button type="button" onClick={() => setShow((v) => !v)} className="min-h-tap rounded-xl border border-line px-3">{show ? L.hideCode : L.showCode}</button>
         </div>
-        {show && <><CodeBox code={code} /><p className="text-sm text-muted">{L.codeWarn}</p></>}
+        {show && <><CodeBox code={code} /><p className="text-sm text-muted">{L.codeWarn}</p>
+          <button type="button" onClick={() => void saved(db.meta.update('sync', { codeCheckedAt: Date.now() }), L.codeKept)}
+            className="min-h-tap rounded-xl border border-line px-3">{L.codeKeptBtn}</button></>}
       </div>
+
+      <Pairing />
 
       <div className="space-y-2 rounded-2xl border border-line bg-surface p-3">
         <h2 className="font-semibold">{L.photoTitle}</h2>

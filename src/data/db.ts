@@ -30,6 +30,7 @@ export interface SyncMeta {
   device?: string; // D34: this device's id for push
   reminders?: ReminderSettings & { on: boolean };
   snoozed?: Record<string, number>; // D35: «Пізніше» — reminder key → until (ms)
+  codeCheckedAt?: number; // D40: «код записаний?» asked again a month later
 }
 
 export class ProtocolDB extends Dexie {

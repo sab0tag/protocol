@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { db } from '../data/db';
 import { useAllEntries, useAllWellbeing, useFoods, usePlan, useWeights, useWorkouts } from '../data/queries';
 import { dateOf, todayISO } from '../domain/dates';
-import { buildReport, reportText } from '../domain/report';
+import { buildReport, habitLabel, reportText } from '../domain/report';
 import { t } from '../i18n/uk';
 
 const L = t.report;
@@ -59,6 +59,27 @@ export function Report() {
         <Metric label={L.workouts} value={String(r.workouts)} />
         <Metric label={L.energy} value={r.avgEnergy != null ? `${num(r.avgEnergy)} ${L.of5}` : '—'} />
       </dl>
+
+      {(r.weightPace != null || r.habits.length > 0 || r.menu) && (
+        <section className="rounded-2xl border border-line bg-surface p-3">
+          <h2 className="mb-2 font-semibold">{L.howPlan}</h2>
+          {r.weightPace != null && (
+            <p className={`mb-2 ${r.maxLossPerWeek != null && -r.weightPace > r.maxLossPerWeek ? 'font-semibold text-warn' : ''}`}>
+              {L.pace(`${r.weightPace > 0 ? '+' : r.weightPace < 0 ? '−' : ''}${num(Math.abs(r.weightPace))}`)}
+              {r.maxLossPerWeek != null && <span className="text-muted"> {L.paceLimit(num(r.maxLossPerWeek))}</span>}</p>
+          )}
+          {r.habits.length > 0 && (
+            <table className="w-full tabular text-sm">
+              <caption className="mb-1 text-left text-muted">{L.habitsCaption}</caption>
+              <tbody>{r.habits.map((h) => (
+                <tr key={h.key} className="border-t border-line"><td className="py-1">{habitLabel(h.key)}</td>
+                  <td className="py-1 text-right">{L.ofDays(h.met, h.of)}</td></tr>
+              ))}</tbody>
+            </table>
+          )}
+          {r.menu && <p className="mt-2 text-sm">{L.menu(r.menu.done, r.menu.skipped, r.menu.open)}</p>}
+        </section>
+      )}
 
       <section className="rounded-2xl border border-line bg-surface p-3">
         <h2 className="mb-2 font-semibold">{L.symptoms}</h2>

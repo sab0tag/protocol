@@ -78,8 +78,9 @@ describe('sync between two devices', () => {
     await phone.weights.put({ date: '2026-10-04', kg: 97.4 });
     await phone.recipes.put({ id: 'r-mine', name: 'Мій салат', items: [{ name: 'Огірок', grams: 100 }] });
     const first = await syncOnce(phone, keys, server.api, 1000);
-    expect(first.pushed).toBe(4); // plan, meal, weight, dish
-    expect(server.records.size).toBe(4);
+    const planParts = Object.keys(await phone.plan.get('main') ?? {}).filter((k) => k !== 'id').length;
+    expect(first.pushed).toBe(3 + planParts); // meal, weight, dish + the plan by parts
+    expect(server.records.size).toBe(3 + planParts);
     expect([...server.records.values()].every((r) => !r.v!.includes('Яйце'))).toBe(true);
 
     await syncOnce(laptop, keys, server.api, 2000);
@@ -146,6 +147,45 @@ describe('sync between two devices', () => {
     await syncOnce(laptop, keys, server.api, 3000);
     await syncOnce(phone, keys, server.api, 4000); // back online: its change was at 2000, the laptop's at 3000
     expect((await phone.entries.get('e1'))!.items![0]!.name).toBe('Пізніше');
+  });
+
+  it('the plan by parts: targets edited on one device and limits on another — both stay (D40)', async () => {
+    const code = newCode();
+    const keys = await deriveKeys(parseCode(code)!);
+    const server = fakeServer();
+    const phone = await device(code), laptop = await device(code);
+    await syncOnce(phone, keys, server.api, 1000);
+    await syncOnce(laptop, keys, server.api, 1100);
+    await laptop.plan.update('main', { targets: { proteinG: 150 } });
+    const limits = (await phone.plan.get('main'))!.constraints.map((c) => ({ ...c, active: false }));
+    await phone.plan.update('main', { constraints: limits, nextCheckup: undefined });
+    await syncOnce(laptop, keys, server.api, 2000);
+    await syncOnce(phone, keys, server.api, 3000);
+    await syncOnce(laptop, keys, server.api, 4000);
+    for (const db of [phone, laptop]) {
+      const p = (await db.plan.get('main'))!;
+      expect(p.targets).toEqual({ proteinG: 150 });
+      expect(p.constraints.every((c) => !c.active)).toBe(true);
+      expect(p.nextCheckup).toBeUndefined(); // a removed part is removed everywhere
+    }
+  });
+
+  it('a legacy whole-plan record from an old version is still applied', async () => {
+    const code = newCode();
+    const keys = await deriveKeys(parseCode(code)!);
+    const server = fakeServer();
+    const k = await recordKey(keys, 'plan:main');
+    const old = { id: 'main', constraints: [], prescriptions: [], modes: [], targets: { kcal: 1800 }, onboardedAt: '2026-10-01' };
+    await server.api.push([{ k, v: await seal(keys, k, { t: 'plan', id: 'main', d: old, at: 500 }) }]);
+    const laptop = await device(code);
+    await syncOnce(laptop, keys, server.api, 1000);
+    expect((await laptop.plan.get('main'))!.targets).toEqual({ kcal: 1800 });
+    expect(server.records.size).toBe(1); // nothing of the example plan went up
+    await syncOnce(laptop, keys, server.api, 2000); // the real plan goes up by parts once
+    const other = await device(code);
+    await syncOnce(other, keys, server.api, 3000);
+    expect((await other.plan.get('main'))!).toMatchObject({ targets: { kcal: 1800 }, onboardedAt: '2026-10-01' });
+    expect((await syncOnce(laptop, keys, server.api, 4000)).pushed).toBe(0);
   });
 
   it('hash ignores key order and undefined fields', () => {

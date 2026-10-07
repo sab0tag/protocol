@@ -4,7 +4,7 @@ import { tick, vapidKeys, type Sender } from '../src/push.ts';
 import { Store } from '../src/store.ts';
 
 const VAULT = 'a'.repeat(32), AUTH = 'k'.repeat(43), DEV = 'd'.repeat(32), DEV2 = 'e'.repeat(32);
-const SUB = { endpoint: 'https://push.example/abc', keys: { p256dh: 'BPk', auth: 'xyz' } };
+const SUB = { endpoint: 'https://fcm.googleapis.com/fcm/send/abc', keys: { p256dh: 'BPk', auth: 'xyz' } };
 const rid = (s: string) => s.padEnd(20, '_');
 const T0 = Date.parse('2026-10-08T10:00:00Z');
 
@@ -28,7 +28,13 @@ describe('push', () => {
     const { store, sent, send, call } = setup();
     expect(await (await call('GET', '/v1/push/key')).json()).toEqual({ key: 'PUB' });
     await call('PUT', `/v1/vaults/${VAULT}`);
-    expect((await call('PUT', `/v1/vaults/${VAULT}/devices/${DEV}`, { subscription: { endpoint: 'http://x', keys: SUB.keys } })).status).toBe(400);
+    for (const endpoint of ['http://fcm.googleapis.com/x', 'https://evil.example/x', 'https://169.254.169.254/latest', 'https://fcm.googleapis.com:8443/x',
+      'https://fcm.googleapis.com.evil.example/x']) {
+      expect((await call('PUT', `/v1/vaults/${VAULT}/devices/${DEV}`, { subscription: { endpoint, keys: SUB.keys } })).status).toBe(400);
+    }
+    for (const endpoint of ['https://web.push.apple.com/QO', 'https://updates.push.services.mozilla.com/wpush/v2/x', 'https://wns2-db5p.notify.windows.com/w/?token=x']) {
+      expect((await call('PUT', `/v1/vaults/${VAULT}/devices/${DEV2}`, { subscription: { endpoint, keys: SUB.keys } })).status).toBe(200);
+    }
     expect((await call('PUT', `/v1/vaults/${VAULT}/devices/${DEV}`, { subscription: SUB })).status).toBe(200);
     await call('PUT', `/v1/vaults/${VAULT}/devices/${DEV}`, { subscription: SUB });
     expect((await call('PUT', `/v1/vaults/${VAULT}/devices/${DEV}/reminders`, schedule([{ rid: rid('lunch'), at: T0 + 60_000 }]))).status).toBe(200);
