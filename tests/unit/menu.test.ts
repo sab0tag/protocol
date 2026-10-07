@@ -26,7 +26,7 @@ describe('menu request', () => {
 describe('draft', () => {
   it('counts from the base: pieces, grams, a dish by portions; unknown names are dropped', () => {
     const d = draftFrom({ tips: [' Зваріть яйця звечора ', ''], meals: [
-      meal('Сніданок', '08:00', [{ name: 'Яйце варене', grams: 100, count: 2 }, { name: 'Кефір 2,5 %', grams: 250, count: null }, { name: 'Піца', grams: 300, count: null }]),
+      meal('Сніданок', '08:00', [{ name: 'Яйце варене', grams: 100, count: 2 }, { name: 'Кефір 2,5 %', grams: 250, count: null }, { name: 'Устриці', grams: 300, count: null }]),
       meal('Обід', '13:30', [{ name: 'Гречка з куркою', grams: 700, count: null }]),
     ] }, { ...ctx, plan: { ...plan, targets: {} } });
     expect(d.meals[0]!.items.map((i) => i.name)).toEqual(['Яйце варене', 'Кефір 2,5 %']);

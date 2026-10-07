@@ -72,3 +72,10 @@ export async function takePair(pid: string): Promise<string> {
 // D44: sealed records from the server's nightly copies
 export const backups = (keys: Keys) => call<{ backups: string[] }>(keys, 'GET', '/backups');
 export const backupRecords = (keys: Keys, name: string) => call<{ records: RemoteRecord[] }>(keys, 'GET', `/backups/${name}`);
+
+// D45: a package's nutrition table
+export interface LabelResult {
+  readable: boolean; name: string; servingG: number | null; note: string | null;
+  per100g: { kcal: number; protein: number; fat: number; carbs: number; calciumMg: number | null };
+}
+export const label = (keys: Keys, image: string) => call<LabelResult>(keys, 'POST', '/label', { image });

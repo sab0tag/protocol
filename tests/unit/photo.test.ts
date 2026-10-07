@@ -29,11 +29,11 @@ describe('photo → «Розпізнано»', () => {
 
   it('not in the base → a free line with the estimate; unsure is flagged; zero grams dropped', () => {
     const r = fromPhoto({ items: [
-      item({ name: 'сирники', grams: 150, kcal: 330.4, protein: 21.26, fat: 15, carbs: 27, confidence: 'low' }),
+      item({ name: 'паелья', grams: 150, kcal: 330.4, protein: 21.26, fat: 15, carbs: 27, confidence: 'low' }),
       item({ name: 'щось', grams: 0 }),
     ], note: null }, FOODS, RECIPES, dishItem);
     expect(r).toHaveLength(1);
     expect(r[0]).toMatchObject({ estimate: true, unsure: true,
-      item: { name: 'сирники', grams: 150, manual: { kcal: 330, protein: 21.3, fat: 15, carbs: 27 } } });
+      item: { name: 'паелья', grams: 150, manual: { kcal: 330, protein: 21.3, fat: 15, carbs: 27 } } });
   });
 });

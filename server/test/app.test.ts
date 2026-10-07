@@ -150,3 +150,20 @@ describe('menu', () => {
     expect((await call('POST', `/v1/vaults/${VAULT}/menu`, { date: '2026-10-08', foods: ['Яйце'] })).status).toBe(503);
   });
 });
+
+describe('label (D45)', () => {
+  it('a package photo → per 100 g; counted with photos; off without a key', async () => {
+    const store = new Store(':memory:');
+    const LABEL = { readable: true, name: 'Йогурт грецький 2 %', per100g: { kcal: 73, protein: 9.5, fat: 2, carbs: 3.9, calciumMg: null }, servingG: 140, note: null };
+    const app = createApp({ store, origins: [], label: async () => ({ result: LABEL, usage: { model: 'claude-opus-5-5', input: 1500, output: 200 } }),
+      limits: { ...DEFAULT_LIMITS, photosPerVaultPerDay: 1 } });
+    const H = { Authorization: `Bearer ${AUTH}`, 'Content-Type': 'application/json' };
+    await app.request(`/v1/vaults/${VAULT}`, { method: 'PUT', headers: H });
+    const r = await app.request(`/v1/vaults/${VAULT}/label`, { method: 'POST', headers: H, body: JSON.stringify({ image: JPEG }) });
+    expect(await r.json()).toEqual(LABEL);
+    expect((await app.request(`/v1/vaults/${VAULT}/label`, { method: 'POST', headers: H, body: JSON.stringify({ image: JPEG }) })).status).toBe(429);
+    const off = createApp({ store: new Store(':memory:'), origins: [] });
+    await off.request(`/v1/vaults/${VAULT}`, { method: 'PUT', headers: H });
+    expect((await off.request(`/v1/vaults/${VAULT}/label`, { method: 'POST', headers: H, body: JSON.stringify({ image: JPEG }) })).status).toBe(503);
+  });
+});

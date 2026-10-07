@@ -1,4 +1,5 @@
 import { Trash2 } from 'lucide-react';
+import { LabelScan } from '../components/LabelScan';
 import { Loading } from '../components/Recovery';
 import { saved } from '../components/Toast';
 import { useState } from 'react';
@@ -30,6 +31,7 @@ export function Dishes() {
 
       <h2 className="pt-2 text-xl font-semibold">{L.foods}</h2>
       <p className="text-sm text-muted">{L.foodsHint}</p>
+      <LabelScan />
       {mine.length === 0 ? <p className="text-muted">{L.foodsEmpty}</p>
         : <ul className="space-y-3">{mine.map((f) => <FoodCard key={f.id} food={f} />)}</ul>}
     </section>

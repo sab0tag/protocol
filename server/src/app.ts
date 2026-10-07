@@ -6,6 +6,7 @@ import { bodyLimit } from 'hono/body-limit';
 import { cors } from 'hono/cors';
 import type { MenuMaker } from './menu.ts';
 import type { Usage } from './photo.ts';
+import type { LabelReader } from './label.ts';
 import type { Recognizer } from './photo.ts';
 import type { Sender } from './push.ts';
 import type { Store } from './store.ts';
@@ -24,6 +25,7 @@ export interface Deps {
   store: Store;
   recognize?: Recognizer; // absent = photos are off (no API key)
   menu?: MenuMaker; // the same
+  label?: LabelReader; // the same (D45)
   push?: { publicKey: string; send: Sender };
   backupAgeH?: () => number | null;
   backups?: { list: () => string[]; records: (name: string, vault: string) => { k: string; v: string | null; seq: number }[] | null };
@@ -164,6 +166,31 @@ export function createApp(deps: Deps) {
     return records ? c.json({ records }) : c.json({ error: 'not_found' }, 404);
   });
 
+  /** D45: a package's nutrition table → a food per 100 g, for the person to check and save. Counts as a photo. */
+  app.post('/v1/vaults/:id/label', bodyLimit({ maxSize: 3_500_000, onError: (c) => c.json({ error: 'too_large' }, 413) }), async (c) => {
+    const id = authed(c);
+    if (typeof id !== 'string') return id;
+    if (!deps.label) return c.json({ error: 'photo_off' }, 503);
+    const body = await c.req.json().catch(() => null) as { image?: unknown } | null;
+    const image = body?.image;
+    if (typeof image !== 'string' || !B64.test(image)) return c.json({ error: 'bad_request' }, 400);
+    const bytes = Buffer.from(image, 'base64');
+    if (bytes.length > MAX_IMAGE || bytes[0] !== 0xff || bytes[1] !== 0xd8) return c.json({ error: 'bad_image' }, 400);
+    const at = now();
+    if (!store.take('photo:all', limits.photosPerDay, at) || !store.take(`photo:${id}`, limits.photosPerVaultPerDay, at)) return c.json({ error: 'too_many' }, 429);
+    try {
+      const { result, usage } = await deps.label(image);
+      spent(id, 'label', usage);
+      ai.lastOk = Date.now();
+      if (result === 'refused') return c.json({ error: 'refused' }, 422);
+      return c.json(result);
+    } catch (e) {
+      ai.lastError = Date.now();
+      console.error('label failed:', (e as Error).message);
+      return c.json({ error: 'upstream' }, 502);
+    }
+  });
+
   /** This month's AI use of the vault: calls and an estimate in dollars (D36). */
   app.get('/v1/vaults/:id/usage', (c) => {
     const id = authed(c);
@@ -174,7 +201,7 @@ export function createApp(deps: Deps) {
       usd: Math.round(rows.reduce((s, r) => s + r.usd_micro, 0) / 10_000) / 100 });
   });
 
-  app.get('/health', (c) => c.json({ ok: true, photo: !!recognize, menu: !!menu, push: !!deps.push,
+  app.get('/health', (c) => c.json({ ok: true, photo: !!recognize, menu: !!menu, label: !!deps.label, push: !!deps.push,
     ai: { lastOk: ai.lastOk || null, lastError: ai.lastError || null, failing: ai.lastError > ai.lastOk },
     backupAgeH: deps.backupAgeH?.() ?? null }));
 

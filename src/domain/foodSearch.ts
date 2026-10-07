@@ -60,7 +60,8 @@ function words(food: { name: string; aliases?: string[] }): string[] {
 /** Foods (or dishes) whose name or aliases contain every query word (by stem); the closest first. */
 export function searchFoods<T extends { id: string; name: string; aliases?: string[] }>(foods: T[], text: string, limit = 8,
   prefer: ReadonlySet<string> = new Set()): T[] {
-  const tokens = normalize(text).split(' ').filter((t) => t.length >= 2).map(stem);
+  const raw = normalize(text).split(' ').filter((t) => t.length >= 2);
+  const tokens = raw.map(stem);
   if (tokens.length === 0) return [];
   const scored: [T, number][] = [];
   for (const food of foods) {
@@ -68,7 +69,9 @@ export function searchFoods<T extends { id: string; name: string; aliases?: stri
     if (!tokens.every((t) => ws.some((w) => w.startsWith(t)))) continue;
     const name = normalize(food.name);
     // the name starting with the word first; then what this person usually eats (D30); then the shorter name
-    const score = (name.startsWith(tokens[0]!) ? 0 : 1) + (prefer.has(food.id) ? -0.5 : 0) + name.split(' ').length / 100;
+    // D45: the whole word said beats a longer one that shares its stem («кава» → Кава, not Кавун)
+    const whole = ws.some((w) => w === raw[0] || (raw[0]!.length >= 4 && w.startsWith(raw[0]!))) ? -0.3 : 0;
+    const score = (name.startsWith(tokens[0]!) ? 0 : 1) + whole + (prefer.has(food.id) ? -0.5 : 0) + name.split(' ').length / 100;
     scored.push([food, score]);
   }
   return scored.sort((a, b) => a[1] - b[1]).slice(0, limit).map(([f]) => f);

@@ -52,7 +52,8 @@ describe('food search and household measures (D26)', () => {
     for (const f of FOODS) {
       const { kcal, protein, fat, carbs } = f.per100g;
       expect(protein + fat + carbs, f.name).toBeLessThanOrEqual(101);
-      expect(Math.abs(kcal - (4 * protein + 9 * fat + 4 * carbs)), f.name).toBeLessThan(Math.max(30, kcal * 0.2));
+      if (!f.tags.includes('alcohol')) // alcohol has its own calories (7 kcal/g), not in protein/fat/carbs
+        expect(Math.abs(kcal - (4 * protein + 9 * fat + 4 * carbs)), f.name).toBeLessThan(Math.max(30, kcal * 0.2));
       for (const u of f.units ?? []) expect(u.grams, `${f.name} ${u.name}`).toBeGreaterThan(0);
     }
   });
@@ -83,5 +84,36 @@ describe('a dictated phrase (D30)', () => {
     expect(r[0]?.item).toMatchObject({ foodId: 'buckwheat-boiled', grams: 200 });
     expect(r[1]?.item).toMatchObject({ foodId: 'cucumber' });
     expect(r[2]).toEqual({ text: 'щось незрозуміле' });
+  });
+});
+
+describe('the bigger base (D45)', () => {
+  it('finds everyday food by how people say it, and the rules see the new names', async () => {
+    const { searchFoods: sf, parseQuery: pq, itemFor: it } = await import('../../src/domain/foodSearch');
+    const { RECIPES } = await import('../../src/data/recipes');
+    const { matchesAny } = await import('../../src/domain/rules');
+    const K = await import('../../src/domain/rules/keywords.uk');
+    const first = (q: string) => sf(FOODS, pq(q).text, 1)[0]?.name;
+    expect(first('вареники з сиром')).toBe('Вареники з кисломолочним сиром');
+    expect(first('кава')).toBe('Кава чорна');
+    expect(first('ряжанка')).toBe('Ряжанка 4 %');
+    expect(first('гриби')).toBe('Печериці');
+    expect(it(FOODS.find((f) => f.id === 'vareniki-potato')!, pq('10 вареників'))).toMatchObject({ grams: 250, unit: { name: 'шт', qty: 10 } });
+    expect(sf(RECIPES, 'борщ', 1)[0]?.name).toBe('Борщ');
+    expect(matchesAny('Вівсянка на молоці', K.LACTOSE)).toBe(true);
+    expect(matchesAny('Деруни (смажені)', K.GALLBLADDER)).toBe(true);
+    expect(matchesAny('Морозиво пломбір', K.GLYCEMIC_REMOVE)).toBe(true);
+    expect(matchesAny('Скумбрія холодного копчення', K.SALTY)).toBe(true);
+    expect(matchesAny('Ряжанка 4 %', K.LACTOSE)).toBe(false);
+  });
+
+  it('every built-in dish is made of known foods and has a sensible weight', async () => {
+    const { RECIPES } = await import('../../src/data/recipes');
+    expect(RECIPES.length).toBeGreaterThanOrEqual(19);
+    for (const r of RECIPES) {
+      const g = r.items.reduce((s, x) => s + x.grams, 0);
+      expect(g, r.name).toBeGreaterThan(80);
+      expect(g, r.name).toBeLessThan(700);
+    }
   });
 });

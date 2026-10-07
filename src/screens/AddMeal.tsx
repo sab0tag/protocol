@@ -1,4 +1,5 @@
 import { format } from 'date-fns';
+import { LabelScan } from '../components/LabelScan';
 import { Loading } from '../components/Recovery';
 import { saved } from '../components/Toast';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -235,6 +236,7 @@ export function AddMeal() {
           })()}
           <button type="button" onClick={() => setFree((v) => !v)} className="mt-2 min-h-tap text-accent underline">{t.meal.free}</button>
           {free && <FreeItemForm onAdd={(it) => { setItems((xs) => [...xs, it]); setFree(false); }} />}
+          <LabelScan onAdd={(it) => setItems((xs) => [...xs, it])} />
         </div>
 
         <div className="rounded-2xl border border-line bg-surface p-3">
