@@ -23,8 +23,10 @@ export function QuickDock({ med, meds, water, onMed, onWater }: Props) {
       {meds.total > 0 && (
         <Round progress={meds.done / meds.total} tone={med?.overdue ? 'warn' : 'accent'} done={!med} onClick={onMed}
           label={med ? L.med(med.title, med.time) : L.medsDone}>
-          {med ? <Pill size={22} className={med.overdue ? 'text-warn' : 'text-accent'} aria-hidden /> : <Check size={22} aria-hidden />}
+          <Pill size={22} className={!med ? '' : med.overdue ? 'text-warn' : 'text-accent'} aria-hidden />
           {med?.overdue && <span className="absolute right-0.5 top-0.5 h-3 w-3 rounded-full border-2 border-surface bg-warn" aria-hidden />}
+          {!med && <span className="absolute -right-0.5 -top-0.5 flex h-5 w-5 items-center justify-center rounded-full border-2 border-accent bg-surface text-accent" aria-hidden>
+            <Check size={12} strokeWidth={3} /></span>}
         </Round>
       )}
       <Round progress={water.target ? water.ml / water.target : 0} tone="water" onClick={onWater} label={L.water(water.ml, water.target)}>

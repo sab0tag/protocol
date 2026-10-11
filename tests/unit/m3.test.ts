@@ -19,6 +19,18 @@ describe('«Мій день»', () => {
     expect(c.items[0]?.detail).toBe('08:30 · під час їжі');
   });
 
+  it('a medicine without a time is once a day, after the timed ones (D49)', () => {
+    const p: Plan = { ...plan, prescriptions: [...plan.prescriptions,
+      { id: 'p-mg', kind: 'supplement', title: 'Магній', dose: '1 таб.', source: '' },
+      { id: 'p-x', kind: 'medication', title: 'Без часу', schedule: { times: [] }, source: '' }] };
+    const c = buildChecklist({ plan: p, date: DATE, entries: [{ id: '1', at: at('09:00'), kind: 'med', status: 'done', title: 'Магній', checkKey: 'med:p-mg:day' }],
+      workouts: [], foods, now: new Date(`${DATE}T09:00:00`) });
+    const meds = c.items.filter((i) => i.kind === 'med');
+    expect(meds.map((i) => i.key)).toEqual(['med:p-vitd:08:30', 'med:p-mg:day', 'med:p-x:day']);
+    expect(meds[1]).toMatchObject({ detail: 'раз на день · 1 таб.', done: true, doneAt: '09:00' });
+    expect(meds[1]?.time).toBeUndefined();
+  });
+
   it('a tick is an entry with the item’s key; water fills by 250 ml segments', () => {
     const entries: DayEntry[] = [
       { id: '1', at: at('08:41'), kind: 'med', status: 'done', title: 'Вітамін D', checkKey: 'med:p-vitd:08:30', prescriptionId: 'p-vitd' },

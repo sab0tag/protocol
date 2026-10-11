@@ -33,11 +33,17 @@ test('the service worker fills reminders in from the phone\'s own data', async (
   const regs = new Promise<{ registrationId: string }[]>((res) => cdp.on('ServiceWorker.workerRegistrationUpdated', (e) => { if (e.registrations.length) res(e.registrations); }));
   await cdp.send('ServiceWorker.enable');
   const id = (await regs)[0]!.registrationId;
-  const push = (d: object) => cdp.send('ServiceWorker.deliverPushMessage', { origin: 'http://localhost:4318', registrationId: id, data: JSON.stringify({ u: './', tag: Math.random().toString(), n: 0, ...d }) });
+  const shown = async () => (await page.evaluate(async () => (await (await navigator.serviceWorker.ready).getNotifications()).map((n) => `${n.title} — ${n.body}`))).sort();
+  // one at a time: pushes fired back to back while the worker wakes up are sometimes lost by the browser, not by the app
+  const push = async (d: object) => {
+    const before = (await shown()).length;
+    await cdp.send('ServiceWorker.deliverPushMessage', { origin: 'http://localhost:4318', registrationId: id, data: JSON.stringify({ u: './', tag: Math.random().toString(), n: 0, ...d }) });
+    await expect.poll(async () => (await shown()).length).toBeGreaterThan(before);
+  };
   await push({ t: 'На завтра', b: '—', k: 'evening', d: tomorrow });
   await push({ t: 'На завтра', b: '—', k: 'evening', d: '2031-01-01' });
   await push({ t: 'Ліки', b: '—', k: 'med', h: '08:30', n: 1 });
   await push({ t: 'План на сьогодні', b: '—', k: 'morning', d: today });
-  await expect.poll(async () => (await page.evaluate(async () => (await (await navigator.serviceWorker.ready).getNotifications()).map((n) => `${n.title} — ${n.body}`))).sort())
+  await expect.poll(shown)
     .toEqual(expect.arrayContaining(['На завтра — Зваріть яйця звечора', 'На завтра — Меню на завтра ще не складено — скласти?', '⏰ Ще раз: Ліки — Вітамін D під час їжі']));
 });

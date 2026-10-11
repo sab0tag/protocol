@@ -46,15 +46,17 @@ export function buildChecklist(args: {
 
   for (const p of plan?.prescriptions ?? []) {
     if (p.kind !== 'medication' && p.kind !== 'supplement') continue;
-    for (const time of p.schedule?.times ?? []) {
-      const key = `med:${p.id}:${time}`;
+    // D49: a medicine without a time in the plan is once a day, whenever — still on the list, not forgotten
+    const times: (string | undefined)[] = p.schedule?.times.length ? p.schedule.times : [undefined];
+    for (const time of times) {
+      const key = `med:${p.id}:${time ?? 'day'}`;
       const tick = ticks.get(key);
-      items.push({ key, kind: 'med', title: p.title, time, prescriptionId: p.id, tappable: true,
-        detail: [time, p.dose, p.schedule?.withFood ? 'під час їжі' : undefined].filter(Boolean).join(' · '),
+      items.push({ key, kind: 'med', title: p.title, ...(time ? { time } : {}), prescriptionId: p.id, tappable: true,
+        detail: [time ?? 'раз на день', p.dose, p.schedule?.withFood ? 'під час їжі' : undefined].filter(Boolean).join(' · '),
         done: !!tick, ...(tick ? { doneAt: timeOf(tick.at) } : {}) });
     }
   }
-  items.sort((a, b) => (a.time ?? '').localeCompare(b.time ?? ''));
+  items.sort((a, b) => (a.time ?? '99').localeCompare(b.time ?? '99')); // «раз на день» after the timed ones
 
   const water = { ml: totals.waterMl, segments: Math.min(WATER_SEGMENTS, Math.floor(totals.waterMl / WATER_SEGMENT_ML)),
     ...(targets.waterMl ? { target: targets.waterMl } : {}) };
