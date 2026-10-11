@@ -22,6 +22,7 @@ import { useUi } from '../store/ui';
 import { useSync } from '../sync/runner';
 import { SimpleEntrySheet } from './SimpleEntrySheet';
 import { NowCard } from '../components/NowCard';
+import { QuickDock } from '../components/QuickDock';
 
 const KIND_ICON = { meal: UtensilsCrossed, med: Pill, water: Droplet, workout: Dumbbell, note: NotebookPen } as const;
 
@@ -71,7 +72,8 @@ export function Day() {
     const id = newId();
     await saved(db.entries.add({ id, at: atLocal(date, time), kind: 'water', status: 'done', title: t.addKinds.water, waterMl: 250 }), t.toast.water(250), () => db.entries.delete(id));
   };
-  const nextMed = checklist?.items.find((i) => i.kind === 'med' && !i.done);
+  const meds = checklist?.items.filter((i) => i.kind === 'med') ?? [];
+  const nextMed = meds.find((i) => !i.done);
   const tickMed = async () => {
     if (!nextMed) return;
     const time = isToday ? format(new Date(), 'HH:mm') : nextMed.time ?? '12:00';
@@ -155,12 +157,6 @@ export function Day() {
 
       {/* D40: one row of quick actions — the day's list stays near the top */}
       <div className="mb-3 flex flex-wrap gap-2" role="group" aria-label={t.day.quick}>
-        <button type="button" onClick={() => void addWater()}
-          className="flex min-h-tap shrink-0 items-center gap-1 rounded-full border border-line bg-surface px-3 font-medium text-water"><Droplet size={16} aria-hidden />{t.day.plusWater}</button>
-        {nextMed && (
-          <button type="button" onClick={() => void tickMed()}
-            className="flex min-h-tap shrink-0 items-center gap-1 rounded-full border border-line bg-surface px-3 font-medium"><Pill size={16} className="text-accent" aria-hidden />{t.day.medDone(nextMed.title)}</button>
-        )}
         <button type="button" onClick={() => navigate('/my-day')} className="flex min-h-tap shrink-0 items-center gap-1 rounded-full border border-line bg-surface px-3 font-medium">
           <ListChecks size={16} className="text-accent" aria-hidden />{t.myday.title}
           {checklist && checklist.total > 0 && <span className="tabular text-accent">{t.myday.counter(checklist.done, checklist.total)}</span>}</button>
@@ -255,6 +251,14 @@ export function Day() {
           </Sheet>
         );
       })()}
+      {checklist && (
+        <>
+          <div className="h-40 md:h-16" aria-hidden />{/* D48: the end of the day stays visible above the dock */}
+          <QuickDock meds={{ done: meds.filter((i) => i.done).length, total: meds.length }} water={checklist.water}
+            med={nextMed && { title: nextMed.title, time: nextMed.time, overdue: isToday && !!nextMed.time && nextMed.time <= format(new Date(), 'HH:mm') }}
+            onMed={() => void tickMed()} onWater={() => void addWater()} />
+        </>
+      )}
       {simple && <SimpleEntrySheet kind={simple.kind} entry={simple.entry} date={date} onClose={() => setSimple(null)} />}
     </section>
   );
