@@ -126,16 +126,19 @@ export interface NowItem {
   kind: 'meal' | 'med';
   time: string;
   title: string;
+  late: number; // minutes since its time (< 0 — still ahead)
   entry?: DayEntry; // meal
   meds?: NowMed[]; // the medicines due at this time, not yet marked
 }
 export interface DayFocus { now?: NowItem; missed: NowItem[]; next?: NowItem }
 
-/** D50 (R4): «Зараз» is what is due from 30 min before its time to 60 min after. */
+/** D50 (R4): «Зараз» shows what is due from 30 min before its time to 60 min after — a rule of showing,
+ *  not a permission to do it at any time in that window (the card says «через 20 хв · о 08:30»). */
 export const NOW_BEFORE_MIN = 30, NOW_AFTER_MIN = 60;
 
 /** D50: «Зараз» — the earliest item due now; «Не відмічено» — items whose window passed without a mark (shown as
- *  unknown, never as «take it now»); «Далі» — the next one, when nothing is due. Snoozed ones wait. */
+ *  unknown, never as «take it now»); «Далі» — the next one, when nothing is due. Snoozed ones wait.
+ *  D52: only what the person planned needs a mark — a meal proposed by «Меню» (`menu`) never becomes «не відмічено». */
 export function dayFocus(args: { entries: DayEntry[]; plan: Plan | undefined; date: string; now: Date; snoozed?: Record<string, number> }): DayFocus {
   const { entries, plan, date, now } = args;
   const t0 = now.getTime();
@@ -143,7 +146,7 @@ export function dayFocus(args: { entries: DayEntry[]; plan: Plan | undefined; da
   const out: NowItem[] = [];
   for (const e of entries) {
     if (e.kind !== 'meal' || e.status !== 'planned' || dateOf(e.at) !== date) continue;
-    out.push({ key: `meal:${e.id}:${e.at}`, kind: 'meal', time: timeOf(e.at), title: e.title, entry: e });
+    out.push({ key: `meal:${e.id}:${e.at}`, kind: 'meal', time: timeOf(e.at), title: e.title, late: 0, entry: e });
   }
   const marked = new Set(entries.filter((e) => e.checkKey && e.status !== 'planned' && dateOf(e.at) === date).map((e) => e.checkKey!));
   const byTime = new Map<string, NowMed[]>();
@@ -155,12 +158,12 @@ export function dayFocus(args: { entries: DayEntry[]; plan: Plan | undefined; da
         ...(p.schedule?.withFood ? { withFood: true } : {}) }]);
     }
   }
-  for (const [time, meds] of byTime) out.push({ key: `med:${date}:${time}`, kind: 'med', time, title: 'Ліки', meds });
+  for (const [time, meds] of byTime) out.push({ key: `med:${date}:${time}`, kind: 'med', time, title: 'Ліки', late: 0, meds });
+  for (const x of out) x.late = differenceInMinutes(now, new Date(`${date}T${x.time}:00`));
   out.sort((a, b) => a.time.localeCompare(b.time));
-  const late = (x: NowItem) => differenceInMinutes(now, new Date(`${date}T${x.time}:00`)); // > 0 — its time has passed
-  const missed = out.filter((x) => late(x) > NOW_AFTER_MIN);
-  const due = out.find((x) => late(x) <= NOW_AFTER_MIN && late(x) >= -NOW_BEFORE_MIN && !sleeping(x.key));
+  const missed = out.filter((x) => x.late > NOW_AFTER_MIN && !x.entry?.menu);
+  const due = out.find((x) => x.late <= NOW_AFTER_MIN && x.late >= -NOW_BEFORE_MIN && !sleeping(x.key));
   if (due) return { now: due, missed };
-  const next = out.find((x) => late(x) < -NOW_BEFORE_MIN);
+  const next = out.find((x) => x.late < -NOW_BEFORE_MIN);
   return next ? { next, missed } : { missed };
 }

@@ -55,7 +55,7 @@ export function buildChecklist(args: {
       const tick = ticks.get(key);
       items.push({ key, kind: 'med', title: p.title, ...(time ? { time } : {}), prescriptionId: p.id, tappable: true,
         detail: [time ?? 'раз на день', p.dose, p.schedule?.withFood ? 'під час їжі' : undefined].filter(Boolean).join(' · '),
-        done: !!tick, ...(tick ? { doneAt: timeOf(tick.at) } : skips.has(key) ? { skipped: true } : {}) });
+        done: !!tick, ...(tick ? (tick.timeUnknown ? {} : { doneAt: timeOf(tick.at) }) : skips.has(key) ? { skipped: true } : {}) });
     }
   }
   items.sort((a, b) => (a.time ?? '99').localeCompare(b.time ?? '99')); // «раз на день» after the timed ones

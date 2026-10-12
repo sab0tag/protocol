@@ -1,5 +1,5 @@
 import type { DayEntry, Food } from '../domain/types';
-import { timeOf } from '../domain/dates';
+import { shownTime } from '../domain/dates';
 import { amountText } from '../domain/foodSearch';
 import { lineNutrients, mealNutrients, round } from '../domain/nutrition';
 import { t } from '../i18n/uk';
@@ -9,7 +9,7 @@ const fmt = (n: number) => String(round(n, 1)).replace('.', ',');
 /** D46: what a meal row holds — every line with its amount and calories, dishes opened up, the meal in numbers;
  *  shown above the row's actions. */
 export function EntryPreview({ entry, foods }: { entry: DayEntry; foods?: Map<string, Food> }) {
-  const head = <p className="text-sm text-muted">{timeOf(entry.at)} · {t.status[entry.status]}</p>;
+  const head = <p className="text-sm text-muted">{shownTime(entry) ?? t.day.timeUnknown} · {t.status[entry.status]}</p>;
   if (entry.kind !== 'meal' || !entry.items?.length || !foods) {
     return <div className="mb-3">{head}{entry.kind === 'water' && <p>{entry.waterMl ?? 0} {t.units.ml}</p>}</div>;
   }

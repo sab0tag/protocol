@@ -18,10 +18,13 @@ export function SimpleEntrySheet({ kind, entry, date, onClose }: {
 
   const save = async () => {
     const waterMl = kind === 'water' ? Math.max(0, Math.round(Number(ml) || 0)) : undefined;
+    // the rest of the row (a medicine's checkKey, D52 marks) stays; an unknown time stays unknown until it is changed
+    const { timeUnknown: _unknown, ...rest } = entry ?? {};
     const row: DayEntry = {
-      id: entry?.id ?? newId(), at: atLocal(date, time), kind, title: title.trim() || t.addKinds[kind],
+      ...rest, id: entry?.id ?? newId(), at: atLocal(date, time), kind, title: title.trim() || t.addKinds[kind],
       status: entry?.status === 'skipped' && !done ? 'skipped' : done ? 'done' : 'planned',
       ...(waterMl !== undefined ? { waterMl } : {}),
+      ...(entry?.timeUnknown && time === timeOf(entry.at) ? { timeUnknown: true as const } : {}),
     };
     onClose();
     await saved(db.entries.put(row), kind === 'water' && row.waterMl ? t.toast.water(row.waterMl)
@@ -48,6 +51,7 @@ export function SimpleEntrySheet({ kind, entry, date, onClose }: {
           <span className="text-sm text-muted">{t.simple.time}</span>
           <input type="time" value={time} onChange={(e) => setTime(e.target.value)} required
             className="mt-1 block min-h-tap w-full rounded-xl border border-line bg-bg px-3" />
+          {entry?.timeUnknown && time === timeOf(entry.at) && <span className="mt-1 block text-sm text-muted">{t.simple.timeUnknown}</span>}
         </label>
         <label className="flex min-h-tap items-center gap-3">
           <input type="checkbox" checked={done} onChange={(e) => setDone(e.target.checked)} className="h-5 w-5 accent-[rgb(var(--accent))]" />

@@ -3,6 +3,7 @@ export const t = {
   app: 'Протокол',
   nav: { day: 'День', food: 'Їжа', plan: 'План', progress: 'Прогрес', more: 'Ще' },
   day: {
+    timeUnknown: 'час невідомий', // D52
     title: 'День',
     prev: 'Попередній день',
     next: 'Наступний день',
@@ -114,6 +115,7 @@ export const t = {
   simple: {
     med: 'Ліки або добавка', water: 'Вода, мл', workout: 'Тренування', note: 'Нотатка',
     title: 'Що саме', time: 'Час', save: 'Записати', cancel: 'Скасувати',
+    timeUnknown: 'Час не відомий — змініть, якщо пригадаєте',
   },
   myday: {
     title: 'Мій день',
@@ -329,6 +331,7 @@ export const t = {
     visit: 'Візит відмічено',
     entry: (title: string) => `${title} — записано`,
     ticked: (title: string) => `${title} — відмічено`,
+    marked: (title: string, time?: string) => `${title} — відмічено${time ? ` о ${time}` : ', час невідомий'}`,
     pinned: (title: string) => `«${title}» — у звичних`,
     unpinned: (title: string) => `«${title}» — прибрано зі звичних`,
     alreadyPinned: (title: string) => `«${title}» уже у звичних`,
@@ -336,8 +339,18 @@ export const t = {
   now: { // D50
     title: 'Зараз', next: 'Далі', missed: 'Не відмічено', meds: 'Ліки',
     taken: 'Прийнято', eaten: 'З’їдено', later: (m: number) => `Нагадати за ${m} хв`, skip: 'Пропустити',
-    takenThen: 'Прийнято тоді', eatenThen: 'З’їдено', skipped: 'Пропущено',
+    mark: 'Відмітити', skipped: 'Пропущено', // D52
+    missedCount: (n: number) => `Не відмічено · ${n}`,
+    inMin: (m: number, time: string) => `через ${m} хв · о ${time}`,
+    ago: (m: number, time: string) => `о ${time} · ${m} хв тому`,
+    at: (time: string) => `о ${time}`,
     withFood: 'під час їжі',
+  },
+  mark: { // D52
+    whenTook: 'коли прийняли?', whenAte: 'коли з’їли?',
+    justNow: (hm: string) => `Щойно · ${hm}`,
+    asPlanned: (hm: string) => `О ${hm} — як за планом`,
+    other: 'Інший час', unknown: 'Час не пам’ятаю', save: 'Записати',
   },
   remind: {
     title: 'Нагадування',

@@ -31,6 +31,13 @@ describe('«Мій день»', () => {
     expect(meds[1]?.time).toBeUndefined();
   });
 
+  it('a tick whose time was not remembered shows no invented time (D52)', () => {
+    const c = buildChecklist({ plan, date: DATE, entries: [{ id: '1', at: at('08:30'), kind: 'med', status: 'done', title: 'Вітамін D',
+      checkKey: 'med:p-vitd:08:30', timeUnknown: true }], workouts: [], foods, now: new Date(`${DATE}T21:00:00`) });
+    expect(c.items[0]).toMatchObject({ done: true });
+    expect(c.items[0]?.doneAt).toBeUndefined();
+  });
+
   it('a tick is an entry with the item’s key; water fills by 250 ml segments', () => {
     const entries: DayEntry[] = [
       { id: '1', at: at('08:41'), kind: 'med', status: 'done', title: 'Вітамін D', checkKey: 'med:p-vitd:08:30', prescriptionId: 'p-vitd' },

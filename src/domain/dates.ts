@@ -10,5 +10,7 @@ export function atLocal(date: ISODate, time: string): ISODateTime {
 
 export const dateOf = (at: ISODateTime): ISODate => format(parseISO(at), 'yyyy-MM-dd');
 export const timeOf = (at: ISODateTime): string => format(parseISO(at), 'HH:mm');
+/** D52: the time to show for an entry — none when the person did not remember it. */
+export const shownTime = (e: { at: ISODateTime; timeUnknown?: true }): string | undefined => (e.timeUnknown ? undefined : timeOf(e.at));
 
 export const newId = (): string => crypto.randomUUID();

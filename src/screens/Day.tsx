@@ -1,6 +1,7 @@
 import { differenceInMinutes, format, parseISO } from 'date-fns';
 import { EntryPreview } from '../components/EntryPreview';
 import { pinMeal } from '../components/Favorites';
+import { markMeds, TimeChoice } from '../components/MarkTime';
 import { saved } from '../components/Toast';
 import { uk } from 'date-fns/locale';
 import { Activity, Check, ChevronLeft, ListChecks, ChevronRight, Droplet, NotebookPen, Pill, Plus, Dumbbell, Undo2, UtensilsCrossed, X, Pencil, Trash2, Sparkles, Star } from 'lucide-react';
@@ -9,14 +10,14 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Sheet, SheetButton } from '../components/Sheet';
 import { db } from '../data/db';
 import { useAllEntries, useDayEntries, useFoods, usePlan, useWorkouts } from '../data/queries';
-import { buildChecklist } from '../domain/checklist';
+import { buildChecklist, type CheckItem } from '../domain/checklist';
 import { NOW_AFTER_MIN } from '../domain/reminders';
 import { habits, mealsOf } from '../domain/habits';
 import { addDays, parseISO as parseDay } from 'date-fns';
 import { amountText } from '../domain/foodSearch';
 import { exportDue } from '../data/backup';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { atLocal, newId, timeOf, todayISO } from '../domain/dates';
+import { atLocal, newId, shownTime, timeOf, todayISO } from '../domain/dates';
 import { activeMode, dayTotals, effectiveTargets, mealNutrients, round } from '../domain/nutrition';
 import type { DayEntry, EntryKind, Food } from '../domain/types';
 import { t } from '../i18n/uk';
@@ -74,13 +75,15 @@ export function Day() {
   const addWater = async () => { const e = waterRow(); await saved(db.entries.add(e), t.toast.water(250), () => db.entries.delete(e.id)); };
   const meds = checklist?.items.filter((i) => i.kind === 'med') ?? [];
   const nextMed = meds.find((i) => !i.done && !i.skipped);
-  // D50: a dose whose window has passed is marked at its planned time — «прийнято тоді», never «take it now»
+  // D50: a dose past its window is «не відмічено» (orange); D52: then — and on any other day — the dock asks when it was taken
   const medMissed = !!nextMed?.time && (date < todayISO() || (isToday && differenceInMinutes(new Date(), new Date(`${date}T${nextMed.time}:00`)) > NOW_AFTER_MIN));
+  const [askMed, setAskMed] = useState<CheckItem | null>(null);
   /** The dock's two taps (D48): written at once, the dock itself says so and takes the undo. */
   const dockWater = async () => { const e = waterRow(); await db.entries.add(e); return () => db.entries.delete(e.id); };
   const dockMed = async () => {
     if (!nextMed) return undefined;
-    const e: DayEntry = { id: newId(), at: atLocal(date, isToday && !medMissed ? format(new Date(), 'HH:mm') : nextMed.time ?? '12:00'),
+    if (!isToday || medMissed) { setAskMed(nextMed); return undefined; }
+    const e: DayEntry = { id: newId(), at: atLocal(date, format(new Date(), 'HH:mm')),
       kind: 'med', status: 'done', title: nextMed.title, checkKey: nextMed.key, ...(nextMed.prescriptionId ? { prescriptionId: nextMed.prescriptionId } : {}) };
     await db.entries.add(e);
     return () => db.entries.delete(e.id);
@@ -121,7 +124,7 @@ export function Day() {
         </p>
       )}
 
-      {isToday && entries && <NowCard entries={entries} plan={plan} date={date} />}
+      {entries && <NowCard entries={entries} plan={plan} date={date} />}
 
 
 
@@ -266,6 +269,9 @@ export function Day() {
             onMed={dockMed} onWater={dockWater} />
         </>
       )}
+      {askMed && <TimeChoice title={askMed.title} {...(askMed.time ? { planned: askMed.time } : {})} date={date} onClose={() => setAskMed(null)}
+        onPick={(when) => void markMeds([{ key: askMed.key, title: askMed.title, ...(askMed.prescriptionId ? { prescriptionId: askMed.prescriptionId } : {}) }],
+          date, askMed.time, 'done', when)} />}
       {simple && <SimpleEntrySheet kind={simple.kind} entry={simple.entry} date={date} onClose={() => setSimple(null)} />}
     </section>
   );
@@ -280,9 +286,9 @@ function Row({ entry, foods, onOpen }: { entry: DayEntry; foods?: Map<string, Fo
     : entry.status === 'skipped' ? 'opacity-50' : '';
   return (
     <li className="border-t border-line first:border-t-0">
-      <button type="button" onClick={onOpen} aria-label={`${entry.title}, ${t.status[entry.status]}`}
+      <button type="button" onClick={onOpen} aria-label={`${entry.title}, ${t.status[entry.status]}${entry.timeUnknown ? `, ${t.day.timeUnknown}` : ''}`}
         className={`grid min-h-tap w-full grid-cols-[3.5rem_1fr_3.5rem] items-center gap-2 px-3 py-2 text-left ${look}`}>
-        <span className="tabular text-muted">{timeOf(entry.at)}</span>
+        <span className="tabular text-muted" title={entry.timeUnknown ? t.day.timeUnknown : undefined}>{shownTime(entry) ?? '—'}</span>
         <span className="min-w-0">
           <span className={`flex items-center gap-1.5 ${entry.status === 'skipped' ? 'line-through' : ''}`}>
             <Icon size={16} className="shrink-0 text-muted" aria-hidden />

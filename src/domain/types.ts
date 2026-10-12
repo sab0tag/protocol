@@ -146,6 +146,12 @@ export interface DayEntry {
   /** D33: a meal from «Меню на завтра» (replaced when a new menu is accepted while still planned); the day's
    *  practical tips ride on its first meal. */
   menu?: { tips?: string[] };
+  /** D52: a mark made later is never given an invented time. `at` is the real time the person confirmed; with
+   *  `timeUnknown` («час не пам'ятаю») it only keeps the place in the day and is shown as unknown. `markedAt` — when the
+   *  mark was made; `plannedAt` — the plan's time of a meal marked at another time (a medicine's is in its `checkKey`). */
+  timeUnknown?: true;
+  markedAt?: ISODateTime;
+  plannedAt?: ISODateTime;
 }
 
 export interface Wellbeing {

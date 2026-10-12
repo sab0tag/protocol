@@ -24,7 +24,7 @@ test('«Зараз»: «Нагадати за 15 хв» hides it for 15 min; +25
   await expect(toast(page)).toHaveText(/Тренування записано/);
 });
 
-test('«Не відмічено» asks what happened; the dock answers beside itself and adds up (D50)', async ({ browser }) => {
+test('«Не відмічено» is folded and asks when — or «не пам’ятаю»; the dock answers beside itself and adds up (D50, D52)', async ({ browser }) => {
   const page = await device(browser);
   const now = new Date(), d = ymd(now);
   test.skip(now.getHours() < 3, 'needs a meal 2 h ago today');
@@ -32,11 +32,16 @@ test('«Не відмічено» asks what happened; the dock answers beside it
   const hm = `${String(x.getHours()).padStart(2, '0')}:${String(x.getMinutes()).padStart(2, '0')}`;
   await seed(page, [{ store: 'entries', value: { id: 'm2', at: `${d}T${hm}:00+03:00`, kind: 'meal', status: 'planned', title: 'Сніданок', items: [] } }]);
   const missed = page.getByRole('region', { name: 'Не відмічено' });
+  await missed.getByRole('button', { name: /^Не відмічено · \d/ }).click(); // folded by default
   await expect(missed.getByText('Сніданок')).toBeVisible();
   await expect(page.getByRole('region', { name: 'Зараз' }).getByText('Сніданок')).toHaveCount(0); // not offered as «now»
-  await missed.getByRole('listitem').filter({ hasText: 'Сніданок' }).getByRole('button', { name: 'З’їдено' }).click();
-  await expect(toast(page)).toContainText('Сніданок — виконано');
+  await missed.getByRole('listitem').filter({ hasText: 'Сніданок' }).getByRole('button', { name: 'Відмітити' }).click();
+  const when = page.getByRole('dialog', { name: 'Сніданок — коли з’їли?' }); // D52: no invented time
+  await expect(when.getByRole('button', { name: new RegExp(`О ${hm} — як за планом`) })).toBeVisible();
+  await when.getByRole('button', { name: 'Час не пам’ятаю' }).click();
+  await expect(toast(page)).toContainText('Сніданок — відмічено, час невідомий');
   await expect(missed.getByText('Сніданок')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /^Сніданок, Виконано, час невідомий/ })).toContainText('—');
 
   const dock = page.getByRole('group', { name: 'Ліки й вода' });
   const water = dock.getByRole('button', { name: /Додати 250 мл води/ });

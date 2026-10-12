@@ -85,6 +85,14 @@ describe('«Зараз» / «Не відмічено» / «Далі» (D50)', ()
     expect(times(evening.missed)).toEqual(['08:00', '08:30', '13:00']);
   });
 
+  it('a meal proposed by «Меню» never becomes «не відмічено»; minutes to and since the time are counted (D52)', () => {
+    const proposed: DayEntry = { ...meal('m9', '2026-10-08T10:00:00+03:00'), menu: {} };
+    const f = dayFocus({ entries: [...entries, proposed], plan, date: day, now: new Date(`${day}T20:00:00`) });
+    expect(times(f.missed)).toEqual(['08:00', '08:30', '13:00']);
+    expect(at('08:10').now?.late).toBe(10);
+    expect(at('07:40').now?.late).toBe(-20);
+  });
+
   it('a snoozed item waits — «Далі» shows meanwhile', () => {
     const f = at('09:01', { snoozed: { 'med:2026-10-08:08:30': Date.parse('2026-10-08T09:16:00+03:00') } });
     expect(f.now).toBeUndefined();
