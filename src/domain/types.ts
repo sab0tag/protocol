@@ -104,6 +104,13 @@ export interface Recipe {
   builtIn?: boolean;
 }
 
+/** D51: «Мої звичні» — a meal the person pinned («Моя вівсянка», «Звичайний сніданок»); a tap adds its lines. */
+export interface Favorite {
+  id: string;
+  title: string;
+  items: MealItem[];
+}
+
 export type Cooking = 'raw' | 'boiled' | 'baked' | 'airfryer' | 'steamed' | 'stewed' | 'fried';
 
 export interface MealItem {

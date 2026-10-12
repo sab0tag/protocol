@@ -50,3 +50,7 @@ export function useAllEntries() {
 export function useRecipes() {
   return useLiveQuery(() => db.recipes.orderBy('name').toArray(), []);
 }
+
+export function useFavorites() {
+  return useLiveQuery(() => db.favorites.orderBy('title').toArray(), []);
+}

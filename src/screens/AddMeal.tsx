@@ -1,9 +1,10 @@
 import { format } from 'date-fns';
+import { FavoritesList, pinMeal } from '../components/Favorites';
 import { LabelScan } from '../components/LabelScan';
 import { Loading } from '../components/Recovery';
 import { saved } from '../components/Toast';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Camera, Plus, Trash2 } from 'lucide-react';
+import { Camera, ChevronDown, Plus, Star, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { db } from '../data/db';
@@ -53,6 +54,8 @@ export function AddMeal() {
   const [items, setItems] = useState<MealItem[]>([]);
   const [query, setQuery] = useState('');
   const [free, setFree] = useState(false);
+  const [metaOpen, setMetaOpen] = useState(false);
+  const [pinName, setPinName] = useState<string | null>(null);
 
   useEffect(() => {
     if (id === undefined) return;
@@ -128,49 +131,10 @@ export function AddMeal() {
       <h1 className="mb-3 text-2xl font-semibold">{id ? t.meal.editTitle : t.meal.title}</h1>
       <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); void save(); }}>
         <div className="rounded-2xl border border-line bg-surface p-3">
-          <div className="mb-2 flex flex-wrap gap-2" role="group" aria-label={t.meal.name}>
-            {t.meal.names.map((n) => (
-              <button key={n} type="button" onClick={() => setTitle(n)} aria-pressed={title === n}
-                className={`min-h-tap rounded-full border px-3 ${title === n ? 'border-accent bg-accent/10 text-accent' : 'border-line'}`}>{n}</button>
-            ))}
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <label className="block"><span className="text-sm text-muted">{t.meal.name}</span>
-              <input value={title} onChange={(e) => setTitle(e.target.value)} className={field} /></label>
-            <label className="block"><span className="text-sm text-muted">{t.meal.time}</span>
-              <input type="time" value={time} onChange={(e) => setTime(e.target.value)} required className={field} /></label>
-          </div>
-          <label className="mt-2 flex min-h-tap items-center gap-3">
-            <input type="checkbox" checked={eaten} onChange={(e) => setEaten(e.target.checked)} className="h-5 w-5 accent-[rgb(var(--accent))]" />
-            <span>{t.meal.eaten}</span>
-          </label>
-        </div>
-
-        {!id && items.length === 0 && all && (() => {
-          const before = earlierMeals(all, title, date);
-          return before.length > 0 && (
-            <div className="rounded-2xl border border-line bg-surface p-3">
-              <p className="mb-1 text-sm text-muted">{t.meal.likeBefore(title)}</p>
-              <ul className="space-y-2">
-                {before.map((e) => (
-                  <li key={e.id}>
-                    <button type="button" onClick={() => setItems(e.items!.map((x) => ({ ...x })))}
-                      className="flex min-h-tap w-full items-center gap-2 rounded-xl border border-line px-3 py-2 text-left">
-                      <span className="flex-1 text-sm">{e.items!.map((x) => `${x.name} ${amountText(x)}`).join(', ')}</span>
-                      <span className="shrink-0 text-sm font-medium text-accent">{t.meal.repeat}</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          );
-        })()}
-
-        <div className="rounded-2xl border border-line bg-surface p-3">
           <div className="flex items-end gap-2">
             <label className="block flex-1"><span className="text-sm text-muted">{t.meal.search}</span>
               <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t.meal.searchHint}
-                className={field} autoComplete="off" /></label>
+                className={field} autoComplete="off" autoFocus={!id} /></label>
             <button type="button" onClick={pickPhoto} disabled={photo.state === 'busy'} aria-label={t.meal.photo}
               className="flex min-h-tap items-center gap-1 rounded-xl border border-accent px-3 font-medium text-accent disabled:opacity-40">
               <Camera size={18} aria-hidden /><span className="hidden min-[380px]:inline">{t.meal.photo}</span></button>
@@ -219,6 +183,26 @@ export function AddMeal() {
               ))}
             </ul>
           )}
+          {!query && <FavoritesList onAdd={(xs) => setItems((ys) => [...ys, ...xs])} />}
+          {!query && !id && items.length === 0 && all && (() => {
+            const before = earlierMeals(all, title, date);
+            return before.length > 0 && (
+              <div className="mt-3">
+                <p className="mb-1 text-sm text-muted">{t.meal.likeBefore(title)}</p>
+                <ul className="space-y-2">
+                  {before.map((e) => (
+                    <li key={e.id}>
+                      <button type="button" onClick={() => setItems(e.items!.map((x) => ({ ...x })))}
+                        className="flex min-h-tap w-full items-center gap-2 rounded-xl border border-line px-3 py-2 text-left">
+                        <span className="flex-1 text-sm">{e.items!.map((x) => `${x.name} ${amountText(x)}`).join(', ')}</span>
+                        <span className="shrink-0 text-sm font-medium text-accent">{t.meal.repeat}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })()}
           {!query && all && (() => {
             const freq = frequentItems(all, todayISO()).filter((f) => !items.some((it) => it.name === f.item.name));
             return freq.length > 0 && (
@@ -306,7 +290,20 @@ export function AddMeal() {
               );
             })}
           </ul>
-          {items.length > 0 && (dishName === null
+          {items.length > 0 && pinName === null && dishName === null && (
+            <button type="button" onClick={() => setPinName(title)} className="mt-2 mr-4 inline-flex min-h-tap items-center gap-1 text-accent underline">
+              <Star size={16} aria-hidden />{t.meal.pin}</button>
+          )}
+          {pinName !== null && (
+            <div className="mt-2 flex gap-2">
+              <label className="flex-1"><span className="sr-only">{t.meal.pinName}</span>
+                <input value={pinName} onChange={(e) => setPinName(e.target.value)} placeholder={t.meal.pinName} autoFocus
+                  className="block min-h-tap w-full rounded-xl border border-line bg-bg px-3" /></label>
+              <button type="button" disabled={!pinName.trim()} onClick={() => void pinMeal(pinName, items).then(() => setPinName(null))}
+                className="min-h-tap rounded-xl bg-accent px-3 font-medium text-surface disabled:opacity-40">{t.dishes.save}</button>
+            </div>
+          )}
+          {items.length > 0 && pinName === null && (dishName === null
             ? <button type="button" onClick={() => { setDishName(items.length === 1 && items[0]!.components ? '' : title); setDishSaved(''); }}
                 className="mt-2 min-h-tap text-accent underline">{t.meal.saveAsDish}</button>
             : (
@@ -335,6 +332,36 @@ export function AddMeal() {
               {targets.proteinG != null && ` · білок ${round(after.protein)} / ${targets.proteinG}`}
               {targets.calciumMg != null && ` · кальцій ${round(after.calciumMg)} / ${targets.calciumMg}`}
             </p>
+          )}
+        </div>
+
+        {/* D51: the food comes first; name, time and «з'їдено» are one line to check before saving */}
+        <div className="rounded-2xl border border-line bg-surface">
+          <button type="button" onClick={() => setMetaOpen((v) => !v)} aria-expanded={metaOpen} aria-label={t.meal.mealLine}
+            className="flex min-h-tap w-full items-center gap-2 px-3 py-2 text-left">
+            <span className="flex-1"><span className="font-medium">{title.trim() || defaultMealName(time)}</span>
+              <span className="tabular text-muted"> · {time} · {eaten ? t.meal.eatenShort : t.meal.plannedShort}</span></span>
+            <ChevronDown size={18} className={`shrink-0 text-muted transition-transform ${metaOpen ? 'rotate-180' : ''}`} aria-hidden />
+          </button>
+          {metaOpen && (
+            <div className="border-t border-line p-3">
+              <div className="mb-2 flex flex-wrap gap-2" role="group" aria-label={t.meal.name}>
+                {t.meal.names.map((n) => (
+                  <button key={n} type="button" onClick={() => setTitle(n)} aria-pressed={title === n}
+                    className={`min-h-tap rounded-full border px-3 ${title === n ? 'border-accent bg-accent/10 text-accent' : 'border-line'}`}>{n}</button>
+                ))}
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <label className="block"><span className="text-sm text-muted">{t.meal.name}</span>
+                  <input value={title} onChange={(e) => setTitle(e.target.value)} className={field} /></label>
+                <label className="block"><span className="text-sm text-muted">{t.meal.time}</span>
+                  <input type="time" value={time} onChange={(e) => setTime(e.target.value)} required className={field} /></label>
+              </div>
+              <label className="mt-2 flex min-h-tap items-center gap-3">
+                <input type="checkbox" checked={eaten} onChange={(e) => setEaten(e.target.checked)} className="h-5 w-5 accent-[rgb(var(--accent))]" />
+                <span>{t.meal.eaten}</span>
+              </label>
+            </div>
           )}
         </div>
 

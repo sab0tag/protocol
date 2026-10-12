@@ -1,5 +1,5 @@
 // Export / import of all data as JSON (SPEC.md §5.8, §8) — the only backup in v0.
-import type { DayEntry, Food, LabResult, Recipe, WeightLog, Wellbeing, Workout } from '../domain/types';
+import type { DayEntry, Favorite, Food, LabResult, Recipe, WeightLog, Wellbeing, Workout } from '../domain/types';
 import { db, type PlanRow, type ProtocolDB } from './db';
 
 export const FORMAT = 'protocol-export';
@@ -17,6 +17,7 @@ export interface ExportFile {
   weights: WeightLog[];
   labs: LabResult[];
   recipes?: Recipe[]; // D27 (files from before dishes have none)
+  favorites?: Favorite[]; // D51
 }
 
 export async function exportAll(target: ProtocolDB = db, now = new Date()): Promise<ExportFile> {
@@ -26,7 +27,7 @@ export async function exportAll(target: ProtocolDB = db, now = new Date()): Prom
     format: FORMAT, version: VERSION, exportedAt: now.toISOString(), plan,
     foods: await target.foods.toArray(), entries: await target.entries.toArray(), wellbeing: await target.wellbeing.toArray(),
     workouts: await target.workouts.toArray(), weights: await target.weights.toArray(), labs: await target.labs.toArray(),
-    recipes: await target.recipes.toArray(),
+    recipes: await target.recipes.toArray(), favorites: await target.favorites.toArray(),
   };
 }
 
@@ -41,15 +42,18 @@ export function parseExport(text: string): ExportFile {
   for (const k of ['foods', 'entries', 'wellbeing', 'workouts', 'weights', 'labs'] as const) {
     if (!Array.isArray(d[k])) throw new Error(`У файлі пошкоджено розділ «${k}».`);
   }
-  if (d.recipes !== undefined && !Array.isArray(d.recipes)) throw new Error('У файлі пошкоджено розділ «recipes».');
+  for (const k of ['recipes', 'favorites'] as const) {
+    if (d[k] !== undefined && !Array.isArray(d[k])) throw new Error(`У файлі пошкоджено розділ «${k}».`);
+  }
   return d as ExportFile;
 }
 
 export async function importAll(file: ExportFile, target: ProtocolDB = db): Promise<void> {
-  await target.transaction('rw', [target.plan, target.foods, target.entries, target.wellbeing, target.workouts, target.weights, target.labs, target.recipes], async () => {
+  await target.transaction('rw', [target.plan, target.foods, target.entries, target.wellbeing, target.workouts, target.weights, target.labs, target.recipes, target.favorites], async () => {
     await Promise.all([target.plan.clear(), target.foods.clear(), target.entries.clear(), target.wellbeing.clear(),
-      target.workouts.clear(), target.weights.clear(), target.labs.clear(), target.recipes.clear()]);
+      target.workouts.clear(), target.weights.clear(), target.labs.clear(), target.recipes.clear(), target.favorites.clear()]);
     if (file.recipes) await target.recipes.bulkPut(file.recipes);
+    if (file.favorites) await target.favorites.bulkPut(file.favorites);
     await target.plan.put(file.plan);
     await target.foods.bulkPut(file.foods);
     await target.entries.bulkPut(file.entries);

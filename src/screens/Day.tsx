@@ -1,8 +1,9 @@
 import { differenceInMinutes, format, parseISO } from 'date-fns';
 import { EntryPreview } from '../components/EntryPreview';
+import { pinMeal } from '../components/Favorites';
 import { saved } from '../components/Toast';
 import { uk } from 'date-fns/locale';
-import { Activity, Check, ChevronLeft, ListChecks, ChevronRight, Droplet, NotebookPen, Pill, Plus, Dumbbell, Undo2, UtensilsCrossed, X, Pencil, Trash2, Sparkles } from 'lucide-react';
+import { Activity, Check, ChevronLeft, ListChecks, ChevronRight, Droplet, NotebookPen, Pill, Plus, Dumbbell, Undo2, UtensilsCrossed, X, Pencil, Trash2, Sparkles, Star } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Sheet, SheetButton } from '../components/Sheet';
@@ -223,6 +224,9 @@ export function Day() {
           {rowFor.status !== 'skipped' && <SheetButton onClick={() => setStatus(rowFor, 'skipped')}><X size={20} />{t.rowActions.skipped}</SheetButton>}
           {rowFor.status !== 'planned' && <SheetButton onClick={() => setStatus(rowFor, 'planned')}><Undo2 size={20} />{t.rowActions.planned}</SheetButton>}
           <SheetButton onClick={() => edit(rowFor)}><Pencil size={20} />{t.rowActions.edit}</SheetButton>
+          {rowFor.kind === 'meal' && !!rowFor.items?.length && (
+            <SheetButton onClick={() => { const e = rowFor; setRowFor(null); void pinMeal(e.title, e.items!); }}><Star size={20} />{t.meal.pin}</SheetButton>
+          )}
           <SheetButton tone="danger" onClick={async () => { const e = rowFor; setRowFor(null); await saved(db.entries.delete(e.id), t.toast.deleted(e.title), () => db.entries.put(e)); }}>
             <Trash2 size={20} />{t.rowActions.delete}</SheetButton>
         </Sheet>

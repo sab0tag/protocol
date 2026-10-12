@@ -84,11 +84,13 @@ describe('backup (§5.8, §8)', () => {
     await ensureSeeded(a);
     await a.entries.add({ id: 'x', at: '2026-10-04T09:00:00+03:00', kind: 'water', status: 'done', title: 'Вода', waterMl: 250 });
     await a.weights.put({ date: '2026-10-04', kg: 98 });
+    await a.favorites.put({ id: 'f1', title: 'Моя вівсянка', items: [{ name: 'Вівсянка', grams: 60 }] });
     const text = JSON.stringify(await exportAll(a));
     const b = new ProtocolDB('backup-b');
     await importAll(parseExport(text), b);
     expect(await b.entries.get('x')).toMatchObject({ waterMl: 250 });
     expect(await b.weights.get('2026-10-04')).toMatchObject({ kg: 98 });
+    expect(await b.favorites.get('f1')).toMatchObject({ title: 'Моя вівсянка' });
     expect((await b.plan.get('main'))?.constraints).toHaveLength(5);
     a.close(); b.close();
   });

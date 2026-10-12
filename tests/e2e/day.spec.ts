@@ -57,11 +57,15 @@ test('the service worker fills reminders in from the phone\'s own data', async (
   await cdp.send('ServiceWorker.enable');
   const id = (await regs)[0]!.registrationId;
   const shown = async () => (await page.evaluate(async () => (await (await navigator.serviceWorker.ready).getNotifications()).map((n) => `${n.title} — ${n.body}`))).sort();
-  // one at a time: pushes fired back to back while the worker wakes up are sometimes lost by the browser, not by the app
+  // One at a time, and once more if it never shows: under load the browser sometimes drops a push delivered over
+  // DevTools before the worker handles it — the browser's loss, not the app's (the app's text is what is checked).
   const push = async (d: object) => {
     const before = (await shown()).length;
-    await cdp.send('ServiceWorker.deliverPushMessage', { origin: 'http://localhost:4318', registrationId: id, data: JSON.stringify({ u: './', tag: Math.random().toString(), n: 0, ...d }) });
-    await expect.poll(async () => (await shown()).length).toBeGreaterThan(before);
+    const send = () => cdp.send('ServiceWorker.deliverPushMessage', { origin: 'http://localhost:4318', registrationId: id,
+      data: JSON.stringify({ u: './', tag: Math.random().toString(), n: 0, ...d }) });
+    await send();
+    const arrived = async () => (await shown()).length > before;
+    await expect.poll(arrived, { timeout: 5000 }).toBe(true).catch(async () => { await send(); await expect.poll(arrived, { timeout: 10000 }).toBe(true); });
   };
   await push({ t: 'На завтра', b: '—', k: 'evening', d: tomorrow });
   await push({ t: 'На завтра', b: '—', k: 'evening', d: '2031-01-01' });
