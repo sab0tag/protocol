@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { device, seed, toast, ymd } from './helpers';
 
-test('«Зараз»: «Нагадати за 15 хв» hides it for 15 min; +250 мл with undo; a workout says it was saved', async ({ browser }) => {
+test('«Зараз»: «Нагадати за 15 хв» hides it for 15 min; water from the dock with undo, counted in «Уже сьогодні»; a workout says it was saved', async ({ browser }) => {
   const page = await device(browser);
   const now = new Date(), d = ymd(now);
   const at = (minAgo: number) => { const x = new Date(now.getTime() - minAgo * 60_000); return `${d}T${String(x.getHours()).padStart(2, '0')}:${String(x.getMinutes()).padStart(2, '0')}:00+03:00`; };
@@ -14,10 +14,12 @@ test('«Зараз»: «Нагадати за 15 хв» hides it for 15 min; +25
   await expect(toast(page)).toContainText('Нагадаю через 15 хв');
   if (/Обід/.test(first)) await expect(card.getByText('Обід')).toHaveCount(0);
   await page.reload();
-  await page.getByRole('button', { name: '+250 мл' }).first().click();
-  await expect(toast(page)).toContainText('+250 мл води');
-  await toast(page).getByRole('button', { name: 'Скасувати' }).click();
-  await expect(page.getByText(/^0 \/ \d+ мл/)).toBeVisible();
+  const dock = page.getByRole('group', { name: 'Ліки й вода' });
+  await dock.getByRole('button', { name: /Додати 250 мл води/ }).click();
+  await expect(dock.getByRole('status')).toContainText('+250 мл');
+  await expect(page.getByText(/^0,25 \/ [\d,]+ л$/)).toBeVisible(); // «Уже сьогодні»
+  await dock.getByRole('button', { name: 'Скасувати' }).click();
+  await expect(page.getByText(/^0 \/ [\d,]+ л$/)).toBeVisible();
 
   await page.goto('./#/workout');
   await page.getByRole('button', { name: 'Записати тренування' }).click();
@@ -50,6 +52,30 @@ test('«Не відмічено» is folded and asks when — or «не пам�
   await expect(dock.getByRole('status')).toContainText('+500 мл · 0,5 л');
   await dock.getByRole('button', { name: 'Скасувати' }).click();
   await expect(water).toHaveAttribute('aria-label', /зараз 0 з/);
+});
+
+test('the new «День»: the plan on an empty day, a dose asks when, main numbers by choice, the week strip (D53)', async ({ browser }) => {
+  const page = await device(browser);
+  const rhythm = page.getByRole('region', { name: 'Ритм дня' });
+  await expect(rhythm.getByRole('button', { name: 'Вітамін D, Заплановано' })).toBeVisible(); // nothing recorded, the plan is there
+  await rhythm.getByRole('button', { name: 'Вітамін D, Заплановано' }).click();
+  await page.getByRole('dialog', { name: 'Вітамін D — коли прийняли?' }).getByRole('button', { name: /^Щойно/ }).click();
+  await expect(toast(page)).toContainText(/Вітамін D — відмічено о \d\d:\d\d/);
+  await expect(rhythm.getByRole('button', { name: /^Вітамін D, Виконано/ })).toBeVisible();
+
+  const summary = page.getByRole('region', { name: 'Уже сьогодні' });
+  await expect(summary.getByText('Білок')).toHaveCount(0);
+  await summary.getByRole('button', { name: 'Налаштувати' }).click();
+  await summary.getByRole('checkbox', { name: 'Білок' }).check();
+  await summary.getByRole('button', { name: 'Готово' }).click();
+  await page.reload();
+  await expect(page.getByRole('region', { name: 'Уже сьогодні' }).getByText('Білок')).toBeVisible(); // kept on this device
+
+  const week = page.getByRole('navigation', { name: 'Тиждень' });
+  await week.getByRole('button', { name: 'Попередній тиждень' }).click();
+  await expect(page.getByRole('heading', { level: 1 })).not.toHaveText('Сьогодні');
+  await page.getByRole('button', { name: 'До сьогодні' }).click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Сьогодні');
 });
 
 test('the service worker fills reminders in from the phone\'s own data', async ({ browser }) => {

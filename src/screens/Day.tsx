@@ -1,10 +1,9 @@
-import { differenceInMinutes, format, parseISO } from 'date-fns';
+import { differenceInMinutes, format } from 'date-fns';
 import { EntryPreview } from '../components/EntryPreview';
 import { pinMeal } from '../components/Favorites';
 import { markMeds, TimeChoice } from '../components/MarkTime';
 import { saved } from '../components/Toast';
-import { uk } from 'date-fns/locale';
-import { Activity, Check, ChevronLeft, ListChecks, ChevronRight, Droplet, NotebookPen, Pill, Plus, Dumbbell, Undo2, UtensilsCrossed, X, Pencil, Trash2, Sparkles, Star } from 'lucide-react';
+import { Check, Droplet, Dumbbell, HeartPulse, ListChecks, NotebookPen, Pencil, Pill, Plus, Sparkles, Star, Trash2, Undo2, UtensilsCrossed, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Sheet, SheetButton } from '../components/Sheet';
@@ -17,21 +16,26 @@ import { addDays, parseISO as parseDay } from 'date-fns';
 import { amountText } from '../domain/foodSearch';
 import { exportDue } from '../data/backup';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { atLocal, newId, shownTime, timeOf, todayISO } from '../domain/dates';
-import { activeMode, dayTotals, effectiveTargets, mealNutrients, round } from '../domain/nutrition';
-import type { DayEntry, EntryKind, Food } from '../domain/types';
+import { atLocal, newId, timeOf, todayISO } from '../domain/dates';
+import { activeMode, dayTotals, effectiveTargets } from '../domain/nutrition';
+import type { DayEntry, EntryKind } from '../domain/types';
 import { t } from '../i18n/uk';
 import { useUi } from '../store/ui';
 import { useSync } from '../sync/runner';
 import { SimpleEntrySheet } from './SimpleEntrySheet';
 import { NowCard } from '../components/NowCard';
 import { QuickDock } from '../components/QuickDock';
+import { DayHeader } from '../components/DayHeader';
+import { DayRhythm } from '../components/DayRhythm';
+import { DaySummary } from '../components/DaySummary';
+import { dayRhythm } from '../domain/rhythm';
 
 const KIND_ICON = { meal: UtensilsCrossed, med: Pill, water: Droplet, workout: Dumbbell, note: NotebookPen } as const;
 
-/** «День» as an order sheet: rows by time (Час · Позиція · Вугл), the day's totals against the targets. */
+/** «День» (SPEC.md §5.1, §14.1, D53): the day by name and week, «Зараз», «Записати їжу», quick tiles, «Ритм дня» —
+ *  the plan and the records on one time line — and «Уже сьогодні»; medicine and water float under the thumb. */
 export function Day() {
-  const { date, shift, setDate } = useUi();
+  const { date, setDate } = useUi();
   // D34: a reminder opens its day (#/?date=…)
   const [params, setParams] = useSearchParams();
   const linked = params.get('date');
@@ -72,7 +76,6 @@ export function Day() {
   };
   const waterRow = (): DayEntry => ({ id: newId(), at: atLocal(date, isToday ? format(new Date(), 'HH:mm') : '12:00'), kind: 'water', status: 'done',
     title: t.addKinds.water, waterMl: 250 });
-  const addWater = async () => { const e = waterRow(); await saved(db.entries.add(e), t.toast.water(250), () => db.entries.delete(e.id)); };
   const meds = checklist?.items.filter((i) => i.kind === 'med') ?? [];
   const nextMed = meds.find((i) => !i.done && !i.skipped);
   // D50: a dose past its window is «не відмічено» (orange); D52: then — and on any other day — the dock asks when it was taken
@@ -107,33 +110,23 @@ export function Day() {
     else setSimple({ kind });
   };
 
+  const rhythm = entries ? dayRhythm({ entries, ...(checklist ? { checklist } : {}), ...(targets.lastMealBy ? { lastMealBy: targets.lastMealBy } : {}) }) : undefined;
+  const quick = [
+    { label: t.menu.quick, Icon: Sparkles, go: () => navigate(`/menu?date=${date}`) },
+    { label: t.day.likeYesterday, Icon: Undo2, go: () => setYesterday(true) },
+    { label: t.well.short, Icon: HeartPulse, go: () => navigate('/wellbeing') },
+    { label: t.workout.title, Icon: Dumbbell, go: () => navigate('/workout') },
+    { label: t.myday.title, Icon: ListChecks, go: () => navigate('/my-day'), badge: checklist && checklist.total > 0 ? t.myday.counter(checklist.done, checklist.total) : undefined },
+  ];
+
   return (
-    <section className="pt-4">
-      <header className="mb-3 flex items-center gap-2">
-        <button type="button" className="flex min-h-tap min-w-tap items-center justify-center rounded-xl border border-line bg-surface"
-          onClick={() => shift(-1)} aria-label={t.day.prev}><ChevronLeft size={20} /></button>
-        <h1 className="flex-1 text-center text-xl font-semibold first-letter:uppercase">
-          {format(parseISO(date), 'EEEE, d MMMM', { locale: uk })}
-        </h1>
-        <button type="button" className="flex min-h-tap min-w-tap items-center justify-center rounded-xl border border-line bg-surface"
-          onClick={() => shift(1)} aria-label={t.day.next}><ChevronRight size={20} /></button>
-      </header>
-      {!isToday && (
-        <p className="-mt-1 mb-3 text-center">
-          <button type="button" className="min-h-tap px-3 text-accent underline" onClick={() => setDate(todayISO())}>{t.day.today}</button>
-        </p>
-      )}
+    <section>
+      <DayHeader date={date} setDate={setDate} />
 
       {entries && <NowCard entries={entries} plan={plan} date={date} />}
 
-
-
-
-
-
-
       {/* D40: one notice at a time — the code first, then the backup */}
-      {isToday && codeDue && Date.now() - (syncMeta.codeCheckedAt ?? 0) > 30 * 86_400_000 && (
+      {isToday && codeDue && (
         <div role="status" className="mb-3 space-y-2 rounded-2xl border border-line bg-surface p-3 text-sm">
           <p>{t.sync.codeCheck}</p>
           <div className="flex gap-2">
@@ -150,8 +143,23 @@ export function Day() {
         </div>
       )}
 
+      {/* D53: recording food is one strong button on «День», not a row under a table */}
+      <button type="button" onClick={() => navigate('/meal/new')}
+        className="mb-4 flex min-h-[3.5rem] w-full items-center justify-center gap-2 rounded-2xl border border-accent/40 bg-surface text-lg font-semibold text-accent shadow-sm">
+        <UtensilsCrossed size={22} aria-hidden />{t.day.recordFood}</button>
+
+      <nav aria-label={t.day.quick} className="mb-5 grid grid-cols-5 gap-1">
+        {quick.map(({ label, Icon, go, badge }) => (
+          <button key={label} type="button" onClick={go} className="flex min-h-tap flex-col items-center gap-1 text-center">
+            <span className="relative flex h-12 w-12 items-center justify-center rounded-2xl bg-surface shadow-sm"><Icon size={22} className="text-accent" aria-hidden />
+              {badge && <span className="tabular absolute -right-2 -top-1.5 rounded-full bg-accent px-1.5 text-xs font-medium text-surface">{badge}</span>}</span>
+            <span className="text-xs leading-tight">{label}</span>
+          </button>
+        ))}
+      </nav>
+
       {mode && (
-        <div className="mb-3 rounded-2xl border border-accent/30 bg-accent/10 p-3">
+        <div className="mb-4 rounded-2xl border border-accent/30 bg-accent/10 p-3">
           <div className="flex items-baseline justify-between gap-2">
             <span className="font-semibold">{mode.mode.title}</span>
             <span className="text-sm text-muted">{t.day.modeDay(mode.day, mode.of)}</span>
@@ -162,63 +170,18 @@ export function Day() {
         </div>
       )}
 
-      {/* D40: one row of quick actions — the day's list stays near the top */}
-      <div className="mb-3 flex flex-wrap gap-2" role="group" aria-label={t.day.quick}>
-        <button type="button" onClick={() => navigate('/my-day')} className="flex min-h-tap shrink-0 items-center gap-1 rounded-full border border-line bg-surface px-3 font-medium">
-          <ListChecks size={16} className="text-accent" aria-hidden />{t.myday.title}
-          {checklist && checklist.total > 0 && <span className="tabular text-accent">{t.myday.counter(checklist.done, checklist.total)}</span>}</button>
-        <button type="button" onClick={() => navigate('/wellbeing')} className="flex min-h-tap shrink-0 items-center gap-1 rounded-full border border-line bg-surface px-3 font-medium"><Activity size={16} className="text-accent" aria-hidden />{t.well.title}</button>
-        <button type="button" onClick={() => setYesterday(true)} className="flex min-h-tap shrink-0 items-center gap-1 rounded-full border border-line bg-surface px-3 font-medium"><Undo2 size={16} className="text-accent" aria-hidden />{t.day.likeYesterday}</button>
-        <button type="button" onClick={() => navigate(`/menu?date=${date}`)} className="flex min-h-tap shrink-0 items-center gap-1 rounded-full border border-line bg-surface px-3 font-medium"><Sparkles size={16} className="text-accent" aria-hidden />{t.menu.quick}</button>
-      </div>
-
-      <div className="overflow-hidden rounded-2xl border border-line bg-surface">
-        <div className="grid grid-cols-[3.5rem_1fr_3.5rem] gap-2 border-b border-line px-3 py-2 text-xs uppercase tracking-wide text-muted">
-          <span>{t.day.colTime}</span><span>{t.day.colItem}</span><span className="text-right">{t.day.colCarbs}</span>
-        </div>
-        {entries?.length === 0 && <p className="px-3 py-6 text-center text-muted">{t.day.empty}</p>}
-        <ul>
-          {entries?.map((e) => <Row key={e.id} entry={e} foods={foods} onOpen={() => setRowFor(e)} />)}
-        </ul>
-        <button type="button" onClick={() => setAdding(true)}
-          className="flex min-h-tap w-full items-center justify-center gap-2 border-t border-line font-medium text-accent">
-          <Plus size={18} aria-hidden />{t.day.addRow}
-        </button>
-      </div>
+      {rhythm && <DayRhythm rhythm={rhythm} foods={foods} onEntry={setRowFor} onDose={setAskMed} onAdd={() => setAdding(true)}
+        onAnytime={(i) => (i.kind === 'workout' ? navigate('/workout') : setAskMed(i))} />}
 
       {tips.length > 0 && (
-        <details className="mt-3 rounded-2xl border border-line bg-surface p-3">
+        <details className="mb-4 rounded-2xl border border-line bg-surface p-3">
           <summary className="min-h-tap cursor-pointer py-1 font-medium">{t.menu.tips}</summary>
           <ul className="list-disc space-y-1 pl-5 text-sm">{tips.map((x) => <li key={x}>{x}</li>)}</ul>
         </details>
       )}
 
-      {totals && (
-        <div className="mt-4 rounded-2xl border border-line bg-surface p-3">
-          <h2 className="mb-2 font-semibold">{t.day.totals}</h2>
-          <dl className="grid grid-cols-2 gap-x-4 gap-y-2 tabular">
-            <Total label={t.day.carbs} value={`${round(totals.carbs)} ${t.units.g}`}
-              target={targets.carbsG?.min != null ? t.day.atLeast(targets.carbsG.min)
-                : targets.carbsG?.max != null ? t.day.atMost(targets.carbsG.max) : undefined}
-              alert={(targets.carbsG?.max != null && totals.carbs > targets.carbsG.max)} />
-            <Total label={t.day.protein} value={`${round(totals.protein)} ${t.units.g}`}
-              target={targets.proteinG != null ? `${targets.proteinG} ${t.units.g}` : undefined} />
-            <Total label={t.day.calcium} value={`${round(totals.calciumMg)} ${t.units.mg}`}
-              target={targets.calciumMg != null ? `${targets.calciumMg} ${t.units.mg}` : undefined} />
-            <div>
-              <dt className="text-sm text-muted">{t.day.water}</dt>
-              <dd className="flex flex-wrap items-center gap-x-2">
-                <span className="whitespace-nowrap">{totals.waterMl} / {targets.waterMl ?? '—'} {t.units.ml}</span>
-                <button type="button" onClick={addWater}
-                  className="min-h-tap whitespace-nowrap rounded-xl text-sm font-medium text-water">{t.day.plusWater}</button>
-              </dd>
-            </div>
-            <Total label={t.day.kcal} value={`${round(totals.kcal)}`}
-              target={targets.kcal != null ? `${targets.kcal} ${t.units.kcal}` : undefined} />
-          </dl>
-          {isToday && best && <p className="mt-2 text-sm text-accent">{t.day.streak(t.progress.habit[best.key], best.streak)}</p>}
-        </div>
-      )}
+      {totals && <DaySummary totals={totals} targets={targets} meds={{ done: meds.filter((i) => i.done).length, total: meds.length }}
+        {...(isToday && best ? { streak: t.day.streak(t.progress.habit[best.key], best.streak) } : {})} />}
 
       {rowFor && (
         <Sheet title={rowFor.title} onClose={() => setRowFor(null)}>
@@ -274,40 +237,5 @@ export function Day() {
           date, askMed.time, 'done', when)} />}
       {simple && <SimpleEntrySheet kind={simple.kind} entry={simple.entry} date={date} onClose={() => setSimple(null)} />}
     </section>
-  );
-}
-
-function Row({ entry, foods, onOpen }: { entry: DayEntry; foods?: Map<string, Food>; onOpen: () => void }) {
-  const Icon = KIND_ICON[entry.kind];
-  const carbs = entry.kind === 'meal' && entry.items && foods ? round(mealNutrients(entry.items, foods).carbs) : null;
-  const detail = entry.kind === 'meal' ? entry.items?.map((i) => `${i.name} ${amountText(i)}`).join(', ')
-    : entry.kind === 'water' ? `${entry.waterMl ?? 0} ${t.units.ml}` : undefined;
-  const look = entry.status === 'planned' ? 'bg-accent/5 border-l-4 border-l-accent'
-    : entry.status === 'skipped' ? 'opacity-50' : '';
-  return (
-    <li className="border-t border-line first:border-t-0">
-      <button type="button" onClick={onOpen} aria-label={`${entry.title}, ${t.status[entry.status]}${entry.timeUnknown ? `, ${t.day.timeUnknown}` : ''}`}
-        className={`grid min-h-tap w-full grid-cols-[3.5rem_1fr_3.5rem] items-center gap-2 px-3 py-2 text-left ${look}`}>
-        <span className="tabular text-muted" title={entry.timeUnknown ? t.day.timeUnknown : undefined}>{shownTime(entry) ?? '—'}</span>
-        <span className="min-w-0">
-          <span className={`flex items-center gap-1.5 ${entry.status === 'skipped' ? 'line-through' : ''}`}>
-            <Icon size={16} className="shrink-0 text-muted" aria-hidden />
-            <span className="truncate font-medium">{entry.title}</span>
-            {entry.status === 'done' && <Check size={16} className="shrink-0 text-accent" aria-label={t.status.done} />}
-          </span>
-          {detail && <span className="block truncate text-sm text-muted">{detail}</span>}
-        </span>
-        <span className="tabular text-right">{carbs ?? ''}</span>
-      </button>
-    </li>
-  );
-}
-
-function Total({ label, value, target, alert }: { label: string; value: string; target?: string; alert?: boolean }) {
-  return (
-    <div>
-      <dt className="text-sm text-muted">{label}</dt>
-      <dd className={alert ? 'font-semibold text-warn' : ''}>{value}{target && <span className="text-muted"> / {target}</span>}</dd>
-    </div>
   );
 }
