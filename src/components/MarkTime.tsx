@@ -32,10 +32,11 @@ export function markMeds(meds: MedMark[], date: string, planned: string | undefi
   say(title, status, when), () => db.entries.bulkDelete(ids));
 }
 
-/** A planned meal: eaten (when) or skipped; the plan's time is kept as `plannedAt` when the real one differs. */
-export function markMeal(e: DayEntry, date: string, status: 'done' | 'skipped', when: When) {
+/** A planned meal: eaten (when) or skipped; the plan's time is kept as `plannedAt` when the real one differs.
+ *  `patch` — what was really eaten (D55: the lines ticked in «Підтвердити прийом»); «Скасувати» brings the plan back. */
+export function markMeal(e: DayEntry, date: string, status: 'done' | 'skipped', when: When, patch: Partial<DayEntry> = {}) {
   const at = 'time' in when ? atLocal(date, when.time) : e.at;
-  const next: DayEntry = { ...e, status, at, ...(at !== e.at ? { plannedAt: e.plannedAt ?? e.at } : {}), ...marks(when) };
+  const next: DayEntry = { ...e, ...patch, status, at, ...(at !== e.at ? { plannedAt: e.plannedAt ?? e.at } : {}), ...marks(when) };
   return saved(db.entries.put(next), say(e.title, status, when), () => db.entries.put(e));
 }
 

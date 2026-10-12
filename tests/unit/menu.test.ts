@@ -72,4 +72,11 @@ describe('accept', () => {
     expect(r.remove).toEqual(['old']);
     expect(r.add[0]).toMatchObject({ id: 'n1', at: '2026-10-08T08:00:00+03:00', status: 'planned', menu: { tips: ['Вода — пляшка з собою'] } });
   });
+  it('a meal emptied while editing stays in the draft to add to; it is not written on «Прийняти» (D54)', () => {
+    const r: MenuResult = { tips: [], meals: [meal('Сніданок', '08:00', []), meal('Обід', '13:00', [{ name: 'Яйце варене', grams: 100, count: 2 }])] };
+    expect(draftFrom(r, ctx).meals.map((m) => m.title)).toEqual(['Обід']);
+    const d = draftFrom(r, { ...ctx, scale: false, keepEmpty: true });
+    expect(d.meals.map((m) => [m.title, m.items.length])).toEqual([['Сніданок', 0], ['Обід', 1]]);
+    expect(acceptPlan(d, [], () => 'n', (date, t) => `${date}T${t}`).add.map((e) => e.title)).toEqual(['Обід']);
+  });
 });

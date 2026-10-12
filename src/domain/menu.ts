@@ -61,6 +61,8 @@ export function scaleLine(it: MealItem, f: number): MealItem {
 export function draftFrom(result: MenuResult, ctx: {
   plan: Plan; date: ISODate; foods: Map<string, Food>; recipes: Recipe[]; recentEntries: DayEntry[];
   dishItem: (r: Recipe, portions: number) => MealItem; scale?: boolean;
+  /** D54: while the draft is being edited a meal emptied by ✕ stays, so something can be added to it again. */
+  keepEmpty?: boolean;
 }): MenuDraft {
   const { plan, date, foods, recipes } = ctx;
   const byName = new Map<string, Food | Recipe>();
@@ -83,7 +85,10 @@ export function draftFrom(result: MenuResult, ctx: {
         items.push(x.count && hit.units?.length ? itemFor(hit, { qty: x.count }) : itemFor(hit, { qty: Math.round(x.grams), measure: 'г' }));
       }
     }
-    if (items.length === 0) continue;
+    if (items.length === 0) {
+      if (ctx.keepEmpty) meals.push({ title: m.title, time: HHMM.test(m.time) ? m.time : '13:00', items: [], notes: [] });
+      continue;
+    }
     let time = HHMM.test(m.time) ? m.time : '13:00';
     if (lastBy && time > lastBy) time = lastBy;
 
@@ -121,7 +126,7 @@ export function draftTotals(meals: { items: MealItem[] }[], foods: Map<string, F
 /** «Прийняти»: planned meals for the day; an earlier menu's meals not yet ticked are replaced. */
 export function acceptPlan(draft: MenuDraft, existing: DayEntry[], newId: () => string, atLocal: (d: ISODate, t: string) => string) {
   const remove = existing.filter((e) => e.menu && e.status === 'planned').map((e) => e.id);
-  const add: DayEntry[] = draft.meals.map((m, i) => ({
+  const add: DayEntry[] = draft.meals.filter((m) => m.items.length).map((m, i) => ({
     id: newId(), at: atLocal(draft.date, m.time), kind: 'meal', status: 'planned', title: m.title, items: m.items,
     menu: i === 0 && draft.tips.length ? { tips: draft.tips } : {},
   }));

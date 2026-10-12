@@ -326,11 +326,11 @@ export function AddMeal() {
             {round(meal.kcal)} {t.units.kcal} · Б {round(meal.protein)} · Ж {round(meal.fat)} · В {round(meal.carbs)} · Ca {round(meal.calciumMg)} {t.units.mg}</p>
           {after && (
             <p className="mt-1"><span className="text-muted">{t.meal.dayLeft}: </span>
-              {t.day.carbs.toLowerCase()} {round(after.carbs)}
+              {t.day.carbs.toLowerCase()} {round(after.carbs)} {t.units.g}
               {targets.carbsG?.min != null ? ` (${t.day.atLeast(targets.carbsG.min)})`
-                : targets.carbsG?.max != null ? ` / ${targets.carbsG.max} ${t.units.g}` : ''}
-              {targets.proteinG != null && ` · білок ${round(after.protein)} / ${targets.proteinG}`}
-              {targets.calciumMg != null && ` · кальцій ${round(after.calciumMg)} / ${targets.calciumMg}`}
+                : targets.carbsG?.max != null ? ` (${t.summary.limit(targets.carbsG.max)})` : ''}
+              {targets.proteinG != null && ` · білок ${round(after.protein)} з ${targets.proteinG} ${t.units.g}`}
+              {targets.calciumMg != null && ` · кальцій ${round(after.calciumMg)} з ${targets.calciumMg} ${t.units.mg}`}
             </p>
           )}
         </div>

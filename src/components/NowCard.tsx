@@ -20,7 +20,7 @@ const label = 'text-sm font-semibold uppercase tracking-wider text-muted';
  *  «Не відмічено» — past items without a mark, folded into one line, asking what happened — never «take it now»;
  *  «Далі» — the next item, when nothing is due. A reminder opens to this. An earlier day shows only its own
  *  «Не відмічено» (D52) — today's screen never collects yesterday's. */
-export function NowCard({ entries, plan, date }: { entries: DayEntry[]; plan: Plan | undefined; date: string }) {
+export function NowCard({ entries, plan, date, onConfirm }: { entries: DayEntry[]; plan: Plan | undefined; date: string; onConfirm: (e: DayEntry) => void }) {
   const [clock, setClock] = useState(() => new Date());
   useEffect(() => { const id = setInterval(() => setClock(new Date()), 30_000); return () => clearInterval(id); }, []);
   const synced = useLiveQuery(async () => (await db.meta.get('sync'))?.snoozed ?? {}, [], undefined);
@@ -31,7 +31,7 @@ export function NowCard({ entries, plan, date }: { entries: DayEntry[]; plan: Pl
   if (!focus.now && !focus.next && !focus.missed.length) return null;
   return (
     <div className="mb-3 space-y-3">
-      {focus.now && <Due item={focus.now} date={date} onSnoozed={() => setClock(new Date())} />}
+      {focus.now && <Due item={focus.now} date={date} onSnoozed={() => setClock(new Date())} onConfirm={onConfirm} />}
       {focus.next && (
         <section aria-label={L.next} className="flex min-h-tap items-center gap-3 rounded-2xl border border-line bg-surface px-3 py-2">
           <span className={label}>{L.next}</span>
@@ -39,12 +39,12 @@ export function NowCard({ entries, plan, date }: { entries: DayEntry[]; plan: Pl
           <span className="min-w-0 flex-1 truncate font-medium">{titleOf(focus.next)}</span>
         </section>
       )}
-      {focus.missed.length > 0 && <Missed items={focus.missed} date={date} />}
+      {focus.missed.length > 0 && <Missed items={focus.missed} date={date} onConfirm={onConfirm} />}
     </div>
   );
 }
 
-function Due({ item, date, onSnoozed }: { item: NowItem; date: string; onSnoozed: () => void }) {
+function Due({ item, date, onSnoozed, onConfirm }: { item: NowItem; date: string; onSnoozed: () => void; onConfirm: (e: DayEntry) => void }) {
   const Icon = item.entry ? UtensilsCrossed : Pill;
   const detail = item.entry ? item.entry.items?.map((x) => `${x.name} ${amountText(x)}`).join(', ')
     : item.meds?.some((m) => m.withFood) ? L.withFood : undefined;
@@ -59,7 +59,7 @@ function Due({ item, date, onSnoozed }: { item: NowItem; date: string; onSnoozed
       </p>
       <p className="mt-2 flex items-start gap-2 text-2xl font-semibold leading-tight"><Icon size={24} className="mt-0.5 shrink-0 text-accent" aria-hidden />{titleOf(item)}</p>
       {detail && <p className="mt-1 text-muted first-letter:uppercase">{detail}</p>}
-      <button type="button" onClick={() => void mark(item, date, 'done', nowHm())}
+      <button type="button" onClick={() => (item.entry?.items?.length ? onConfirm(item.entry) : void mark(item, date, 'done', nowHm()))}
         className="mt-4 flex min-h-tap w-full items-center justify-center gap-2 rounded-xl bg-accent px-4 py-2 text-lg font-semibold text-surface">
         <Check size={22} aria-hidden />{item.entry ? L.eaten : L.taken}</button>
       <div className="mt-1 flex justify-center gap-4">
@@ -71,7 +71,7 @@ function Due({ item, date, onSnoozed }: { item: NowItem; date: string; onSnoozed
 }
 
 /** Folded to «Не відмічено · 3» — after a heavy day the list must not take the screen. */
-function Missed({ items, date }: { items: NowItem[]; date: string }) {
+function Missed({ items, date, onConfirm }: { items: NowItem[]; date: string; onConfirm: (e: DayEntry) => void }) {
   const [open, setOpen] = useState(false);
   const [asking, setAsking] = useState<NowItem | null>(null);
   return (
@@ -88,7 +88,7 @@ function Missed({ items, date }: { items: NowItem[]; date: string }) {
               <span className="tabular text-muted">{x.time}</span>
               <span className="min-w-0 font-medium">{titleOf(x)}</span>
               <span className="col-start-2 flex gap-1 sm:col-start-3">
-                <button type="button" onClick={() => setAsking(x)} className="min-h-tap rounded-xl border border-line px-3 text-sm font-medium">{L.mark}</button>
+                <button type="button" onClick={() => (x.entry?.items?.length ? onConfirm(x.entry) : setAsking(x))} className="min-h-tap rounded-xl border border-line px-3 text-sm font-medium">{L.mark}</button>
                 <button type="button" onClick={() => void mark(x, date, 'skipped', { time: x.time })} className="min-h-tap rounded-xl px-2 text-sm text-muted">{L.skipped}</button>
               </span>
             </li>

@@ -2,6 +2,7 @@ import { differenceInMinutes, format } from 'date-fns';
 import { EntryPreview } from '../components/EntryPreview';
 import { pinMeal } from '../components/Favorites';
 import { markMeds, TimeChoice } from '../components/MarkTime';
+import { ConfirmMeal } from '../components/ConfirmMeal';
 import { saved } from '../components/Toast';
 import { Check, Droplet, Dumbbell, HeartPulse, ListChecks, NotebookPen, Pencil, Pill, Plus, Sparkles, Star, Trash2, Undo2, UtensilsCrossed, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -55,6 +56,7 @@ export function Day() {
   const firstEntry = useLiveQuery(() => db.entries.orderBy('at').first(), []);
   const navigate = useNavigate();
   const [rowFor, setRowFor] = useState<DayEntry | null>(null);
+  const [confirming, setConfirming] = useState<DayEntry | null>(null); // D55
   const [adding, setAdding] = useState(false);
   const [yesterday, setYesterday] = useState(false);
   const all = useAllEntries();
@@ -123,7 +125,7 @@ export function Day() {
     <section>
       <DayHeader date={date} setDate={setDate} />
 
-      {entries && <NowCard entries={entries} plan={plan} date={date} />}
+      {entries && <NowCard entries={entries} plan={plan} date={date} onConfirm={setConfirming} />}
 
       {/* D40: one notice at a time — the code first, then the backup */}
       {isToday && codeDue && (
@@ -170,7 +172,7 @@ export function Day() {
         </div>
       )}
 
-      {rhythm && <DayRhythm rhythm={rhythm} foods={foods} onEntry={setRowFor} onDose={setAskMed} onAdd={() => setAdding(true)}
+      {rhythm && <DayRhythm rhythm={rhythm} foods={foods} onEntry={(e) => (e.kind === 'meal' && e.status === 'planned' && e.items?.length ? setConfirming(e) : setRowFor(e))} onDose={setAskMed} onAdd={() => setAdding(true)}
         onAnytime={(i) => (i.kind === 'workout' ? navigate('/workout') : setAskMed(i))} />}
 
       {tips.length > 0 && (
@@ -197,6 +199,10 @@ export function Day() {
             <Trash2 size={20} />{t.rowActions.delete}</SheetButton>
         </Sheet>
       )}
+      {confirming && <ConfirmMeal entry={confirming} date={date} foods={foods} onClose={() => setConfirming(null)}
+        onEdit={() => { const e = confirming; setConfirming(null); edit(e); }}
+        onPin={() => { const e = confirming; setConfirming(null); void pinMeal(e.title, e.items!); }}
+        onDelete={() => { const e = confirming; setConfirming(null); void saved(db.entries.delete(e.id), t.toast.deleted(e.title), () => db.entries.put(e)); }} />}
       {adding && (
         <Sheet title={t.day.addRow} onClose={() => setAdding(false)}>
           {(Object.keys(KIND_ICON) as EntryKind[]).map((k) => {

@@ -3,10 +3,11 @@ import { Loading } from '../components/Recovery';
 import { saved } from '../components/Toast';
 import { uk } from 'date-fns/locale';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { RefreshCw, ShoppingCart, Sparkles, Undo2, X } from 'lucide-react';
+import { Plus, RefreshCw, ShoppingCart, Sparkles, Undo2, X } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { AiSpend } from '../components/AiSpend';
+import { ItemPicker } from '../components/ItemPicker';
 import { db } from '../data/db';
 import { useAllEntries, useFoods, usePlan, useRecipes } from '../data/queries';
 import { atLocal, dateOf, newId, todayISO } from '../domain/dates';
@@ -45,12 +46,13 @@ export function Menu() {
   const [error, setError] = useState('');
   const [drafts, setDrafts] = useState<MenuDraft[]>([]);
   const [consent, setConsent] = useState(false);
+  const [adding, setAdding] = useState<string | null>(null); // D54: "day:meal" with the picker open
 
   if (!plan || !foods || !recipes || !all || meta === undefined) return <Loading />;
   const keys = currentKeys();
   const recentFor = (d: string) => all.filter((e) => dateOf(e.at) < d && dateOf(e.at) >= plus(d, -7));
-  const build = (result: MenuResult, d: string, scale = true) =>
-    draftFrom(result, { plan, date: d, foods, recipes, recentEntries: recentFor(d), dishItem, scale });
+  const build = (result: MenuResult, d: string, scale = true, keepEmpty = false) =>
+    draftFrom(result, { plan, date: d, foods, recipes, recentEntries: recentFor(d), dishItem, scale, keepEmpty });
   const fail = (e: unknown) => {
     const code = e instanceof ApiError ? (e.status === 0 ? 'offline' : e.code) : 'other';
     setError((L.errors as Record<string, string>)[code] ?? L.errors.other);
@@ -85,11 +87,11 @@ export function Menu() {
     setDrafts([build(r, date, false)]);
   };
 
-  /** An edit, then the app's check again (swaps and warnings), without rescaling the portions. */
+  /** An edit, then the app's check again (swaps and warnings), without rescaling the portions; an emptied meal stays (D54). */
   const edit = (di: number, mi: number, fn: (items: MealItem[]) => MealItem[]) => setDrafts((ds) => ds.map((d, i) => {
     if (i !== di) return d;
-    const meals = d.meals.map((m, j) => (j === mi ? { ...m, items: fn(m.items) } : m)).filter((m) => m.items.length);
-    return build(asResult(meals, d.tips), d.date, false);
+    const meals = d.meals.map((m, j) => (j === mi ? { ...m, items: fn(m.items) } : m));
+    return build(asResult(meals, d.tips), d.date, false, true);
   }));
   const setTime = (di: number, mi: number, time: string) =>
     setDrafts((ds) => ds.map((d, i) => (i === di ? { ...d, meals: d.meals.map((m, j) => (j === mi ? { ...m, time } : m)) } : d)));
@@ -189,7 +191,13 @@ export function Menu() {
                     );
                   })}
                 </ul>
+                {m.items.length === 0 && <p className="py-2 text-sm text-muted">{L.emptyMeal}</p>}
                 {m.notes.length > 0 && <ul className="mt-1 text-sm text-warn">{m.notes.map((n) => <li key={n}>{n}</li>)}</ul>}
+                {adding === `${di}:${mi}`
+                  ? <ItemPicker foods={foods} recipes={recipes} all={all} onClose={() => setAdding(null)}
+                      onAdd={(xs) => edit(di, mi, (items) => [...items, ...xs])} />
+                  : <button type="button" onClick={() => setAdding(`${di}:${mi}`)} aria-label={L.addTo(m.title)}
+                      className="mt-1 flex min-h-tap items-center gap-1 px-1 text-accent"><Plus size={18} aria-hidden />{L.add}</button>}
               </div>
             ))}
             <div className="rounded-2xl border border-line bg-surface p-3 tabular">

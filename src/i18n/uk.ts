@@ -35,6 +35,19 @@ export const t = {
     addAll: 'Додати все',
     added: 'Додано',
   },
+  confirm: { // D55: «Підтвердити прийом»
+    title: (meal: string) => `Підтвердити: ${meal}`,
+    hint: 'Позначте, що справді з’їли; кількість можна поправити.',
+    was: (x: string) => `за планом ${x}`,
+    when: 'Коли?',
+    save: (n: number) => `Записати вибране (${n})`,
+    pickSome: 'Позначте, що з’їли', pickWhen: 'Оберіть, коли',
+    none: 'Нічого з цього',
+  },
+  picker: { // D54
+    search: 'Продукт, страва або кілька через кому', done: 'Готово',
+    addAll: (what: string) => `Додати: ${what}`,
+  },
   summary: { // D53: «Уже сьогодні»
     title: 'Уже сьогодні', setup: 'Налаштувати', done: 'Готово', all: 'Усі показники', less: 'Згорнути',
     setupHint: (n: number) => `Головні показники — до ${n}; решта — в «Усі показники».`,
@@ -111,7 +124,7 @@ export const t = {
     noItems: 'Додайте хоча б одну позицію.',
     remove: 'Прибрати',
     mealTotal: 'Цей прийом',
-    dayLeft: 'Залишок дня після нього',
+    dayLeft: 'Підсумок дня після запису', // D54: the day's sum with this meal, not what is left
     save: 'Записати',
     cancel: 'Скасувати',
   },
@@ -273,6 +286,7 @@ export const t = {
     left: (n: number) => `Залишилось купити: ${n}`,
   },
   menu: {
+    add: 'Додати', addTo: (meal: string) => `Додати в «${meal}»`, emptyMeal: 'Порожньо — додайте щось або залиште: порожній прийом не запишеться.', // D54
     title: 'Меню на завтра',
     quick: 'Меню',
     date: 'На який день',
@@ -355,7 +369,7 @@ export const t = {
   },
   now: { // D50
     title: 'Зараз', next: 'Далі', missed: 'Не відмічено', meds: 'Ліки',
-    taken: 'Прийнято', eaten: 'З’їдено', later: (m: number) => `Нагадати за ${m} хв`, skip: 'Пропустити',
+    taken: 'Прийнято', eaten: 'Підтвердити', later: (m: number) => `Нагадати за ${m} хв`, skip: 'Пропустити',
     mark: 'Відмітити', skipped: 'Пропущено', // D52
     missedCount: (n: number) => `Не відмічено · ${n}`,
     inMin: (m: number, time: string) => `через ${m} хв · о ${time}`,
