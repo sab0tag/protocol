@@ -32,7 +32,8 @@ export const t = {
   },
   dock: { // D48
     label: 'Ліки й вода',
-    med: (title: string, time?: string) => `Прийняти: ${title}${time ? `, ${time}` : ''}`,
+    med: (title: string, time?: string) => `Відмітити прийнятим: ${title}${time ? `, ${time}` : ''}`,
+    waterAdded: (added: number, total: number) => `+${added} мл · ${(total / 1000).toLocaleString('uk-UA', { maximumFractionDigits: 2 })} л`,
     medsDone: 'Ліки на сьогодні прийнято',
     water: (ml: number, target?: number) => `Додати 250 мл води — зараз ${ml}${target ? ` з ${target}` : ''} мл`,
   },
@@ -323,9 +324,11 @@ export const t = {
     entry: (title: string) => `${title} — записано`,
     ticked: (title: string) => `${title} — відмічено`,
   },
-  now: {
-    title: 'Зараз', now: 'Зараз', next: (time: string) => `Наступне о ${time}`,
-    done: 'Виконано', later: (m: number) => `Пізніше ${m} хв`, skip: 'Пропустити',
+  now: { // D50
+    title: 'Зараз', next: 'Далі', missed: 'Не відмічено', meds: 'Ліки',
+    taken: 'Прийнято', eaten: 'З’їдено', later: (m: number) => `Нагадати за ${m} хв`, skip: 'Пропустити',
+    takenThen: 'Прийнято тоді', eatenThen: 'З’їдено', skipped: 'Пропущено',
+    withFood: 'під час їжі',
   },
   remind: {
     title: 'Нагадування',

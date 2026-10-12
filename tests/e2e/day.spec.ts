@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { device, seed, toast, ymd } from './helpers';
 
-test('«Зараз»: «Пізніше» hides it for 15 min; +250 мл with undo; a workout says it was saved', async ({ browser }) => {
+test('«Зараз»: «Нагадати за 15 хв» hides it for 15 min; +250 мл with undo; a workout says it was saved', async ({ browser }) => {
   const page = await device(browser);
   const now = new Date(), d = ymd(now);
   const at = (minAgo: number) => { const x = new Date(now.getTime() - minAgo * 60_000); return `${d}T${String(x.getHours()).padStart(2, '0')}:${String(x.getMinutes()).padStart(2, '0')}:00+03:00`; };
@@ -10,7 +10,7 @@ test('«Зараз»: «Пізніше» hides it for 15 min; +250 мл with und
   const card = page.getByRole('region', { name: 'Зараз' });
   await expect(card).toBeVisible();
   const first = await card.innerText();
-  await card.getByRole('button', { name: /Пізніше/ }).click();
+  await card.getByRole('button', { name: /Нагадати/ }).click();
   await expect(toast(page)).toContainText('Нагадаю через 15 хв');
   if (/Обід/.test(first)) await expect(card.getByText('Обід')).toHaveCount(0);
   await page.reload();
@@ -22,6 +22,29 @@ test('«Зараз»: «Пізніше» hides it for 15 min; +250 мл with und
   await page.goto('./#/workout');
   await page.getByRole('button', { name: 'Записати тренування' }).click();
   await expect(toast(page)).toHaveText(/Тренування записано/);
+});
+
+test('«Не відмічено» asks what happened; the dock answers beside itself and adds up (D50)', async ({ browser }) => {
+  const page = await device(browser);
+  const now = new Date(), d = ymd(now);
+  test.skip(now.getHours() < 3, 'needs a meal 2 h ago today');
+  const x = new Date(now.getTime() - 120 * 60_000);
+  const hm = `${String(x.getHours()).padStart(2, '0')}:${String(x.getMinutes()).padStart(2, '0')}`;
+  await seed(page, [{ store: 'entries', value: { id: 'm2', at: `${d}T${hm}:00+03:00`, kind: 'meal', status: 'planned', title: 'Сніданок', items: [] } }]);
+  const missed = page.getByRole('region', { name: 'Не відмічено' });
+  await expect(missed.getByText('Сніданок')).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Зараз' }).getByText('Сніданок')).toHaveCount(0); // not offered as «now»
+  await missed.getByRole('listitem').filter({ hasText: 'Сніданок' }).getByRole('button', { name: 'З’їдено' }).click();
+  await expect(toast(page)).toContainText('Сніданок — виконано');
+  await expect(missed.getByText('Сніданок')).toHaveCount(0);
+
+  const dock = page.getByRole('group', { name: 'Ліки й вода' });
+  const water = dock.getByRole('button', { name: /Додати 250 мл води/ });
+  await water.click();
+  await water.click();
+  await expect(dock.getByRole('status')).toContainText('+500 мл · 0,5 л');
+  await dock.getByRole('button', { name: 'Скасувати' }).click();
+  await expect(water).toHaveAttribute('aria-label', /зараз 0 з/);
 });
 
 test('the service worker fills reminders in from the phone\'s own data', async ({ browser }) => {

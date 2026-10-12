@@ -1,7 +1,7 @@
 // What to remind about and when (SPEC.md D34, D35). Pure. Each reminder has a stable key — the same on every
 // device of the person, so a tick on one device stops the repeats on all of them. The payload carries only a
 // generic word; the phone's service worker reads the details (what to eat, which medicine) from its own data.
-import { addDays, format } from 'date-fns';
+import { addDays, differenceInMinutes, format } from 'date-fns';
 import { dateOf, timeOf } from './dates';
 import type { DayEntry, Plan, Prescription } from './types';
 
@@ -63,7 +63,7 @@ export function reminders(args: { entries: DayEntry[]; plan: Plan | undefined; s
   }
 
   if (settings.meds && plan) {
-    const ticked = new Set(entries.filter((e) => e.checkKey && e.status === 'done').map((e) => `${dateOf(e.at)}|${e.checkKey}`));
+    const ticked = new Set(entries.filter((e) => e.checkKey && e.status !== 'planned').map((e) => `${dateOf(e.at)}|${e.checkKey}`)); // done or skipped (D50)
     const times = [...new Set(plan.prescriptions.filter(isMed).flatMap((p) => p.schedule?.times ?? []))];
     for (const d of dates) {
       for (const time of times) {
@@ -119,43 +119,48 @@ export function reminders(args: { entries: DayEntry[]; plan: Plan | undefined; s
   return { items: items.slice(0, 480), done };
 }
 
-// ------------------------------------------------------------------ «Зараз» on «День» (D35)
-export interface NowMed { key: string; title: string; prescriptionId: string }
+// ------------------------------------------------------------------ «Зараз» on «День» (D35, D50)
+export interface NowMed { key: string; title: string; prescriptionId: string; withFood?: boolean }
 export interface NowItem {
-  key: string; // the reminder key — «Пізніше» snoozes it
+  key: string; // the reminder key — «Нагадати за 15 хв» snoozes it
   kind: 'meal' | 'med';
   time: string;
   title: string;
-  overdue: boolean;
   entry?: DayEntry; // meal
-  meds?: NowMed[]; // the medicines due at this time, not yet ticked
+  meds?: NowMed[]; // the medicines due at this time, not yet marked
 }
+export interface DayFocus { now?: NowItem; missed: NowItem[]; next?: NowItem }
 
-/** The one thing to do now: the earliest overdue item of today, else the next one. Snoozed ones wait. */
-export function nowItem(args: { entries: DayEntry[]; plan: Plan | undefined; date: string; now: Date; snoozed?: Record<string, number> }): NowItem | undefined {
+/** D50 (R4): «Зараз» is what is due from 30 min before its time to 60 min after. */
+export const NOW_BEFORE_MIN = 30, NOW_AFTER_MIN = 60;
+
+/** D50: «Зараз» — the earliest item due now; «Не відмічено» — items whose window passed without a mark (shown as
+ *  unknown, never as «take it now»); «Далі» — the next one, when nothing is due. Snoozed ones wait. */
+export function dayFocus(args: { entries: DayEntry[]; plan: Plan | undefined; date: string; now: Date; snoozed?: Record<string, number> }): DayFocus {
   const { entries, plan, date, now } = args;
   const t0 = now.getTime();
   const sleeping = (key: string) => (args.snoozed?.[key] ?? 0) > t0;
-  const nowHm = format(now, 'HH:mm');
   const out: NowItem[] = [];
   for (const e of entries) {
     if (e.kind !== 'meal' || e.status !== 'planned' || dateOf(e.at) !== date) continue;
-    const key = `meal:${e.id}:${e.at}`;
-    if (!sleeping(key)) out.push({ key, kind: 'meal', time: timeOf(e.at), title: e.title, overdue: timeOf(e.at) <= nowHm, entry: e });
+    out.push({ key: `meal:${e.id}:${e.at}`, kind: 'meal', time: timeOf(e.at), title: e.title, entry: e });
   }
-  const ticked = new Set(entries.filter((e) => e.checkKey && e.status === 'done' && dateOf(e.at) === date).map((e) => e.checkKey!));
+  const marked = new Set(entries.filter((e) => e.checkKey && e.status !== 'planned' && dateOf(e.at) === date).map((e) => e.checkKey!));
   const byTime = new Map<string, NowMed[]>();
   for (const p of plan?.prescriptions ?? []) {
     if (!isMed(p)) continue;
     for (const time of p.schedule?.times ?? []) {
       const key = `med:${p.id}:${time}`;
-      if (!ticked.has(key)) byTime.set(time, [...(byTime.get(time) ?? []), { key, title: [p.title, p.dose].filter(Boolean).join(' '), prescriptionId: p.id }]);
+      if (!marked.has(key)) byTime.set(time, [...(byTime.get(time) ?? []), { key, title: [p.title, p.dose].filter(Boolean).join(' '), prescriptionId: p.id,
+        ...(p.schedule?.withFood ? { withFood: true } : {}) }]);
     }
   }
-  for (const [time, meds] of byTime) {
-    const key = `med:${date}:${time}`;
-    if (!sleeping(key)) out.push({ key, kind: 'med', time, title: 'Ліки', overdue: time <= nowHm, meds });
-  }
+  for (const [time, meds] of byTime) out.push({ key: `med:${date}:${time}`, kind: 'med', time, title: 'Ліки', meds });
   out.sort((a, b) => a.time.localeCompare(b.time));
-  return out.find((x) => x.overdue) ?? out[0];
+  const late = (x: NowItem) => differenceInMinutes(now, new Date(`${date}T${x.time}:00`)); // > 0 — its time has passed
+  const missed = out.filter((x) => late(x) > NOW_AFTER_MIN);
+  const due = out.find((x) => late(x) <= NOW_AFTER_MIN && late(x) >= -NOW_BEFORE_MIN && !sleeping(x.key));
+  if (due) return { now: due, missed };
+  const next = out.find((x) => late(x) < -NOW_BEFORE_MIN);
+  return next ? { next, missed } : { missed };
 }

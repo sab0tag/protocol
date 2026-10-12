@@ -1,4 +1,4 @@
-import { format, parseISO } from 'date-fns';
+import { differenceInMinutes, format, parseISO } from 'date-fns';
 import { EntryPreview } from '../components/EntryPreview';
 import { saved } from '../components/Toast';
 import { uk } from 'date-fns/locale';
@@ -9,6 +9,7 @@ import { Sheet, SheetButton } from '../components/Sheet';
 import { db } from '../data/db';
 import { useAllEntries, useDayEntries, useFoods, usePlan, useWorkouts } from '../data/queries';
 import { buildChecklist } from '../domain/checklist';
+import { NOW_AFTER_MIN } from '../domain/reminders';
 import { habits, mealsOf } from '../domain/habits';
 import { addDays, parseISO as parseDay } from 'date-fns';
 import { amountText } from '../domain/foodSearch';
@@ -67,19 +68,21 @@ export function Day() {
     const say = status === 'done' ? t.toast.done : status === 'skipped' ? t.toast.skipped : t.toast.backToPlan;
     await saved(db.entries.put({ ...e, status }), say(e.title), () => db.entries.put(e));
   };
-  const addWater = async () => {
-    const time = isToday ? format(new Date(), 'HH:mm') : '12:00';
-    const id = newId();
-    await saved(db.entries.add({ id, at: atLocal(date, time), kind: 'water', status: 'done', title: t.addKinds.water, waterMl: 250 }), t.toast.water(250), () => db.entries.delete(id));
-  };
+  const waterRow = (): DayEntry => ({ id: newId(), at: atLocal(date, isToday ? format(new Date(), 'HH:mm') : '12:00'), kind: 'water', status: 'done',
+    title: t.addKinds.water, waterMl: 250 });
+  const addWater = async () => { const e = waterRow(); await saved(db.entries.add(e), t.toast.water(250), () => db.entries.delete(e.id)); };
   const meds = checklist?.items.filter((i) => i.kind === 'med') ?? [];
-  const nextMed = meds.find((i) => !i.done);
-  const tickMed = async () => {
-    if (!nextMed) return;
-    const time = isToday ? format(new Date(), 'HH:mm') : nextMed.time ?? '12:00';
-    const id = newId();
-    await saved(db.entries.add({ id, at: atLocal(date, time), kind: 'med', status: 'done', title: nextMed.title, checkKey: nextMed.key,
-      ...(nextMed.prescriptionId ? { prescriptionId: nextMed.prescriptionId } : {}) }), t.toast.med(nextMed.title), () => db.entries.delete(id));
+  const nextMed = meds.find((i) => !i.done && !i.skipped);
+  // D50: a dose whose window has passed is marked at its planned time — «прийнято тоді», never «take it now»
+  const medMissed = !!nextMed?.time && (date < todayISO() || (isToday && differenceInMinutes(new Date(), new Date(`${date}T${nextMed.time}:00`)) > NOW_AFTER_MIN));
+  /** The dock's two taps (D48): written at once, the dock itself says so and takes the undo. */
+  const dockWater = async () => { const e = waterRow(); await db.entries.add(e); return () => db.entries.delete(e.id); };
+  const dockMed = async () => {
+    if (!nextMed) return undefined;
+    const e: DayEntry = { id: newId(), at: atLocal(date, isToday && !medMissed ? format(new Date(), 'HH:mm') : nextMed.time ?? '12:00'),
+      kind: 'med', status: 'done', title: nextMed.title, checkKey: nextMed.key, ...(nextMed.prescriptionId ? { prescriptionId: nextMed.prescriptionId } : {}) };
+    await db.entries.add(e);
+    return () => db.entries.delete(e.id);
   };
   const prevDay = format(addDays(parseDay(date), -1), 'yyyy-MM-dd');
   const copyMeal = async (e: DayEntry) => {
@@ -255,8 +258,8 @@ export function Day() {
         <>
           <div className="h-40 md:h-16" aria-hidden />{/* D48: the end of the day stays visible above the dock */}
           <QuickDock meds={{ done: meds.filter((i) => i.done).length, total: meds.length }} water={checklist.water}
-            med={nextMed && { title: nextMed.title, time: nextMed.time, overdue: isToday && !!nextMed.time && nextMed.time <= format(new Date(), 'HH:mm') }}
-            onMed={() => void tickMed()} onWater={() => void addWater()} />
+            med={nextMed && { title: nextMed.title, ...(nextMed.time ? { time: nextMed.time } : {}), missed: medMissed }}
+            onMed={dockMed} onWater={dockWater} />
         </>
       )}
       {simple && <SimpleEntrySheet kind={simple.kind} entry={simple.entry} date={date} onClose={() => setSimple(null)} />}

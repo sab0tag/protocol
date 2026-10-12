@@ -24,6 +24,7 @@ export interface CheckItem {
   time?: string; // scheduled "HH:mm"
   minutesLeft?: number; // dinner: shown within DINNER_COUNTDOWN_MIN before lastMealBy
   late?: boolean; // dinner: the time has passed and it is not ticked
+  skipped?: boolean; // med: marked «Пропущено» (D50) — not done, but not waiting either
 }
 
 export interface Checklist {
@@ -40,6 +41,7 @@ export function buildChecklist(args: {
 }): Checklist {
   const { plan, date, entries, workouts, foods, now } = args;
   const ticks = new Map(entries.filter((e) => e.checkKey && e.status === 'done').map((e) => [e.checkKey!, e]));
+  const skips = new Set(entries.filter((e) => e.checkKey && e.status === 'skipped').map((e) => e.checkKey!));
   const targets = effectiveTargets(plan, date);
   const totals = dayTotals(entries, foods);
   const items: CheckItem[] = [];
@@ -53,7 +55,7 @@ export function buildChecklist(args: {
       const tick = ticks.get(key);
       items.push({ key, kind: 'med', title: p.title, ...(time ? { time } : {}), prescriptionId: p.id, tappable: true,
         detail: [time ?? 'раз на день', p.dose, p.schedule?.withFood ? 'під час їжі' : undefined].filter(Boolean).join(' · '),
-        done: !!tick, ...(tick ? { doneAt: timeOf(tick.at) } : {}) });
+        done: !!tick, ...(tick ? { doneAt: timeOf(tick.at) } : skips.has(key) ? { skipped: true } : {}) });
     }
   }
   items.sort((a, b) => (a.time ?? '99').localeCompare(b.time ?? '99')); // «раз на день» after the timed ones
