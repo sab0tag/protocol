@@ -9,6 +9,7 @@ import { Sheet } from '../components/Sheet';
 import { db, type PlanRow } from '../data/db';
 import { usePlan } from '../data/queries';
 import { newId } from '../domain/dates';
+import { AllergenPicker } from '../components/AllergenPicker';
 import type { Constraint, ConstraintTag, Mode, Plan as PlanT, Prescription, Targets } from '../domain/types';
 import { t } from '../i18n/uk';
 
@@ -197,11 +198,13 @@ function ConstraintForm({ plan, item, onClose }: { plan: PlanRow; item?: Constra
   const [c, setC] = useState<Constraint>(item ?? { id: newId(), tag: 'custom', title: '', reason: '', source: '', active: true });
   return (
     <FormSheet title={item ? P.edit : P.constraints} onClose={onClose}
-      onSave={() => save({ constraints: upsert(plan.constraints, { ...c, title: c.title.trim() || P.tags[c.tag] }) })}
+      onSave={() => save({ constraints: upsert(plan.constraints, { ...c, title: c.title.trim()
+        || (c.tag === 'allergy' && c.allergens?.length ? P.allergyTitle(c.allergens.map((a) => t.allergen.name[a]).join(', ')) : P.tags[c.tag]) }) })}
       onDelete={item ? () => save({ constraints: plan.constraints.filter((x) => x.id !== item.id) }) : undefined}>
       <Field label={P.tag}>
         <select value={c.tag} onChange={(e) => setC({ ...c, tag: e.target.value as ConstraintTag })} className={field}>
           {TAGS.map((tag) => <option key={tag} value={tag}>{P.tags[tag]}</option>)}</select></Field>
+      {c.tag === 'allergy' && <AllergenPicker legend={P.allergyPick} value={c.allergens ?? []} onChange={(v) => setC({ ...c, allergens: v })} />}
       <Field label={P.title_}><input value={c.title} onChange={(e) => setC({ ...c, title: e.target.value })} placeholder={P.tags[c.tag]} className={field} /></Field>
       <Field label={P.reason}><textarea value={c.reason} onChange={(e) => setC({ ...c, reason: e.target.value })} rows={2} className={`${field} py-2`} /></Field>
       <Field label={P.source}><input value={c.source} onChange={(e) => setC({ ...c, source: e.target.value })} placeholder="Уролог, 2025" className={field} /></Field>

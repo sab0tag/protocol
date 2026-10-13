@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { AiSpend } from '../components/AiSpend';
 import { ItemPicker } from '../components/ItemPicker';
+import { planAllergies } from '../domain/allergens';
 import { db } from '../data/db';
 import { useAllEntries, useFoods, usePlan, useRecipes } from '../data/queries';
 import { atLocal, dateOf, newId, todayISO } from '../domain/dates';
@@ -194,7 +195,7 @@ export function Menu() {
                 {m.items.length === 0 && <p className="py-2 text-sm text-muted">{L.emptyMeal}</p>}
                 {m.notes.length > 0 && <ul className="mt-1 text-sm text-warn">{m.notes.map((n) => <li key={n}>{n}</li>)}</ul>}
                 {adding === `${di}:${mi}`
-                  ? <ItemPicker foods={foods} recipes={recipes} all={all} onClose={() => setAdding(null)}
+                  ? <ItemPicker foods={foods} recipes={recipes} all={all} allergies={planAllergies(plan)} onClose={() => setAdding(null)}
                       onAdd={(xs) => edit(di, mi, (items) => [...items, ...xs])} />
                   : <button type="button" onClick={() => setAdding(`${di}:${mi}`)} aria-label={L.addTo(m.title)}
                       className="mt-1 flex min-h-tap items-center gap-1 px-1 text-accent"><Plus size={18} aria-hidden />{L.add}</button>}

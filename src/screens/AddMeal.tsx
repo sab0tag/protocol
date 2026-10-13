@@ -1,7 +1,7 @@
 import { format } from 'date-fns';
 import { AllergenNote } from '../components/AllergenPicker';
 import { FavoritesList, pinMeal } from '../components/Favorites';
-import { itemAllergens } from '../domain/allergens';
+import { allergyHits, itemAllergens, planAllergies } from '../domain/allergens';
 import { LabelScan } from '../components/LabelScan';
 import { Loading } from '../components/Recovery';
 import { saved } from '../components/Toast';
@@ -116,6 +116,7 @@ export function AddMeal() {
     : [];
   const swapped = hasSwaps(checks) ? applySwaps(checks, foods) : null;
   const anyActive = plan?.constraints.some((c) => c.active) ?? false;
+  const allergies = planAllergies(plan); // D58
 
   const setItem = (i: number, patch: Partial<MealItem>) => setItems((xs) => xs.map((x, j) => (j === i ? { ...x, ...patch } : x)));
 
@@ -178,7 +179,7 @@ export function AddMeal() {
                 <li key={f.id}>
                   <button type="button" className="flex min-h-tap w-full items-center justify-between gap-2 px-3 text-left"
                     onClick={() => { setItems((xs) => [...xs, itemFor(f, parsed)]); setQuery(''); }}>
-                    <span>{f.name}</span>
+                    <span>{f.name}{(() => { const h = allergyHits(f, allergies); return h.length ? <span className="ml-2 text-sm font-medium text-warn">{t.allergen.badge(h.map((a) => t.allergen.name[a]).join(', '))}</span> : null; })()}</span>
                     <span className="tabular shrink-0 text-right text-sm text-muted">{matchHint(f, parsed)}</span>
                   </button>
                 </li>

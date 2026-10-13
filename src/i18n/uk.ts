@@ -74,6 +74,7 @@ export const t = {
     name: { gluten: 'глютен', milk: 'молоко', egg: 'яйця', fish: 'риба', crustaceans: 'ракоподібні', molluscs: 'молюски', peanut: 'арахіс',
       nuts: 'горіхи', soy: 'соя', sesame: 'кунжут', celery: 'селера', mustard: 'гірчиця', sulphites: 'сульфіти', lupin: 'люпин' },
     contains: 'Містить', unknown: 'склад невідомий',
+    badge: (names: string) => `алергія: ${names}`, // D58: in search, by the plan's allergies
     fromPackage: 'Містить (як на упаковці):',
     typical: 'Алергени базових продуктів — за типовим складом; конкретну упаковку перевіряйте.',
   },
@@ -446,7 +447,9 @@ export const t = {
     noTargets: 'Цілі ще не задано.',
     kinds: { medication: 'Ліки', supplement: 'Добавка', test: 'Аналіз', lifestyle: 'Спосіб життя' },
     tags: { oxalate: 'Оксалатні камені', gallbladder: 'Жовчний міхур', lactose: 'Лактоза', glycemic: 'Глікемія',
-      iron: 'Залізо (феритин)', sodium: 'Сіль', custom: 'Інше' },
+      iron: 'Залізо (феритин)', sodium: 'Сіль', allergy: 'Алергія', custom: 'Інше' },
+    allergyPick: 'На що алергія (як сказав або написав лікар):', // D58
+    allergyTitle: (names: string) => `Алергія: ${names}`,
     target: {
       kcal: 'Калорії, ккал', proteinG: 'Білок, г', carbsMin: 'Вуглеводи, не менше г', carbsMax: 'Вуглеводи, до г',
       fatG: 'Жири, г', calciumMg: 'Кальцій, мг', waterMl: 'Вода, мл', lastMealBy: 'Останній прийом їжі до',

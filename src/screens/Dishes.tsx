@@ -72,7 +72,7 @@ function FoodCard({ food }: { food: Food }) {
               className="block min-h-tap w-full rounded-xl border border-line bg-bg px-2" /></label>
         ))}
       </div>
-      <AllergenPicker value={f.allergens ?? []} onChange={(v) => { const { allergens: _a, ...rest } = f; setF(v.length ? { ...rest, allergens: v } : rest); }} />
+      <AllergenPicker value={f.allergens ?? []} onChange={(v) => setF({ ...f, allergens: v })} />
       <div className="flex gap-2">
         <button type="button" disabled={!changed || !f.name.trim()} onClick={() => void saved(db.foods.put({ ...f, name: f.name.trim() }), t.toast.saved)}
           className="min-h-tap rounded-xl bg-accent px-3 font-medium text-surface disabled:opacity-40">{L.save}</button>

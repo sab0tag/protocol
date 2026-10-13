@@ -2,10 +2,10 @@
 import { ALLERGENS, type Allergen } from '../domain/types';
 import { t } from '../i18n/uk';
 
-export function AllergenPicker({ value, onChange }: { value: Allergen[]; onChange: (v: Allergen[]) => void }) {
+export function AllergenPicker({ value, onChange, legend = t.allergen.fromPackage }: { value: Allergen[]; onChange: (v: Allergen[]) => void; legend?: string }) {
   return (
     <fieldset>
-      <legend className="mb-1 text-sm text-muted">{t.allergen.fromPackage}</legend>
+      <legend className="mb-1 text-sm text-muted">{legend}</legend>
       <div className="flex flex-wrap gap-1.5">
         {ALLERGENS.map((a) => {
           const on = value.includes(a);

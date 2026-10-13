@@ -10,6 +10,7 @@ export type ConstraintTag =
   | 'glycemic' // impaired glycaemia / prediabetes
   | 'iron' // high ferritin
   | 'sodium' // salt restriction
+  | 'allergy' // D58: an allergy confirmed by a doctor, with its allergens
   | 'custom';
 
 export interface Constraint {
@@ -19,6 +20,7 @@ export interface Constraint {
   reason: string;
   source: string;
   active: boolean;
+  allergens?: Allergen[]; // D58: for `allergy`
 }
 
 export interface Prescription {

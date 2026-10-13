@@ -4,6 +4,10 @@ import { dateOf } from '../dates';
 import { itemNutrients, normalize } from '../nutrition';
 import type { ConstraintTag, DayEntry, Food, ISODate, MealItem, Mode, Plan } from '../types';
 import * as K from './keywords.uk';
+import { allergyHits, planAllergies } from '../allergens';
+import { t } from '../../i18n/uk';
+
+const ALLERGEN_NAME = t.allergen.name;
 
 export type Verdict = 'ok' | 'replace' | 'remove' | 'adjust';
 
@@ -117,7 +121,20 @@ const sodium: Rule = (item, _food, ctx) => {
   return { itemName: item.name, verdict: 'adjust', reason: 'sodium', message: 'Багато солі за день' };
 };
 
-export const RULES: Rule[] = [oxalate, oxalateCalcium, gallbladder, lactose, glycemic, iron, sodium];
+/** D58: an allergy confirmed by a doctor — a line that holds it goes («Прибрати»); a line whose make-up is unknown
+ *  (a free line, an own food never checked against its package) is flagged, never passed as safe. */
+const allergy: Rule = (item, food, ctx) => {
+  const want = planAllergies(ctx.plan);
+  if (!want.size) return null;
+  if (!food || (food.custom && !food.allergens))
+    return { itemName: item.name, verdict: 'adjust', reason: 'allergy', message: 'Склад невідомий — перевірте на алергени' };
+  const hit = allergyHits(food, want);
+  if (!hit.length) return null;
+  return { itemName: item.name, verdict: 'remove', reason: 'allergy', message: `Алергія: ${hit.map((a) => ALLERGEN_NAME[a]).join(', ')}`,
+    suggestion: 'Прибрати', swap: { kind: 'drop' } };
+};
+
+export const RULES: Rule[] = [allergy, oxalate, oxalateCalcium, gallbladder, lactose, glycemic, iron, sodium];
 
 // ------------------------------------------------------------------ the meal as a whole (SPEC §6.3)
 export interface ItemCheck {

@@ -6,13 +6,14 @@ import { frequentItems } from '../domain/habits';
 import { amountText, itemFor, parseQuery, recognize, searchFoods, splitPhrase } from '../domain/foodSearch';
 import { dishItem } from '../domain/recipes';
 import { todayISO } from '../domain/dates';
-import type { DayEntry, Food, MealItem, Recipe } from '../domain/types';
+import type { Allergen, DayEntry, Food, MealItem, Recipe } from '../domain/types';
+import { allergyHits } from '../domain/allergens';
 import { t } from '../i18n/uk';
 
 const L = t.picker;
 
-export function ItemPicker({ foods, recipes, all, onAdd, onClose }: {
-  foods: Map<string, Food>; recipes: Recipe[]; all: DayEntry[]; onAdd: (items: MealItem[]) => void; onClose: () => void;
+export function ItemPicker({ foods, recipes, all, allergies = new Set(), onAdd, onClose }: {
+  foods: Map<string, Food>; recipes: Recipe[]; all: DayEntry[]; allergies?: Set<Allergen>; onAdd: (items: MealItem[]) => void; onClose: () => void;
 }) {
   const [q, setQ] = useState('');
   const freq = useMemo(() => frequentItems(all, todayISO()), [all]);
@@ -41,7 +42,9 @@ export function ItemPicker({ foods, recipes, all, onAdd, onClose }: {
               <span>{r.name}</span><span className="tabular shrink-0 text-sm text-muted">{amountText(it)}</span></button></li>); })}
           {matches.map((f) => { const it = itemFor(f, parsed); return (
             <li key={f.id}><button type="button" className={row} onClick={() => add([it])}>
-              <span>{f.name}</span><span className="tabular shrink-0 text-sm text-muted">{amountText(it)}</span></button></li>); })}
+              <span>{f.name}{allergyHits(f, allergies).length > 0 && <span className="ml-2 text-sm font-medium text-warn">
+                {t.allergen.badge(allergyHits(f, allergies).map((a) => t.allergen.name[a]).join(', '))}</span>}</span>
+              <span className="tabular shrink-0 text-sm text-muted">{amountText(it)}</span></button></li>); })}
         </ul>
       )}
       {!q.trim() && freq.length > 0 && (

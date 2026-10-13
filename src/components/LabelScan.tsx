@@ -54,7 +54,7 @@ export function LabelScan({ onAdd }: { onAdd?: (item: MealItem) => void }) {
   const save = async (addToMeal: boolean) => {
     const food: Food = { id: `u-${newId()}`, name: name.trim(), custom: true, tags: [],
       per100g: { kcal: num(n.kcal), protein: num(n.protein), fat: num(n.fat), carbs: num(n.carbs), ...(n.calciumMg ? { calciumMg: num(n.calciumMg) } : {}) },
-      ...(allergens.length ? { allergens } : {}) };
+      allergens }; // D58: an empty list here means «checked — none», unlike an own food never checked
     await saved(db.foods.put(food), t.toast.food(food.name));
     if (addToMeal && onAdd) onAdd({ foodId: food.id, name: food.name, grams: num(grams) || 100 });
     setState('none');

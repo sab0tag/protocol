@@ -28,3 +28,23 @@ test('«Записати їжу»: the food first, the meal line folded; a meal 
   await expect(toast(page)).toContainText('прибрано зі звичних');
   await expect(fav).toHaveCount(0);
 });
+
+test('a confirmed allergy entered in «План»: marked in search, «Прибрати» in the check (D58)', async ({ browser }) => {
+  const page = await device(browser);
+  await page.goto('./#/plan');
+  await page.locator('section.rounded-2xl').filter({ has: page.getByRole('heading', { name: 'Обмеження', exact: true }) }).getByRole('button', { name: 'Додати' }).click();
+  const form = page.getByRole('dialog', { name: 'Обмеження' });
+  await form.getByRole('combobox', { name: 'Що це за обмеження' }).selectOption('allergy');
+  await form.getByRole('button', { name: 'горіхи', exact: true }).click();
+  await form.getByRole('textbox', { name: 'Джерело' }).fill('Алерголог, 2026');
+  await form.getByRole('button', { name: 'Зберегти' }).click();
+  await expect(page.getByText('Алергія: горіхи')).toBeVisible();
+
+  await page.goto('./#/meal/new');
+  await page.getByRole('searchbox', { name: /^Що з’їли/ }).fill('волоські');
+  const hit = page.getByRole('button', { name: /^Волоські горіхи/ }).first();
+  await expect(hit).toContainText('алергія: горіхи');
+  await hit.click();
+  await expect(page.locator('section[aria-live]', { hasText: 'Перевірка за планом лікаря' })).toContainText('Алергія: горіхи');
+  await expect(page.getByRole('button', { name: 'Записати заміну' })).toBeVisible(); // the swap drops the line
+});

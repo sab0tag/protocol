@@ -100,7 +100,7 @@ export function draftFrom(result: MenuResult, ctx: {
     const swapped = applySwaps(first, foods);
     first.forEach((c) => {
       const changed = c.hits.filter((h) => h.swap);
-      if (changed.length) notes.push(`${c.item.name}: ${changed.map((h) => h.message).join(', ')} — замінено`);
+      if (changed.length) notes.push(`${c.item.name}: ${changed.map((h) => h.message).join(', ')} — ${changed.some((h) => h.swap?.kind === 'drop') ? 'прибрано' : 'замінено'}`);
     });
     items = swapped;
     const warn = (hits: RuleHit[]) => hits.filter((h) => h.verdict !== 'ok' && !h.swap);
