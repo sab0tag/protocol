@@ -89,6 +89,13 @@ export function Report() {
             <li key={s.name} className="flex justify-between gap-2"><span>{s.name}</span><span className="tabular text-muted">{s.count} {s.count === 1 ? 'раз' : s.count < 5 ? 'рази' : 'разів'}</span></li>
           ))}</ul>
         ) : <p className="text-muted">{L.noSymptoms}</p>}
+        {r.coincidences.length > 0 && (
+          <div className="mt-3 border-t border-line pt-2">
+            <h3 className="font-medium">{L.coincidences}</h3>
+            <p className="mb-1 text-sm text-muted">{L.coincidencesHint}</p>
+            <ul className="list-disc space-y-1 pl-5 text-sm">{r.coincidences.map((c) => <li key={c}>{c}</li>)}</ul>
+          </div>
+        )}
       </section>
 
       <section className="rounded-2xl border border-line bg-surface p-3">

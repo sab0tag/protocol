@@ -1,5 +1,6 @@
 // «Прогрес» (SPEC.md §5.7, §6.4): weekly weight, too-fast loss, lab table, noticed patterns. Pure.
 import { format, parseISO, startOfISOWeek } from 'date-fns';
+import { coincidences, coincidenceText } from './symptoms';
 import { dateOf } from './dates';
 import { normalize } from './nutrition';
 import type { DayEntry, Food, LabResult, WeightLog, Wellbeing, Workout } from './types';
@@ -85,6 +86,7 @@ export function patterns(args: { entries: DayEntry[]; wellbeing: Wellbeing[]; wo
       out.push({ text: `«${symptom}» — ${withMeat} з ${days.length} разів у дні, коли м’яса за один прийом було більше ${MEAT_MEAL_G} г` });
     }
   }
+  out.push(...coincidences(entries, foods).map((c) => ({ text: coincidenceText(c) }))); // D59
   const scored = wellbeing.filter((w) => w.energy != null);
   if (scored.length >= 10) {
     const trained = new Set(workouts.map((w) => w.date));

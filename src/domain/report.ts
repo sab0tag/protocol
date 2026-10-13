@@ -3,6 +3,7 @@ import { addDays, differenceInCalendarDays, format, parseISO } from 'date-fns';
 import { buildChecklist } from './checklist';
 import { dateOf } from './dates';
 import { dayFlags, type HabitKey } from './habits';
+import { coincidences, coincidenceText } from './symptoms';
 import type { DayEntry, Food, ISODate, Plan, WeightLog, Wellbeing, Workout } from './types';
 
 export interface Report {
@@ -15,6 +16,8 @@ export interface Report {
   workouts: number;
   avgEnergy?: number;
   symptoms: { name: string; count: number }[];
+  /** D59: symptom and food coincidences, as counted — not a conclusion */
+  coincidences: string[];
   questions: string[];
   /** D40: the pace of the weight over the period, kg a week, and the plan's limit */
   weightPace?: number;
@@ -53,6 +56,8 @@ export function buildReport(args: {
   const scored = wellbeing.filter((x) => inside(x.date) && x.energy != null);
   const counts = new Map<string, number>();
   for (const x of wellbeing.filter((y) => inside(y.date))) for (const s of x.symptoms) counts.set(s, (counts.get(s) ?? 0) + 1);
+  // D56: «Мені погано» with its time counts too
+  for (const e of entries.filter((y) => y.kind === 'symptom' && inside(dateOf(y.at)))) for (const s of e.symptoms ?? []) counts.set(s, (counts.get(s) ?? 0) + 1);
 
   return {
     from, to, days,
@@ -67,6 +72,7 @@ export function buildReport(args: {
     workouts: workouts.filter((x) => inside(x.date)).length,
     ...(scored.length ? { avgEnergy: Math.round((scored.reduce((a, x) => a + (x.energy ?? 0), 0) / scored.length) * 10) / 10 } : {}),
     symptoms: [...counts.entries()].map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name)),
+    coincidences: coincidences(entries.filter((e) => inside(dateOf(e.at))), foods).map(coincidenceText),
     questions: plan?.questions ?? [],
   };
 }
@@ -88,6 +94,7 @@ export function reportText(r: Report, dm: (d: ISODate) => string): string {
     `Тренувань: ${r.workouts}`,
     r.avgEnergy != null ? `Середня енергія: ${dec(r.avgEnergy)} з 5` : '',
     r.symptoms.length ? `Симптоми: ${r.symptoms.map((s) => `${s.name} — ${s.count}`).join('; ')}` : '',
+    r.coincidences.length ? `Збіги симптомів з їжею (підрахунок записів, не висновок):\n${r.coincidences.map((c) => `• ${c}`).join('\n')}` : '',
     r.questions.length ? `Мої питання:\n${r.questions.map((q) => `• ${q}`).join('\n')}` : '',
   ];
   return lines.filter(Boolean).join('\n');
