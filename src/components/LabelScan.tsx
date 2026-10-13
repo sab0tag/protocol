@@ -3,7 +3,8 @@ import { ScanText } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { db } from '../data/db';
 import { newId } from '../domain/dates';
-import type { Food, MealItem } from '../domain/types';
+import type { Allergen, Food, MealItem } from '../domain/types';
+import { AllergenPicker } from './AllergenPicker';
 import { t } from '../i18n/uk';
 import { ApiError, label, type LabelResult } from '../sync/api';
 import { currentKeys } from '../sync/runner';
@@ -21,6 +22,7 @@ export function LabelScan({ onAdd }: { onAdd?: (item: MealItem) => void }) {
   const input = useRef<HTMLInputElement>(null);
   const [state, setState] = useState<'none' | 'consent' | 'busy' | 'form'>('none');
   const [error, setError] = useState('');
+  const [allergens, setAllergens] = useState<Allergen[]>([]); // D57: ticked from the package
   const [name, setName] = useState('');
   const [n, setN] = useState<Record<Num, string>>({ kcal: '', protein: '', fat: '', carbs: '', calciumMg: '' });
   const [grams, setGrams] = useState('100');
@@ -42,7 +44,7 @@ export function LabelScan({ onAdd }: { onAdd?: (item: MealItem) => void }) {
       if (!r.readable) { setError(r.note ?? L.unreadable); setState('none'); return; }
       const p = r.per100g, s = (x: number | null) => (x == null ? '' : String(Math.round(x * 10) / 10));
       setName(r.name); setN({ kcal: s(p.kcal), protein: s(p.protein), fat: s(p.fat), carbs: s(p.carbs), calciumMg: s(p.calciumMg) });
-      setGrams(String(r.servingG ?? 100)); setNote(r.note ?? ''); setState('form');
+      setGrams(String(r.servingG ?? 100)); setNote(r.note ?? ''); setAllergens([]); setState('form');
     } catch (e) {
       const code = e instanceof ApiError ? (e.status === 0 ? 'offline' : e.code) : 'other';
       setError((t.meal.photoErrors as Record<string, string>)[code] ?? t.meal.photoErrors.other); setState('none');
@@ -51,7 +53,8 @@ export function LabelScan({ onAdd }: { onAdd?: (item: MealItem) => void }) {
   const num = (v: string) => Math.max(0, Number(v.replace(',', '.')) || 0);
   const save = async (addToMeal: boolean) => {
     const food: Food = { id: `u-${newId()}`, name: name.trim(), custom: true, tags: [],
-      per100g: { kcal: num(n.kcal), protein: num(n.protein), fat: num(n.fat), carbs: num(n.carbs), ...(n.calciumMg ? { calciumMg: num(n.calciumMg) } : {}) } };
+      per100g: { kcal: num(n.kcal), protein: num(n.protein), fat: num(n.fat), carbs: num(n.carbs), ...(n.calciumMg ? { calciumMg: num(n.calciumMg) } : {}) },
+      ...(allergens.length ? { allergens } : {}) };
     await saved(db.foods.put(food), t.toast.food(food.name));
     if (addToMeal && onAdd) onAdd({ foodId: food.id, name: food.name, grams: num(grams) || 100 });
     setState('none');
@@ -85,6 +88,7 @@ export function LabelScan({ onAdd }: { onAdd?: (item: MealItem) => void }) {
                 <input inputMode="decimal" value={n[k]} onChange={(e) => setN((x) => ({ ...x, [k]: e.target.value }))} className={field} /></label>
             ))}
           </div>
+          <AllergenPicker value={allergens} onChange={setAllergens} />
           {onAdd && (
             <label className="block w-40"><span className="text-sm text-muted">{L.eaten}</span>
               <input inputMode="decimal" value={grams} onChange={(e) => setGrams(e.target.value)} className={field} /></label>

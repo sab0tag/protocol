@@ -8,7 +8,9 @@ import { db } from '../data/db';
 import { atLocal, newId, timeOf, todayISO } from '../domain/dates';
 import { amountText } from '../domain/foodSearch';
 import { BEFORE_HOURS, DANGER, eatenBefore, isDanger, SYMPTOMS } from '../domain/symptoms';
-import type { DayEntry } from '../domain/types';
+import { itemAllergens, mealAllergens } from '../domain/allergens';
+import type { DayEntry, Food } from '../domain/types';
+import { AllergenNote } from './AllergenPicker';
 import { t } from '../i18n/uk';
 import { Sheet } from './Sheet';
 import { saved } from './Toast';
@@ -17,7 +19,7 @@ const L = t.symptom;
 const chip = (on: boolean, danger = false) =>
   `min-h-tap rounded-full border px-3 text-sm ${on ? (danger ? 'border-warn bg-warn-bg font-medium text-warn' : 'border-accent bg-accent/10 font-medium text-accent') : 'border-line'}`;
 
-export function SymptomSheet({ date, entry, all, onClose }: { date: string; entry?: DayEntry; all: DayEntry[]; onClose: () => void }) {
+export function SymptomSheet({ date, entry, all, foods, onClose }: { date: string; entry?: DayEntry; all: DayEntry[]; foods?: Map<string, Food>; onClose: () => void }) {
   const [picked, setPicked] = useState<string[]>(entry?.symptoms ?? []);
   const [own, setOwn] = useState('');
   const [time, setTime] = useState(entry ? timeOf(entry.at) : date === todayISO() ? format(new Date(), 'HH:mm') : '');
@@ -75,10 +77,12 @@ export function SymptomSheet({ date, entry, all, onClose }: { date: string; entr
           <ul className="space-y-1 text-sm">
             {before.map((m) => (
               <li key={m.id}><span className="tabular text-muted">{m.at.slice(0, 10) === date ? '' : `${m.at.slice(8, 10)}.${m.at.slice(5, 7)} `}{timeOf(m.at)}</span>{' '}
-                <span className="font-medium">{m.title}</span>: {m.items?.map((x) => `${x.name} ${amountText(x)}`).join(', ')}</li>
+                <span className="font-medium">{m.title}</span>: {m.items?.map((x) => `${x.name} ${amountText(x)}`).join(', ')}
+                {foods && m.items && <AllergenNote className="block" allergens={mealAllergens(m.items, foods)} unknown={m.items.some((x) => itemAllergens(x, foods).unknown)} />}</li>
             ))}
           </ul>
         )}
+        {before.length > 0 && foods && <p className="mt-1 text-xs text-muted">{t.allergen.typical}</p>}
       </section>
 
       <button type="button" onClick={save} disabled={!picked.length || !at}

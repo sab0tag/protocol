@@ -2,6 +2,7 @@
 // package. Household measures (D26) follow common kitchen tables and are approximate too («≈ 50 г» on screen).
 // The first 15 rows are SPEC.md §9.1; ids are stable (meals and exports refer to them).
 import type { Food, FoodUnit } from '../domain/types';
+import { BASE_ALLERGENS } from './allergens';
 
 type U = [string, number];
 const f = (id: string, name: string, kcal: number, protein: number, fat: number, carbs: number, calciumMg: number,
@@ -14,7 +15,7 @@ const f = (id: string, name: string, kcal: number, protein: number, fat: number,
 const SPOON_GRAIN: U[] = [['ст. л.', 25], ['порція', 200]];
 const PIECE = (g: number): U => ['шт', g];
 
-export const FOODS: Food[] = [
+const BASE: Food[] = [
   // ---- SPEC §9.1
   f('oats', 'Вівсяні пластівці (сухі)', 370, 13, 7, 60, 50, ['grain', 'slow-carb'], [['ст. л.', 12], ['склянка', 90]], ['вівсянка', 'геркулес']),
   f('buckwheat', 'Гречка (суха)', 343, 13, 3.4, 62, 20, ['grain', 'slow-carb'], [['ст. л.', 20], ['склянка', 165]]),
@@ -261,3 +262,6 @@ export const FOODS: Food[] = [
   f('burger', 'Бургер', 250, 13, 11, 25, 60, ['meat', 'grain'], [PIECE(220)]),
   f('sushi-roll', 'Суші (рол)', 150, 6, 3, 25, 10, ['fish', 'grain'], [PIECE(30), ['порція', 240]], ['рол', 'роли']),
 ];
+
+/** D57: with the allergens of their typical composition. */
+export const FOODS: Food[] = BASE.map((x) => (BASE_ALLERGENS[x.id] ? { ...x, allergens: BASE_ALLERGENS[x.id] } : x));

@@ -21,9 +21,11 @@ test('a package photo (model stubbed) → checked numbers → own food, added to
   expect(Buffer.from(sent, 'base64').subarray(0, 2).toString('hex')).toBe('ffd8'); // JPEG, metadata gone
   await expect(page.getByLabel('ккал')).toHaveValue('73');
   await expect(page.getByLabel('З’їдено, г')).toHaveValue('140');
+  await page.getByRole('button', { name: 'молоко', exact: true }).click(); // D57: ticked by the person, from the package
   await page.getByRole('button', { name: 'Зберегти й додати' }).click();
   await expect(toast(page)).toContainText('у вашій базі');
   await expect(page.locator('li').filter({ hasText: 'Йогурт грецький Галичина' }).first()).toBeVisible();
   await page.goto('./#/dishes');
   await expect(page.getByRole('textbox', { name: 'Назва' }).first()).toHaveValue('Йогурт грецький Галичина 2 %');
+  await expect(page.getByRole('button', { name: 'молоко', exact: true }).first()).toHaveAttribute('aria-pressed', 'true');
 });

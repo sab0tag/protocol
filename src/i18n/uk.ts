@@ -70,6 +70,13 @@ export const t = {
   status: { planned: 'Заплановано', done: 'Виконано', skipped: 'Пропущено' },
   rowActions: { done: 'Виконано', skipped: 'Пропущено', planned: 'Повернути в план', edit: 'Редагувати', delete: 'Видалити', close: 'Закрити' },
   addKinds: { meal: 'Їжа', med: 'Ліки', water: 'Вода', workout: 'Тренування', note: 'Нотатка', symptom: 'Мені погано' },
+  allergen: { // D57
+    name: { gluten: 'глютен', milk: 'молоко', egg: 'яйця', fish: 'риба', crustaceans: 'ракоподібні', molluscs: 'молюски', peanut: 'арахіс',
+      nuts: 'горіхи', soy: 'соя', sesame: 'кунжут', celery: 'селера', mustard: 'гірчиця', sulphites: 'сульфіти', lupin: 'люпин' },
+    contains: 'Містить', unknown: 'склад невідомий',
+    fromPackage: 'Містить (як на упаковці):',
+    typical: 'Алергени базових продуктів — за типовим складом; конкретну упаковку перевіряйте.',
+  },
   symptom: { // D56: «Мені погано»
     title: 'Що відчуваєте?', danger: 'Небезпечні ознаки',
     dangerAlert: 'Це може бути небезпечна реакція. Телефонуйте 103 (швидка) або 112 — не чекайте, поки мине.',

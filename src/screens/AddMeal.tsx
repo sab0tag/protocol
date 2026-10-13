@@ -1,5 +1,7 @@
 import { format } from 'date-fns';
+import { AllergenNote } from '../components/AllergenPicker';
 import { FavoritesList, pinMeal } from '../components/Favorites';
+import { itemAllergens } from '../domain/allergens';
 import { LabelScan } from '../components/LabelScan';
 import { Loading } from '../components/Recovery';
 import { saved } from '../components/Toast';
@@ -259,6 +261,7 @@ export function AddMeal() {
                   <p className="mt-1 tabular text-sm text-muted">
                     {round(n.kcal)} {t.units.kcal} · Б {fmt(n.protein)} · Ж {fmt(n.fat)} · В {fmt(n.carbs)} · Ca {round(n.calciumMg)} {t.units.mg}
                   </p>
+                  {(() => { const a = itemAllergens(it, foods); return <AllergenNote className="block" allergens={a.allergens} unknown={a.unknown} />; })()}
                 </li>
               );
               return (
@@ -286,6 +289,7 @@ export function AddMeal() {
                   <p className="mt-1 tabular text-sm text-muted">
                     {round(n.kcal)} {t.units.kcal} · Б {fmt(n.protein)} · Ж {fmt(n.fat)} · В {fmt(n.carbs)} · Ca {round(n.calciumMg)} {t.units.mg}
                   </p>
+                  {(() => { const a = itemAllergens(it, foods); return <AllergenNote className="block" allergens={a.allergens} unknown={a.unknown} />; })()}
                 </li>
               );
             })}

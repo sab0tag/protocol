@@ -3,6 +3,8 @@ import { shownTime } from '../domain/dates';
 import { amountText } from '../domain/foodSearch';
 import { lineNutrients, mealNutrients, round } from '../domain/nutrition';
 import { BEFORE_HOURS, eatenBefore } from '../domain/symptoms';
+import { itemAllergens, mealAllergens } from '../domain/allergens';
+import { AllergenNote } from './AllergenPicker';
 import { t } from '../i18n/uk';
 
 const fmt = (n: number) => String(round(n, 1)).replace('.', ',');
@@ -17,7 +19,8 @@ export function EntryPreview({ entry, foods, all }: { entry: DayEntry; foods?: M
         <p className="text-muted">{shownTime(entry)} · {[t.symptom.word, entry.severity ? t.symptom.level(entry.severity) : ''].filter(Boolean).join(' · ')}</p>
         <p className="font-medium">{t.symptom.before(BEFORE_HOURS)}</p>
         {before.length === 0 ? <p className="text-muted">{t.symptom.nothingBefore}</p> : before.map((m) => (
-          <p key={m.id}><span className="tabular text-muted">{shownTime(m)}</span> <span className="font-medium">{m.title}</span>: {m.items?.map((x) => `${x.name} ${amountText(x)}`).join(', ')}</p>
+          <p key={m.id}><span className="tabular text-muted">{shownTime(m)}</span> <span className="font-medium">{m.title}</span>: {m.items?.map((x) => `${x.name} ${amountText(x)}`).join(', ')}
+            {foods && m.items && <AllergenNote className="block" allergens={mealAllergens(m.items, foods)} unknown={m.items.some((x) => itemAllergens(x, foods).unknown)} />}</p>
         ))}
       </div>
     );
@@ -47,6 +50,7 @@ export function EntryPreview({ entry, foods, all }: { entry: DayEntry; foods?: M
         <span className="font-semibold">{round(total.kcal)} {t.units.kcal}</span>
         <span className="text-muted"> · Б {fmt(total.protein)} · Ж {fmt(total.fat)} · В {fmt(total.carbs)} · Ca {round(total.calciumMg)} {t.units.mg}</span>
       </p>
+      <AllergenNote className="block" allergens={mealAllergens(entry.items, foods)} unknown={entry.items.some((x) => itemAllergens(x, foods).unknown)} />
       {entry.menu?.tips?.length ? (
         <details className="text-sm"><summary className="min-h-tap cursor-pointer py-2 text-accent">{t.menu.tips}</summary>
           <ul className="list-disc space-y-1 pl-5">{entry.menu.tips.map((x) => <li key={x}>{x}</li>)}</ul></details>

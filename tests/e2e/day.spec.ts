@@ -89,6 +89,7 @@ test('«Мені погано»: a symptom with its time, what was eaten before 
   await page.getByRole('button', { name: 'Мені погано' }).first().click();
   const sheet = page.getByRole('dialog', { name: 'Що відчуваєте?' });
   await expect(sheet.getByRole('region', { name: /^Що їли за 6 год/ })).toContainText('Кефір 2,5 %');
+  await expect(sheet.getByRole('region', { name: /^Що їли за 6 год/ })).toContainText('Містить: молоко'); // D57
   await sheet.getByRole('button', { name: 'Важко дихати' }).click();
   await expect(sheet.getByRole('alert')).toContainText('103');
   await expect(sheet.getByRole('link', { name: 'Подзвонити 103' })).toHaveAttribute('href', 'tel:103');

@@ -9,6 +9,7 @@ import { amountText } from '../domain/foodSearch';
 import { mealNutrients, round } from '../domain/nutrition';
 import { detachFood, sumGrams } from '../domain/recipes';
 import type { Food, Recipe } from '../domain/types';
+import { AllergenPicker } from '../components/AllergenPicker';
 import { t } from '../i18n/uk';
 
 const L = t.dishes;
@@ -71,6 +72,7 @@ function FoodCard({ food }: { food: Food }) {
               className="block min-h-tap w-full rounded-xl border border-line bg-bg px-2" /></label>
         ))}
       </div>
+      <AllergenPicker value={f.allergens ?? []} onChange={(v) => { const { allergens: _a, ...rest } = f; setF(v.length ? { ...rest, allergens: v } : rest); }} />
       <div className="flex gap-2">
         <button type="button" disabled={!changed || !f.name.trim()} onClick={() => void saved(db.foods.put({ ...f, name: f.name.trim() }), t.toast.saved)}
           className="min-h-tap rounded-xl bg-accent px-3 font-medium text-surface disabled:opacity-40">{L.save}</button>

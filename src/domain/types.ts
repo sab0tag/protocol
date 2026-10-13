@@ -93,7 +93,13 @@ export interface Food {
   units?: FoodUnit[]; // D26: the first one is offered by default
   aliases?: string[]; // D26: other names to find it by ("грудка", "курка")
   custom?: boolean; // D36: the person's own food (from a free line or a photo), synced; the base is not
+  allergens?: Allergen[]; // D57: typical composition for the base; ticked by the person for own foods
 }
+
+/** D57: the 14 allergens food labels must name (EU 1169/2011, Ukrainian rules follow it). */
+export const ALLERGENS = ['gluten', 'milk', 'egg', 'fish', 'crustaceans', 'molluscs', 'peanut', 'nuts', 'soy', 'sesame', 'celery',
+  'mustard', 'sulphites', 'lupin'] as const;
+export type Allergen = (typeof ALLERGENS)[number];
 
 /** D27: a dish made of foods — ingredients for one portion. */
 export interface Recipe {
