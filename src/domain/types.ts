@@ -128,7 +128,7 @@ export interface MealItem {
   components?: MealItem[];
 }
 
-export type EntryKind = 'meal' | 'med' | 'water' | 'workout' | 'note';
+export type EntryKind = 'meal' | 'med' | 'water' | 'workout' | 'note' | 'symptom';
 export type EntryStatus = 'planned' | 'done' | 'skipped';
 
 export interface DayEntry {
@@ -140,6 +140,8 @@ export interface DayEntry {
   items?: MealItem[]; // meal
   waterMl?: number; // water
   workoutId?: string; // workout
+  symptoms?: string[]; // symptom (D56): «Мені погано» — what was felt, at `at`
+  severity?: 1 | 2 | 3; // symptom: легко / помірно / сильно
   prescriptionId?: string; // med
   /** D18: which «Мій день» item this entry ticks (e.g. "med:p-vitd:08:30", "dinner", "mode:0"). */
   checkKey?: string;

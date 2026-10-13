@@ -2,13 +2,26 @@ import type { DayEntry, Food } from '../domain/types';
 import { shownTime } from '../domain/dates';
 import { amountText } from '../domain/foodSearch';
 import { lineNutrients, mealNutrients, round } from '../domain/nutrition';
+import { BEFORE_HOURS, eatenBefore } from '../domain/symptoms';
 import { t } from '../i18n/uk';
 
 const fmt = (n: number) => String(round(n, 1)).replace('.', ',');
 
 /** D46: what a meal row holds — every line with its amount and calories, dishes opened up, the meal in numbers;
  *  shown above the row's actions. */
-export function EntryPreview({ entry, foods }: { entry: DayEntry; foods?: Map<string, Food> }) {
+export function EntryPreview({ entry, foods, all }: { entry: DayEntry; foods?: Map<string, Food>; all?: DayEntry[] }) {
+  if (entry.kind === 'symptom') { // D56: the symptom and, beside it, what was eaten before
+    const before = all ? eatenBefore(all, entry.at) : [];
+    return (
+      <div className="mb-3 space-y-1 text-sm">
+        <p className="text-muted">{shownTime(entry)} · {[t.symptom.word, entry.severity ? t.symptom.level(entry.severity) : ''].filter(Boolean).join(' · ')}</p>
+        <p className="font-medium">{t.symptom.before(BEFORE_HOURS)}</p>
+        {before.length === 0 ? <p className="text-muted">{t.symptom.nothingBefore}</p> : before.map((m) => (
+          <p key={m.id}><span className="tabular text-muted">{shownTime(m)}</span> <span className="font-medium">{m.title}</span>: {m.items?.map((x) => `${x.name} ${amountText(x)}`).join(', ')}</p>
+        ))}
+      </div>
+    );
+  }
   const head = <p className="text-sm text-muted">{shownTime(entry) ?? t.day.timeUnknown} · {t.status[entry.status]}</p>;
   if (entry.kind !== 'meal' || !entry.items?.length || !foods) {
     return <div className="mb-3">{head}{entry.kind === 'water' && <p>{entry.waterMl ?? 0} {t.units.ml}</p>}</div>;

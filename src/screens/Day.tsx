@@ -3,8 +3,9 @@ import { EntryPreview } from '../components/EntryPreview';
 import { pinMeal } from '../components/Favorites';
 import { markMeds, TimeChoice } from '../components/MarkTime';
 import { ConfirmMeal } from '../components/ConfirmMeal';
+import { SymptomSheet } from '../components/SymptomSheet';
 import { saved } from '../components/Toast';
-import { Check, Droplet, Dumbbell, HeartPulse, ListChecks, NotebookPen, Pencil, Pill, Plus, Sparkles, Star, Trash2, Undo2, UtensilsCrossed, X } from 'lucide-react';
+import { Check, Droplet, Dumbbell, Frown, HeartPulse, ListChecks, NotebookPen, Pencil, Pill, Plus, Sparkles, Star, Trash2, Undo2, UtensilsCrossed, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Sheet, SheetButton } from '../components/Sheet';
@@ -31,7 +32,7 @@ import { DayRhythm } from '../components/DayRhythm';
 import { DaySummary } from '../components/DaySummary';
 import { dayRhythm } from '../domain/rhythm';
 
-const KIND_ICON = { meal: UtensilsCrossed, med: Pill, water: Droplet, workout: Dumbbell, note: NotebookPen } as const;
+const KIND_ICON = { meal: UtensilsCrossed, med: Pill, water: Droplet, workout: Dumbbell, note: NotebookPen, symptom: Frown } as const;
 
 /** «День» (SPEC.md §5.1, §14.1, D53): the day by name and week, «Зараз», «Записати їжу», quick tiles, «Ритм дня» —
  *  the plan and the records on one time line — and «Уже сьогодні»; medicine and water float under the thumb. */
@@ -63,7 +64,8 @@ export function Day() {
   const best = foods && all && workouts
     ? habits({ plan, entries: all, workouts, foods, today: todayISO() }).filter((h) => h.streak >= 3).sort((a, b) => b.streak - a.streak)[0]
     : undefined; // D38
-  const [simple, setSimple] = useState<{ kind: Exclude<EntryKind, 'meal'>; entry?: DayEntry } | null>(null);
+  const [simple, setSimple] = useState<{ kind: Exclude<EntryKind, 'meal' | 'symptom'>; entry?: DayEntry } | null>(null);
+  const [symptom, setSymptom] = useState<{ entry?: DayEntry } | null>(null); // D56
 
   const mode = activeMode(plan, date);
   const targets = effectiveTargets(plan, date);
@@ -104,11 +106,13 @@ export function Day() {
   const edit = (e: DayEntry) => {
     setRowFor(null);
     if (e.kind === 'meal') navigate(`/meal/${e.id}`);
+    else if (e.kind === 'symptom') setSymptom({ entry: e });
     else setSimple({ kind: e.kind, entry: e });
   };
   const startAdd = (kind: EntryKind) => {
     setAdding(false);
     if (kind === 'meal') navigate('/meal/new');
+    else if (kind === 'symptom') setSymptom({});
     else setSimple({ kind });
   };
 
@@ -146,9 +150,15 @@ export function Day() {
       )}
 
       {/* D53: recording food is one strong button on «День», not a row under a table */}
-      <button type="button" onClick={() => navigate('/meal/new')}
-        className="mb-4 flex min-h-[3.5rem] w-full items-center justify-center gap-2 rounded-2xl border border-accent/40 bg-surface text-lg font-semibold text-accent shadow-sm">
-        <UtensilsCrossed size={22} aria-hidden />{t.day.recordFood}</button>
+      <div className="mb-4 flex gap-2">
+        <button type="button" onClick={() => navigate('/meal/new')}
+          className="flex min-h-[3.5rem] flex-1 items-center justify-center gap-2 rounded-2xl border border-accent/40 bg-surface text-lg font-semibold text-accent shadow-sm">
+          <UtensilsCrossed size={22} aria-hidden />{t.day.recordFood}</button>
+        {/* D56: a symptom with its time, next to the food it may follow */}
+        <button type="button" onClick={() => setSymptom({})}
+          className="flex min-h-[3.5rem] shrink-0 items-center justify-center gap-1.5 rounded-2xl border border-line bg-surface px-3 font-medium shadow-sm">
+          <Frown size={20} className="text-warn" aria-hidden />{t.addKinds.symptom}</button>
+      </div>
 
       <nav aria-label={t.day.quick} className="mb-5 grid grid-cols-5 gap-1">
         {quick.map(({ label, Icon, go, badge }) => (
@@ -187,10 +197,10 @@ export function Day() {
 
       {rowFor && (
         <Sheet title={rowFor.title} onClose={() => setRowFor(null)}>
-          <EntryPreview entry={rowFor} foods={foods} />
-          {rowFor.status !== 'done' && <SheetButton tone="accent" onClick={() => setStatus(rowFor, 'done')}><Check size={20} />{t.rowActions.done}</SheetButton>}
-          {rowFor.status !== 'skipped' && <SheetButton onClick={() => setStatus(rowFor, 'skipped')}><X size={20} />{t.rowActions.skipped}</SheetButton>}
-          {rowFor.status !== 'planned' && <SheetButton onClick={() => setStatus(rowFor, 'planned')}><Undo2 size={20} />{t.rowActions.planned}</SheetButton>}
+          <EntryPreview entry={rowFor} foods={foods} {...(all ? { all } : {})} />
+          {rowFor.kind !== 'symptom' && rowFor.status !== 'done' && <SheetButton tone="accent" onClick={() => setStatus(rowFor, 'done')}><Check size={20} />{t.rowActions.done}</SheetButton>}
+          {rowFor.kind !== 'symptom' && rowFor.status !== 'skipped' && <SheetButton onClick={() => setStatus(rowFor, 'skipped')}><X size={20} />{t.rowActions.skipped}</SheetButton>}
+          {rowFor.kind !== 'symptom' && rowFor.status !== 'planned' && <SheetButton onClick={() => setStatus(rowFor, 'planned')}><Undo2 size={20} />{t.rowActions.planned}</SheetButton>}
           <SheetButton onClick={() => edit(rowFor)}><Pencil size={20} />{t.rowActions.edit}</SheetButton>
           {rowFor.kind === 'meal' && !!rowFor.items?.length && (
             <SheetButton onClick={() => { const e = rowFor; setRowFor(null); void pinMeal(e.title, e.items!); }}><Star size={20} />{t.meal.pin}</SheetButton>
@@ -241,6 +251,7 @@ export function Day() {
       {askMed && <TimeChoice title={askMed.title} {...(askMed.time ? { planned: askMed.time } : {})} date={date} onClose={() => setAskMed(null)}
         onPick={(when) => void markMeds([{ key: askMed.key, title: askMed.title, ...(askMed.prescriptionId ? { prescriptionId: askMed.prescriptionId } : {}) }],
           date, askMed.time, 'done', when)} />}
+      {symptom && all && <SymptomSheet date={date} {...(symptom.entry ? { entry: symptom.entry } : {})} all={all} onClose={() => setSymptom(null)} />}
       {simple && <SimpleEntrySheet kind={simple.kind} entry={simple.entry} date={date} onClose={() => setSimple(null)} />}
     </section>
   );

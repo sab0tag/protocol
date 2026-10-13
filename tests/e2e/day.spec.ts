@@ -78,6 +78,33 @@ test('the new «День»: the plan on an empty day, a dose asks when, main num
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Сьогодні');
 });
 
+test('«Мені погано»: a symptom with its time, what was eaten before it, and «103» for a danger sign (D56)', async ({ browser }) => {
+  const page = await device(browser);
+  const now = new Date(), d = ymd(now);
+  test.skip(now.getHours() < 2, 'needs a meal an hour ago today');
+  const x = new Date(now.getTime() - 60 * 60_000);
+  const hm = `${String(x.getHours()).padStart(2, '0')}:${String(x.getMinutes()).padStart(2, '0')}`;
+  await seed(page, [{ store: 'entries', value: { id: 'k', at: `${d}T${hm}:00+03:00`, kind: 'meal', status: 'done', title: 'Перекус',
+    items: [{ foodId: 'kefir', name: 'Кефір 2,5 %', grams: 250 }] } }]);
+  await page.getByRole('button', { name: 'Мені погано' }).first().click();
+  const sheet = page.getByRole('dialog', { name: 'Що відчуваєте?' });
+  await expect(sheet.getByRole('region', { name: /^Що їли за 6 год/ })).toContainText('Кефір 2,5 %');
+  await sheet.getByRole('button', { name: 'Важко дихати' }).click();
+  await expect(sheet.getByRole('alert')).toContainText('103');
+  await expect(sheet.getByRole('link', { name: 'Подзвонити 103' })).toHaveAttribute('href', 'tel:103');
+  await sheet.getByRole('button', { name: 'Важко дихати' }).click();
+  await expect(sheet.getByRole('alert')).toHaveCount(0);
+  await sheet.getByRole('button', { name: 'Здуття' }).click();
+  await sheet.getByRole('button', { name: 'Помірно' }).click();
+  await sheet.getByRole('button', { name: 'Записати' }).click();
+  await expect(toast(page)).toContainText('Здуття — записано');
+  const node = page.getByRole('region', { name: 'Ритм дня' }).getByRole('button', { name: 'Здуття, Симптом' });
+  await expect(node).toContainText('Симптом · помірно');
+  await node.click();
+  await expect(page.getByRole('dialog', { name: 'Здуття' })).toContainText('Кефір 2,5 %');
+  await expect(page.getByRole('dialog', { name: 'Здуття' }).getByRole('button', { name: 'Виконано' })).toHaveCount(0);
+});
+
 test('the service worker fills reminders in from the phone\'s own data', async ({ browser }) => {
   const page = await device(browser);
   const today = ymd(new Date()), tomorrow = ymd(new Date(Date.now() + 86_400_000));

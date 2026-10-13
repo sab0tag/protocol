@@ -9,7 +9,7 @@ import { t } from '../i18n/uk';
 
 /** Medicine, water, workout or note: a title (or millilitres) and a time. Rich forms come in M3. */
 export function SimpleEntrySheet({ kind, entry, date, onClose }: {
-  kind: Exclude<EntryKind, 'meal'>; entry?: DayEntry; date: string; onClose: () => void;
+  kind: Exclude<EntryKind, 'meal' | 'symptom'>; entry?: DayEntry; date: string; onClose: () => void;
 }) {
   const [title, setTitle] = useState(entry?.title ?? (kind === 'water' ? t.addKinds.water : ''));
   const [ml, setMl] = useState(String(entry?.waterMl ?? 250));

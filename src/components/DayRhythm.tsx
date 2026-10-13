@@ -60,17 +60,19 @@ function Node({ node, last, foods, onEntry, onDose }: {
   const e = node.entry;
   const detail = e.kind === 'meal' ? e.items?.map((x) => `${x.name} ${amountText(x)}`).join(', ') : undefined;
   const carbs = e.kind === 'meal' && e.items?.length && foods ? round(mealNutrients(e.items, foods).carbs) : null;
-  const state = e.status === 'done' ? 'done' : e.status === 'skipped' ? 'skipped' : 'ahead';
-  const word = e.status === 'done' ? L.recorded : e.status === 'skipped' ? t.status.skipped : e.menu ? L.menuProposal : t.status.planned;
+  const sym = e.kind === 'symptom'; // D56
+  const state = sym ? 'symptom' : e.status === 'done' ? 'done' : e.status === 'skipped' ? 'skipped' : 'ahead';
+  const word = sym ? [t.symptom.word, e.severity ? t.symptom.level(e.severity) : ''].filter(Boolean).join(' · ')
+    : e.status === 'done' ? L.recorded : e.status === 'skipped' ? t.status.skipped : e.menu ? L.menuProposal : t.status.planned;
   return (
     <li className="relative">
-      <button type="button" onClick={() => onEntry(e)} aria-label={`${e.title}, ${t.status[e.status]}${e.timeUnknown ? `, ${L.timeUnknown}` : ''}`}
+      <button type="button" onClick={() => onEntry(e)} aria-label={`${e.title}, ${sym ? t.symptom.word : t.status[e.status]}${e.timeUnknown ? `, ${L.timeUnknown}` : ''}`}
         className={`grid min-h-tap w-full grid-cols-[3.5rem_1.5rem_1fr_auto] items-start gap-x-1 py-2 text-left ${state === 'skipped' ? 'opacity-60' : ''}`}>
         <span className="tabular text-muted" title={e.timeUnknown ? L.timeUnknown : undefined}>{e.timeUnknown ? '—' : node.at}</span><Dot state={state} />
         <span className="min-w-0">
           <span className={`block font-medium ${state === 'skipped' ? 'line-through' : ''}`}>{e.title}</span>
           {detail && <span className="block truncate text-sm text-muted">{detail}</span>}
-          <span className={`block text-sm ${state === 'done' ? 'text-accent' : 'text-muted'}`}>{word}</span>
+          <span className={`block text-sm ${state === 'done' ? 'text-accent' : state === 'symptom' ? 'text-warn' : 'text-muted'}`}>{word}</span>
         </span>
         <span className="tabular pl-2 text-right text-sm text-muted">{carbs !== null ? L.carbsShort(carbs) : ''}</span>
       </button>{line}
@@ -78,7 +80,7 @@ function Node({ node, last, foods, onEntry, onDose }: {
   );
 }
 
-function Dot({ state }: { state: 'done' | 'ahead' | 'skipped' }) {
-  const look = state === 'done' ? 'h-3 w-3 bg-accent' : state === 'ahead' ? 'h-3 w-3 border-2 border-muted bg-bg' : 'h-2 w-2 bg-line';
+function Dot({ state }: { state: 'done' | 'ahead' | 'skipped' | 'symptom' }) {
+  const look = state === 'done' ? 'h-3 w-3 bg-accent' : state === 'symptom' ? 'h-3 w-3 bg-warn' : state === 'ahead' ? 'h-3 w-3 border-2 border-muted bg-bg' : 'h-2 w-2 bg-line';
   return <span className="relative z-10 flex h-6 items-center justify-center" aria-hidden><span className={`rounded-full ${look}`} /></span>;
 }
