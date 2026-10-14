@@ -121,7 +121,7 @@ export function Day() {
     { label: t.menu.quick, Icon: Sparkles, go: () => navigate(`/menu?date=${date}`) },
     { label: t.day.likeYesterday, Icon: Undo2, go: () => setYesterday(true) },
     { label: t.well.short, Icon: HeartPulse, go: () => navigate('/wellbeing') },
-    { label: t.workout.title, Icon: Dumbbell, go: () => navigate('/workout') },
+    { label: t.workout.title, Icon: Dumbbell, go: () => navigate('/workout'), done: !!workouts?.some((w) => w.date === date) },
     { label: t.myday.title, Icon: ListChecks, go: () => navigate('/my-day'), badge: checklist && checklist.total > 0 ? t.myday.counter(checklist.done, checklist.total) : undefined },
   ];
 
@@ -161,10 +161,11 @@ export function Day() {
       </div>
 
       <nav aria-label={t.day.quick} className="mb-5 grid grid-cols-5 gap-1">
-        {quick.map(({ label, Icon, go, badge }) => (
-          <button key={label} type="button" onClick={go} className="flex min-h-tap flex-col items-center gap-1 text-center">
+        {quick.map(({ label, Icon, go, badge, done }) => (
+          <button key={label} type="button" onClick={go} aria-label={done ? `${label}, ${t.myday.workoutDone}` : undefined} className="flex min-h-tap flex-col items-center gap-1 text-center">
             <span className="relative flex h-12 w-12 items-center justify-center rounded-2xl bg-surface shadow-sm"><Icon size={22} className="text-accent" aria-hidden />
-              {badge && <span className="tabular absolute -right-2 -top-1.5 rounded-full bg-accent px-1.5 text-xs font-medium text-surface">{badge}</span>}</span>
+              {badge && <span className="tabular absolute -right-2 -top-1.5 rounded-full bg-accent px-1.5 text-xs font-medium text-surface">{badge}</span>}
+              {done && <span className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full border-2 border-bg bg-accent text-surface" aria-hidden><Check size={11} strokeWidth={3} /></span>}</span>
             <span className="text-xs leading-tight">{label}</span>
           </button>
         ))}

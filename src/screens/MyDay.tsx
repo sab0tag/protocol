@@ -63,8 +63,8 @@ export function MyDay() {
             <button type="button" onClick={() => void toggle(item)} disabled={!item.tappable && item.kind !== 'workout'}
               aria-pressed={item.tappable ? item.done : undefined}
               className="flex min-h-tap w-full items-center gap-3 px-3 py-2 text-left disabled:cursor-default">
-              {item.kind === 'workout' ? <Dumbbell size={24} className={item.done ? 'text-accent' : 'text-muted'} aria-hidden />
-                : item.done ? <span className="flex h-6 w-6 items-center justify-center rounded-full bg-accent text-surface"><Check size={16} /></span>
+              {item.done ? <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent text-surface"><Check size={16} aria-hidden /></span>
+                : item.kind === 'workout' ? <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 border-line text-muted"><Dumbbell size={13} aria-hidden /></span>
                   : <Circle size={24} className="text-line" aria-hidden />}
               <span className="min-w-0 flex-1">
                 <span className={`block font-medium ${item.done ? 'text-muted line-through decoration-accent/50' : ''}`}>{item.title}</span>
@@ -72,6 +72,7 @@ export function MyDay() {
               </span>
               <span className="tabular shrink-0 text-sm">
                 {item.doneAt && <span className="text-accent">{M.doneAt(item.doneAt)}</span>}
+                {item.kind === 'workout' && <span className={item.done ? 'font-medium text-accent' : 'text-accent'}>{item.done ? M.workoutDone : M.workoutOpen}</span>}
                 {item.minutesLeft != null && <span className="font-medium text-warn">{M.minutesLeft(item.minutesLeft)}</span>}
                 {item.late && <span className="text-muted">{M.late}</span>}
               </span>

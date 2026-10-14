@@ -166,6 +166,7 @@ export const t = {
     timeUnknown: 'Час не відомий — змініть, якщо пригадаєте',
   },
   myday: {
+    workoutDone: 'Пройдено', workoutOpen: 'Записати', // the status is said, not left to an icon's colour
     title: 'Мій день',
     counter: (d: number, t: number) => `${d} / ${t}`,
     water: (ml: number, target?: number) => `${ml}${target ? ` / ${target}` : ''} мл`,
