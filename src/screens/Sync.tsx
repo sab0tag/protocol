@@ -36,6 +36,8 @@ function Off() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const linked = params.get('pair') ?? ''; // D40: the QR of another device
+  const raw = params.get('back') ?? ''; // D74: where sync was asked for (the menu, with its wish) — back there once on
+  const back = raw.startsWith('/') && !raw.startsWith('//') ? raw : '';
   const [mode, setMode] = useState<'none' | 'new' | 'join'>(linked ? 'join' : 'none');
   const [code, setCode] = useState(linked);
   const [busy, setBusy] = useState(false);
@@ -47,8 +49,8 @@ function Off() {
       await enableSync(c, how);
       if (how === 'join') { // the plan and the days have arrived
         if ((await db.plan.get('main'))?.onboardedAt) useUi.getState().setOnboarded();
-        navigate('/', { replace: true });
-      }
+        navigate(back || '/', { replace: true });
+      } else if (back) navigate(back, { replace: true });
     } catch (e) { setError(errorText(e)); } finally { setBusy(false); }
   };
 

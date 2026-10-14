@@ -1,12 +1,14 @@
+import { X } from 'lucide-react';
 import { useEffect, useRef, type ReactNode } from 'react';
+import { t } from '../i18n/uk';
 
-/** A bottom sheet on phones, a centred dialog on wider screens. Escape or a tap outside closes it. */
+/** A bottom sheet on phones, a centred dialog on wider screens. Escape, a tap outside or the visible × closes it (D74). */
 export function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
   const panel = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
     document.addEventListener('keydown', onKey);
-    panel.current?.querySelector<HTMLElement>('button:not(summary *), input, select, textarea')?.focus({ preventScroll: true });
+    panel.current?.querySelector<HTMLElement>('[data-body] :is(button:not(summary *), input, select, textarea)')?.focus({ preventScroll: true });
     return () => document.removeEventListener('keydown', onKey);
   }, [onClose]);
   return (
@@ -14,8 +16,12 @@ export function Sheet({ title, onClose, children }: { title: string; onClose: ()
       <div ref={panel} role="dialog" aria-modal="true" aria-label={title}
         className="max-h-[88dvh] w-full max-w-md overflow-y-auto rounded-t-2xl bg-surface p-4 pb-safe shadow-xl md:rounded-2xl"
         onClick={(e) => e.stopPropagation()}>
-        <h2 className="mb-3 text-lg font-semibold">{title}</h2>
-        {children}
+        <div className="mb-3 flex items-start gap-2">
+          <h2 className="flex-1 pt-2 text-lg font-semibold">{title}</h2>
+          <button type="button" onClick={onClose} aria-label={t.rowActions.close}
+            className="-mr-2 -mt-1 flex min-h-tap min-w-tap shrink-0 items-center justify-center rounded-xl text-muted hover:bg-bg"><X size={22} aria-hidden /></button>
+        </div>
+        <div data-body>{children}</div>
       </div>
     </div>
   );

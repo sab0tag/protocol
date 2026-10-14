@@ -161,7 +161,7 @@ export function checkMeal(ctx: RuleContext): ItemCheck[] {
 }
 
 export interface MealVerdict {
-  fits: boolean; // «Підходить» / «Підходить частково»
+  fits: boolean; // «Підходить» / what needs attention (D74)
   okCount: number;
   total: number;
 }

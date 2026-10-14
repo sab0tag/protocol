@@ -246,7 +246,8 @@ export function Day() {
         const meals = mealsOf(all, prevDay);
         return (
           <Sheet title={t.day.yesterdayTitle} onClose={() => setYesterday(false)}>
-            {meals.length === 0 && <p className="text-muted">{t.day.yesterdayEmpty}</p>}
+            {meals.length === 0 && <p className="mb-2 text-muted">{t.day.yesterdayEmpty}</p>}
+            {meals.length === 0 && <SheetButton tone="accent" onClick={() => navigate('/meal/new')}><UtensilsCrossed size={20} />{t.day.firstMeal}</SheetButton>}
             {meals.map((e) => (
               <SheetButton key={e.id} onClick={() => void copyMeal(e).then(() => setYesterday(false))}>
                 <UtensilsCrossed size={20} className="shrink-0" />

@@ -42,7 +42,7 @@ export function Menu() {
   const meta = useLiveQuery(async () => (await db.meta.get('sync')) ?? null, []);
   const [date, setDate] = useState(() => { const d = params.get('date'); return d && d >= todayISO() ? d : tomorrow(); });
   const [days, setDays] = useState(1);
-  const [wish, setWish] = useState('');
+  const [wish, setWish] = useState(() => params.get('wish') ?? ''); // D74: kept across enabling sync
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
   const [drafts, setDrafts] = useState<MenuDraft[]>([]);
@@ -119,11 +119,17 @@ export function Menu() {
 
   const replacing = drafts.some((d) => all.some((e) => dateOf(e.at) === d.date && e.menu && e.status === 'planned'));
   const last = drafts.at(-1)?.date ?? date;
+  const likeYesterdayButton = (
+    <button type="button" onClick={yesterday} disabled={!!busy}
+      className="flex min-h-tap items-center gap-2 rounded-xl border border-accent px-3 font-medium text-accent disabled:opacity-40">
+      <Undo2 size={18} aria-hidden />{L.likeYesterday}</button>
+  );
 
   return (
     <section className="space-y-4 pt-6">
       <div className="flex items-start justify-between gap-2">
-        <h1 className="text-2xl font-semibold">{L.title}</h1>
+        <h1 className="text-2xl font-semibold">{L.titleFor(date === todayISO() ? L.today : date === tomorrow() ? L.tomorrow
+          : format(parseISO(date), 'd MMMM', { locale: uk }))}</h1>
         <Link to={`/shopping?from=${date}&to=${last}`} className="flex min-h-tap items-center gap-1 text-accent underline">
           <ShoppingCart size={18} aria-hidden />{t.shop.title}</Link>
       </div>
@@ -143,7 +149,16 @@ export function Menu() {
         </div>
         <label className="block"><span className="text-sm text-muted">{L.wish}</span>
           <input value={wish} onChange={(e) => setWish(e.target.value)} placeholder={L.wishPh} maxLength={300} className={field} /></label>
-        {!meta || !keys ? <p className="text-sm text-muted">{L.needsSync}</p> : consent && !meta.menuConsent ? (
+        {!meta || !keys ? (
+          <div className="space-y-2">
+            <p className="text-sm text-muted">{L.needsSync}</p>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={() => navigate(`/sync?back=${encodeURIComponent(`/menu?date=${date}${wish ? `&wish=${encodeURIComponent(wish)}` : ''}`)}`)}
+                className="flex min-h-tap items-center gap-2 rounded-xl bg-accent px-3 font-medium text-surface">{L.enableSync}</button>
+              {likeYesterdayButton}
+            </div>
+          </div>
+        ) : consent && !meta.menuConsent ? (
           <div className="space-y-2 rounded-xl border border-accent/40 p-2 text-sm">
             <p>{L.consent}</p>
             <button type="button" onClick={async () => { await db.meta.update('sync', { menuConsent: true }); setConsent(false); void make(true); }}
@@ -154,9 +169,7 @@ export function Menu() {
             <button type="button" onClick={() => void make()} disabled={!!busy}
               className="flex min-h-tap items-center gap-2 rounded-xl bg-accent px-3 font-medium text-surface disabled:opacity-40">
               <Sparkles size={18} aria-hidden />{drafts.length ? L.again : L.make}</button>
-            <button type="button" onClick={yesterday} disabled={!!busy}
-              className="flex min-h-tap items-center gap-2 rounded-xl border border-accent px-3 font-medium text-accent disabled:opacity-40">
-              <Undo2 size={18} aria-hidden />{L.likeYesterday}</button>
+            {likeYesterdayButton}
           </div>
         )}
         {busy && <p role="status" className="text-sm text-muted">{busy}</p>}

@@ -4,7 +4,7 @@ import { Backup } from '../components/Backup';
 import { t } from '../i18n/uk';
 
 const LINKS = [
-  { to: '/menu', Icon: Sparkles, title: t.menu.title },
+  { to: '/menu', Icon: Sparkles, title: t.menu.quick },
   { to: '/shopping', Icon: ShoppingCart, title: t.shop.title },
   { to: '/reminders', Icon: BellRing, title: t.remind.title },
   { to: '/sync', Icon: RefreshCw, title: t.sync.title },

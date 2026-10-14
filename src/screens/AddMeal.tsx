@@ -469,7 +469,7 @@ function CheckPanel({ checks, anyActive, swapped }: { checks: ItemCheck[]; anyAc
   return (
     <section aria-live="polite" className={`rounded-2xl border p-3 ${v.fits ? 'border-accent/40 bg-accent/5' : 'border-warn/30 bg-warn-bg'}`}>
       <h2 className="font-semibold">{t.check.title}</h2>
-      <p className={`mb-2 font-medium ${v.fits ? 'text-accent' : 'text-warn'}`}>{v.fits ? t.check.fits : t.check.partly(v.okCount, v.total)}</p>
+      <p className={`mb-2 font-medium ${v.fits ? 'text-accent' : 'text-warn'}`}>{v.fits ? t.check.fits : attentionText(checks)}</p>
       <ul className="space-y-2">
         {checks.map(({ item, hits }, i) => (
           <li key={i} className="rounded-xl bg-surface p-2">
@@ -491,6 +491,14 @@ function CheckPanel({ checks, anyActive, swapped }: { checks: ItemCheck[]; anyAc
       )}
     </section>
   );
+}
+
+function attentionText(checks: ItemCheck[]): string {
+  const off = checks.filter((c) => c.hits.some((h) => h.verdict !== 'ok'));
+  const one = off.length === 1 ? off[0] : undefined;
+  const why = one?.hits.find((x) => x.verdict !== 'ok');
+  if (one && why) return t.check.attentionOne(one.item.name, why.message);
+  return t.check.attention(off.length, checks.length);
 }
 
 function Badge({ verdict, small }: { verdict: 'ok' | 'replace' | 'remove' | 'adjust'; small?: boolean }) {
