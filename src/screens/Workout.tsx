@@ -2,17 +2,21 @@ import { format, parseISO } from 'date-fns';
 import { Loading } from '../components/Recovery';
 import { saved as withToast } from '../components/Toast';
 import { uk } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Info } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Info, Plus, RefreshCw, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { db } from '../data/db';
 import { usePlan, useWorkouts } from '../data/queries';
 import { atLocal, newId, todayISO } from '../domain/dates';
 import type { Workout as W, WorkoutExercise } from '../domain/types';
-import { blankExercise, EQUIPMENT, pressHint, programme, programmeWeek, workoutDay } from '../domain/workouts';
+import { blankExercise, EQUIPMENT, pressHint, programmeWeek, startingSet, workoutDay } from '../domain/workouts';
+import { EXERCISES, exerciseOf, type Exercise } from '../data/exercises';
+import { ExerciseCard, LevelBadge } from '../components/ExerciseCard';
+import { ExerciseLibrary } from '../components/ExerciseLibrary';
 import { t } from '../i18n/uk';
 import { useUi } from '../store/ui';
 
 const L = t.workout;
+const E = t.exercise;
 const dm = (d: string) => format(parseISO(d), 'EEEE, d MMMM', { locale: uk });
 
 /** «Тренування» (SPEC.md §5.6): the programme of the week, reps per set, each arm apart for one-arm work. */
@@ -30,12 +34,18 @@ export function Workout() {
   useEffect(() => {
     if (!workouts) return;
     setSaved(false);
-    setDraft(existing ?? { id: newId(), date, durationMin: 30, equipment: EQUIPMENT, exercises: programme(week).map(blankExercise) });
+    const last = workouts.filter((w) => w.date < date).at(-1);
+    const start = startingSet(last, last && first ? programmeWeek(first, last.date) : week, week); // D60
+    setDraft(existing ?? { id: newId(), date, durationMin: 30, equipment: EQUIPMENT, exercises: start.map(blankExercise) });
   }, [date, workouts === undefined]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [card, setCard] = useState<Exercise | null>(null);
+  const [picking, setPicking] = useState<{ replace?: number } | null>(null); // D60: the library inline — to add, or to replace exercise #
 
   if (!workouts || !draft) return <Loading />;
   const schedule = workoutDay(plan, workouts.filter((w) => w.date !== date), date);
-  const templates = programme(week);
+  const add = (e: Exercise) => { setDraft({ ...draft, exercises: [...draft.exercises, blankExercise(e)] }); setPicking(null); };
+  const replace = (i: number, e: Exercise) => { setDraft({ ...draft, exercises: draft.exercises.map((x, j) => (j === i ? blankExercise(e) : x)) }); setPicking(null); };
+  const remove = (i: number) => setDraft({ ...draft, exercises: draft.exercises.filter((_, j) => j !== i) });
 
   const setEx = (i: number, ex: WorkoutExercise) => setDraft({ ...draft, exercises: draft.exercises.map((x, j) => (j === i ? ex : x)) });
   const save = async () => {
@@ -69,16 +79,32 @@ export function Workout() {
       )}
 
       {draft.exercises.map((ex, i) => {
-        const tpl = templates.find((x) => x.name === ex.name);
-        const timed = tpl?.timed ?? ex.name === 'Планка';
+        const lib = exerciseOf(ex);
+        const timed = lib?.timed ?? ex.name === 'Планка';
         const hint = pressHint(ex);
         const rows: number[][] = [];
         ex.sets.forEach((s, j) => { const k = s.side === 'L' ? rows.length - 1 : rows.length; if (s.side === 'L' && k >= 0) rows[k]!.push(j); else rows.push([j]); });
         return (
-          <fieldset key={ex.name} className="rounded-2xl border border-line bg-surface p-3">
+          <fieldset key={`${i}-${ex.name}`} className="rounded-2xl border border-line bg-surface p-3">
             <legend className="sr-only">{ex.name}</legend>
-            <p className="font-semibold">{ex.name}</p>
+            <div className="flex items-start gap-1">
+              {lib ? <button type="button" onClick={() => setCard(lib)} aria-label={`${E.how}: ${ex.name}`}
+                className="flex min-h-tap flex-1 items-center gap-2 text-left font-semibold"><Info size={18} className="shrink-0 text-accent" aria-hidden />
+                <span>{ex.name}</span><LevelBadge level={lib.level} /></button>
+                : <p className="min-h-tap flex-1 py-2 font-semibold">{ex.name}</p>}
+              <button type="button" onClick={() => setPicking(picking?.replace === i ? null : { replace: i })} aria-label={`${E.swap}: ${ex.name}`}
+                className="flex min-h-tap min-w-tap items-center justify-center text-accent"><RefreshCw size={18} aria-hidden /></button>
+              <button type="button" onClick={() => remove(i)} aria-label={`${E.remove}: ${ex.name}`}
+                className="flex min-h-tap min-w-tap items-center justify-center text-muted"><X size={18} aria-hidden /></button>
+            </div>
             <p className="mb-2 text-sm text-muted">{ex.target}</p>
+            {picking?.replace === i && (
+              <div className="mb-3 rounded-xl border border-accent/40 p-2">
+                <p className="mb-2 text-sm font-medium">{E.alternatives(ex.name)}</p>
+                <ExerciseLibrary list={EXERCISES.filter((x) => x.id !== lib?.id && (!lib || x.pattern === lib.pattern))}
+                  action={{ label: E.swapThis, run: (x) => replace(i, x) }} />
+              </div>
+            )}
             <div className="space-y-2">
               {rows.map((idx, r) => (
                 <div key={r} className="flex items-center gap-2">
@@ -108,6 +134,17 @@ export function Workout() {
         );
       })}
 
+      {picking && picking.replace === undefined ? (
+        <div className="rounded-2xl border border-accent/40 bg-surface p-3">
+          <p className="mb-2 font-semibold">{E.add}</p>
+          <ExerciseLibrary action={{ label: E.addThis, run: add }} />
+          <button type="button" onClick={() => setPicking(null)} className="mt-2 min-h-tap px-1 text-accent">{t.picker.done}</button>
+        </div>
+      ) : (
+        <button type="button" onClick={() => setPicking({})} className="flex min-h-tap items-center gap-2 px-1 font-medium text-accent">
+          <Plus size={18} aria-hidden />{E.add}</button>
+      )}
+
       <div className="rounded-2xl border border-line bg-surface p-3">
         <label className="block"><span className="text-sm text-muted">{L.duration}</span>
           <input type="number" inputMode="numeric" min={0} value={draft.durationMin}
@@ -125,6 +162,7 @@ export function Workout() {
 
       <button type="button" onClick={() => void save()} className="min-h-tap w-full rounded-xl bg-accent px-4 font-medium text-surface">
         {saved ? L.saved : L.save}</button>
+      {card && <ExerciseCard exercise={card} onClose={() => setCard(null)} />}
     </section>
   );
 }

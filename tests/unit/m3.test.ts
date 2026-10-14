@@ -84,12 +84,12 @@ describe('workouts (§5.6, §9.2)', () => {
   it('the programme adds swings from week 5', () => {
     expect(programmeWeek(undefined, DATE)).toBe(1);
     expect(programmeWeek('2026-09-01', DATE)).toBe(5);
-    expect(programme(4).map((e) => e.name)).not.toContain('Махи');
-    expect(programme(5).map((e) => e.name)).toContain('Махи');
+    expect(programme(4).map((e) => e.id)).not.toContain('swing');
+    expect(programme(5).map((e) => e.id)).toContain('swing');
   });
 
   it('one-arm work has R and L sets; a weaker left press gets the hint', () => {
-    const press = blankExercise(programme(1).find((e) => e.name === 'Жим стоячи')!);
+    const press = blankExercise(programme(1).find((e) => e.id === 'press')!);
     expect(press.sets.map((s) => s.side)).toEqual(['R', 'L', 'R', 'L', 'R', 'L']);
     const done = { ...press, sets: press.sets.map((s) => ({ ...s, reps: s.side === 'R' ? 8 : 6 })) };
     expect(pressHint(done)).toContain('по Л');

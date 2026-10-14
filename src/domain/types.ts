@@ -179,6 +179,7 @@ export interface WorkoutSet {
   side?: 'L' | 'R';
 }
 export interface WorkoutExercise {
+  exerciseId?: string; // D60: from the library (src/data/exercises.ts); older workouts have the name only
   name: string;
   target: string;
   sets: WorkoutSet[];

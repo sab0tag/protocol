@@ -19,6 +19,7 @@ import { Reminders } from '../screens/Reminders';
 import { Shopping } from '../screens/Shopping';
 import { Wellbeing } from '../screens/Wellbeing';
 import { Workout } from '../screens/Workout';
+import { Exercises } from '../screens/Exercises';
 
 /** A fresh form for every meal: /meal/new after editing /meal/:id must not keep the old state. */
 function MealRoute() {
@@ -54,6 +55,7 @@ export function App() {
             <Route path="/my-day" element={<MyDay />} />
             <Route path="/wellbeing" element={<Wellbeing />} />
             <Route path="/workout" element={<Workout />} />
+            <Route path="/exercises" element={<Exercises />} />
             <Route path="/plan" element={<Plan />} />
             <Route path="/welcome" element={<Onboarding />} />
             <Route path="/progress" element={<Progress />} />

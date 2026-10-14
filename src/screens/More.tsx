@@ -13,6 +13,7 @@ const LINKS = [
   { to: '/my-day', Icon: ListChecks, title: t.myday.title },
   { to: '/wellbeing', Icon: Activity, title: t.well.title },
   { to: '/workout', Icon: Dumbbell, title: t.workout.title },
+  { to: '/exercises', Icon: Dumbbell, title: t.exercise.library },
   { to: '/welcome', Icon: UserRound, title: t.welcome.again },
 ];
 
