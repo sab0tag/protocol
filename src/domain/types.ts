@@ -73,6 +73,8 @@ export interface Plan {
   questions?: string[];
   /** D22: the last JSON export — the weekly reminder counts from it. */
   lastExportAt?: ISODate;
+  /** D72: one goal for the week, chosen by the person on «Тиждень» */
+  weekGoal?: { text: string; set: ISODate };
 }
 
 export interface Nutrients {

@@ -98,7 +98,7 @@ export function reminders(args: { entries: DayEntry[]; plan: Plan | undefined; s
     const wd = ((new Date(`${d}T12:00:00`).getDay() + 6) % 7) + 1; // ISO weekday
     if (settings.weekly && wd === 7) {
       push({ key: `week:${d}`, at: at(d, '19:00'), once: true,
-        payload: { t: 'Тиждень у цифрах', b: 'Подивіться «Прогрес»', k: 'week', u: './#/progress', tag: `week:${d}`, d } });
+        payload: { t: 'Тиждень у цифрах', b: 'Подивіться тиждень і оберіть ціль', k: 'week', u: './#/week', tag: `week:${d}`, d } });
     }
     if (settings.weightDay && wd === settings.weightDay) {
       push({ key: `weight:${d}`, at: at(d, settings.morning || '08:00') + 5 * 60_000, once: true,

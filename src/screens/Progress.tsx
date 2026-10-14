@@ -193,7 +193,7 @@ function Labs({ rows }: { rows: ReturnType<typeof labRows> }) {
 }
 
 /** D38: gentle — a run when there is one, otherwise how many days of the week; nothing is «lost». */
-function HabitsCard({ list }: { list: Habit[] }) {
+export function HabitsCard({ list }: { list: Habit[] }) {
   if (!list.length) return null;
   return (
     <section className="rounded-2xl border border-line bg-surface p-3">
@@ -214,7 +214,7 @@ function HabitsCard({ list }: { list: Habit[] }) {
   );
 }
 
-function WeekCard({ summary: s }: { summary: ReturnType<typeof weekSummary> }) {
+export function WeekCard({ summary: s }: { summary: ReturnType<typeof weekSummary> }) {
   const tiles: [string, string][] = [];
   if (s.carbsOk !== undefined) tiles.push([L.weekCarbs, L.ofDays(s.carbsOk, s.days)]);
   if (s.proteinOk !== undefined) tiles.push([L.weekProtein, L.ofDays(s.proteinOk, s.days)]);

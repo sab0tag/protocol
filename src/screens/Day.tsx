@@ -5,7 +5,7 @@ import { markMeds, TimeChoice } from '../components/MarkTime';
 import { ConfirmMeal } from '../components/ConfirmMeal';
 import { SymptomSheet } from '../components/SymptomSheet';
 import { saved } from '../components/Toast';
-import { Check, Droplet, Dumbbell, Frown, HeartPulse, ListChecks, NotebookPen, Pencil, Pill, Plus, Sparkles, Star, Trash2, Undo2, UtensilsCrossed, X } from 'lucide-react';
+import { Check, Droplet, Dumbbell, Frown, HeartPulse, ListChecks, NotebookPen, Pencil, Pill, Plus, Sparkles, Star, Target, Trash2, Undo2, UtensilsCrossed, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Sheet, SheetButton } from '../components/Sheet';
@@ -182,6 +182,12 @@ export function Day() {
           </button>
         ))}
       </nav>
+
+      {plan?.weekGoal && ( /* D72: the week's goal, the person's own */
+        <button type="button" onClick={() => navigate('/week')} className="mb-4 flex min-h-tap w-full items-center gap-2 rounded-2xl border border-line bg-surface px-3 text-left text-sm">
+          <Target size={18} className="shrink-0 text-accent" aria-hidden /><span className="text-muted">{t.week.dayLine}:</span><span className="font-medium">{plan.weekGoal.text}</span>
+        </button>
+      )}
 
       {mode && (
         <div className="mb-4 rounded-2xl border border-accent/30 bg-accent/10 p-3">
