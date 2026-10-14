@@ -34,7 +34,7 @@ export function Progress() {
   const max = plan?.targets.maxWeightLossKgPerWeek;
   const weeks = weeklyWeights(weights, max);
   const sum = weightSummary(weights);
-  const found = patterns({ entries, wellbeing, workouts, foods });
+  const found = patterns({ entries, wellbeing, workouts, foods, ...(plan ? { plan } : {}) });
 
   return (
     <section className="space-y-4 pt-4">

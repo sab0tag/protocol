@@ -4,6 +4,7 @@ import { buildChecklist } from './checklist';
 import { dateOf } from './dates';
 import { dayFlags, type HabitKey } from './habits';
 import { coincidences, coincidenceText } from './symptoms';
+import { wellbeingCoincidences } from './progress';
 import type { DayEntry, Food, ISODate, Plan, WeightLog, Wellbeing, Workout } from './types';
 
 export interface Report {
@@ -72,7 +73,8 @@ export function buildReport(args: {
     workouts: workouts.filter((x) => inside(x.date)).length,
     ...(scored.length ? { avgEnergy: Math.round((scored.reduce((a, x) => a + (x.energy ?? 0), 0) / scored.length) * 10) / 10 } : {}),
     symptoms: [...counts.entries()].map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name)),
-    coincidences: coincidences(entries.filter((e) => inside(dateOf(e.at))), foods).map(coincidenceText),
+    coincidences: [...coincidences(entries.filter((e) => inside(dateOf(e.at))), foods).map(coincidenceText),
+      ...wellbeingCoincidences(entries.filter((e) => inside(dateOf(e.at))), wellbeing.filter((x) => inside(x.date)), foods, plan).map((p) => p.text)], // D71
     questions: plan?.questions ?? [],
   };
 }
@@ -94,7 +96,7 @@ export function reportText(r: Report, dm: (d: ISODate) => string): string {
     `Тренувань: ${r.workouts}`,
     r.avgEnergy != null ? `Середня енергія: ${dec(r.avgEnergy)} з 5` : '',
     r.symptoms.length ? `Симптоми: ${r.symptoms.map((s) => `${s.name} — ${s.count}`).join('; ')}` : '',
-    r.coincidences.length ? `Збіги симптомів з їжею (підрахунок записів, не висновок):\n${r.coincidences.map((c) => `• ${c}`).join('\n')}` : '',
+    r.coincidences.length ? `Збіги в записах (підрахунок, не висновок):\n${r.coincidences.map((c) => `• ${c}`).join('\n')}` : '',
     r.questions.length ? `Мої питання:\n${r.questions.map((q) => `• ${q}`).join('\n')}` : '',
   ];
   return lines.filter(Boolean).join('\n');

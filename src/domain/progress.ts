@@ -1,9 +1,10 @@
 // «Прогрес» (SPEC.md §5.7, §6.4): weekly weight, too-fast loss, lab table, noticed patterns. Pure.
-import { format, parseISO, startOfISOWeek } from 'date-fns';
+import { addDays, format, parseISO, startOfISOWeek } from 'date-fns';
 import { coincidences, coincidenceText } from './symptoms';
+import { flatItems } from './rules';
 import { dateOf } from './dates';
-import { normalize } from './nutrition';
-import type { DayEntry, Food, LabResult, WeightLog, Wellbeing, Workout } from './types';
+import { dayTotals, effectiveTargets, normalize } from './nutrition';
+import type { DayEntry, Food, LabResult, Plan, WeightLog, Wellbeing, Workout } from './types';
 
 export interface WeekWeight {
   week: string; // Monday "yyyy-MM-dd"
@@ -72,7 +73,7 @@ function meatGrams(items: DayEntry['items'], foods: Map<string, Food>): number {
 
 export interface Pattern { text: string }
 
-export function patterns(args: { entries: DayEntry[]; wellbeing: Wellbeing[]; workouts: Workout[]; foods: Map<string, Food> }): Pattern[] {
+export function patterns(args: { entries: DayEntry[]; wellbeing: Wellbeing[]; workouts: Workout[]; foods: Map<string, Food>; plan?: Plan }): Pattern[] {
   const { entries, wellbeing, workouts, foods } = args;
   const out: Pattern[] = [];
   const bigMeatDays = new Set(entries.filter((e) => e.kind === 'meal' && e.status === 'done' && meatGrams(e.items, foods) > MEAT_MEAL_G)
@@ -87,6 +88,7 @@ export function patterns(args: { entries: DayEntry[]; wellbeing: Wellbeing[]; wo
     }
   }
   out.push(...coincidences(entries, foods).map((c) => ({ text: coincidenceText(c) }))); // D59
+  out.push(...wellbeingCoincidences(entries, wellbeing, foods, args.plan)); // D71
   const scored = wellbeing.filter((w) => w.energy != null);
   if (scored.length >= 10) {
     const trained = new Set(workouts.map((w) => w.date));
@@ -98,3 +100,45 @@ export function patterns(args: { entries: DayEntry[]; wellbeing: Wellbeing[]; wo
   }
   return out;
 }
+
+// ------------------------------------------------------------------ wellbeing and the day (D71)
+type Score = 'energy' | 'mood' | 'sleep';
+const SCORE: Record<Score, string> = { energy: 'Енергія', mood: 'Настрій', sleep: 'Сон' };
+export const MIN_DAYS = 5, MIN_DIFF = 0.7;
+
+/** Counted, not concluded: the average 1–5 score on days with a factor vs days without, both MIN_DAYS+ and MIN_DIFF+
+ *  apart. Sleep is set against the day before (a late dinner shows in the night after it). */
+export function wellbeingCoincidences(entries: DayEntry[], wellbeing: Wellbeing[], foods: Map<string, Food>, plan: Plan | undefined): Pattern[] {
+  const byDay = new Map<string, DayEntry[]>();
+  for (const e of entries) if (e.kind === 'meal' && e.status === 'done') byDay.set(dateOf(e.at), [...(byDay.get(dateOf(e.at)) ?? []), e]);
+  const factors: { name: (d: string) => string; on: (d: string) => boolean | undefined }[] = [
+    { name: (d) => `вечеря пізніше ${effectiveTargets(plan, d).lastMealBy ?? ''}`, on: (d) => {
+      const by = effectiveTargets(plan, d).lastMealBy, ms = byDay.get(d);
+      return by && ms ? ms.some((m) => !m.timeUnknown && m.at.slice(11, 16) > by) : undefined; } },
+    { name: () => 'алкоголь', on: (d) => (byDay.get(d) ? byDay.get(d)!.some((m) => flatItems(m.items).some((it) => it.foodId && foods.get(it.foodId)?.tags.includes('alcohol'))) : undefined) },
+    { name: () => 'вуглеводів понад межу', on: (d) => {
+      const max = effectiveTargets(plan, d).carbsG?.max, ms = byDay.get(d);
+      return max != null && ms ? dayTotals(ms, foods).carbs > max : undefined; } },
+  ];
+  const out: Pattern[] = [];
+  const avg = (xs: number[]) => xs.reduce((a, x) => a + x, 0) / xs.length;
+  const dec = (n: number) => n.toFixed(1).replace('.', ',');
+  for (const score of ['energy', 'mood', 'sleep'] as Score[]) for (const f of factors) {
+    const yes: number[] = [], no: number[] = [];
+    let label = '';
+    for (const w of wellbeing) {
+      const v = w[score];
+      if (v == null) continue;
+      const d = score === 'sleep' ? format(addDays(parseISO(w.date), -1), 'yyyy-MM-dd') : w.date;
+      const on = f.on(d);
+      if (on === undefined) continue;
+      if (on) { yes.push(v); label = f.name(d); } else no.push(v);
+    }
+    if (yes.length < MIN_DAYS || no.length < MIN_DAYS || Math.abs(avg(yes) - avg(no)) < MIN_DIFF) continue;
+    out.push({ text: score === 'sleep'
+      ? `Сон після днів, коли ${label}, — ${dec(avg(yes))}, після інших — ${dec(avg(no))} (з 5; ${yes.length} і ${no.length} ночей)`
+      : `${SCORE[score]} в дні, коли ${label}, — ${dec(avg(yes))}, в інші — ${dec(avg(no))} (з 5; ${yes.length} і ${no.length} дн.)` });
+  }
+  return out;
+}
+
