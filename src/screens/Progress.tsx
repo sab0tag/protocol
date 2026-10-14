@@ -1,4 +1,5 @@
 import { format, parseISO } from 'date-fns';
+import { LabsScan } from '../components/LabsScan';
 import { Loading } from '../components/Recovery';
 import { saved } from '../components/Toast';
 import { AlertTriangle, FileText, Plus } from 'lucide-react';
@@ -154,6 +155,7 @@ function Labs({ rows }: { rows: ReturnType<typeof labRows> }) {
         <h2 className="font-semibold">{L.labs}</h2>
         <button type="button" onClick={() => setOpen(!open)} className="flex min-h-tap items-center gap-1 px-2 text-accent"><Plus size={18} />{L.addLab}</button>
       </div>
+      <LabsScan known={rows} />
       {open && (
         <form className="mb-3 grid grid-cols-2 gap-2" onSubmit={(e) => { e.preventDefault(); void save(); }}>
           <label className="col-span-2 block"><span className="text-sm text-muted">{L.labName}</span>

@@ -192,3 +192,25 @@ describe('workout (D63)', () => {
       body: JSON.stringify({ exercises: [EX('a'), EX('b'), EX('c')] }) })).status).toBe(503);
   });
 });
+
+describe('labs (D68)', () => {
+  it('a results form → values; the names known go along; counted with photos; off without a key', async () => {
+    const store = new Store(':memory:');
+    let names: string[] = [];
+    const RES = { readable: true, date: '2026-10-10', items: [{ name: 'Феритин', value: 310, unit: 'нг/мл', reference: '30–400' }], note: null };
+    const app = createApp({ store, origins: [], labs: async (_img, n) => { names = n; return { result: RES }; },
+      limits: { ...DEFAULT_LIMITS, photosPerVaultPerDay: 1 } });
+    const call = (body: unknown) => app.request(`/v1/vaults/${VAULT}/labs`, { method: 'POST',
+      headers: { Authorization: `Bearer ${AUTH}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    await app.request(`/v1/vaults/${VAULT}`, { method: 'PUT', headers: { Authorization: `Bearer ${AUTH}` } });
+    const r = await call({ image: JPEG, names: ['Феритин', 3, ''] });
+    expect(r.status).toBe(200);
+    expect(await r.json()).toEqual(RES);
+    expect(names).toEqual(['Феритин']);
+    expect((await call({ image: JPEG })).status).toBe(429);
+    const off = createApp({ store: new Store(':memory:'), origins: [] });
+    await off.request(`/v1/vaults/${VAULT}`, { method: 'PUT', headers: { Authorization: `Bearer ${AUTH}` } });
+    expect((await off.request(`/v1/vaults/${VAULT}/labs`, { method: 'POST', headers: { Authorization: `Bearer ${AUTH}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image: JPEG }) })).status).toBe(503);
+  });
+});

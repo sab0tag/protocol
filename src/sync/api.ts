@@ -44,6 +44,9 @@ export interface MenuBody {
 }
 
 export const menu = (keys: Keys, body: MenuBody) => call<MenuResult>(keys, 'POST', '/menu', body);
+// D68
+export interface LabsResult { readable: boolean; date: string | null; items: { name: string; value: number; unit: string; reference: string | null }[]; note: string | null }
+export const labs = (keys: Keys, image: string, names: string[]) => call<LabsResult>(keys, 'POST', '/labs', { image, names });
 // D63
 export const aiWorkout = (keys: Keys, body: WorkoutBody) => call<AiWorkout>(keys, 'POST', '/workout', body);
 

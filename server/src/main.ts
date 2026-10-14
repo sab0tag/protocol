@@ -4,6 +4,7 @@ import { backupAgeH, backupOnce, backupRecords, listBackups } from './backup.ts'
 import { claudeLabel } from './label.ts';
 import { claudeMenu } from './menu.ts';
 import { claudeWorkout } from './workout.ts';
+import { claudeLabs } from './labs.ts';
 import { claudeRecognizer } from './photo.ts';
 import { tick, vapidKeys, webPushSender } from './push.ts';
 import { Store } from './store.ts';
@@ -22,6 +23,7 @@ const app = createApp({
   origins: (env.ALLOWED_ORIGINS ?? 'https://protocol.beyondthesignal.to').split(',').map((s) => s.trim()),
   recognize: env.ANTHROPIC_API_KEY ? claudeRecognizer({ model: env.PHOTO_MODEL ?? 'claude-opus-5-5', effort }) : undefined,
   label: env.ANTHROPIC_API_KEY ? claudeLabel({ model: env.PHOTO_MODEL ?? 'claude-opus-5-5', effort }) : undefined,
+  labs: env.ANTHROPIC_API_KEY ? claudeLabs({ model: env.PHOTO_MODEL ?? 'claude-opus-5-5', effort }) : undefined, // D68
   menu: env.ANTHROPIC_API_KEY
     ? claudeMenu({ model: env.MENU_MODEL ?? 'claude-opus-5-5', effort: (env.MENU_EFFORT ?? 'medium') as 'low' | 'medium' | 'high' }) : undefined,
   workout: env.ANTHROPIC_API_KEY // D63
