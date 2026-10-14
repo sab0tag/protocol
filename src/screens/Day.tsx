@@ -29,6 +29,7 @@ import { NowCard } from '../components/NowCard';
 import { QuickDock } from '../components/QuickDock';
 import { DayHeader } from '../components/DayHeader';
 import { DayRhythm } from '../components/DayRhythm';
+import { ExampleNotice } from '../components/ExampleNotice';
 import { DaySummary } from '../components/DaySummary';
 import { dayRhythm } from '../domain/rhythm';
 import { runningLow } from '../domain/stock';
@@ -136,6 +137,7 @@ export function Day() {
 
       {entries && <NowCard entries={entries} plan={plan} date={date} onConfirm={setConfirming} />}
 
+      <ExampleNotice plan={plan} />
       {/* D40: one notice at a time — the code first, then the backup */}
       {isToday && codeDue && (
         <div role="status" className="mb-3 space-y-2 rounded-2xl border border-line bg-surface p-3 text-sm">

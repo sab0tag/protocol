@@ -197,7 +197,8 @@ describe('sync between two devices', () => {
     const keys = await deriveKeys(parseCode(code)!);
     const server = fakeServer();
     const phone = await device(code), laptop = await device(code);
-    await phone.plan.update('main', { onboardedAt: '2026-10-01' });
+    await phone.plan.update('main', { onboardedAt: '2026-10-01',
+      constraints: [{ id: 'c1', tag: 'lactose', title: 'Лактоза', reason: '', source: 'Лікар', active: true }] });
     await syncOnce(phone, keys, server.api, 1000);
     await syncOnce(laptop, keys, server.api, 1100);
     const before = server.records.size;

@@ -28,3 +28,28 @@ export function examplePlan(today: Date = new Date()): Plan {
     ],
   };
 }
+
+// D73: the example is opened on purpose («Подивитись на прикладі») and shown as one: a plan with its items says so on
+// «День» and «План», and «Почати свій план» takes out exactly what came from the example — nothing the person added.
+export const EXAMPLE_SOURCE = 'Приклад';
+const EXAMPLE_MODE = 'm-ogtt';
+
+export const emptyPlan = (): Plan => ({ constraints: [], prescriptions: [], targets: {}, modes: [] });
+
+export function hasExample(plan: Pick<Plan, 'constraints' | 'prescriptions' | 'modes'>): boolean {
+  return plan.constraints.some((c) => c.source === EXAMPLE_SOURCE) || plan.prescriptions.some((p) => p.source === EXAMPLE_SOURCE)
+    || plan.modes.some((m) => m.id === EXAMPLE_MODE);
+}
+
+/** The plan without the example's items; the targets go too when they are still exactly the example's. */
+export function withoutExample(plan: Plan): Pick<Plan, 'constraints' | 'prescriptions' | 'targets' | 'modes'> {
+  const same = JSON.stringify(sorted(plan.targets)) === JSON.stringify(sorted(examplePlan().targets));
+  return {
+    constraints: plan.constraints.filter((c) => c.source !== EXAMPLE_SOURCE),
+    prescriptions: plan.prescriptions.filter((p) => p.source !== EXAMPLE_SOURCE),
+    targets: same ? {} : plan.targets,
+    modes: plan.modes.filter((m) => m.id !== EXAMPLE_MODE),
+  };
+}
+
+const sorted = (o: object) => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined).sort(([a], [b]) => a.localeCompare(b)));

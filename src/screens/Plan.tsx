@@ -1,4 +1,5 @@
 import { format, parseISO } from 'date-fns';
+import { ExampleNotice } from '../components/ExampleNotice';
 import { PlanVersions } from '../components/PlanVersions';
 import { Loading } from '../components/Recovery';
 import { saved } from '../components/Toast';
@@ -40,6 +41,7 @@ export function Plan() {
   return (
     <section className="space-y-4 pt-4">
       <h1 className="text-2xl font-semibold">{P.title}</h1>
+      <ExampleNotice plan={plan} />
 
       <Block title={P.prescriptions} onAdd={() => setEditing({ what: 'prescription' })}>
         {plan.prescriptions.map((p) => (

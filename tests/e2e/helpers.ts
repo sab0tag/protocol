@@ -1,13 +1,13 @@
 import { expect, type Browser, type Page } from '@playwright/test';
 
-/** A fresh «device»: the app loaded, its service worker settled, onboarding skipped. */
-export async function device(browser: Browser): Promise<Page> {
+/** A fresh «device»: the app loaded, its service worker settled, the example plan opened (D73) — or onboarding skipped. */
+export async function device(browser: Browser, start: 'example' | 'skip' = 'example'): Promise<Page> {
   const ctx = await browser.newContext();
   const page = await ctx.newPage();
   await page.goto('./');
   await page.evaluate(() => navigator.serviceWorker.ready);
   await page.waitForTimeout(500);
-  await page.getByRole('button', { name: /^Пропустити/ }).click();
+  await page.getByRole('button', { name: start === 'example' ? 'Подивитись на прикладі' : /^Пропустити/ }).click();
   await expect(page.getByRole('heading', { level: 1 })).not.toHaveText(/Знайомство|Про себе/);
   return page;
 }

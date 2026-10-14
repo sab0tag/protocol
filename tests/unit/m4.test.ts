@@ -82,6 +82,7 @@ describe('backup (§5.8, §8)', () => {
   it('export → import into an empty device gives the same data', async () => {
     const a = new ProtocolDB('backup-a');
     await ensureSeeded(a);
+    await a.plan.update('main', { constraints: [{ id: 'c1', tag: 'lactose', title: 'Лактоза', reason: '', source: 'Лікар', active: true }] });
     await a.entries.add({ id: 'x', at: '2026-10-04T09:00:00+03:00', kind: 'water', status: 'done', title: 'Вода', waterMl: 250 });
     await a.weights.put({ date: '2026-10-04', kg: 98 });
     await a.favorites.put({ id: 'f1', title: 'Моя вівсянка', items: [{ name: 'Вівсянка', grams: 60 }] });
@@ -93,7 +94,7 @@ describe('backup (§5.8, §8)', () => {
     expect(await b.weights.get('2026-10-04')).toMatchObject({ kg: 98 });
     expect(await b.favorites.get('f1')).toMatchObject({ title: 'Моя вівсянка' });
     expect(await b.frictions.get('z1')).toMatchObject({ kind: 'skip' });
-    expect((await b.plan.get('main'))?.constraints).toHaveLength(5);
+    expect((await b.plan.get('main'))?.constraints).toHaveLength(1);
     a.close(); b.close();
   });
   it('refuses a wrong file before touching anything', () => {

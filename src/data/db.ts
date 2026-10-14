@@ -4,7 +4,7 @@ import type { ReminderSettings } from '../domain/reminders';
 import type { DayEntry, Favorite, Food, Friction, LabResult, Plan, Recipe, WeightLog, Wellbeing, Workout } from '../domain/types';
 import { FOODS } from './foods';
 import { RECIPES } from './recipes';
-import { examplePlan } from './seed.example';
+import { emptyPlan } from './seed.example';
 
 export interface PlanRow extends Plan {
   id: 'main';
@@ -75,14 +75,15 @@ export function normalizePlan<T extends PlanRow | undefined>(p: T): T {
   return (p && { ...p, constraints: p.constraints ?? [], prescriptions: p.prescriptions ?? [], targets: p.targets ?? {}, modes: p.modes ?? [] }) as T;
 }
 
-/** Every start: the built-in food base; first start: a plan (the personal seed.local.ts if present, else the example). */
+/** Every start: the built-in food base; first start: a plan (the personal seed.local.ts if present, else an empty one —
+ *  the example only when the person asks for it, D73). */
 export async function ensureSeeded(target: ProtocolDB = db): Promise<void> {
   await target.transaction('rw', target.plan, target.foods, target.recipes, async () => {
     await target.foods.bulkPut(FOODS); // the built-in base is refreshed on every start (new foods, units — D26)
     await target.recipes.bulkPut(RECIPES); // built-in dishes too; the user's own have other ids (D27)
     if (!(await target.plan.get('main'))) {
       const local = import.meta.glob<{ localPlan?: () => Plan }>('./seed.local.ts', { eager: true });
-      const plan = Object.values(local)[0]?.localPlan?.() ?? examplePlan();
+      const plan = Object.values(local)[0]?.localPlan?.() ?? emptyPlan();
       await target.plan.put({ id: 'main', ...plan });
     }
   });

@@ -4,6 +4,7 @@ import { toast } from '../components/Toast';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { db, type PlanRow } from '../data/db';
+import { EXAMPLE_SOURCE, examplePlan, hasExample, withoutExample } from '../data/seed.example';
 import { usePlan } from '../data/queries';
 import { newId, todayISO } from '../domain/dates';
 import type { Constraint, ConstraintTag, Prescription, Targets } from '../domain/types';
@@ -15,10 +16,10 @@ const L = t.welcome;
 const P = t.plan;
 const field = 'mt-1 block min-h-tap w-full rounded-xl border border-line bg-bg px-3';
 const TAGS: ConstraintTag[] = ['oxalate', 'gallbladder', 'lactose', 'glycemic', 'iron', 'sodium'];
-const EXAMPLE = 'Приклад';
 
 /** Onboarding (SPEC.md §5.9): about me → what the doctor said → targets. Nothing is chosen for the user:
- *  the example plan's items are not pre-ticked; every item is confirmed by a tick or typed in. */
+ *  the example plan's items are not pre-ticked; every item is confirmed by a tick or typed in. Skipping leaves the plan
+ *  empty; the example is opened only by its own button, on a plan that has nothing of the person's yet (D73). */
 export function Onboarding() {
   const plan = usePlan();
   if (!plan) return <Loading />;
@@ -30,11 +31,11 @@ function Steps({ plan }: { plan: PlanRow }) {
   const [step, setStep] = useState(1);
   const [weight, setWeight] = useState('');
   const [height, setHeight] = useState(plan.profile?.heightCm ? String(plan.profile.heightCm) : '');
-  const own = (c: Constraint) => c.source !== EXAMPLE;
+  const own = (c: Constraint) => c.source !== EXAMPLE_SOURCE;
   const [chosen, setChosen] = useState<Record<string, Constraint | undefined>>(() =>
     Object.fromEntries(plan.constraints.filter((c) => own(c) && c.active).map((c) => [c.tag, c])));
-  const [rx, setRx] = useState<Prescription[]>(plan.prescriptions.filter((p) => p.source !== EXAMPLE));
-  const [targets, setTargets] = useState<Partial<Targets>>(plan.targets);
+  const [rx, setRx] = useState<Prescription[]>(plan.prescriptions.filter((p) => p.source !== EXAMPLE_SOURCE));
+  const [targets, setTargets] = useState<Partial<Targets>>(() => withoutExample(plan).targets);
 
   const done = async (skip: boolean) => {
     const today = todayISO();
@@ -49,12 +50,19 @@ function Steps({ plan }: { plan: PlanRow }) {
       await db.plan.update('main', {
         constraints, prescriptions: rx.filter((p) => p.title.trim()), targets: Object.fromEntries(
           Object.entries(targets).filter(([, v]) => v !== undefined)) as Targets,
-        modes: plan.modes.filter((m) => m.id !== 'm-ogtt'), // the example's mode goes with the example
+        modes: withoutExample(plan).modes, // the example's mode goes with the example
         ...(cm > 0 ? { profile: { heightCm: cm } } : {}), onboardedAt: today,
       });
     }
     useUi.getState().setOnboarded();
     if (!skip) toast(t.toast.plan);
+    navigate('/', { replace: true });
+  };
+  const blank = !plan.constraints.length && !plan.prescriptions.length && !Object.keys(plan.targets).length && !hasExample(plan);
+  const showExample = async () => {
+    const { constraints, prescriptions, targets, modes } = examplePlan();
+    await db.plan.update('main', { constraints, prescriptions, targets, modes, onboardedAt: todayISO() });
+    useUi.getState().setOnboarded();
     navigate('/', { replace: true });
   };
 
@@ -69,6 +77,7 @@ function Steps({ plan }: { plan: PlanRow }) {
         <h1 className="text-2xl font-semibold">{[L.s1, L.s2, L.s3][step - 1]}</h1>
       </div>
 
+      {step === 1 && <p className="text-sm text-muted">{L.about}</p>}
       {step === 1 && (
         <div className="grid grid-cols-2 gap-3 rounded-2xl border border-line bg-surface p-3">
           <label className="block"><span className="text-sm text-muted">{L.weight}</span>
@@ -136,6 +145,10 @@ function Steps({ plan }: { plan: PlanRow }) {
         {step > 1 && <button type="button" onClick={() => setStep(step - 1)} className="min-h-tap rounded-xl border border-line px-4">{L.back}</button>}
       </div>
       <button type="button" onClick={() => void done(true)} className="min-h-tap text-muted underline">{L.skip}</button>
+      {step === 1 && blank && (
+        <div><button type="button" onClick={() => void showExample()} className="min-h-tap text-accent underline">{L.example}</button>
+          <p className="text-sm text-muted">{L.exampleHint}</p></div>
+      )}
       {step === 1 && <button type="button" onClick={() => navigate('/sync')} className="block min-h-tap text-accent underline">{t.sync.welcome}</button>}
       <p className="text-sm text-muted">{P.disclaimer}</p>
     </section>

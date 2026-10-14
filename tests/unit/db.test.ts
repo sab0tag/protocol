@@ -13,7 +13,7 @@ describe('storage', () => {
 
     const again = new ProtocolDB('test-restart');          // the app is closed and opened again
     expect(await again.entries.get('a')).toMatchObject({ waterMl: 250 });
-    expect((await again.plan.get('main'))?.constraints.length).toBe(5);
+    expect((await again.plan.get('main'))?.constraints.length).toBe(0); // D73: an empty plan, the example only on request
     expect(await again.entries.where('at').startsWith('2026-10-04').count()).toBe(1);
     again.close();
   });
