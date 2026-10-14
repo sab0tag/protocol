@@ -44,6 +44,10 @@ export function Day() {
   useEffect(() => {
     if (linked && /^\d{4}-\d{2}-\d{2}$/.test(linked)) { setDate(linked); setParams({}, { replace: true }); }
   }, [linked, setDate, setParams]);
+  const opening = params.get('open'); // D66: `#/do/symptom` lands here
+  useEffect(() => {
+    if (opening === 'symptom') { setSymptom({}); setParams({}, { replace: true }); }
+  }, [opening, setParams]);
   const entries = useDayEntries(date);
   const foods = useFoods();
   const plan = usePlan();

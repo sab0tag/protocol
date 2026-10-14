@@ -20,6 +20,8 @@ import { Shopping } from '../screens/Shopping';
 import { Wellbeing } from '../screens/Wellbeing';
 import { Workout } from '../screens/Workout';
 import { Exercises } from '../screens/Exercises';
+import { QuickAction } from '../screens/QuickAction';
+import { QuickLinks } from '../screens/QuickLinks';
 
 /** A fresh form for every meal: /meal/new after editing /meal/:id must not keep the old state. */
 function MealRoute() {
@@ -56,6 +58,8 @@ export function App() {
             <Route path="/wellbeing" element={<Wellbeing />} />
             <Route path="/workout" element={<Workout />} />
             <Route path="/exercises" element={<Exercises />} />
+            <Route path="/do/:action" element={<QuickAction />} />
+            <Route path="/quick" element={<QuickLinks />} />
             <Route path="/plan" element={<Plan />} />
             <Route path="/welcome" element={<Onboarding />} />
             <Route path="/progress" element={<Progress />} />
