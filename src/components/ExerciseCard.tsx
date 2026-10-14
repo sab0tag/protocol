@@ -19,10 +19,31 @@ export function ExerciseCard({ exercise: e, onClose, children }: { exercise: Exe
   return (
     <Sheet title={e.name} onClose={onClose}>
       <p className="-mt-2 mb-3 flex flex-wrap items-center gap-2 text-sm text-muted"><LevelBadge level={e.level} />{e.target}</p>
-      <div className="grid grid-cols-2 gap-2 rounded-xl bg-bg p-2">
-        <ExerciseFigure pose={a} label={L.start} />
-        <ExerciseFigure pose={b} ghost={a} arrow={arrow} label={L.move} />
-      </div>
+      {e.photos ? (
+        <>
+          <div className="grid grid-cols-2 gap-2">
+            {([[e.photos.start, L.start], [e.photos.move, L.move]] as const).map(([src, label]) => (
+              <figure key={label} className="flex flex-col items-center gap-1">
+                <img src={src} alt={`${e.name}: ${label}`} loading="lazy" className="aspect-[3/4] w-full rounded-xl object-cover" />
+                <figcaption className="text-sm font-medium text-muted">{label}</figcaption>
+              </figure>
+            ))}
+          </div>
+          <p className="mt-1 text-xs text-muted"><a href={e.photos.source} target="_blank" rel="noreferrer" className="underline">{e.photos.credit}</a></p>
+          <details className="mt-2 rounded-xl bg-bg p-2">
+            <summary className="min-h-tap cursor-pointer py-2 text-sm text-accent">{L.scheme}</summary>
+            <div className="grid grid-cols-2 gap-2">
+              <ExerciseFigure pose={a} label={L.start} />
+              <ExerciseFigure pose={b} ghost={a} arrow={arrow} label={L.move} />
+            </div>
+          </details>
+        </>
+      ) : (
+        <div className="grid grid-cols-2 gap-2 rounded-xl bg-bg p-2">
+          <ExerciseFigure pose={a} label={L.start} />
+          <ExerciseFigure pose={b} ghost={a} arrow={arrow} label={L.move} />
+        </div>
+      )}
       <dl className="mt-3 space-y-2 text-sm">
         <div><dt className="font-semibold">{L.startTitle}</dt><dd>{e.start}</dd></div>
         <div><dt className="font-semibold">{L.moveTitle}</dt><dd>{e.move}</dd></div>

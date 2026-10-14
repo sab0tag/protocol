@@ -28,7 +28,12 @@ export interface Exercise {
   caution?: string;
   poses: [Pose, Pose];
   arrow?: { from: P; to: P; via?: P }; // default: the bell from pose 1 to pose 2 (or the hips)
+  /** D62: real photos where there are free ones (attribution required) — shown instead of the schematic figures. */
+  photos?: { start: string; move: string; credit: string; source: string };
 }
+
+/** Taco Fleur's step-by-step series on Wikimedia Commons, CC BY-SA 4.0 — used as published (resized only). */
+const TACO = (file: string) => ({ credit: 'Фото: Taco Fleur, CC BY-SA 4.0', source: `https://commons.wikimedia.org/wiki/File:${file}` });
 
 // ---- poses used more than once
 const STAND = { head: [50, 20] as P, sh: [50, 30] as P, hip: [50, 62] as P, knee: [51, 88] as P, ankle: [50, 113] as P };
@@ -135,7 +140,8 @@ export const EXERCISES: Exercise[] = [
     path: 'Майже вертикально вздовж тулуба — від таза до грудей, без дуги вперед.',
     cues: ['Лікоть близько до ребер', 'Гиря обертається навколо кисті, а не б’є'],
     mistakes: ['Широка дуга — удар по передпліччю', 'Тягнути біцепсом'],
-    poses: [{ ...BACKSWING, elbow: [52, 68], hand: [47, 84], kb: [45, 92] }, { ...STAND, ...RACK }], arrow: { from: [45, 92], via: [60, 62], to: [59, 31] } },
+    poses: [{ ...BACKSWING, elbow: [52, 68], hand: [47, 84], kb: [45, 92] }, { ...STAND, ...RACK }], arrow: { from: [45, 92], via: [60, 62], to: [59, 31] },
+    photos: { start: 'exercises/clean-start.jpg', move: 'exercises/clean-move.jpg', ...TACO('Kettlebell_Clean_and_Jerk_13_Rack.jpg') } },
   { id: 'sl-deadlift', name: 'Румунська тяга на одній нозі', level: 2, pattern: 'hinge', unilateral: true, timed: false, sets: 3, target: '3 × 8 кожною ногою',
     start: 'Стоячи на одній нозі (коліно трохи зігнуте), гиря в протилежній руці.',
     move: 'Нахиліться, відводячи вільну ногу назад, — тулуб і нога одна лінія. Поверніться, стиснувши сідницю опорної ноги.',
@@ -206,7 +212,8 @@ export const EXERCISES: Exercise[] = [
     path: 'Таз — вертикально вниз; гиря рухається разом із тулубом.',
     cues: ['Не завалюватися в бік гирі', 'Лікоть притиснутий'],
     mistakes: ['Розворот тулуба', 'Коліна всередину'],
-    poses: [{ ...STAND, ...RACK }, { head: [55, 50], sh: [53, 58], hip: [38, 84], knee: [63, 88], ankle: [52, 113], elbow: [59, 69], hand: [58, 59], kb: [62, 57] }] },
+    poses: [{ ...STAND, ...RACK }, { head: [55, 50], sh: [53, 58], hip: [38, 84], knee: [63, 88], ankle: [52, 113], elbow: [59, 69], hand: [58, 59], kb: [62, 57] }],
+    photos: { start: 'exercises/rack-squat-start.jpg', move: 'exercises/rack-squat-move.jpg', ...TACO('Kettlebell_Front_Squat_4_Full.jpg') } },
   { id: 'clean-press', name: 'Взяття і жим', level: 3, pattern: 'push', unilateral: true, timed: false, sets: 3, target: '3 × 5 кожною',
     start: 'Як перед взяттям: гиря між ногами.',
     move: 'Взяття на груди, пауза у стійці, жим над головою; опустіть у стійку і пропустіть гирю в мах для наступного повтору.',

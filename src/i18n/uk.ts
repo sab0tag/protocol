@@ -191,7 +191,8 @@ export const t = {
     startTitle: 'Вихідна позиція', moveTitle: 'Рух', pathTitle: 'Амплітуда і напрям', cues: 'Підказки', mistakes: 'Типові помилки',
     library: 'Вправи з гирею', add: 'Додати вправу', addThis: 'Додати в тренування', swap: 'Замінити', swapThis: 'Замінити на цю',
     remove: 'Прибрати', how: 'Як виконувати', all: 'Усі', alternatives: (name: string) => `Замість «${name}»`,
-    schematic: 'Схема, не фото: стрілка — шлях гирі.',
+    schematic: 'Схеми, не фото (крім позначених): стрілка — шлях гирі.',
+    scheme: 'Схема руху зі стрілкою', // D62
   },
   workout: {
     title: 'Тренування',

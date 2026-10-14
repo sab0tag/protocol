@@ -25,7 +25,9 @@ export function ExerciseLibrary({ list = EXERCISES, action }: { list?: Exercise[
         {shown.map((e) => (
           <li key={e.id}>
             <button type="button" onClick={() => setOpen(e)} className="flex h-full w-full flex-col items-stretch gap-1 rounded-2xl border border-line bg-surface p-2 text-left">
-              <div className="pointer-events-none"><ExerciseFigure pose={e.poses[1]} ghost={e.poses[0]} label="" /></div>
+              <div className="pointer-events-none">{e.photos
+                ? <img src={e.photos.move} alt="" loading="lazy" className="aspect-[100/126] w-full rounded-xl object-cover" />
+                : <ExerciseFigure pose={e.poses[1]} ghost={e.poses[0]} label="" />}</div>
               <span className="font-medium leading-tight">{e.name}</span>
               <span className="flex flex-wrap items-center gap-1 text-xs text-muted"><LevelBadge level={e.level} />{e.target}</span>
             </button>
