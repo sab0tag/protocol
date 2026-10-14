@@ -59,6 +59,13 @@ async function detail(d) {
       && (p.kind === 'medication' || p.kind === 'supplement'));
     if (meds.length) return meds.map((p) => [p.title, p.dose, p.schedule.withFood ? 'під час їжі' : ''].filter(Boolean).join(' ')).join(', ');
   }
+  if (d.k === 'water' && d.d) { // D70: how much is in already, from the phone's own records
+    const [entries, plan] = await Promise.all([idbDay(d.d), idbGet('plan', 'main')]);
+    const ml = entries.filter((e) => e.kind === 'water' && e.status === 'done').reduce((n, e) => n + (e.waterMl || 0), 0);
+    const target = plan && plan.targets && plan.targets.waterMl;
+    const l = (x) => String(Math.round(x / 100) / 10).replace('.', ',');
+    return `Випито ${l(ml)}${target ? ` з ${l(target)}` : ''} л — склянка води?`;
+  }
   if (d.k === 'morning' && d.d) {
     const [entries, plan] = await Promise.all([idbDay(d.d), idbGet('plan', 'main')]);
     const meals = entries.filter((e) => e.kind === 'meal' && e.status === 'planned').sort((a, b) => a.at.localeCompare(b.at))

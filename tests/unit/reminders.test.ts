@@ -34,7 +34,7 @@ describe('reminders', () => {
   });
 
   it('a meal just past is still sent (it may be repeating); water every 3 h from 9 to 21, never repeated', () => {
-    const r = reminders({ entries: [meal('m1', '2026-10-08T06:50:00+03:00')], plan, settings: { ...OFF, meals: true, waterEveryH: 3 }, now, days: 1 });
+    const r = reminders({ entries: [meal('m1', '2026-10-08T06:50:00+03:00')], plan, settings: { ...OFF, meals: true, waterEveryH: 3, waterIfBehind: false }, now, days: 1 });
     expect(keys(r).filter((k) => k.includes('2026-10-08'))).toEqual(['meal:m1:2026-10-08T06:50:00+03:00', 'water:2026-10-08:09:00',
       'water:2026-10-08:12:00', 'water:2026-10-08:15:00', 'water:2026-10-08:18:00', 'water:2026-10-08:21:00']);
     expect(r.items.find((i) => i.key.startsWith('water'))!.once).toBe(true);
@@ -112,3 +112,17 @@ describe('«Зараз» / «Не відмічено» / «Далі» (D50)', ()
     expect(dayFocus({ entries: done, plan, date: day, now: new Date(`${day}T09:00:00`) })).toEqual({ missed: [] });
   });
 });
+
+describe('water by pace (D70)', () => {
+  const day = '2026-10-08';
+  const water = (ml: number): DayEntry => ({ id: `w${ml}`, at: `${day}T10:30:00+03:00`, kind: 'water', status: 'done', title: 'Вода', waterMl: ml });
+  const today = (entries: DayEntry[]) => keys(reminders({ entries, plan, settings: { ...OFF, waterEveryH: 3 }, now: new Date(`${day}T10:45:00`), days: 0 }))
+    .filter((k) => k.startsWith(`water:${day}`));
+  it('today only the slots one is behind at by more than a glass (2,5 l from 08:00 to 21:00); other days as they are', () => {
+    expect(today([])).toEqual([`water:${day}:12:00`, `water:${day}:15:00`, `water:${day}:18:00`, `water:${day}:21:00`]);
+    // 1,25 l by 10:45: at 15:00 the pace is ~1,35 l — not a glass behind; at 18:00 ~1,92 l — behind
+    expect(today([water(1250)])).toEqual([`water:${day}:18:00`, `water:${day}:21:00`]);
+    expect(today([water(2500)])).toEqual([]);
+  });
+});
+

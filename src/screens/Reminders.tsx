@@ -95,7 +95,13 @@ export function Reminders() {
           <label className="block"><span className="text-sm text-muted">{L.water}</span>
             <select value={s.waterEveryH} onChange={(e) => void change({ waterEveryH: Number(e.target.value) as ReminderSettings['waterEveryH'] })} className={select}>
               <option value={0}>{L.waterOff}</option><option value={2}>{L.waterEvery(2)}</option><option value={3}>{L.waterEvery(3)}</option>
-            </select></label>
+            </select>
+            {s.waterEveryH > 0 && (
+              <span className="mt-2 flex min-h-tap items-center gap-3 text-sm">
+                <input type="checkbox" checked={s.waterIfBehind !== false} onChange={(e) => void change({ waterIfBehind: e.target.checked })}
+                  className="h-5 w-5 accent-[rgb(var(--accent))]" aria-label={L.waterIfBehind} />
+                <span>{L.waterIfBehind}</span></span>
+            )}</label>
           <label className="block"><span className="text-sm text-muted">{L.repeat}</span>
             <select value={s.repeatMin} onChange={(e) => void change({ repeatMin: Number(e.target.value) as ReminderSettings['repeatMin'] })} className={select}>
               <option value={0}>{L.repeatOff}</option>

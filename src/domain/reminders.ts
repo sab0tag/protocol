@@ -9,6 +9,7 @@ export interface ReminderSettings {
   meals: boolean;
   meds: boolean;
   waterEveryH: 0 | 2 | 3;
+  waterIfBehind?: boolean; // D70: today's water reminder only when behind the day's even pace (default on)
   repeatMin: 0 | 10 | 15 | 30; // 0 = no repeat; otherwise up to 2 more times
   morning: string; // D35: '' = off, else "HH:MM" — the day's plan in one message
   evening: string; // D35: '' = off — tomorrow's prep tips, or «скласти меню?»
@@ -30,6 +31,7 @@ export interface Reminder {
 }
 
 const WATER_FROM = 9, WATER_TO = 21;
+const PACE_FROM = 8, GLASS_ML = 250; // D70
 const isMed = (p: Prescription) => p.kind === 'medication' || p.kind === 'supplement';
 
 export function reminders(args: { entries: DayEntry[]; plan: Plan | undefined; settings: ReminderSettings; now: Date;
@@ -75,11 +77,18 @@ export function reminders(args: { entries: DayEntry[]; plan: Plan | undefined; s
     }
   }
 
+  // D70: today the water reminder comes only when behind an even pace from 08:00 to 21:00 by more than a glass —
+  // every water record re-sends the schedule, so a slot already covered is dropped; days ahead are sent as they are
+  const today = format(now, 'yyyy-MM-dd');
+  const drunk = entries.filter((e) => e.kind === 'water' && e.status === 'done' && dateOf(e.at) === today).reduce((ml, e) => ml + (e.waterMl ?? 0), 0);
+  const target = plan?.targets.waterMl;
+  const behind = (h: number) => !target || drunk < (target * (h - PACE_FROM)) / (WATER_TO - PACE_FROM) - GLASS_ML;
   for (const d of dates) {
     if (settings.waterEveryH && d <= format(addDays(now, 7), 'yyyy-MM-dd')) {
       for (let h = WATER_FROM; h <= WATER_TO; h += settings.waterEveryH) {
+        if (d === today && settings.waterIfBehind !== false && !behind(h)) continue;
         const time = `${String(h).padStart(2, '0')}:00`;
-        push({ key: `water:${d}:${time}`, at: at(d, time), once: true, payload: { t: 'Вода', b: 'Склянка води', k: 'water', u: url(d), tag: `water:${d}` } });
+        push({ key: `water:${d}:${time}`, at: at(d, time), once: true, payload: { t: 'Вода', b: 'Склянка води', k: 'water', u: url(d), tag: `water:${d}`, d } });
       }
     }
     if (settings.morning) {
