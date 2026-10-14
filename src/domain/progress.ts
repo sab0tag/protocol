@@ -142,3 +142,17 @@ export function wellbeingCoincidences(entries: DayEntry[], wellbeing: Wellbeing[
   return out;
 }
 
+
+// ------------------------------------------------------------------ checking a read form (D75)
+/** What to look at again on the paper before a number read from a photo is kept: another unit than this test had
+ *  before (numbers in different units are not comparable), or a value far from the last one. Hints, not verdicts. */
+export type LabHint = { kind: 'unit'; before: string } | { kind: 'far'; before: number };
+const unitKey = (u: string) => u.toLowerCase().replace(/\s+/g, '').replace('μ', 'мк').replace('µ', 'мк');
+
+export function labHint(known: LabRow | undefined, unit: string, value: number): LabHint | null {
+  if (!known || Number.isNaN(value)) return null;
+  if (unit.trim() && known.unit.trim() && unitKey(unit) !== unitKey(known.unit)) return { kind: 'unit', before: known.unit };
+  const last = known.now.value;
+  if (last > 0 && (value / last > 1.5 || value / last < 1 / 1.5)) return { kind: 'far', before: last };
+  return null;
+}

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { FOODS } from '../../src/data/foods';
 import { examplePlan } from '../../src/data/seed.example';
-import { wellbeingCoincidences } from '../../src/domain/progress';
+import { labHint, wellbeingCoincidences } from '../../src/domain/progress';
 import type { DayEntry, Wellbeing } from '../../src/domain/types';
 
 const foods = new Map(FOODS.map((f) => [f.id, f]));
@@ -25,5 +25,16 @@ describe('wellbeing and the day (D71)', () => {
   it('too few days or no real difference — nothing', () => {
     const entries = [supper(1, '21:30'), supper(2, '19:00')];
     expect(wellbeingCoincidences(entries, [{ date: d(2), sleep: 2, symptoms: [] }, { date: d(3), sleep: 4, symptoms: [] }], foods, plan)).toEqual([]);
+  });
+});
+
+describe('a read lab form: what to look at again (D75)', () => {
+  const known = { name: 'Глюкоза', unit: 'ммоль/л', was: { date: '2026-09-01', name: 'Глюкоза', value: 5.6, unit: 'ммоль/л' },
+    now: { date: '2026-10-01', name: 'Глюкоза', value: 5.2, unit: 'ммоль/л' } };
+  it('another unit than before', () => expect(labHint(known, 'мг/дл', 95)).toEqual({ kind: 'unit', before: 'ммоль/л' }));
+  it('far from the last value — 5,0 read as 8,0', () => expect(labHint(known, 'ммоль/л', 8)).toEqual({ kind: 'far', before: 5.2 }));
+  it('nothing for a close value, the same unit written differently, or a new test', () => {
+    expect(labHint(known, 'Ммоль / л', 5.4)).toBeNull();
+    expect(labHint(undefined, 'мг/дл', 95)).toBeNull();
   });
 });

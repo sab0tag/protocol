@@ -1,6 +1,7 @@
 // «Мені погано» (SPEC.md D56): a symptom with its time, and what was eaten in the hours before it — the food and
 // symptom diary a gastroenterologist or an allergist asks for. Nothing here decides anything: it shows what was
 // recorded, side by side. Danger signs are named so the screen can say «телефонуйте 103» at once. Pure.
+import { byAt } from './dates';
 import { flatItems } from './rules';
 import type { Allergen, DayEntry, Food } from './types';
 import { t } from '../i18n/uk';
@@ -22,7 +23,7 @@ export function eatenBefore(entries: DayEntry[], at: string, hours = BEFORE_HOUR
   const t = Date.parse(at), from = t - hours * 3_600_000;
   return entries
     .filter((e) => e.kind === 'meal' && e.status === 'done' && !e.timeUnknown && Date.parse(e.at) <= t && Date.parse(e.at) >= from)
-    .sort((a, b) => b.at.localeCompare(a.at));
+    .sort((a, b) => byAt(b, a));
 }
 
 // ------------------------------------------------------------------ coincidences (D59)

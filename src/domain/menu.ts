@@ -1,6 +1,7 @@
 // «Меню на завтра» (SPEC.md D33): what goes to the model and what comes back. Pure. The model only proposes
 // names and grams; amounts, nutrients and the dish check come from the app's own base and rules.
 import { applySwaps, checkMeal, type RuleHit } from './rules';
+import { byAt } from './dates';
 import { itemFor } from './foodSearch';
 import { activeMode, effectiveTargets, mealNutrients, normalize, ZERO, add } from './nutrition';
 import { setPortions, sumGrams } from './recipes';
@@ -146,7 +147,7 @@ export function asResult(meals: { title: string; time: string; items: MealItem[]
 export function likeYesterday(entries: DayEntry[], date: ISODate): MenuResult | null {
   const prev = new Date(Date.parse(`${date}T12:00:00Z`) - 86_400_000).toISOString().slice(0, 10);
   const meals = entries.filter((e) => e.kind === 'meal' && e.status !== 'skipped' && e.items?.length && e.at.startsWith(prev))
-    .sort((a, b) => a.at.localeCompare(b.at))
+    .sort(byAt)
     .map((e) => ({ title: e.title, time: e.at.slice(11, 16), items: e.items! }));
   return meals.length ? asResult(meals) : null;
 }

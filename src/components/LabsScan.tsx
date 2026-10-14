@@ -6,7 +6,7 @@ import { FileScan } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { db } from '../data/db';
 import { todayISO } from '../domain/dates';
-import type { LabRow } from '../domain/progress';
+import { labHint, type LabRow } from '../domain/progress';
 import type { LabResult } from '../domain/types';
 import { t } from '../i18n/uk';
 import { ApiError, labs as readLabs } from '../sync/api';
@@ -87,6 +87,11 @@ export function LabsScan({ known }: { known: LabRow[] }) {
                 <input inputMode="decimal" value={r.value} onChange={(e) => set(i, { value: e.target.value })} aria-label={`${L.value}: ${r.name}`} className={`${field} text-right tabular`} />
                 <input value={r.unit} onChange={(e) => set(i, { unit: e.target.value })} aria-label={`${L.unit}: ${r.name}`} className={field} />
                 {r.reference && <span className="col-start-2 col-end-5 -mt-1 text-xs text-muted">{L.reference(r.reference)}</span>}
+                {(() => {
+                  const h = labHint(known.find((k) => k.name === r.name.trim()), r.unit, Number(r.value.replace(',', '.')));
+                  return h && <span className="col-start-2 col-end-5 -mt-1 text-xs text-warn">
+                    {h.kind === 'unit' ? L.unitDiffers(h.before) : L.far(String(h.before).replace('.', ','))}</span>;
+                })()}
               </li>
             ))}
           </ul>

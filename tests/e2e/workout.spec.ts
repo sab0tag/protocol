@@ -85,3 +85,22 @@ test('a reply that comes after moving to another day is dropped — never writte
   await expect(page.getByText('Пізня порада')).toHaveCount(0);
   await expect(page.getByRole('button', { name: /^Як виконувати: Махи двома руками/ })).toHaveCount(0);
 });
+
+test('a symptom in the last 24 hours is said before an AI session; «Попросити легше» only fills the wish (D75)', async ({ browser }) => {
+  const page = await device(browser);
+  await page.evaluate(async () => { // a symptom an hour ago, with the device's own offset
+    const d = new Date(Date.now() - 3_600_000), p = (n: number) => String(n).padStart(2, '0'), o = -d.getTimezoneOffset();
+    const at = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}:00${o >= 0 ? '+' : '-'}${p(Math.abs(o) / 60 | 0)}:${p(Math.abs(o) % 60)}`;
+    const req = indexedDB.open('protocol');
+    await new Promise((r) => { req.onsuccess = r; });
+    const tx = req.result.transaction('entries', 'readwrite');
+    tx.objectStore('entries').put({ id: 's1', at, kind: 'symptom', status: 'done', title: 'Біль у спині', symptoms: ['Біль у спині'] });
+    await new Promise((r) => { tx.oncomplete = r; });
+    req.result.close();
+  });
+  await page.goto('./#/workout');
+  const panel = page.getByRole('region', { name: 'Скласти тренування з ІІ' });
+  await expect(panel.getByText(/За останню добу записано: Біль у спині/)).toBeVisible();
+  await panel.getByRole('button', { name: 'Попросити легше' }).click();
+  await expect(panel.getByLabel(/Побажання/)).toHaveValue(/легше/);
+});

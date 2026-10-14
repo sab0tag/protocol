@@ -2,7 +2,7 @@
 // repeat, and the week in numbers for «Прогрес». Pure.
 import { addDays, format, parseISO } from 'date-fns';
 import { buildChecklist } from './checklist';
-import { dateOf, timeOf } from './dates';
+import { byAt, dateOf, timeOf } from './dates';
 import { dayTotals, effectiveTargets } from './nutrition';
 import type { DayEntry, Food, ISODate, MealItem, Plan, Workout } from './types';
 
@@ -20,7 +20,7 @@ export function frequentItems(entries: DayEntry[], today: ISODate, days = 30, li
       const k = keyOf(it);
       const prev = seen.get(k);
       if (!prev) seen.set(k, { item: it, count: 1, last: e.at });
-      else { prev.count += 1; if (e.at > prev.last) { prev.item = it; prev.last = e.at; } }
+      else { prev.count += 1; if (Date.parse(e.at) > Date.parse(prev.last)) { prev.item = it; prev.last = e.at; } }
     }
   }
   return [...seen.values()].sort((a, b) => b.count - a.count || b.last.localeCompare(a.last)).slice(0, limit)
@@ -32,7 +32,7 @@ export function earlierMeals(entries: DayEntry[], title: string, before: ISODate
   const out: DayEntry[] = [];
   const sigs = new Set<string>();
   const sorted = entries.filter((e) => e.kind === 'meal' && e.status !== 'skipped' && e.items?.length
-    && e.title === title && dateOf(e.at) < before).sort((a, b) => b.at.localeCompare(a.at));
+    && e.title === title && dateOf(e.at) < before).sort((a, b) => byAt(b, a));
   for (const e of sorted) {
     const sig = e.items!.map((i) => `${keyOf(i)}:${i.grams}`).sort().join('|');
     if (sigs.has(sig)) continue;
@@ -44,7 +44,7 @@ export function earlierMeals(entries: DayEntry[], title: string, before: ISODate
 
 /** The meals of a day to copy («як учора»), at their own times. */
 export const mealsOf = (entries: DayEntry[], date: ISODate) =>
-  entries.filter((e) => e.kind === 'meal' && e.status !== 'skipped' && dateOf(e.at) === date).sort((a, b) => a.at.localeCompare(b.at));
+  entries.filter((e) => e.kind === 'meal' && e.status !== 'skipped' && dateOf(e.at) === date).sort(byAt);
 
 export const copyTime = (e: DayEntry) => timeOf(e.at);
 

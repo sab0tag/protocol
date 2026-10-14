@@ -5,6 +5,8 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { Sparkles } from 'lucide-react';
 import { useState } from 'react';
 import { db } from '../data/db';
+import { useRecentEntries } from '../data/queries';
+import { todayISO } from '../domain/dates';
 import type { Level } from '../data/exercises';
 import { draftFromAi, workoutRequest } from '../domain/aiWorkout';
 import type { Plan, Workout, WorkoutExercise } from '../domain/types';
@@ -31,8 +33,14 @@ export function AiWorkoutPanel({ workouts, plan, date, onDraft }: {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [asking, setAsking] = useState(false);
+  const recent = useRecentEntries(date, 2);
   const keys = currentKeys();
   if (meta === undefined) return null;
+  // D75: a symptom in the last 24 hours is said before the session is asked for — the person decides, nothing is blocked,
+  // and the symptom itself is not sent anywhere (only «легше», if the person asks for it)
+  const now = Date.now();
+  const unwell = date === todayISO() ? (recent ?? []).filter((e) => e.kind === 'symptom' && e.status === 'done'
+    && Date.parse(e.at) <= now && Date.parse(e.at) >= now - 86_400_000) : [];
 
   const pick = (l: Level[]) => { setLevels(l); try { localStorage.setItem(STORE, JSON.stringify(l)); } catch { /* private */ } };
   const make = async (consented = !!meta?.workoutConsent) => {
@@ -68,6 +76,12 @@ export function AiWorkoutPanel({ workouts, plan, date, onDraft }: {
           <input value={wish} onChange={(e) => setWish(e.target.value)} placeholder={L.wishPh} maxLength={300}
             className="mt-1 block min-h-tap w-full rounded-xl border border-line bg-bg px-3" /></label>
       </div>
+      {unwell.length > 0 && (
+        <div role="status" className="space-y-2 rounded-xl border border-warn/30 bg-warn-bg p-2 text-sm text-warn">
+          <p>{L.unwell(unwell.map((e) => e.title).join('; '))}</p>
+          {wish !== L.lighter && <button type="button" onClick={() => setWish(L.lighter)} className="min-h-tap rounded-xl border border-warn px-3 font-medium">{L.askLighter}</button>}
+        </div>
+      )}
       {!meta || !keys ? <p className="text-sm text-muted">{L.needsSync}</p> : asking && !meta.workoutConsent ? (
         <div className="space-y-2 rounded-xl border border-accent/40 p-2 text-sm">
           <p>{L.consent}</p>

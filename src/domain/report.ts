@@ -1,7 +1,7 @@
 // «Звіт для лікаря» (SPEC.md §5.8). Pure: everything comes in, numbers come out.
 import { addDays, differenceInCalendarDays, format, parseISO } from 'date-fns';
 import { buildChecklist } from './checklist';
-import { dateOf } from './dates';
+import { dateOf, isPast } from './dates';
 import { dayFlags, type HabitKey } from './habits';
 import { coincidences, coincidenceText } from './symptoms';
 import { wellbeingCoincidences } from './progress';
@@ -51,8 +51,7 @@ export function buildReport(args: {
       hab.set(k, h);
     }
   }
-  const now = new Date().toISOString();
-  const menuMeals = entries.filter((e) => e.menu && e.kind === 'meal' && inside(dateOf(e.at)) && e.at < now);
+  const menuMeals = entries.filter((e) => e.menu && e.kind === 'meal' && inside(dateOf(e.at)) && isPast(e.at)); // D75: by the instant
   const w = weights.filter((x) => inside(x.date)).sort((a, b) => a.date.localeCompare(b.date));
   const scored = wellbeing.filter((x) => inside(x.date) && x.energy != null);
   const counts = new Map<string, number>();

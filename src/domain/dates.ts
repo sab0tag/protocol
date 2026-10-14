@@ -13,4 +13,9 @@ export const timeOf = (at: ISODateTime): string => format(parseISO(at), 'HH:mm')
 /** D52: the time to show for an entry — none when the person did not remember it. */
 export const shownTime = (e: { at: ISODateTime; timeUnknown?: true }): string | undefined => (e.timeUnknown ? undefined : timeOf(e.at));
 
+/** Entries in time order by the instant, not the text: across the autumn hour and across time zones
+ *  «03:10+02:00» is after «03:30+03:00» (D75). */
+export const byAt = (a: { at: ISODateTime }, b: { at: ISODateTime }): number => Date.parse(a.at) - Date.parse(b.at);
+export const isPast = (at: ISODateTime, now = Date.now()): boolean => Date.parse(at) < now;
+
 export const newId = (): string => crypto.randomUUID();
