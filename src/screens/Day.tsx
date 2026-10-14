@@ -31,6 +31,7 @@ import { DayHeader } from '../components/DayHeader';
 import { DayRhythm } from '../components/DayRhythm';
 import { DaySummary } from '../components/DaySummary';
 import { dayRhythm } from '../domain/rhythm';
+import { runningLow } from '../domain/stock';
 
 const KIND_ICON = { meal: UtensilsCrossed, med: Pill, water: Droplet, workout: Dumbbell, note: NotebookPen, symptom: Frown } as const;
 
@@ -152,6 +153,13 @@ export function Day() {
           <button type="button" onClick={() => navigate('/more')} className="min-h-tap rounded-xl bg-warn px-3 font-medium text-surface">{t.backup.remindAction}</button>
         </div>
       )}
+
+      {isToday && plan && all && runningLow(plan.prescriptions, all).map(({ p, days }) => ( /* D69: buy in time */
+        <div key={p.id} role="status" className="mb-3 flex flex-wrap items-center gap-2 rounded-2xl border border-warn/30 bg-warn-bg p-3 text-sm text-warn">
+          <span className="flex-1">{t.stock.low(p.title, days)}</span>
+          <button type="button" onClick={() => navigate('/plan')} className="min-h-tap rounded-xl border border-warn px-3 font-medium">{t.stock.update}</button>
+        </div>
+      ))}
 
       {/* D53: recording food is one strong button on «День», not a row under a table */}
       <div className="mb-4 flex gap-2">

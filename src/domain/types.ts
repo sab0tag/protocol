@@ -32,6 +32,8 @@ export interface Prescription {
   dueDate?: ISODate; // for lab tests
   notes?: string;
   source: string;
+  /** D69: pieces left when counted (`at`), and pieces a dose — what remains is counted down by the ticks since */
+  stock?: { left: number; perDose: number; at: ISODateTime };
 }
 
 export interface Targets {

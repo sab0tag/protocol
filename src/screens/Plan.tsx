@@ -7,8 +7,9 @@ import { Pencil, Plus } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { Sheet } from '../components/Sheet';
 import { db, type PlanRow } from '../data/db';
-import { usePlan } from '../data/queries';
-import { newId } from '../domain/dates';
+import { useAllEntries, usePlan } from '../data/queries';
+import { stockLeft } from '../domain/stock';
+import { atLocal, newId, todayISO } from '../domain/dates';
 import { AllergenPicker } from '../components/AllergenPicker';
 import type { Constraint, ConstraintTag, Mode, Plan as PlanT, Prescription, Targets } from '../domain/types';
 import { t } from '../i18n/uk';
@@ -30,6 +31,7 @@ const dmy = (d: string) => format(parseISO(d), 'd MMMM', { locale: uk });
 
 /** «План лікаря»: what the doctor said, as the user entered it. Nothing here is decided by the app. */
 export function Plan() {
+  const entries = useAllEntries(); // D69: what is left of each medicine
   const plan = usePlan();
   const [editing, setEditing] = useState<Editing | null>(null);
   if (!plan) return <Loading />;
@@ -43,7 +45,8 @@ export function Plan() {
         {plan.prescriptions.map((p) => (
           <Item key={p.id} onEdit={() => setEditing({ what: 'prescription', item: p })}
             title={p.title} meta={[P.kinds[p.kind], p.dose, p.schedule?.times.join(', '), p.schedule?.withFood ? P.withFood.toLowerCase() : undefined,
-              p.dueDate ? `${P.dueDate.toLowerCase()} ${dmy(p.dueDate)}` : undefined]} note={p.notes} source={p.source} />
+              p.dueDate ? `${P.dueDate.toLowerCase()} ${dmy(p.dueDate)}` : undefined,
+              ...(entries && stockLeft(p, entries) ? [P.stockDays(stockLeft(p, entries)!.days)] : [])]} note={p.notes} source={p.source} />
         ))}
       </Block>
 
@@ -169,9 +172,18 @@ const str = (n: number | undefined) => (n == null ? '' : String(n));
 function PrescriptionForm({ plan, item, onClose }: { plan: PlanRow; item?: Prescription; onClose: () => void }) {
   const [p, setP] = useState<Prescription>(item ?? { id: newId(), kind: 'medication', title: '', source: '' });
   const [times, setTimes] = useState(item?.schedule?.times.join(', ') ?? '');
+  const entries = useAllEntries();
+  const now = item && entries ? stockLeft(item, entries) : undefined;
+  const [left, setLeft] = useState(now ? String(now.left) : ''); // D69: what is in the pack now
+  const [perDose, setPerDose] = useState(String(item?.stock?.perDose ?? 1));
   const onSave = () => {
     const ts = times.split(',').map((x) => x.trim()).filter((x) => /^\d{1,2}:\d{2}$/.test(x)).map((x) => x.padStart(5, '0'));
-    const next: Prescription = { ...p, title: p.title.trim(), ...(ts.length ? { schedule: { times: ts, withFood: p.schedule?.withFood ?? false } } : { schedule: undefined }) };
+    const n = Number(left.replace(',', '.')), per = Number(perDose.replace(',', '.')) || 1;
+    const counted = left.trim() === '' ? undefined : String(n) === String(now?.left) && per === item?.stock?.perDose ? item.stock
+      : { left: n, perDose: per, at: atLocal(todayISO(), format(new Date(), 'HH:mm')) };
+    const { stock: _s, ...rest } = p;
+    const next: Prescription = { ...rest, title: p.title.trim(), ...(ts.length ? { schedule: { times: ts, withFood: p.schedule?.withFood ?? false } } : { schedule: undefined }),
+      ...(counted && n >= 0 ? { stock: counted } : {}) };
     return save({ prescriptions: upsert(plan.prescriptions, next) });
   };
   return (
@@ -187,6 +199,12 @@ function PrescriptionForm({ plan, item, onClose }: { plan: PlanRow; item?: Presc
         <input type="checkbox" checked={p.schedule?.withFood ?? false} className="h-5 w-5 accent-[rgb(var(--accent))]"
           onChange={(e) => setP({ ...p, schedule: { times: p.schedule?.times ?? [], withFood: e.target.checked } })} />
         <span>{P.withFood}</span></label>
+      {(p.kind === 'medication' || p.kind === 'supplement') && (
+        <div className="grid grid-cols-2 gap-2">
+          <Field label={P.stockLeft}><input inputMode="numeric" value={left} onChange={(e) => setLeft(e.target.value)} placeholder="30" className={field} /></Field>
+          <Field label={P.perDose}><input inputMode="decimal" value={perDose} onChange={(e) => setPerDose(e.target.value)} className={field} /></Field>
+        </div>
+      )}
       <Field label={P.dueDate}><input type="date" value={p.dueDate ?? ''} onChange={(e) => setP({ ...p, dueDate: e.target.value || undefined })} className={field} /></Field>
       <Field label={P.notes}><input value={p.notes ?? ''} onChange={(e) => setP({ ...p, notes: e.target.value || undefined })} className={field} /></Field>
       <Field label={P.source}><input value={p.source} onChange={(e) => setP({ ...p, source: e.target.value })} placeholder="Ендокринолог 02.10.2026" className={field} /></Field>
