@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { device, seed, toast } from './helpers';
+import { device, seed, syncOn, toast } from './helpers';
 
 test('kettlebell library: a card with two poses, an exercise replaced and one added; the next workout keeps the own set (D60)', async ({ browser }) => {
   const page = await device(browser);
@@ -44,4 +44,28 @@ test('advice from the own records: far beyond the target twice → the next leve
   await expect(page.getByText(/За 7 днів: тренувань — 2/)).toBeVisible();
   await page.getByRole('button', { name: /^Замінити на «Зворотний випад/ }).click();
   await expect(page.getByRole('button', { name: /^Як виконувати: Зворотний випад/ })).toBeVisible();
+});
+
+test('«Скласти тренування з ІІ» (model stubbed): the chosen levels go, the answer is a checked draft with advice, nothing recorded (D63)', async ({ browser }) => {
+  const page = await device(browser);
+  await syncOn(page);
+  let sent: { exercises: { id: string; level: number }[] } | undefined;
+  await page.route('**/workout', async (r) => {
+    sent = r.request().postDataJSON();
+    await r.fulfill({ json: { advice: 'Почніть спокійно — це перше тренування.', exercises: [
+      { id: 'goblet-squat', sets: 3, reps: 10, seconds: null }, { id: 'swing', sets: 3, reps: 12, seconds: null },
+      { id: 'snatch', sets: 3, reps: 5, seconds: null }, { id: 'plank', sets: 2, reps: null, seconds: 30 }] } });
+  });
+  await page.goto('./#/workout');
+  const panel = page.getByRole('region', { name: 'Скласти тренування з ІІ' });
+  await expect(panel.getByRole('button', { name: 'Базовий + середній' })).toHaveAttribute('aria-pressed', 'true');
+  await panel.getByRole('button', { name: 'Скласти тренування' }).click();
+  await panel.getByRole('button', { name: 'Дозволити й скласти' }).click();
+  await panel.getByRole('button', { name: 'Скласти тренування' }).click();
+  await expect(page.getByText('Почніть спокійно — це перше тренування.')).toBeVisible();
+  expect(sent!.exercises.every((e) => e.level <= 2)).toBe(true);
+  await expect(page.getByText(/1 — не з бібліотеки або не того рівня/)).toBeVisible(); // the snatch
+  await expect(page.getByRole('button', { name: /^Як виконувати: Махи двома руками/ })).toBeVisible();
+  await expect(page.getByText('3 × 12', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Як виконувати: Ривок/ })).toHaveCount(0);
 });

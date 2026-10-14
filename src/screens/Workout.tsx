@@ -13,6 +13,7 @@ import { EXERCISES, exerciseOf, type Exercise } from '../data/exercises';
 import { adviceFor, lastNumbers, motivation } from '../domain/progression';
 import { ExerciseCard, LevelBadge } from '../components/ExerciseCard';
 import { ExerciseLibrary } from '../components/ExerciseLibrary';
+import { AiWorkoutPanel } from '../components/AiWorkoutPanel';
 import { t } from '../i18n/uk';
 import { useUi } from '../store/ui';
 
@@ -41,6 +42,7 @@ export function Workout() {
   }, [date, workouts === undefined]); // eslint-disable-line react-hooks/exhaustive-deps
   const [card, setCard] = useState<Exercise | null>(null);
   const [picking, setPicking] = useState<{ replace?: number } | null>(null); // D60: the library inline — to add, or to replace exercise #
+  const [aiAdvice, setAiAdvice] = useState(''); // D63
 
   if (!workouts || !draft) return <Loading />;
   const schedule = workoutDay(plan, workouts.filter((w) => w.date !== date), date);
@@ -82,6 +84,15 @@ export function Workout() {
           </div>
         );
       })()}
+
+      {!existing && <AiWorkoutPanel workouts={workouts.filter((w) => w.date < date)} plan={plan}
+        onDraft={(xs, advice) => { setDraft({ ...draft, exercises: xs }); setAiAdvice(advice); }} />}
+      {aiAdvice && (
+        <div role="status" className="space-y-1 rounded-2xl border border-accent/30 bg-accent/10 p-3 text-sm">
+          <p><span className="font-semibold">{t.aiWorkout.advice}: </span>{aiAdvice}</p>
+          <p className="text-muted">{t.aiWorkout.draft}</p>
+        </div>
+      )}
 
       {!existing && (
         <p className="flex items-start gap-2 rounded-2xl border border-line bg-surface p-3 text-sm">

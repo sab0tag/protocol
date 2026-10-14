@@ -1,5 +1,6 @@
 // The Протокол API over fetch (server/: SPEC.md D31, D32).
 import type { MenuResult } from '../domain/menu';
+import type { AiWorkout, WorkoutBody } from '../domain/aiWorkout';
 import type { PhotoResult } from '../domain/photo';
 import type { Keys } from './crypto';
 import type { Api, RemoteRecord } from './engine';
@@ -43,6 +44,8 @@ export interface MenuBody {
 }
 
 export const menu = (keys: Keys, body: MenuBody) => call<MenuResult>(keys, 'POST', '/menu', body);
+// D63
+export const aiWorkout = (keys: Keys, body: WorkoutBody) => call<AiWorkout>(keys, 'POST', '/workout', body);
 
 // D34: reminders
 export async function pushKey(): Promise<string> {

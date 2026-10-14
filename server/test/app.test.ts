@@ -167,3 +167,28 @@ describe('label (D45)', () => {
     expect((await off.request(`/v1/vaults/${VAULT}/label`, { method: 'POST', headers: H, body: JSON.stringify({ image: JPEG }) })).status).toBe(503);
   });
 });
+
+describe('workout (D63)', () => {
+  const RESULT = { exercises: [{ id: 'goblet-squat', sets: 3, reps: 12, seconds: null }], advice: 'Присід двічі із запасом — сьогодні по 12.' };
+  const EX = (id: string, level = 1) => ({ id, name: id, level, pattern: 'squat', unilateral: false, timed: false });
+
+  it('passes cleaned input to the maker; needs 3+ exercises; off without a key', async () => {
+    const store = new Store(':memory:');
+    let seen: unknown;
+    const app = createApp({ store, origins: [], workout: async (input) => { seen = input; return { result: RESULT }; } });
+    const call = (body: unknown) => app.request(`/v1/vaults/${VAULT}/workout`, { method: 'POST',
+      headers: { Authorization: `Bearer ${AUTH}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    await app.request(`/v1/vaults/${VAULT}`, { method: 'PUT', headers: { Authorization: `Bearer ${AUTH}` } });
+    expect((await call({ exercises: [EX('a'), EX('b')] })).status).toBe(400);
+    const r = await call({ exercises: [EX('goblet-squat'), EX('swing', 2), EX('row'), EX('Bad Id'), { id: 'x', name: 'x', level: 7 }],
+      history: [{ date: '2026-10-12', feeling: 'Легко', items: ['Гоблет-присід: 12 · 12 · 12'] }, { date: 'вчора', items: [] }],
+      rules: ['Без смаженого'], minutes: 500, wish: 'коротко' });
+    expect(r.status).toBe(200);
+    expect(await r.json()).toEqual(RESULT);
+    expect(seen).toEqual({ exercises: [EX('goblet-squat'), EX('swing', 2), EX('row')], history: [{ date: '2026-10-12', feeling: 'Легко', items: ['Гоблет-присід: 12 · 12 · 12'] }],
+      rules: ['Без смаженого'], equipment: 'Гиря 16 кг', minutes: 90, wish: 'коротко' });
+    const off = createApp({ store, origins: [] });
+    expect((await off.request(`/v1/vaults/${VAULT}/workout`, { method: 'POST', headers: { Authorization: `Bearer ${AUTH}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ exercises: [EX('a'), EX('b'), EX('c')] }) })).status).toBe(503);
+  });
+});

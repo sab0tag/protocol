@@ -3,6 +3,7 @@ import { createApp, DEFAULT_LIMITS } from './app.ts';
 import { backupAgeH, backupOnce, backupRecords, listBackups } from './backup.ts';
 import { claudeLabel } from './label.ts';
 import { claudeMenu } from './menu.ts';
+import { claudeWorkout } from './workout.ts';
 import { claudeRecognizer } from './photo.ts';
 import { tick, vapidKeys, webPushSender } from './push.ts';
 import { Store } from './store.ts';
@@ -23,11 +24,14 @@ const app = createApp({
   label: env.ANTHROPIC_API_KEY ? claudeLabel({ model: env.PHOTO_MODEL ?? 'claude-opus-5-5', effort }) : undefined,
   menu: env.ANTHROPIC_API_KEY
     ? claudeMenu({ model: env.MENU_MODEL ?? 'claude-opus-5-5', effort: (env.MENU_EFFORT ?? 'medium') as 'low' | 'medium' | 'high' }) : undefined,
+  workout: env.ANTHROPIC_API_KEY // D63
+    ? claudeWorkout({ model: env.WORKOUT_MODEL ?? 'claude-opus-5-5', effort: (env.WORKOUT_EFFORT ?? 'low') as 'low' | 'medium' | 'high' }) : undefined,
   limits: {
     ...DEFAULT_LIMITS,
     ...(env.PHOTOS_PER_DAY ? { photosPerDay: Number(env.PHOTOS_PER_DAY) } : {}),
     ...(env.PHOTOS_PER_VAULT_PER_DAY ? { photosPerVaultPerDay: Number(env.PHOTOS_PER_VAULT_PER_DAY) } : {}),
     ...(env.MENUS_PER_VAULT_PER_DAY ? { menusPerVaultPerDay: Number(env.MENUS_PER_VAULT_PER_DAY) } : {}),
+    ...(env.WORKOUTS_PER_VAULT_PER_DAY ? { workoutsPerVaultPerDay: Number(env.WORKOUTS_PER_VAULT_PER_DAY) } : {}),
     ...(env.VAULTS_PER_IP_PER_DAY ? { vaultsPerIpPerDay: Number(env.VAULTS_PER_IP_PER_DAY) } : {}), // e2e only
   },
 });

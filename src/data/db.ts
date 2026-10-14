@@ -27,6 +27,7 @@ export interface SyncMeta {
   lastAt?: number;
   photoConsent?: boolean;
   menuConsent?: boolean; // D33
+  workoutConsent?: boolean; // D63
   device?: string; // D34: this device's id for push
   reminders?: ReminderSettings & { on: boolean };
   snoozed?: Record<string, number>; // D35: «Пізніше» — reminder key → until (ms)

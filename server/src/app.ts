@@ -5,6 +5,7 @@ import { Hono, type Context } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { cors } from 'hono/cors';
 import type { MenuMaker } from './menu.ts';
+import type { WorkoutMaker } from './workout.ts';
 import type { Usage } from './photo.ts';
 import type { LabelReader } from './label.ts';
 import type { Recognizer } from './photo.ts';
@@ -17,14 +18,16 @@ export interface Limits {
   photosPerVaultPerDay: number;
   photosPerDay: number;
   menusPerVaultPerDay: number;
+  workoutsPerVaultPerDay: number; // D63
 }
 
-export const DEFAULT_LIMITS: Limits = { vaultsPerIpPerDay: 5, vaultBytes: 50_000_000, photosPerVaultPerDay: 30, photosPerDay: 150, menusPerVaultPerDay: 15 };
+export const DEFAULT_LIMITS: Limits = { vaultsPerIpPerDay: 5, vaultBytes: 50_000_000, photosPerVaultPerDay: 30, photosPerDay: 150, menusPerVaultPerDay: 15, workoutsPerVaultPerDay: 10 };
 
 export interface Deps {
   store: Store;
   recognize?: Recognizer; // absent = photos are off (no API key)
   menu?: MenuMaker; // the same
+  workout?: WorkoutMaker; // D63: the same
   label?: LabelReader; // the same (D45)
   push?: { publicKey: string; send: Sender };
   backupAgeH?: () => number | null;
@@ -201,7 +204,7 @@ export function createApp(deps: Deps) {
       usd: Math.round(rows.reduce((s, r) => s + r.usd_micro, 0) / 10_000) / 100 });
   });
 
-  app.get('/health', (c) => c.json({ ok: true, photo: !!recognize, menu: !!menu, label: !!deps.label, push: !!deps.push,
+  app.get('/health', (c) => c.json({ ok: true, photo: !!recognize, menu: !!menu, workout: !!deps.workout, label: !!deps.label, push: !!deps.push,
     ai: { lastOk: ai.lastOk || null, lastError: ai.lastError || null, failing: ai.lastError > ai.lastOk },
     backupAgeH: deps.backupAgeH?.() ?? null }));
 
@@ -313,6 +316,41 @@ export function createApp(deps: Deps) {
     } catch (e) {
       ai.lastError = Date.now();
       console.error('menu failed:', (e as Error).message);
+      return c.json({ error: 'upstream' }, 502);
+    }
+  });
+
+  // D63: a session from the library ids the app sends
+  app.post('/v1/vaults/:id/workout', bodyLimit({ maxSize: 100_000, onError: (c) => c.json({ error: 'too_large' }, 413) }), async (c) => {
+    const id = authed(c);
+    if (typeof id !== 'string') return id;
+    if (!deps.workout) return c.json({ error: 'ai_off' }, 503);
+    const b = await c.req.json().catch(() => null) as Record<string, unknown> | null;
+    const str = (x: unknown, len: number) => (typeof x === 'string' ? x.slice(0, len) : '');
+    const list = (x: unknown, max: number, len: number) =>
+      (Array.isArray(x) ? x.filter((s): s is string => typeof s === 'string' && s.trim() !== '').map((s) => s.slice(0, len)).slice(0, max) : []);
+    const exercises = (Array.isArray(b?.exercises) ? b.exercises : []).slice(0, 40).flatMap((e: unknown) => {
+      const x = e as Record<string, unknown>;
+      return typeof x?.id === 'string' && /^[a-z0-9-]{1,40}$/.test(x.id) && typeof x.name === 'string' && [1, 2, 3].includes(x.level as number)
+        ? [{ id: x.id, name: x.name.slice(0, 80), level: x.level as number, pattern: str(x.pattern, 20), unilateral: x.unilateral === true, timed: x.timed === true }] : [];
+    });
+    if (exercises.length < 3) return c.json({ error: 'bad_request' }, 400);
+    const history = (Array.isArray(b?.history) ? b.history : []).slice(0, 10).flatMap((h: unknown) => {
+      const x = h as Record<string, unknown>;
+      return typeof x?.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(x.date) ? [{ date: x.date, feeling: str(x.feeling, 30), items: list(x.items, 10, 120) }] : [];
+    });
+    const minutes = typeof b?.minutes === 'number' ? Math.min(90, Math.max(10, Math.round(b.minutes))) : 35;
+    if (!store.take(`workout:${id}`, limits.workoutsPerVaultPerDay, now())) return c.json({ error: 'too_many' }, 429);
+    try {
+      const { result, usage } = await deps.workout({ exercises, history, rules: list(b?.rules, 30, 300), equipment: str(b?.equipment, 40) || 'Гиря 16 кг',
+        minutes, wish: str(b?.wish, 300) });
+      spent(id, 'workout', usage);
+      ai.lastOk = Date.now();
+      if (result === 'refused') return c.json({ error: 'refused' }, 422);
+      return c.json(result);
+    } catch (e) {
+      ai.lastError = Date.now();
+      console.error('workout failed:', (e as Error).message);
       return c.json({ error: 'upstream' }, 502);
     }
   });
