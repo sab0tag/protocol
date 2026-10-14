@@ -116,20 +116,18 @@ test('the service worker fills reminders in from the phone\'s own data', async (
   await cdp.send('ServiceWorker.enable');
   const id = (await regs)[0]!.registrationId;
   const shown = async () => (await page.evaluate(async () => (await (await navigator.serviceWorker.ready).getNotifications()).map((n) => `${n.title} — ${n.body}`))).sort();
-  // One at a time, and once more if it never shows: under load the browser sometimes drops a push delivered over
-  // DevTools before the worker handles it — the browser's loss, not the app's (the app's text is what is checked).
-  const push = async (d: object) => {
-    const before = (await shown()).length;
+  // Each push is checked right after it, by its own text: under load the browser may drop a push delivered over
+  // DevTools, or clear notifications it already showed — the browser's doing, not the app's. What is tested is the
+  // text the worker builds from the phone's own data; a push that never shows is sent once more.
+  const push = async (d: object, text: string) => {
     const send = () => cdp.send('ServiceWorker.deliverPushMessage', { origin: 'http://localhost:4318', registrationId: id,
       data: JSON.stringify({ u: './', tag: Math.random().toString(), n: 0, ...d }) });
     await send();
-    const arrived = async () => (await shown()).length > before;
-    await expect.poll(arrived, { timeout: 5000 }).toBe(true).catch(async () => { await send(); await expect.poll(arrived, { timeout: 10000 }).toBe(true); });
+    const has = async () => (await shown()).includes(text);
+    await expect.poll(has, { timeout: 5000 }).toBe(true).catch(async () => { await send(); await expect.poll(has, { timeout: 10000 }).toBe(true); });
   };
-  await push({ t: 'На завтра', b: '—', k: 'evening', d: tomorrow });
-  await push({ t: 'На завтра', b: '—', k: 'evening', d: '2031-01-01' });
-  await push({ t: 'Ліки', b: '—', k: 'med', h: '08:30', n: 1 });
-  await push({ t: 'План на сьогодні', b: '—', k: 'morning', d: today });
-  await expect.poll(shown)
-    .toEqual(expect.arrayContaining(['На завтра — Зваріть яйця звечора', 'На завтра — Меню на завтра ще не складено — скласти?', '⏰ Ще раз: Ліки — Вітамін D під час їжі']));
+  await push({ t: 'На завтра', b: '—', k: 'evening', d: tomorrow }, 'На завтра — Зваріть яйця звечора');
+  await push({ t: 'На завтра', b: '—', k: 'evening', d: '2031-01-01' }, 'На завтра — Меню на завтра ще не складено — скласти?');
+  await push({ t: 'Ліки', b: '—', k: 'med', h: '08:30', n: 1 }, '⏰ Ще раз: Ліки — Вітамін D під час їжі');
+  await push({ t: 'План на сьогодні', b: '—', k: 'morning', d: today }, 'План на сьогодні — ліки: 08:30');
 });

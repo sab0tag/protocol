@@ -180,7 +180,7 @@ describe('workout (D63)', () => {
       headers: { Authorization: `Bearer ${AUTH}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     await app.request(`/v1/vaults/${VAULT}`, { method: 'PUT', headers: { Authorization: `Bearer ${AUTH}` } });
     expect((await call({ exercises: [EX('a'), EX('b')] })).status).toBe(400);
-    const r = await call({ exercises: [EX('goblet-squat'), EX('swing', 2), EX('row'), EX('Bad Id'), { id: 'x', name: 'x', level: 7 }],
+    const r = await call({ exercises: [EX('goblet-squat'), EX('swing', 2), EX('goblet-squat'), EX('row'), EX('Bad Id'), { id: 'x', name: 'x', level: 7 }],
       history: [{ date: '2026-10-12', feeling: 'Легко', items: ['Гоблет-присід: 12 · 12 · 12'] }, { date: 'вчора', items: [] }],
       rules: ['Без смаженого'], minutes: 500, wish: 'коротко' });
     expect(r.status).toBe(200);

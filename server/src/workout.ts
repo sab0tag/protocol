@@ -3,9 +3,8 @@
 // piece of advice from their own records. The app checks every line against its library and shows a draft; nothing is
 // written until the person records the workout. Like the menu: the doctor decides, the model only helps to do it.
 import Anthropic from '@anthropic-ai/sdk';
-import { betaZodOutputFormat } from '@anthropic-ai/sdk/helpers/beta/zod';
 import { z } from 'zod';
-import { usageOf, type Usage } from './photo.ts';
+import { structured, type Effort, type Usage } from './claude.ts';
 
 export interface WorkoutInput {
   exercises: { id: string; name: string; level: number; pattern: string; unilateral: boolean; timed: boolean }[];
@@ -37,10 +36,10 @@ const SYSTEM = `Ти складаєш тренування з гирею на с
 Однобічні вправи — повтори на кожну руку чи ногу. Для вправ на час — секунди, повтори null.
 Порада — коротка, по-людськи, з опорою на цифри із записів; без медичних порад, без діагнозів, не змінюй обмежень лікаря.`;
 
-export function claudeWorkout(opts: { model: string; effort: 'low' | 'medium' | 'high'; client?: Anthropic }): WorkoutMaker {
+export function claudeWorkout(opts: { model: string; effort: Effort; client?: Anthropic }): WorkoutMaker {
   const client = opts.client ?? new Anthropic({ timeout: 120_000, maxRetries: 1 });
   return async (input) => {
-    const ids = input.exercises.map((e) => e.id) as [string, ...string[]];
+    const ids = [...new Set(input.exercises.map((e) => e.id))] as [string, ...string[]]; // an enum must not repeat
     const lines = [
       `Інвентар: ${input.equipment}. Час: до ${input.minutes} хв.`,
       `Вправи (id — назва, рівень 1–3, тип руху, однобічна, на час):\n${input.exercises.map((e) =>
@@ -49,18 +48,6 @@ export function claudeWorkout(opts: { model: string; effort: 'low' | 'medium' | 
       `Обмеження лікаря:\n${input.rules.map((r) => `- ${r}`).join('\n') || '- немає'}`,
       input.wish ? `Побажання на сьогодні: ${input.wish}` : '',
     ].filter(Boolean);
-    const response = await client.beta.messages.parse({
-      model: opts.model,
-      max_tokens: 4000,
-      betas: ['server-side-fallback-2026-07-01'],
-      fallbacks: 'default',
-      system: SYSTEM,
-      output_config: { effort: opts.effort, format: betaZodOutputFormat(workoutSchema(ids)) },
-      messages: [{ role: 'user', content: lines.join('\n\n') }],
-    });
-    const usage = usageOf(response);
-    if (response.stop_reason === 'refusal') return { result: 'refused', usage };
-    if (!response.parsed_output) throw new Error(`no parsed output (stop_reason ${response.stop_reason})`);
-    return { result: response.parsed_output, usage };
+    return structured(client, { model: opts.model, effort: opts.effort, maxTokens: 4000, system: SYSTEM, schema: workoutSchema(ids), content: lines.join('\n\n') });
   };
 }

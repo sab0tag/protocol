@@ -16,8 +16,7 @@ test('a 2-day menu (model stubbed): checked by the plan, a line added to one mea
   await page.goto('./#/menu');
   await page.getByRole('button', { name: '2', exact: true }).click();
   await page.getByRole('button', { name: 'Скласти меню' }).click();
-  await page.getByRole('button', { name: 'Дозволити й скласти' }).click();
-  await page.getByRole('button', { name: 'Скласти меню' }).click();
+  await page.getByRole('button', { name: 'Дозволити й скласти' }).click(); // consent and compose in one tap
   await expect(page.getByText('Разом за день')).toHaveCount(2);
   expect(asked[1]!.avoid).toContain('Вінегрет');
   await expect(page.getByText(/Багато оксалатів — замінено/)).toBeVisible(); // the example plan: no beet

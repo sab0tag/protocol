@@ -59,9 +59,9 @@ export function Menu() {
     setError((L.errors as Record<string, string>)[code] ?? L.errors.other);
   };
 
-  const make = async () => {
+  const make = async (consented = !!meta?.menuConsent) => {
     if (!keys) return;
-    if (!meta?.menuConsent) { setConsent(true); return; }
+    if (!consented) { setConsent(true); return; }
     setError(''); setDrafts([]);
     const out: MenuDraft[] = [];
     try {
@@ -146,7 +146,7 @@ export function Menu() {
         {!meta || !keys ? <p className="text-sm text-muted">{L.needsSync}</p> : consent && !meta.menuConsent ? (
           <div className="space-y-2 rounded-xl border border-accent/40 p-2 text-sm">
             <p>{L.consent}</p>
-            <button type="button" onClick={async () => { await db.meta.update('sync', { menuConsent: true }); setConsent(false); }}
+            <button type="button" onClick={async () => { await db.meta.update('sync', { menuConsent: true }); setConsent(false); void make(true); }}
               className="min-h-tap rounded-xl bg-accent px-3 font-medium text-surface">{L.allow}</button>
           </div>
         ) : (

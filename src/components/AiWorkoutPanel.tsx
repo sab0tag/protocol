@@ -21,10 +21,12 @@ function loadLevels(): Level[] {
   return [1, 2];
 }
 
-export function AiWorkoutPanel({ workouts, plan, onDraft }: { workouts: Workout[]; plan: Plan | undefined; onDraft: (x: WorkoutExercise[], advice: string) => void }) {
+export function AiWorkoutPanel({ workouts, plan, date, onDraft }: {
+  workouts: Workout[]; plan: Plan | undefined; date: string; onDraft: (x: WorkoutExercise[], advice: string, forDate: string) => void;
+}) {
   const meta = useLiveQuery(async () => (await db.meta.get('sync')) ?? null, []);
   const [levels, setLevels] = useState<Level[]>(loadLevels);
-  const [minutes, setMinutes] = useState(35);
+  const [minutes, setMinutes] = useState('35'); // the field as typed; bounded when sent
   const [wish, setWish] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -33,18 +35,20 @@ export function AiWorkoutPanel({ workouts, plan, onDraft }: { workouts: Workout[
   if (meta === undefined) return null;
 
   const pick = (l: Level[]) => { setLevels(l); try { localStorage.setItem(STORE, JSON.stringify(l)); } catch { /* private */ } };
-  const make = async () => {
+  const make = async (consented = !!meta?.workoutConsent) => {
     if (!keys) return;
-    if (!meta?.workoutConsent) { setAsking(true); return; }
+    if (!consented) { setAsking(true); return; }
+    const forDate = date;
     setBusy(true); setError('');
     try {
-      const r = await aiWorkout(keys, workoutRequest({ levels, workouts, plan, minutes, wish }));
+      const mins = Math.min(90, Math.max(10, Math.round(Number(minutes) || 35)));
+      const r = await aiWorkout(keys, workoutRequest({ levels, workouts, plan, minutes: mins, wish }));
       const d = draftFromAi(r, levels);
       if (!d.exercises.length) { setError(L.empty); return; }
-      onDraft(d.exercises, [r.advice.trim(), d.dropped ? L.dropped(d.dropped) : ''].filter(Boolean).join(' '));
+      onDraft(d.exercises, [r.advice.trim(), d.dropped ? L.dropped(d.dropped) : ''].filter(Boolean).join(' '), forDate);
     } catch (e) {
       const code = e instanceof ApiError ? (e.status === 0 ? 'offline' : e.code) : 'other';
-      setError((t.menu.errors as Record<string, string>)[code] ?? t.menu.errors.other);
+      setError((L.errors as Record<string, string>)[code] ?? L.errors.other);
     } finally { setBusy(false); }
   };
 
@@ -58,7 +62,7 @@ export function AiWorkoutPanel({ workouts, plan, onDraft }: { workouts: Workout[
       </div>
       <div className="grid grid-cols-[6rem_1fr] gap-2">
         <label className="block"><span className="text-sm text-muted">{L.minutes}</span>
-          <input type="number" inputMode="numeric" min={10} max={90} value={minutes} onChange={(e) => setMinutes(Number(e.target.value) || 35)}
+          <input type="number" inputMode="numeric" min={10} max={90} value={minutes} onChange={(e) => setMinutes(e.target.value)}
             className="mt-1 block min-h-tap w-full rounded-xl border border-line bg-bg px-3" /></label>
         <label className="block"><span className="text-sm text-muted">{L.wish}</span>
           <input value={wish} onChange={(e) => setWish(e.target.value)} placeholder={L.wishPh} maxLength={300}
@@ -67,7 +71,7 @@ export function AiWorkoutPanel({ workouts, plan, onDraft }: { workouts: Workout[
       {!meta || !keys ? <p className="text-sm text-muted">{L.needsSync}</p> : asking && !meta.workoutConsent ? (
         <div className="space-y-2 rounded-xl border border-accent/40 p-2 text-sm">
           <p>{L.consent}</p>
-          <button type="button" onClick={async () => { await db.meta.update('sync', { workoutConsent: true }); setAsking(false); }}
+          <button type="button" onClick={async () => { await db.meta.update('sync', { workoutConsent: true }); setAsking(false); void make(true); }}
             className="min-h-tap rounded-xl bg-accent px-3 font-medium text-surface">{L.allow}</button>
         </div>
       ) : (

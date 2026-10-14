@@ -2,9 +2,8 @@
 // food base and dishes (an enum in the output schema), with grams and times; the app recounts everything from its
 // base, runs its own dish check and shows a draft — nothing is written until the person accepts it.
 import Anthropic from '@anthropic-ai/sdk';
-import { betaZodOutputFormat } from '@anthropic-ai/sdk/helpers/beta/zod';
 import { z } from 'zod';
-import { usageOf, type Usage } from './photo.ts';
+import { structured, type Effort, type Usage } from './claude.ts';
 
 export interface MenuInput {
   date: string;
@@ -41,7 +40,7 @@ const SYSTEM = `Ти складаєш меню на один день для л�
 Зазвичай: сніданок, обід, вечеря і 1–2 перекуси. Віддавай перевагу тому, що людина часто їсть, але не повторюй один і той самий продукт у кожному прийомі.
 Поради — практичні: що приготувати заздалегідь, як розподілити воду, чим перекусити в дорозі. Не давай медичних порад, не згадуй ліки й добавки, не змінюй цілей лікаря.`;
 
-export function claudeMenu(opts: { model: string; effort: 'low' | 'medium' | 'high'; client?: Anthropic }): MenuMaker {
+export function claudeMenu(opts: { model: string; effort: Effort; client?: Anthropic }): MenuMaker {
   const client = opts.client ?? new Anthropic({ timeout: 180_000, maxRetries: 1 });
   return async (input) => {
     const names = [...new Set([...input.foods, ...input.dishes])] as [string, ...string[]];
@@ -55,18 +54,6 @@ export function claudeMenu(opts: { model: string; effort: 'low' | 'medium' | 'hi
       input.wish ? `Побажання на цей день: ${input.wish}` : '',
       input.avoid.length ? `Попередні дні вже мають: ${input.avoid.join('; ')} — склади інакше, щоб не повторювалось.` : '',
     ].filter(Boolean);
-    const response = await client.beta.messages.parse({
-      model: opts.model,
-      max_tokens: 8000,
-      betas: ['server-side-fallback-2026-07-01'],
-      fallbacks: 'default',
-      system: SYSTEM,
-      output_config: { effort: opts.effort, format: betaZodOutputFormat(menuSchema(names)) },
-      messages: [{ role: 'user', content: lines.join('\n\n') }],
-    });
-    const usage = usageOf(response);
-    if (response.stop_reason === 'refusal') return { result: 'refused', usage };
-    if (!response.parsed_output) throw new Error(`no parsed output (stop_reason ${response.stop_reason})`);
-    return { result: response.parsed_output, usage };
+    return structured(client, { model: opts.model, effort: opts.effort, maxTokens: 8000, system: SYSTEM, schema: menuSchema(names), content: lines.join('\n\n') });
   };
 }

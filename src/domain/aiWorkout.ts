@@ -30,17 +30,25 @@ export function workoutRequest(args: { levels: Level[]; workouts: Workout[]; pla
 
 const clamp = (n: number | null | undefined, lo: number, hi: number) => (n == null ? undefined : Math.min(hi, Math.max(lo, Math.round(n))));
 
+/** The library's own words with the new numbers: «3 × 5 у кожен бік», «3 × 8 кожною ногою», «… за слабшою рукою» stay. */
+export function retarget(target: string, sets: number, n: number, timed: boolean): string {
+  const m = /^\s*\d+\s*×\s*\d+(?:\s*[–-]\s*\d+)?(?:\s*с(?![а-яіїєґ]))?/i.exec(target);
+  return `${sets} × ${n}${timed ? ' с' : ''}${m ? target.slice(m[0].length) : ''}`;
+}
+
+/** `dropped` — lines the app refused (unknown, or not of the chosen levels); a repeated exercise is just merged away. */
 export function draftFromAi(r: AiWorkout, levels: Level[]): { exercises: WorkoutExercise[]; dropped: number } {
   const seen = new Set<string>();
   const out: WorkoutExercise[] = [];
+  let dropped = 0;
   for (const x of r.exercises) {
     const e = exerciseById.get(x.id);
-    if (!e || !levels.includes(e.level) || seen.has(e.id)) continue;
+    if (!e || !levels.includes(e.level)) { dropped += 1; continue; }
+    if (seen.has(e.id)) continue;
     seen.add(e.id);
     const sets = clamp(x.sets, 1, 5) ?? e.sets;
-    const each = e.unilateral ? ' кожною' : '';
-    const target = e.timed ? `${sets} × ${clamp(x.seconds, 10, 180) ?? 30} с${each}` : `${sets} × ${clamp(x.reps, 1, 30) ?? 8}${each}`;
-    out.push(blankExercise({ ...e, sets, target }));
+    const n = e.timed ? clamp(x.seconds, 10, 180) ?? 30 : clamp(x.reps, 1, 30) ?? 8;
+    out.push(blankExercise({ ...e, sets, target: retarget(e.target, sets, n, e.timed) }));
   }
-  return { exercises: out, dropped: r.exercises.length - out.length };
+  return { exercises: out, dropped };
 }

@@ -3,7 +3,7 @@ import { Loading } from '../components/Recovery';
 import { saved as withToast } from '../components/Toast';
 import { uk } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, Info, Plus, RefreshCw, X } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { db } from '../data/db';
 import { usePlan, useWorkouts } from '../data/queries';
 import { atLocal, newId, todayISO } from '../domain/dates';
@@ -36,6 +36,7 @@ export function Workout() {
   useEffect(() => {
     if (!workouts) return;
     setSaved(false);
+    setAiAdvice(''); // a new day — the last day's advice is not about it
     const last = workouts.filter((w) => w.date < date).at(-1);
     const start = startingSet(last, last && first ? programmeWeek(first, last.date) : week, week); // D60
     setDraft(existing ?? { id: newId(), date, durationMin: 30, equipment: EQUIPMENT, exercises: start.map(blankExercise) });
@@ -43,6 +44,8 @@ export function Workout() {
   const [card, setCard] = useState<Exercise | null>(null);
   const [picking, setPicking] = useState<{ replace?: number } | null>(null); // D60: the library inline — to add, or to replace exercise #
   const [aiAdvice, setAiAdvice] = useState(''); // D63
+  const shownDate = useRef(date);
+  shownDate.current = date; // a reply for a day no longer on screen is dropped, never written over another day's draft
 
   if (!workouts || !draft) return <Loading />;
   const schedule = workoutDay(plan, workouts.filter((w) => w.date !== date), date);
@@ -59,6 +62,7 @@ export function Workout() {
         kind: 'workout', status: 'done', title: L.title, workoutId: draft.id, checkKey: 'workout' });
     }), t.toast.workout);
     setSaved(true);
+    setAiAdvice('');
   };
 
   return (
@@ -86,7 +90,11 @@ export function Workout() {
       })()}
 
       {!existing && <AiWorkoutPanel workouts={workouts.filter((w) => w.date < date)} plan={plan}
-        onDraft={(xs, advice) => { setDraft({ ...draft, exercises: xs }); setAiAdvice(advice); }} />}
+        onDraft={(xs, advice, forDate) => {
+          if (forDate !== shownDate.current) return;
+          setDraft((d) => (d && d.date === forDate ? { ...d, exercises: xs } : d));
+          setAiAdvice(advice);
+        }} date={date} />}
       {aiAdvice && (
         <div role="status" className="space-y-1 rounded-2xl border border-accent/30 bg-accent/10 p-3 text-sm">
           <p><span className="font-semibold">{t.aiWorkout.advice}: </span>{aiAdvice}</p>

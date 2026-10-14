@@ -58,6 +58,10 @@ const hash = (s: string) => createHash('sha256').update(s).digest('hex');
 export function createApp(deps: Deps) {
   const { store, recognize, menu, origins } = deps;
   const limits = deps.limits ?? DEFAULT_LIMITS;
+  /** Strings from a request, the same rule in every route: only non-empty strings, each cut to `len`, at most `max`. */
+  const list = (x: unknown, max: number, len: number) =>
+    (Array.isArray(x) ? x.filter((s): s is string => typeof s === 'string' && s.trim() !== '').map((s) => s.slice(0, len)).slice(0, max) : []);
+  const str = (x: unknown, len: number) => (typeof x === 'string' ? x.slice(0, len) : '');
   const now = deps.now ?? (() => new Date());
   const app = new Hono();
   const ai = { lastOk: 0, lastError: 0 };
@@ -268,7 +272,6 @@ export function createApp(deps: Deps) {
     if (!recognize) return c.json({ error: 'photo_off' }, 503);
     const body = await c.req.json().catch(() => null) as { image?: unknown; foods?: unknown; dishes?: unknown } | null;
     const image = body?.image;
-    const list = (x: unknown) => (Array.isArray(x) ? x.filter((s): s is string => typeof s === 'string').map((s) => s.slice(0, 80)).slice(0, 400) : []);
     if (typeof image !== 'string' || !B64.test(image)) return c.json({ error: 'bad_request' }, 400);
     const bytes = Buffer.from(image, 'base64');
     if (bytes.length > MAX_IMAGE || bytes[0] !== 0xff || bytes[1] !== 0xd8) return c.json({ error: 'bad_image' }, 400);
@@ -277,7 +280,7 @@ export function createApp(deps: Deps) {
       return c.json({ error: 'too_many' }, 429);
     }
     try {
-      const { result, usage } = await recognize({ image, foods: list(body?.foods), dishes: list(body?.dishes) });
+      const { result, usage } = await recognize({ image, foods: list(body?.foods, 400, 80), dishes: list(body?.dishes, 400, 80) });
       spent(id, 'photo', usage);
       ai.lastOk = Date.now();
       if (result === 'refused') return c.json({ error: 'refused' }, 422);
@@ -294,8 +297,6 @@ export function createApp(deps: Deps) {
     if (typeof id !== 'string') return id;
     if (!menu) return c.json({ error: 'ai_off' }, 503);
     const b = await c.req.json().catch(() => null) as Record<string, unknown> | null;
-    const list = (x: unknown, max = 400, len = 300) =>
-      (Array.isArray(x) ? x.filter((s): s is string => typeof s === 'string' && s.trim() !== '').map((s) => s.slice(0, len)).slice(0, max) : []);
     const foods = list(b?.foods, 400, 80);
     const date = typeof b?.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(b.date) ? b.date : null;
     if (!date || foods.length === 0) return c.json({ error: 'bad_request' }, 400);
@@ -307,8 +308,8 @@ export function createApp(deps: Deps) {
     }
     if (!store.take(`menu:${id}`, limits.menusPerVaultPerDay, now())) return c.json({ error: 'too_many' }, 429);
     try {
-      const { result, usage } = await menu({ date, targets, rules: list(b?.rules, 30), foods, dishes: list(b?.dishes, 100, 80),
-        usual: list(b?.usual, 50, 80), wish: typeof b?.wish === 'string' ? b.wish.slice(0, 300) : '', avoid: list(b?.avoid, 60, 80) });
+      const { result, usage } = await menu({ date, targets, rules: list(b?.rules, 30, 300), foods, dishes: list(b?.dishes, 100, 80),
+        usual: list(b?.usual, 50, 80), wish: str(b?.wish, 300), avoid: list(b?.avoid, 60, 80) });
       spent(id, 'menu', usage);
       ai.lastOk = Date.now();
       if (result === 'refused') return c.json({ error: 'refused' }, 422);
@@ -326,12 +327,12 @@ export function createApp(deps: Deps) {
     if (typeof id !== 'string') return id;
     if (!deps.workout) return c.json({ error: 'ai_off' }, 503);
     const b = await c.req.json().catch(() => null) as Record<string, unknown> | null;
-    const str = (x: unknown, len: number) => (typeof x === 'string' ? x.slice(0, len) : '');
-    const list = (x: unknown, max: number, len: number) =>
-      (Array.isArray(x) ? x.filter((s): s is string => typeof s === 'string' && s.trim() !== '').map((s) => s.slice(0, len)).slice(0, max) : []);
+    const ids = new Set<string>(); // an id twice would make the schema's enum invalid — the first one is kept
     const exercises = (Array.isArray(b?.exercises) ? b.exercises : []).slice(0, 40).flatMap((e: unknown) => {
       const x = e as Record<string, unknown>;
-      return typeof x?.id === 'string' && /^[a-z0-9-]{1,40}$/.test(x.id) && typeof x.name === 'string' && [1, 2, 3].includes(x.level as number)
+      if (typeof x?.id !== 'string' || ids.has(x.id)) return [];
+      ids.add(x.id);
+      return /^[a-z0-9-]{1,40}$/.test(x.id) && typeof x.name === 'string' && [1, 2, 3].includes(x.level as number)
         ? [{ id: x.id, name: x.name.slice(0, 80), level: x.level as number, pattern: str(x.pattern, 20), unilateral: x.unilateral === true, timed: x.timed === true }] : [];
     });
     if (exercises.length < 3) return c.json({ error: 'bad_request' }, 400);

@@ -60,12 +60,28 @@ test('«Скласти тренування з ІІ» (model stubbed): the chose
   const panel = page.getByRole('region', { name: 'Скласти тренування з ІІ' });
   await expect(panel.getByRole('button', { name: 'Базовий + середній' })).toHaveAttribute('aria-pressed', 'true');
   await panel.getByRole('button', { name: 'Скласти тренування' }).click();
-  await panel.getByRole('button', { name: 'Дозволити й скласти' }).click();
-  await panel.getByRole('button', { name: 'Скласти тренування' }).click();
+  await panel.getByRole('button', { name: 'Дозволити й скласти' }).click(); // consent and compose in one tap
   await expect(page.getByText('Почніть спокійно — це перше тренування.')).toBeVisible();
   expect(sent!.exercises.every((e) => e.level <= 2)).toBe(true);
   await expect(page.getByText(/1 — не з бібліотеки або не того рівня/)).toBeVisible(); // the snatch
   await expect(page.getByRole('button', { name: /^Як виконувати: Махи двома руками/ })).toBeVisible();
   await expect(page.getByText('3 × 12', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: /^Як виконувати: Ривок/ })).toHaveCount(0);
+});
+
+test('a reply that comes after moving to another day is dropped — never written over that day (review #1, #2)', async ({ browser }) => {
+  const page = await device(browser);
+  await syncOn(page);
+  await page.route('**/workout', async (r) => {
+    await new Promise((ok) => setTimeout(ok, 1500));
+    await r.fulfill({ json: { advice: 'Пізня порада', exercises: [{ id: 'swing', sets: 3, reps: 12, seconds: null },
+      { id: 'goblet-squat', sets: 3, reps: 10, seconds: null }, { id: 'plank', sets: 2, reps: null, seconds: 30 }] } });
+  });
+  await page.goto('./#/workout');
+  await page.getByRole('region', { name: 'Скласти тренування з ІІ' }).getByRole('button', { name: 'Скласти тренування' }).click();
+  await page.getByRole('button', { name: 'Дозволити й скласти' }).click();
+  await page.getByRole('button', { name: 'Наступний день' }).click();
+  await page.waitForTimeout(2500);
+  await expect(page.getByText('Пізня порада')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /^Як виконувати: Махи двома руками/ })).toHaveCount(0);
 });
