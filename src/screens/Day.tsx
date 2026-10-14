@@ -245,6 +245,7 @@ export function Day() {
           </Sheet>
         );
       })()}
+      <p className="text-center"><button type="button" onClick={() => navigate('/frictions')} className="min-h-tap px-2 text-sm text-muted underline">{t.friction.ask}</button></p>
       {checklist && (
         <>
           <div className="h-40 md:h-16" aria-hidden />{/* D48: the end of the day stays visible above the dock */}

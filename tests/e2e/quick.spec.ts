@@ -20,3 +20,13 @@ test('records from a link: water with undo, the medicine (or a word why not), «
   await page.goto('./#/quick');
   await expect(page.getByText(/#\/do\/water$/)).toBeVisible();
 });
+
+test('«Що заважало»: one tap and a few words, listed newest first (D67)', async ({ browser }) => {
+  const page = await device(browser);
+  await page.getByRole('button', { name: 'Щось заважало? Запишіть' }).click();
+  await page.getByRole('button', { name: 'Не записав — надто клопітно' }).click();
+  await page.getByRole('textbox', { name: /^Кілька слів/ }).fill('вечеря в гостях');
+  await page.getByRole('button', { name: 'Записати', exact: true }).click();
+  await expect(toast(page)).toContainText('Записано — дякую');
+  await expect(page.getByRole('region', { name: 'Записане' })).toContainText('Не записав — надто клопітно — вечеря в гостях');
+});

@@ -22,6 +22,7 @@ import { Workout } from '../screens/Workout';
 import { Exercises } from '../screens/Exercises';
 import { QuickAction } from '../screens/QuickAction';
 import { QuickLinks } from '../screens/QuickLinks';
+import { Frictions } from '../screens/Frictions';
 
 /** A fresh form for every meal: /meal/new after editing /meal/:id must not keep the old state. */
 function MealRoute() {
@@ -60,6 +61,7 @@ export function App() {
             <Route path="/exercises" element={<Exercises />} />
             <Route path="/do/:action" element={<QuickAction />} />
             <Route path="/quick" element={<QuickLinks />} />
+            <Route path="/frictions" element={<Frictions />} />
             <Route path="/plan" element={<Plan />} />
             <Route path="/welcome" element={<Onboarding />} />
             <Route path="/progress" element={<Progress />} />

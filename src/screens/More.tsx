@@ -1,4 +1,4 @@
-import { Activity, BellRing, ChevronRight, Dumbbell, FileText, ListChecks, RefreshCw, Salad, ShoppingCart, Sparkles, UserRound, Zap } from 'lucide-react';
+import { Activity, BellRing, ChevronRight, Dumbbell, FileText, ListChecks, RefreshCw, Salad, ShoppingCart, Sparkles, UserRound, MessageSquareWarning, Zap } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Backup } from '../components/Backup';
 import { t } from '../i18n/uk';
@@ -15,6 +15,7 @@ const LINKS = [
   { to: '/workout', Icon: Dumbbell, title: t.workout.title },
   { to: '/exercises', Icon: Dumbbell, title: t.exercise.library },
   { to: '/quick', Icon: Zap, title: t.quick.title },
+  { to: '/frictions', Icon: MessageSquareWarning, title: t.friction.title },
   { to: '/welcome', Icon: UserRound, title: t.welcome.again },
 ];
 

@@ -4,7 +4,7 @@
 import type { ProtocolDB, SyncMeta, SyncRow } from '../data/db';
 import { open, recordKey, seal, type Keys } from './crypto';
 
-export const TABLES = ['plan', 'entries', 'wellbeing', 'workouts', 'weights', 'labs', 'recipes', 'foods', 'favorites'] as const; // an older app skips a table it does not know
+export const TABLES = ['plan', 'entries', 'wellbeing', 'workouts', 'weights', 'labs', 'recipes', 'foods', 'favorites', 'frictions'] as const; // an older app skips a table it does not know
 export type SyncTable = (typeof TABLES)[number];
 
 type Row = Record<string, unknown>;

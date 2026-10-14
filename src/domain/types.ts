@@ -112,6 +112,15 @@ export interface Recipe {
   builtIn?: boolean;
 }
 
+/** D67: «Що заважало» — a line for the week of trying the app on oneself: where a button was looked for, where a record
+ *  had to be fixed, when nothing was written because it was too much hassle. */
+export interface Friction {
+  id: string;
+  at: ISODateTime;
+  kind: 'search' | 'fix' | 'skip' | 'other';
+  text: string;
+}
+
 /** D51: «Мої звичні» — a meal the person pinned («Моя вівсянка», «Звичайний сніданок»); a tap adds its lines. */
 export interface Favorite {
   id: string;

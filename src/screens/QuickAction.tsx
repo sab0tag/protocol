@@ -49,5 +49,6 @@ async function run(action: string, ml: number): Promise<string> {
   }
   if (action === 'symptom') return '/?open=symptom';
   if (action === 'meal') return '/meal/new';
+  if (action === 'friction') return '/frictions';
   return '/';
 }

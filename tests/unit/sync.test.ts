@@ -78,10 +78,11 @@ describe('sync between two devices', () => {
     await phone.weights.put({ date: '2026-10-04', kg: 97.4 });
     await phone.recipes.put({ id: 'r-mine', name: 'Мій салат', items: [{ name: 'Огірок', grams: 100 }] });
     await phone.favorites.put({ id: 'f1', title: 'Моя вівсянка', items: [{ name: 'Вівсянка', grams: 60 }] }); // D51
+    await phone.frictions.put({ id: 'z1', at: '2026-10-04T09:00:00+03:00', kind: 'search', text: 'вода ввечері' }); // D67
     const first = await syncOnce(phone, keys, server.api, 1000);
     const planParts = Object.keys(await phone.plan.get('main') ?? {}).filter((k) => k !== 'id').length;
-    expect(first.pushed).toBe(4 + planParts); // meal, weight, dish, favorite + the plan by parts
-    expect(server.records.size).toBe(4 + planParts);
+    expect(first.pushed).toBe(5 + planParts); // meal, weight, dish, favorite, friction + the plan by parts
+    expect(server.records.size).toBe(5 + planParts);
     expect([...server.records.values()].every((r) => !r.v!.includes('Яйце'))).toBe(true);
 
     await syncOnce(laptop, keys, server.api, 2000);
@@ -89,6 +90,7 @@ describe('sync between two devices', () => {
     expect(await laptop.weights.get('2026-10-04')).toEqual({ date: '2026-10-04', kg: 97.4 });
     expect(await laptop.recipes.get('r-mine')).toBeDefined();
     expect(await laptop.favorites.get('f1')).toMatchObject({ title: 'Моя вівсянка' });
+    expect(await laptop.frictions.get('z1')).toMatchObject({ kind: 'search' });
 
     await laptop.entries.delete('e1');
     await syncOnce(laptop, keys, server.api, 3000);

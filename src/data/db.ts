@@ -1,7 +1,7 @@
 // IndexedDB through Dexie (SPEC.md §4). Everything stays on the device.
 import Dexie, { type Table } from 'dexie';
 import type { ReminderSettings } from '../domain/reminders';
-import type { DayEntry, Favorite, Food, LabResult, Plan, Recipe, WeightLog, Wellbeing, Workout } from '../domain/types';
+import type { DayEntry, Favorite, Food, Friction, LabResult, Plan, Recipe, WeightLog, Wellbeing, Workout } from '../domain/types';
 import { FOODS } from './foods';
 import { RECIPES } from './recipes';
 import { examplePlan } from './seed.example';
@@ -44,6 +44,7 @@ export class ProtocolDB extends Dexie {
   labs!: Table<LabResult, [string, string]>;
   recipes!: Table<Recipe, string>;
   favorites!: Table<Favorite, string>;
+  frictions!: Table<Friction, string>;
   sync!: Table<SyncRow, string>;
   meta!: Table<SyncMeta, string>;
 
@@ -61,6 +62,7 @@ export class ProtocolDB extends Dexie {
     this.version(2).stores({ recipes: 'id, name' }); // D27: dishes
     this.version(3).stores({ sync: 'tid', meta: 'key' }); // D31: sync state (not in exports)
     this.version(4).stores({ favorites: 'id, title' }); // D51: «Мої звичні»
+    this.version(5).stores({ frictions: 'id, at' }); // D67: «Що заважало»
   }
 }
 
