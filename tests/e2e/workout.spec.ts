@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { device, toast } from './helpers';
+import { device, seed, toast } from './helpers';
 
 test('kettlebell library: a card with two poses, an exercise replaced and one added; the next workout keeps the own set (D60)', async ({ browser }) => {
   const page = await device(browser);
@@ -29,4 +29,19 @@ test('kettlebell library: a card with two poses, an exercise replaced and one ad
   await page.getByRole('button', { name: 'Наступний день' }).click();
   await expect(page.getByRole('button', { name: /^Як виконувати: Зворотний випад/ })).toBeVisible(); // the own set, not the programme
   await expect(page.getByRole('button', { name: /^Як виконувати: Турецький підйом/ })).toBeVisible();
+});
+
+test('advice from the own records: far beyond the target twice → the next level, offered not imposed (D61)', async ({ browser }) => {
+  const page = await device(browser);
+  const ago = (n: number) => { const d = new Date(Date.now() - n * 86_400_000); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+  const squat = (reps: number[]) => ({ exerciseId: 'goblet-squat', name: 'Гоблет-присід', target: '3 × 10', sets: reps.map((r) => ({ reps: r })) });
+  await seed(page, [
+    { store: 'workouts', value: { id: 'a', date: ago(4), durationMin: 30, equipment: 'Гиря 16 кг', feeling: 'Нормально', exercises: [squat([15, 15, 16])] } },
+    { store: 'workouts', value: { id: 'b', date: ago(2), durationMin: 30, equipment: 'Гиря 16 кг', feeling: 'Легко', exercises: [squat([16, 15, 15])] } },
+  ]);
+  await page.goto('./#/workout');
+  await expect(page.getByText('Минулого разу: 16 · 15 · 15')).toBeVisible();
+  await expect(page.getByText(/За 7 днів: тренувань — 2/)).toBeVisible();
+  await page.getByRole('button', { name: /^Замінити на «Зворотний випад/ }).click();
+  await expect(page.getByRole('button', { name: /^Як виконувати: Зворотний випад/ })).toBeVisible();
 });

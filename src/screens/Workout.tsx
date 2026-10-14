@@ -10,6 +10,7 @@ import { atLocal, newId, todayISO } from '../domain/dates';
 import type { Workout as W, WorkoutExercise } from '../domain/types';
 import { blankExercise, EQUIPMENT, pressHint, programmeWeek, startingSet, workoutDay } from '../domain/workouts';
 import { EXERCISES, exerciseOf, type Exercise } from '../data/exercises';
+import { adviceFor, lastNumbers, motivation } from '../domain/progression';
 import { ExerciseCard, LevelBadge } from '../components/ExerciseCard';
 import { ExerciseLibrary } from '../components/ExerciseLibrary';
 import { t } from '../i18n/uk';
@@ -71,6 +72,17 @@ export function Workout() {
           className="flex min-h-tap min-w-tap items-center justify-center rounded-xl border border-line bg-surface"><ChevronRight size={20} /></button>
       </header>
 
+      {(() => { // D61: the week in numbers, personal bests of the last workout
+        const m = motivation(workouts, date);
+        if (!m.week && !m.records.length) return null;
+        return (
+          <div className="space-y-1 rounded-2xl border border-accent/30 bg-accent/10 p-3 text-sm">
+            {m.week > 0 && <p className="font-medium">{L.weekNumbers(m.week, String(m.tonnesWeek).replace('.', ','))}</p>}
+            {m.records.map((r) => <p key={r.exercise.id} className="text-accent">{L.record(r.exercise.name, r.value, r.exercise.timed)}</p>)}
+          </div>
+        );
+      })()}
+
       {!existing && (
         <p className="flex items-start gap-2 rounded-2xl border border-line bg-surface p-3 text-sm">
           <Info size={18} className="mt-0.5 shrink-0 text-muted" />
@@ -98,6 +110,20 @@ export function Workout() {
                 className="flex min-h-tap min-w-tap items-center justify-center text-muted"><X size={18} aria-hidden /></button>
             </div>
             <p className="mb-2 text-sm text-muted">{ex.target}</p>
+            {lib && !existing && (() => { // D61: the last numbers and what they suggest — the person decides
+              const { last, advice: a } = adviceFor(lib, workouts, date);
+              if (!last) return null;
+              return (
+                <div className="mb-2 space-y-1 text-sm">
+                  <p className="tabular text-muted">{L.last(`${lib.unilateral ? `${L.right}/${L.left} ` : ''}${lastNumbers(last, lib.timed)}`)}</p>
+                  {a && <p className={a.kind === 'pain' || a.kind === 'hold' ? 'text-warn' : 'text-accent'}>
+                    {a.kind === 'more-reps' ? L.moreReps(a.to, lib.timed) : a.kind === 'harder' ? L.harder(a.exercise.name)
+                      : a.kind === 'heavier' ? L.heavier(a.kg) : a.kind === 'hold' ? L.hold : L.pain}</p>}
+                  {a?.kind === 'harder' && <button type="button" onClick={() => replace(i, a.exercise)}
+                    className="min-h-tap rounded-xl border border-accent px-3 font-medium text-accent">{L.tryIt(a.exercise.name)}</button>}
+                </div>
+              );
+            })()}
             {picking?.replace === i && (
               <div className="mb-3 rounded-xl border border-accent/40 p-2">
                 <p className="mb-2 text-sm font-medium">{E.alternatives(ex.name)}</p>
