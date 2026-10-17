@@ -17,7 +17,7 @@ import { dishItem, foodFromLine, recipeFrom, setPortions, withComponents } from 
 import { atLocal, dateOf, newId, timeOf, todayISO } from '../domain/dates';
 import { activeMode, dayTotals, effectiveTargets, lineNutrients, mealNutrients, round } from '../domain/nutrition';
 import { applySwaps, checkMeal, hasSwaps, mealVerdict, type ItemCheck } from '../domain/rules';
-import { amountText, approxG, itemFor, measureWord, parseQuery, recognize, searchFoods, splitPhrase, type Query, type Recognized } from '../domain/foodSearch';
+import { amountText, approxG, itemFor, measureWord, parseQuery, readMeal, type Query, type Recognized } from '../domain/foodSearch';
 import { fromPhoto } from '../domain/photo';
 import { ApiError, photo as recognizePhoto } from '../sync/api';
 import { currentKeys } from '../sync/runner';
@@ -71,12 +71,13 @@ export function AddMeal() {
   const others = useDayEntries(date)?.filter((e) => e.id !== id);
   const recent = useRecentEntries(date)?.filter((e) => e.id !== id);
   const parsed = useMemo(() => parseQuery(query), [query]);
-  const matches = useMemo(() => (foods ? searchFoods([...foods.values()], parsed.text, 8, usualIds(all)) : []), [foods, parsed, all]);
-  const dishMatches = useMemo(() => (recipes ? searchFoods(recipes, parsed.text, 4) : []), [recipes, parsed]);
   // D30: what this person usually eats wins among similar foods («кефір» = their kefir)
-  const usual = useMemo(() => new Set(all ? frequentItems(all, todayISO(), 60, 50).map((f) => f.item.recipe?.id ?? f.item.foodId ?? '') : []), [all]);
-  const phrase = useMemo(() => (foods && recipes && splitPhrase(query).length > 1
-    ? recognize(query, [...foods.values()], recipes, dishItem, usual) : null), [foods, recipes, query, usual]);
+  const usual = useMemo(() => usualIds(all), [all]);
+  // D85: one reading of the text for the screen and for the phrase corpus (tests/fixtures/meal-phrases.yaml)
+  const read = useMemo(() => (foods && recipes && query.trim() ? readMeal(query, { foods: [...foods.values()], recipes, dishItem, prefer: usual }) : null),
+    [foods, recipes, query, usual]);
+  const phrase = read && !read.list ? read.rows : null;
+  const list = read?.list ?? [];
   const [photo, setPhoto] = useState<PhotoState>({ state: 'none' });
   const photoInput = useRef<HTMLInputElement>(null);
   const syncMeta = useLiveQuery(async () => (await db.meta.get('sync')) ?? null, []);
@@ -161,11 +162,10 @@ export function AddMeal() {
             ? <RecognizedPanel title={t.meal.photoTitle} rows={photo.rows} note={photo.note}
                 onAdd={(picked) => { setItems((xs) => [...xs, ...picked]); setPhoto({ state: 'none' }); }} />
             : <p role="status" className="mt-2 text-sm text-muted">{photo.note ?? t.meal.photoEmpty}</p>)}
-          {!phrase && (matches.length > 0 || dishMatches.length > 0) && (
+          {!phrase && list.length > 0 && (
             <ul className="mt-2 divide-y divide-line rounded-xl border border-line">
-              {dishMatches.map((r) => {
+              {list.map(({ item: dish, recipe: r, food: f }) => r ? (() => {
                 const portions = parsed.qty ?? 1;
-                const dish = dishItem(r, portions);
                 return (
                   <li key={r.id}>
                     <button type="button" className="flex min-h-tap w-full items-center justify-between gap-2 px-3 text-left"
@@ -175,11 +175,10 @@ export function AddMeal() {
                     </button>
                   </li>
                 );
-              })}
-              {matches.map((f) => (
+              })() : f && (
                 <li key={f.id}>
                   <button type="button" className="flex min-h-tap w-full items-center justify-between gap-2 px-3 text-left"
-                    onClick={() => { setItems((xs) => [...xs, itemFor(f, parsed)]); setQuery(''); }}>
+                    onClick={() => { setItems((xs) => [...xs, dish]); setQuery(''); }}>
                     <span>{f.name}{(() => { const h = allergyHits(f, allergies); return h.length ? <span className="ml-2 text-sm font-medium text-warn">{t.allergen.badge(h.map((a) => t.allergen.name[a]).join(', '))}</span> : null; })()}</span>
                     <span className="tabular shrink-0 text-right text-sm text-muted">{matchHint(f, parsed)}</span>
                   </button>
@@ -188,7 +187,7 @@ export function AddMeal() {
             </ul>
           )}
           {/* D83: nothing found is said — never a silent empty space under the field */}
-          {!phrase && query.trim().length >= 2 && matches.length === 0 && dishMatches.length === 0 && (
+          {!phrase && query.trim().length >= 2 && list.length === 0 && (
             <p role="status" className="mt-2 text-sm text-muted">«{query.trim()}» — {t.meal.notFound}</p>
           )}
           {!query && <FavoritesList onAdd={(xs) => setItems((ys) => [...ys, ...xs])} />}

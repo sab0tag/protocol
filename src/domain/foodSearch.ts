@@ -67,6 +67,13 @@ function withoutStems(text: string): Set<string> {
   return new Set(ws.flatMap((w, i) => (ws[i - 1] === 'без' ? [stem(w)] : [])));
 }
 
+/** Case and number endings of Ukrainian nouns and adjectives — «сиру», «гречки», «кефіром», «варених» (D85). */
+const ENDINGS = ['ами', 'ями', 'ому', 'ого', 'ими', 'ім', 'ом', 'ем', 'єм', 'ою', 'ею', 'єю', 'ам', 'ям', 'ах', 'ях', 'ів', 'їв', 'ей',
+  'ий', 'ій', 'ої', 'им', 'их', 'ої', 'а', 'я', 'у', 'ю', 'і', 'и', 'ї', 'е', 'є', 'о', 'ь'];
+const lemma = (w: string) => { for (const e of ENDINGS) if (w.length - e.length >= 3 && w.endsWith(e)) return w.slice(0, -e.length); return w; };
+/** The same word in another case: «сиру» ~ «сир», «гречки» ~ «гречка», «яйця» ~ «яйце» — but «сиру» is not «сирна». */
+export const sameWord = (a: string, b: string) => a === b || (lemma(a) === lemma(b) && Math.min(a.length, b.length) >= 3);
+
 const SEP = /[\s(),/%]+/; // D83: a name said as written, «(сухі)» and all, splits like the base's names
 
 /** D83: how well the said words fit a name (or one of its aliases): 0 — each is a word of it, 1 — each starts a word of
@@ -74,12 +81,14 @@ const SEP = /[\s(),/%]+/; // D83: a name said as written, «(сухі)» and all
  *  The exact name always comes before a name that merely shares the beginning. */
 export function fit(food: { name: string; aliases?: string[] }, text: string): [number, number] {
   const said = normalize(text).split(SEP).filter((w) => w.length >= 2 || /\d/.test(w)); // «Кефір 1 %» — the 1 counts
-  // «хліба» ~ «хліб», «гречки» ~ «гречка»: the word without its ending still starts the name's word
-  const near = (s: string, w: string) => w.startsWith(s) || (s.length >= 4 && w.startsWith(s.slice(0, -1))) || (s.length >= 5 && w.startsWith(s.slice(0, -2)));
-  let best: [number, number] = [3, 99];
+  let best: [number, number] = [4, 99];
   for (const v of [food.name, ...(food.aliases ?? [])]) {
     const ws = normalize(v).split(SEP).filter(Boolean).map((w) => (w.startsWith('відвар') ? w.slice(3) : w));
-    const rank = said.every((s) => ws.includes(s)) ? 0 : said.every((s) => s.length >= 4 && ws.some((w) => near(s, w))) ? 1 : 2;
+    // T1 (D85): the whole word, then the same word in another case («сиру» ~ «сир», not «сирна»), then a beginning
+    // («вівсян…»), then only a stem («курага» ~ «курячий»); the name's rank is its worst said word
+    const one = (sw: string) => (ws.includes(sw) ? 0 : ws.some((w) => sameWord(sw, w)) ? 1
+      : sw.length >= 4 && ws.some((w) => w.startsWith(sw)) ? 2 : 3);
+    const rank = said.length ? Math.max(...said.map(one)) : 3;
     const extra = Math.max(0, ws.length - said.length);
     if (rank < best[0] || (rank === best[0] && extra < best[1])) best = [rank, extra];
   }
@@ -122,6 +131,18 @@ export function unitOf(food: Food | undefined, name: string | undefined): FoodUn
   return food.units.find((u) => u.name === name) ?? food.units.find((u) => u.name.startsWith(name));
 }
 
+/** T2 (D85): a unit said that the food has no measure for — counted by the usual kitchen table, never replaced by a
+ *  portion. Liquids by volume (a glass of kefir ≈ 250 г), the rest by a typical fill. Shown with «≈» like any measure. */
+const LIQUID = ['drink', 'dairy', 'soup', 'alcohol'];
+function kitchen(food: Food, measure: string): number | undefined {
+  const liquid = food.tags.some((x) => LIQUID.includes(x)) && !food.tags.includes('cheese');
+  const table: Record<string, [number, number]> = { // [liquid, solid] grams
+    'ст. л.': [15, 20], 'ч. л.': [5, 7], склянка: [250, 200], порція: [250, 200], жменя: [30, 30], банка: [250, 250], скибка: [30, 30], шматок: [30, 30],
+  };
+  const g = table[measure];
+  return g ? g[liquid ? 0 : 1] : undefined;
+}
+
 /** The meal line for a food and a parsed amount. Without a measure, a small number means pieces or portions
  *  («2 яйця» = 2 шт), a big one means grams («150 гречки»); nothing given = one portion («гречка» is a side dish, not a
  *  spoon — D84), else the food's first measure, else 100 g. A spoon only when a spoon is said. */
@@ -132,9 +153,11 @@ export function itemFor(food: Food, q: Pick<Query, 'qty' | 'measure'>): MealItem
     : q.measure ? unitOf(food, q.measure) ?? (q.measure === 'шматок' ? unitOf(food, 'скибка') : undefined)
       ?? (q.measure === 'шт' || q.measure === 'шматок' ? first : undefined)
       : q.qty === undefined || q.qty < 20 ? plain : undefined;
-  if (unit) {
+  const said = !unit && q.measure && q.measure !== 'г' && q.measure !== 'шт' ? kitchen(food, q.measure) : undefined;
+  const use = unit ?? (said ? { name: q.measure!, grams: said } : undefined);
+  if (use) {
     const qty = q.qty ?? 1;
-    return { foodId: food.id, name: food.name, grams: Math.round(qty * unit.grams), unit: { name: unit.name, qty, grams: unit.grams } };
+    return { foodId: food.id, name: food.name, grams: Math.round(qty * use.grams), unit: { name: use.name, qty, grams: use.grams } };
   }
   return { foodId: food.id, name: food.name, grams: Math.round(q.measure === 'г' || (q.qty ?? 0) >= 20 ? q.qty ?? 100 : 100) };
 }
@@ -172,9 +195,12 @@ export type { Recipe };
 
 // ------------------------------------------------------------------ a whole phrase (D30: dictation)
 /** «два варених яйця, склянку кефіру і салат» → its parts. */
+const ABBR = new Set(['ст', 'ч', 'л', 'г', 'гр', 'шт', 'конс', 'тощо', 'уп', 'пак', 'мл', 'кг']);
+
 export function splitPhrase(raw: string): string[] {
-  // D84: a comma or dot inside a number («2,5 %»), inside brackets («(кріп, петрушка)») or after an abbreviation
-  // («конс.», «ст. л.») is not between two foods; a dot ends a part only before a capital letter or at the end
+  // D84: a comma or dot inside a number («2,5 %») or inside brackets («(кріп, петрушка)») is not between two foods.
+  // T3 (D85): a dot before a space (or the end) ends a part — before a capital, a digit or a small letter alike —
+  // unless it closes an abbreviation («ст.», «ч. л.», «г.», «шт.», «конс.», «тощо»)
   const parts: string[] = [];
   let cur = '', depth = 0;
   for (let i = 0; i < raw.length; i++) {
@@ -182,7 +208,8 @@ export function splitPhrase(raw: string): string[] {
     if (c === '(') depth++;
     if (c === ')') depth = Math.max(0, depth - 1);
     const inNumber = /\d/.test(prev) && /\d/.test(next);
-    const sentence = c === '.' && /^\s*($|\p{Lu})/u.test(raw.slice(i + 1));
+    const word = /(\p{L}+)$/u.exec(cur)?.[1]?.toLocaleLowerCase('uk') ?? '';
+    const sentence = c === '.' && /^(\s|$)/u.test(raw.slice(i + 1)) && !ABBR.has(word);
     if (depth === 0 && !inNumber && (c === ',' || c === ';' || sentence)) { parts.push(cur); cur = ''; continue; }
     cur += c;
   }
@@ -198,25 +225,55 @@ export interface Recognized {
   unsure?: boolean; // D32: the photo was hard to read
 }
 
+export interface MealContext { foods: Food[]; recipes: Recipe[]; dishItem: (r: Recipe, portions: number) => MealItem; prefer?: ReadonlySet<string> }
+export interface Candidate { item: MealItem; food?: Food; recipe?: Recipe }
+
+/** D85: what one part of the text can be, best first — dishes and foods in one order, by how closely the words fit;
+ *  on an equal fit the dish whose name starts with the word (so «салат» is the salad, «огірок» the cucumber). */
+export function candidates(text: string, ctx: MealContext): { q: Query; list: Candidate[] } {
+  const q = parseQuery(text);
+  if (!q.text) return { q, list: [] };
+  const prefer = ctx.prefer ?? new Set<string>();
+  const foods = searchFoods(ctx.foods, q.text, 8, prefer);
+  const dishes = searchFoods(ctx.recipes, q.text, 4, prefer);
+  const first = stem(normalize(q.text).split(' ')[0]!);
+  const dishFirst = (d: Recipe, f: Food | undefined) => {
+    if (!f) return true;
+    const df = fit(d, q.text), ff = fit(f, q.text);
+    return df[0] < ff[0] || (df[0] === ff[0] && df[1] <= ff[1] && normalize(d.name).startsWith(first));
+  };
+  const list: Candidate[] = [];
+  let a = 0, b = 0;
+  while (a < dishes.length || b < foods.length) {
+    const d = dishes[a], f = foods[b];
+    if (d && dishFirst(d, f)) { list.push({ item: ctx.dishItem(d, q.qty ?? 1), recipe: d }); a++; }
+    else { list.push({ item: itemFor(f!, q), food: f! }); b++; }
+  }
+  return { q, list };
+}
+
+/** Each part of a phrase: the best candidate, and for a word alone the other kinds it may mean (no twins). */
+export function recognizeWith(raw: string, ctx: MealContext): Recognized[] {
+  return splitPhrase(raw).map((text) => {
+    const { q, list } = candidates(text, ctx);
+    const best = list[0];
+    if (!best) return { text };
+    const others = q.text.split(' ').length > 1 || best.recipe ? [] : list.slice(1)
+      .filter((c, i, all) => c.food && c.item.name !== best.item.name && fit(c.food, q.text)[0] < 3 && all.findIndex((x) => x.item.name === c.item.name) === i)
+      .slice(0, 3).map((c) => c.item);
+    return { text, item: best.item, ...(others.length ? { others } : {}) };
+  });
+}
+
+/** D85: what «Записати їжу» makes of the typed text — the one function the screen and the phrase corpus both call.
+ *  Several parts → «Розпізнано» rows; one part → the same row on top, and the whole list to tap. */
+export function readMeal(raw: string, ctx: MealContext): { rows: Recognized[]; list: Candidate[] | null } {
+  const parts = splitPhrase(raw);
+  return { rows: recognizeWith(raw, ctx), list: parts.length === 1 ? candidates(parts[0]!, ctx).list : null };
+}
+
 /** Each part of a phrase matched to a dish (when the words name one) or a food, with its amount. */
 export function recognize(raw: string, foods: Food[], recipes: Recipe[], dishItem: (r: Recipe, portions: number) => MealItem,
   prefer: ReadonlySet<string> = new Set()): Recognized[] {
-  return splitPhrase(raw).map((text) => {
-    const q = parseQuery(text);
-    if (!q.text) return { text };
-    const dish = searchFoods(recipes, q.text, 1, prefer)[0];
-    const food = searchFoods(foods, q.text, 1, prefer)[0];
-    // D83: the closer fit wins — «курага» is the dried apricot, not «Курячий суп»; «гречка» the buckwheat, not «Гречка з
-    // куркою»; on an equal fit the dish (so «салат» is the salad, «огірок» the cucumber)
-    const df = dish && fit(dish, q.text), ff = food && fit(food, q.text);
-    if (dish && (!food || df![0] < ff![0] || (df![0] === ff![0] && df![1] <= ff![1] && normalize(dish.name).startsWith(stem(normalize(q.text).split(' ')[0]!))))) {
-      return { text, item: dishItem(dish, q.qty ?? 1) };
-    }
-    if (!food) return { text };
-    // a word alone may mean several kinds
-    const others = q.text.split(' ').length > 1 ? [] : searchFoods(foods, q.text, 6, prefer)
-      .filter((f, i, all) => f.id !== food.id && f.name !== food.name && fit(f, q.text)[0] < 2 && all.findIndex((x) => x.name === f.name) === i) // D83: no twins
-      .slice(0, 3).map((f) => itemFor(f, q));
-    return { text, item: itemFor(food, q), ...(others.length ? { others } : {}) };
-  });
+  return recognizeWith(raw, { foods, recipes, dishItem, prefer });
 }
