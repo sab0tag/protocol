@@ -206,7 +206,7 @@
   phrase: Два яйця. кава
   profile: clean
   expect:
-    - { name: Яйце куряче, qty: 2, unit: шт }
+    - { name: Яйце варене, qty: 2, unit: шт }
     - { name: Кава чорна }
   status: fixed
   found: 2026-10-17
@@ -216,8 +216,62 @@
   phrase: Два яйця. Кава.
   profile: clean
   expect:
-    - { name: Яйце куряче, qty: 2, unit: шт }
+    - { name: Яйце варене, qty: 2, unit: шт }
     - { name: Кава чорна }
   status: fixed
   found: 2026-10-17
   note: было — диктовка с точками в конце предложений
+
+# ---- обход аналитика 17.10.2026 на экране (сборка без D85 — экран шёл в старый список); как регрессии
+
+- id: spoon-grechka
+  phrase: ложка гречки
+  profile: clean
+  expect: [{ name: Гречка варена, qty: 1, unit: ст. л., grams: [20, 30] }]
+  status: fixed
+  found: 2026-10-17
+  note: было — Гречка з грибами (блюдо выше продукта в списке)
+
+- id: spoons-grechka-3
+  phrase: 3 ложки гречки
+  profile: clean
+  expect: [{ name: Гречка варена, qty: 3, unit: ст. л., grams: [70, 80] }]
+  status: fixed
+  found: 2026-10-17
+  note: было — Гречка з грибами · 3 порції ≈ 1000 г
+
+- id: half-plate-grechka
+  phrase: пів тарілки гречки
+  profile: clean
+  expect: [{ name: Гречка варена, qty: 0.5, unit: порція, grams: [95, 105] }]
+  status: fixed
+  found: 2026-10-17
+  note: было — Гречка з грибами · 0,5 порції
+
+- id: glass-grechka
+  phrase: склянка гречки
+  profile: clean
+  expect: [{ name: Гречка варена, qty: 1, unit: склянка, grams: [180, 220] }]
+  status: fixed
+  found: 2026-10-17
+  note: было — Гречка з грибами; у Гречки вареної «100 г» вместо склянки
+
+- id: dictation-dot-digit-lower
+  phrase: кава з молоком. 1,5 склянки кефіру
+  profile: clean
+  expect:
+    - { name: Кава з молоком (без цукру) }
+    - { name: 'Кефір 2,5 %', qty: 1.5, unit: склянка }
+  status: fixed
+  found: 2026-10-17
+  note: было — не знайдено (фраза без запятой искалась как одно название)
+
+- id: eggs-coffee-milk
+  phrase: Два яйця. Кава з молоком.
+  profile: clean
+  expect:
+    - { name: Яйце варене, qty: 2, unit: шт }
+    - { name: Кава з молоком (без цукру) }
+  status: fixed
+  found: 2026-10-17
+  note: «яйця» без уточнения — варене, как в корпусе аналитика

@@ -2,8 +2,6 @@
 // function the screen calls while typing; never the search alone (the «кефір 1 %» and portion bugs lived in between).
 // fixed: must pass (a failure is a regression). open: expected to fail and reported; one that passes fails the run —
 // move it to fixed.
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { parse } from 'yaml';
 import { demoData } from '../../src/data/demo';
@@ -14,12 +12,13 @@ import { readMeal, type MealContext } from '../../src/domain/foodSearch';
 import { frequentItems } from '../../src/domain/habits';
 import { dishItem } from '../../src/domain/recipes';
 import { checkMeal } from '../../src/domain/rules';
+import corpus from '../fixtures/meal-phrases.yaml?raw'; // Vite reads it — no Node types in the app's type check
 import type { MealItem, Plan } from '../../src/domain/types';
 
 interface Want { name: string; qty?: number; unit?: string; grams?: [number, number]; flags?: string[]; alt_excludes?: string[] }
 interface Row { id: string; phrase: string; profile: 'clean' | 'demo'; expect: Want[]; not_found?: string[]; status: 'fixed' | 'open'; found: string; note?: string }
 
-const rows = parse(readFileSync(resolve(process.cwd(), 'tests/fixtures/meal-phrases.yaml'), 'utf8')) as Row[]; // jsdom: no file: URL
+const rows = parse(corpus) as Row[];
 const NOW = new Date('2026-10-17T12:00:00');
 const TODAY = '2026-10-17';
 const foods = new Map(FOODS.map((f) => [f.id, f]));

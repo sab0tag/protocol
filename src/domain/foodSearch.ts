@@ -96,7 +96,8 @@ export function fit(food: { name: string; aliases?: string[] }, text: string): [
 }
 
 const USUAL: Record<string, string> = { хліб: 'bread-white', хліба: 'bread-white', хлібу: 'bread-white', рис: 'white-rice-boiled', риса: 'white-rice-boiled',
-  гречка: 'buckwheat-boiled', гречки: 'buckwheat-boiled', гречку: 'buckwheat-boiled', сир: 'cottage-cheese', сиру: 'cottage-cheese' }; // what is on the plate
+  гречка: 'buckwheat-boiled', гречки: 'buckwheat-boiled', гречку: 'buckwheat-boiled', сир: 'cottage-cheese', сиру: 'cottage-cheese',
+  яйце: 'egg-boiled', яйця: 'egg-boiled', яєць: 'egg-boiled' }; // what is on the plate
 
 /** Foods (or dishes) whose name or aliases contain every query word (by stem); the closest first.
  *  «з цукром» never finds «без цукру», nor «без цукру» a food with sugar (D77). */

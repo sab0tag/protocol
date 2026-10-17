@@ -168,7 +168,7 @@ export function AddMeal() {
                 const portions = parsed.qty ?? 1;
                 return (
                   <li key={r.id}>
-                    <button type="button" className="flex min-h-tap w-full items-center justify-between gap-2 px-3 text-left"
+                    <button type="button" data-item={dish.name} className="flex min-h-tap w-full items-center justify-between gap-2 px-3 text-left"
                       onClick={() => { setItems((xs) => [...xs, dish]); setQuery(''); }}>
                       <span><span className="mr-1 rounded-full bg-accent/10 px-2 text-xs font-medium text-accent">{t.meal.dish}</span>{r.name}</span>
                       <span className="tabular shrink-0 text-right text-sm text-muted">{fmt(portions)} {measureWord('порція', portions)} ≈ {approxG(dish.grams)} г</span>
@@ -177,7 +177,7 @@ export function AddMeal() {
                 );
               })() : f && (
                 <li key={f.id}>
-                  <button type="button" className="flex min-h-tap w-full items-center justify-between gap-2 px-3 text-left"
+                  <button type="button" data-item={dish.name} className="flex min-h-tap w-full items-center justify-between gap-2 px-3 text-left"
                     onClick={() => { setItems((xs) => [...xs, dish]); setQuery(''); }}>
                     <span>{f.name}{(() => { const h = allergyHits(f, allergies); return h.length ? <span className="ml-2 text-sm font-medium text-warn">{t.allergen.badge(h.map((a) => t.allergen.name[a]).join(', '))}</span> : null; })()}</span>
                     <span className="tabular shrink-0 text-right text-sm text-muted">{matchHint(f, parsed)}</span>
@@ -409,7 +409,7 @@ function RecognizedPanel({ title, rows: given, note, onAdd }: { title: string; r
         {rows.map((r, k) => (
           <li key={k}>
             {r.item ? (
-              <label className="flex min-h-tap items-center gap-3">
+              <label data-item={r.item.name} className="flex min-h-tap items-center gap-3">
                 <input type="checkbox" checked={!skip.has(k)} className="h-5 w-5 accent-[rgb(var(--accent))]"
                   onChange={(e) => setSkip((s) => { const n = new Set(s); if (e.target.checked) n.delete(k); else n.add(k); return n; })} />
                 <span className="flex-1">{r.item.name} <span className="text-muted">· {amountText(r.item)}{r.item.unit || r.item.recipe ? ` ≈ ${approxG(r.item.grams)} г` : ''}</span>
