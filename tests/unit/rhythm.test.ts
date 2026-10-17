@@ -14,10 +14,10 @@ const rhythm = (entries: DayEntry[]) => dayRhythm({ entries,
 const shape = (r: ReturnType<typeof dayRhythm>) => r.nodes.map((n) => `${n.at} ${n.kind}${n.kind === 'entry' ? `:${n.entry.title}` : ''}`);
 
 describe('«Ритм дня» (D53)', () => {
-  it('a day without records still shows the plan: the dose, the dinner deadline; the workout has no time', () => {
+  it('a day without records still shows the plan: the dose, the dinner deadline; the workout is its tile, not a line here (D78)', () => {
     const r = rhythm([]);
     expect(shape(r)).toEqual(['08:30 dose', '20:00 deadline']);
-    expect(r.anytime.map((i) => i.kind)).toEqual(['workout']);
+    expect(r.anytime).toEqual([]);
   });
 
   it('records join the line by time; water stays off it; a marked dose is its entry, not a plan node', () => {

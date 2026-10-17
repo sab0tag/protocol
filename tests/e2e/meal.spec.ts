@@ -46,5 +46,10 @@ test('a confirmed allergy entered in «План»: marked in search, «Приб�
   await expect(hit).toContainText('алергія: горіхи');
   await hit.click();
   await expect(page.locator('section[aria-live]', { hasText: 'Перевірка за планом лікаря' })).toContainText('Алергія: горіхи');
+  // D77: what was eaten is recorded as it was — the swap is only a hint for next time
+  await expect(page.getByText(/Заміни вище — підказка на наступний раз/)).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Записати заміну' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Прийом: назва, час, з’їдено чи заплановано' }).click();
+  await page.getByRole('checkbox', { name: 'Уже з’їдено' }).uncheck(); // a planned meal — now the swap is offered
   await expect(page.getByRole('button', { name: 'Записати заміну' })).toBeVisible(); // the swap drops the line
 });

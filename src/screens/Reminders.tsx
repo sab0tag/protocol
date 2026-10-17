@@ -9,6 +9,7 @@ import { t } from '../i18n/uk';
 import { ApiError } from '../sync/api';
 import { disablePush, enablePush, needsHomeScreen, pushSchedule, pushSupported, sendTest } from '../sync/push';
 import { currentKeys } from '../sync/runner';
+import { NeedsSync } from '../components/NeedsSync';
 
 const L = t.remind;
 const select = 'mt-1 block min-h-tap w-full rounded-xl border border-line bg-bg px-3';
@@ -44,7 +45,7 @@ export function Reminders() {
       <div className="space-y-3 rounded-2xl border border-line bg-surface p-3">
         <p>{L.text}</p>
         <p className="text-sm text-muted">{L.privacy}</p>
-        {!meta || !keys ? <p className="text-sm text-warn">{L.needsSync}</p>
+        {!meta || !keys ? <NeedsSync text={L.needsSync} />
           : !pushSupported() ? <p className="text-sm text-warn">{needsHomeScreen() ? L.homeScreen : L.unsupported}</p>
           : on ? (
             <>

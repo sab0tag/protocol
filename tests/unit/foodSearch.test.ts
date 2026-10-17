@@ -117,3 +117,22 @@ describe('the bigger base (D45)', () => {
     }
   });
 });
+
+describe('what a patient says (D77)', () => {
+  const name = (q: string) => searchFoods(FOODS, parseQuery(q).text, 1)[0]?.name;
+  it('«з цукром» never becomes «без цукру», and the other way round', () => {
+    expect(name('чай з цукром')).toBe('Чай з цукром');
+    expect(name('чай без цукру')).toBe('Чай без цукру');
+    expect(name('кава з цукром')).toBe('Кава з цукром');
+    expect(searchFoods(FOODS, 'кава з молоком і цукром').map((f) => f.name)).not.toContain('Кава з молоком (без цукру)');
+  });
+  it('«2 куски хліба» — bread by slices; «шматок сала» — a slice; компот', () => {
+    const bread = FOODS.find((f) => f.name === name('2 куски хліба'))!;
+    expect(bread.name).toMatch(/Хліб/);
+    expect(itemFor(bread, parseQuery('2 куски хліба'))).toMatchObject({ grams: 60, unit: { name: 'скибка', qty: 2 } });
+    const salo = FOODS.find((f) => f.id === 'salo')!;
+    expect(itemFor(salo, parseQuery('шматок сала'))).toMatchObject({ grams: 10 });
+    expect(name('склянка компоту')).toBe('Компот');
+    expect(name('кус-кус')).toBe('Кус-кус варений'); // «кус» is not a measure here
+  });
+});

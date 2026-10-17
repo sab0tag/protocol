@@ -36,3 +36,29 @@ test('every sheet has a visible ×; an empty «Як учора» offers the firs
   await page.reload();
   await expect(page.getByRole('textbox', { name: 'Нотатка' })).toHaveValue('спав погано');
 });
+
+test('a patient’s phrase: «чай з цукром, 2 куски хліба» — both found as said; an empty meal shows no zeros (D77, D78)', async ({ browser }) => {
+  const page = await device(browser);
+  await page.goto('./#/meal/new');
+  await expect(page.getByText('Цей прийом')).toHaveCount(0);
+  await page.getByPlaceholder('Напр.: 2 яйця, кава').fill('чай з цукром, 2 куски хліба');
+  const found = page.locator('section, div').filter({ hasText: /^Розпізнано/ }).first();
+  await expect(found).toContainText('Чай з цукром');
+  await expect(found).not.toContainText('без цукру');
+  await expect(found).toContainText(/Хліб.*2 скибки/);
+  await page.getByRole('button', { name: 'Додати 2' }).click();
+  await expect(page.getByText('Цей прийом')).toBeVisible();
+});
+
+test('«Ще» in groups; the exercise library is inside «Тренування»; reminders without sync offer to turn it on (D78)', async ({ browser }) => {
+  const page = await device(browser);
+  await page.goto('./#/more');
+  for (const g of ['Їжа', 'Стан і тренування', 'Нагадування й пристрої', 'Про застосунок']) await expect(page.getByRole('region', { name: g })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Вправи з гирею' })).toHaveCount(0);
+  await page.goto('./#/workout');
+  await page.getByRole('link', { name: 'Вправи з гирею' }).click();
+  await expect(page).toHaveURL(/#\/exercises$/);
+  await page.goto('./#/reminders');
+  await page.getByRole('button', { name: 'Увімкнути синхронізацію' }).click();
+  await expect(page).toHaveURL(/#\/sync\?back=%2Freminders/);
+});

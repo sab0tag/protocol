@@ -5,6 +5,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { Sparkles } from 'lucide-react';
 import { useState } from 'react';
 import { db } from '../data/db';
+import { NeedsSync } from './NeedsSync';
 import { useRecentEntries } from '../data/queries';
 import { todayISO } from '../domain/dates';
 import type { Level } from '../data/exercises';
@@ -82,7 +83,7 @@ export function AiWorkoutPanel({ workouts, plan, date, onDraft }: {
           {wish !== L.lighter && <button type="button" onClick={() => setWish(L.lighter)} className="min-h-tap rounded-xl border border-warn px-3 font-medium">{L.askLighter}</button>}
         </div>
       )}
-      {!meta || !keys ? <p className="text-sm text-muted">{L.needsSync}</p> : asking && !meta.workoutConsent ? (
+      {!meta || !keys ? <NeedsSync text={L.needsSync} /> : asking && !meta.workoutConsent ? (
         <div className="space-y-2 rounded-xl border border-accent/40 p-2 text-sm">
           <p>{L.consent}</p>
           <button type="button" onClick={async () => { await db.meta.update('sync', { workoutConsent: true }); setAsking(false); void make(true); }}

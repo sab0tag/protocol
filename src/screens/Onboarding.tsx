@@ -30,7 +30,6 @@ function Steps({ plan }: { plan: PlanRow }) {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [weight, setWeight] = useState('');
-  const [height, setHeight] = useState(plan.profile?.heightCm ? String(plan.profile.heightCm) : '');
   const own = (c: Constraint) => c.source !== EXAMPLE_SOURCE;
   const [chosen, setChosen] = useState<Record<string, Constraint | undefined>>(() =>
     Object.fromEntries(plan.constraints.filter((c) => own(c) && c.active).map((c) => [c.tag, c])));
@@ -44,14 +43,13 @@ function Steps({ plan }: { plan: PlanRow }) {
     } else {
       const kg = Number(weight.replace(',', '.'));
       if (kg > 0) await db.weights.put({ date: today, kg });
-      const cm = Number(height);
       const constraints = [...plan.constraints.filter((c) => own(c) && c.tag === 'custom'),
         ...Object.values(chosen).filter((c): c is Constraint => !!c)];
       await db.plan.update('main', {
         constraints, prescriptions: rx.filter((p) => p.title.trim()), targets: Object.fromEntries(
           Object.entries(targets).filter(([, v]) => v !== undefined)) as Targets,
         modes: withoutExample(plan).modes, // the example's mode goes with the example
-        ...(cm > 0 ? { profile: { heightCm: cm } } : {}), onboardedAt: today,
+        onboardedAt: today,
       });
     }
     useUi.getState().setOnboarded();
@@ -79,11 +77,9 @@ function Steps({ plan }: { plan: PlanRow }) {
 
       {step === 1 && <p className="text-sm text-muted">{L.about}</p>}
       {step === 1 && (
-        <div className="grid grid-cols-2 gap-3 rounded-2xl border border-line bg-surface p-3">
-          <label className="block"><span className="text-sm text-muted">{L.weight}</span>
+        <div className="rounded-2xl border border-line bg-surface p-3">
+          <label className="block w-40"><span className="text-sm text-muted">{L.weight}</span>
             <input inputMode="decimal" value={weight} onChange={(e) => setWeight(e.target.value)} className={field} /></label>
-          <label className="block"><span className="text-sm text-muted">{L.height}</span>
-            <input inputMode="numeric" value={height} onChange={(e) => setHeight(e.target.value)} className={field} /></label>
         </div>
       )}
 

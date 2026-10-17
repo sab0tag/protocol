@@ -1,5 +1,6 @@
 import { format, parseISO } from 'date-fns';
 import { Loading } from '../components/Recovery';
+import { Link } from 'react-router-dom';
 import { saved as withToast } from '../components/Toast';
 import { uk } from 'date-fns/locale';
 import { Check, ChevronLeft, ChevronRight, Info, Plus, RefreshCw, Save, X } from 'lucide-react';
@@ -185,8 +186,11 @@ export function Workout() {
           <button type="button" onClick={() => setPicking(null)} className="mt-2 min-h-tap px-1 text-accent">{t.picker.done}</button>
         </div>
       ) : (
-        <button type="button" onClick={() => setPicking({})} className="flex min-h-tap items-center gap-2 px-1 font-medium text-accent">
-          <Plus size={18} aria-hidden />{E.add}</button>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <button type="button" onClick={() => setPicking({})} className="flex min-h-tap items-center gap-2 px-1 font-medium text-accent">
+            <Plus size={18} aria-hidden />{E.add}</button>
+          <Link to="/exercises" className="flex min-h-tap items-center px-1 text-sm text-muted underline">{E.library}</Link>{/* D78: moved here from «Ще» */}
+        </div>
       )}
 
       <div className="rounded-2xl border border-line bg-surface p-3">

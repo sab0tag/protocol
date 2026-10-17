@@ -11,7 +11,8 @@ export type RhythmNode =
 
 export interface Rhythm {
   nodes: RhythmNode[];
-  /** Due today without a time: medicines «раз на день», the workout of a workout day — one line above the time line. */
+  /** Due today without a time: medicines «раз на день» — one line above the time line. The workout is not repeated here:
+   *  its tile on «День» already shows it, with a check when done (D78). */
   anytime: CheckItem[];
 }
 
@@ -21,7 +22,6 @@ export function dayRhythm(args: { entries: DayEntry[]; checklist?: { items: Chec
   const anytime: CheckItem[] = [];
   for (const i of args.checklist?.items ?? []) {
     if (i.kind === 'med' && !i.done && !i.skipped) { if (i.time) nodes.push({ kind: 'dose', at: i.time, item: i }); else anytime.push(i); }
-    if (i.kind === 'workout' && !i.done) anytime.push(i);
   }
   if (args.lastMealBy && nodes.length) nodes.push({ kind: 'deadline', at: args.lastMealBy });
   const order = { entry: 0, dose: 1, deadline: 2 } as const;

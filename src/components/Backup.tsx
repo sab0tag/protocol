@@ -5,6 +5,8 @@ import { useRef, useState } from 'react';
 import { exportAll, importAll, parseExport, type ExportFile } from '../data/backup';
 import { db } from '../data/db';
 import { usePlan } from '../data/queries';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { ChevronDown } from 'lucide-react';
 import { todayISO } from '../domain/dates';
 import { t } from '../i18n/uk';
 
@@ -24,6 +26,7 @@ export function Backup() {
   const input = useRef<HTMLInputElement>(null);
   const [pending, setPending] = useState<ExportFile | null>(null);
   const [message, setMessage] = useState('');
+  const synced = useLiveQuery(async () => !!(await db.meta.get('sync')), []);
 
   const download = async () => {
     const f = await fileOf();
@@ -45,10 +48,14 @@ export function Backup() {
   };
 
   return (
-    <section className="rounded-2xl border border-line bg-surface p-3">
-      <h2 className="font-semibold">{L.title}</h2>
-      <p className="mb-1 text-sm text-muted">{L.text}</p>
-      <p className="mb-3 text-sm">{plan?.lastExportAt ? L.last(dmy(plan.lastExportAt)) : L.never}</p>
+    // D78: folded to one line — open by itself only while there is neither a copy nor sync
+    <details open={!plan?.lastExportAt && synced === false} className="group rounded-2xl border border-line bg-surface p-3">
+      <summary className="flex min-h-tap cursor-pointer list-none items-center gap-2">
+        <span className="flex-1"><span className="block font-semibold">{L.title}</span>
+          <span className="block text-sm text-muted">{plan?.lastExportAt ? L.last(dmy(plan.lastExportAt)) : L.never}</span></span>
+        <ChevronDown size={18} className="shrink-0 text-muted transition-transform group-open:rotate-180" aria-hidden />
+      </summary>
+      <p className="mb-3 mt-2 text-sm text-muted">{synced ? L.textSynced : L.text}</p>
       <div className="flex flex-wrap gap-2">
         <button type="button" onClick={() => void download()} className="flex min-h-tap items-center gap-2 rounded-xl bg-accent px-3 font-medium text-surface"><Download size={18} />{L.save}</button>
         {canShareFiles && <button type="button" onClick={() => void share()} className="flex min-h-tap items-center gap-2 rounded-xl border border-accent px-3 font-medium text-accent"><Share2 size={18} />{L.share}</button>}
@@ -66,6 +73,6 @@ export function Backup() {
         </div>
       )}
       {message && <p role="status" className="mt-2 text-sm">{message}</p>}
-    </section>
+    </details>
   );
 }

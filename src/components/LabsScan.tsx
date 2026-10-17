@@ -5,6 +5,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { FileScan } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { db } from '../data/db';
+import { NeedsSync } from './NeedsSync';
 import { todayISO } from '../domain/dates';
 import { labHint, type LabRow } from '../domain/progress';
 import type { LabResult } from '../domain/types';
@@ -21,7 +22,7 @@ interface Row { on: boolean; name: string; value: string; unit: string; referenc
 export function LabsScan({ known }: { known: LabRow[] }) {
   const meta = useLiveQuery(async () => (await db.meta.get('sync')) ?? null, []);
   const input = useRef<HTMLInputElement>(null);
-  const [state, setState] = useState<'none' | 'consent' | 'busy' | 'form'>('none');
+  const [state, setState] = useState<'none' | 'nosync' | 'consent' | 'busy' | 'form'>('none');
   const [error, setError] = useState('');
   const [rows, setRows] = useState<Row[]>([]);
   const [date, setDate] = useState(todayISO());
@@ -29,7 +30,7 @@ export function LabsScan({ known }: { known: LabRow[] }) {
 
   const pick = () => {
     setError('');
-    if (!meta || !currentKeys()) { setError(L.needsSync); return; }
+    if (!meta || !currentKeys()) { setState('nosync'); return; }
     if (!meta.labsConsent) { setState('consent'); return; }
     input.current?.click();
   };
@@ -66,6 +67,7 @@ export function LabsScan({ known }: { known: LabRow[] }) {
           <FileScan size={18} aria-hidden />{state === 'busy' ? L.busy : L.button}</button>
       )}
       <input ref={input} type="file" accept="image/*" className="hidden" onChange={(e) => void read(e.target.files?.[0])} />
+      {state === 'nosync' && <div className="mt-2"><NeedsSync text={L.needsSync} /></div>}
       {state === 'consent' && (
         <div className="mt-2 space-y-2 rounded-xl border border-accent/40 p-2 text-sm">
           <p>{L.consent}</p>

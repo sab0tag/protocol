@@ -114,7 +114,8 @@ export function AddMeal() {
   const checks: ItemCheck[] = plan && others && recent
     ? checkMeal({ plan, activeMode: activeMode(plan, date)?.mode, dayEntries: others, date, meal: items, recentEntries: recent, foods })
     : [];
-  const swapped = hasSwaps(checks) ? applySwaps(checks, foods) : null;
+  // D77: what was eaten is recorded as it was — a swap is for a planned meal; for an eaten one it is a hint for next time
+  const swapped = !eaten && hasSwaps(checks) ? applySwaps(checks, foods) : null;
   const anyActive = plan?.constraints.some((c) => c.active) ?? false;
   const allergies = planAllergies(plan); // D58
 
@@ -226,9 +227,8 @@ export function AddMeal() {
           <LabelScan onAdd={(it) => setItems((xs) => [...xs, it])} />
         </div>
 
-        <div className="rounded-2xl border border-line bg-surface p-3">
+        <div className={`rounded-2xl border border-line bg-surface p-3 ${items.length ? '' : 'hidden'}`}>{/* D78: appears with the first line */}
           <h2 className="mb-2 font-semibold">{t.meal.items}</h2>
-          {items.length === 0 && <p className="text-muted">{t.meal.noItems}</p>}
           <ul className="space-y-3">
             {items.map((it, i) => {
               const n = lineNutrients(it, foods);
@@ -280,12 +280,12 @@ export function AddMeal() {
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <Amount item={it} food={it.foodId ? foods.get(it.foodId) : undefined} onChange={(patch) => setItem(i, patch)} />
-                    <label className="block"><span className="text-sm text-muted">{t.meal.cooking}</span>
+                    {(it.cooking || cookable(it.foodId ? foods.get(it.foodId) : undefined)) && <label className="block"><span className="text-sm text-muted">{t.meal.cooking}</span>
                       <select value={it.cooking ?? ''} onChange={(e) => setItem(i, { cooking: (e.target.value || undefined) as Cooking | undefined })}
                         className={field}>
                         <option value="">—</option>
                         {COOKING.map((c) => <option key={c} value={c}>{t.cooking[c]}</option>)}
-                      </select></label>
+                      </select></label>}
                   </div>
                   <p className="mt-1 tabular text-sm text-muted">
                     {round(n.kcal)} {t.units.kcal} · Б {fmt(n.protein)} · Ж {fmt(n.fat)} · В {fmt(n.carbs)} · Ca {round(n.calciumMg)} {t.units.mg}
@@ -324,9 +324,10 @@ export function AddMeal() {
           {dishSaved && <p role="status" className="mt-1 text-sm text-accent">{dishSaved}</p>}
         </div>
 
-        {items.length > 0 && <CheckPanel checks={checks} anyActive={anyActive} swapped={swapped} />}
+        {items.length > 0 && <CheckPanel checks={checks} anyActive={anyActive} swapped={swapped} eaten={eaten && hasSwaps(checks)} />}
 
-        <div className="rounded-2xl border border-line bg-surface p-3 tabular">
+        {/* D78: the totals only once there is something to add up — no «0 ккал» on an empty meal */}
+        {items.length > 0 && <div className="rounded-2xl border border-line bg-surface p-3 tabular">
           <p><span className="text-muted">{t.meal.mealTotal}: </span>
             {round(meal.kcal)} {t.units.kcal} · Б {round(meal.protein)} · Ж {round(meal.fat)} · В {round(meal.carbs)} · Ca {round(meal.calciumMg)} {t.units.mg}</p>
           {after && (
@@ -338,7 +339,7 @@ export function AddMeal() {
               {targets.calciumMg != null && ` · кальцій ${round(after.calciumMg)} з ${targets.calciumMg} ${t.units.mg}`}
             </p>
           )}
-        </div>
+        </div>}
 
         {/* D51: the food comes first; name, time and «з'їдено» are one line to check before saving */}
         <div className="rounded-2xl border border-line bg-surface">
@@ -462,8 +463,15 @@ function FreeItemForm({ onAdd }: { onAdd: (item: MealItem) => void }) {
   );
 }
 
+/** D77: «Як приготовано» only where it can matter — not for tea, bread, kefir or an apple. A line without a base food keeps it. */
+const COOKED = new Set(['veg', 'meat', 'fish', 'egg', 'grain', 'legume', 'liver']);
+const RAW = new Set(['drink', 'bread', 'dairy', 'cheese', 'sweet', 'nuts', 'seeds', 'condiment', 'alcohol', 'soup']);
+function cookable(food: Food | undefined): boolean {
+  return !food || (food.tags.some((x) => COOKED.has(x)) && !food.tags.some((x) => RAW.has(x)));
+}
+
 /** «Перевірка»: each item's verdict with the reason, the meal as a whole, and what «Записати заміну» would write. */
-function CheckPanel({ checks, anyActive, swapped }: { checks: ItemCheck[]; anyActive: boolean; swapped: MealItem[] | null }) {
+function CheckPanel({ checks, anyActive, swapped, eaten }: { checks: ItemCheck[]; anyActive: boolean; swapped: MealItem[] | null; eaten: boolean }) {
   if (!anyActive) return <p className="rounded-2xl border border-line bg-surface p-3 text-muted">{t.check.noPlan}</p>;
   const v = mealVerdict(checks);
   return (
@@ -485,6 +493,7 @@ function CheckPanel({ checks, anyActive, swapped }: { checks: ItemCheck[]; anyAc
           </li>
         ))}
       </ul>
+      {eaten && <p className="mt-2 text-sm text-muted">{t.check.nextTime}</p>}
       {swapped && (
         <p className="mt-2 text-sm"><span className="text-muted">{t.check.swapTo}: </span>
           {swapped.length ? swapped.map((it) => `${it.name} ${it.grams} г${it.cooking ? ` (${t.cooking[it.cooking].toLowerCase()})` : ''}`).join(', ') : '—'}</p>

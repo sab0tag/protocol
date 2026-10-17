@@ -11,6 +11,7 @@ const MEASURES: [RegExp, string][] = [
   [/^(чл)$/u, 'ч. л.'],
   [/^(склян\p{L}*)$/u, 'склянка'],
   [/^(скиб\p{L}*)$/u, 'скибка'],
+  [/^(шмат\p{L}*|кусок|куска|куски|кусків|кусочок|кусочки|кусочків)$/u, 'шматок'], // D77: «2 куски хліба»
   [/^(жмен\p{L}*)$/u, 'жменя'],
   [/^(порці\p{L}*|тарілк\p{L}*)$/u, 'порція'],
   [/^(чашк\p{L}*|кухл\p{L}*)$/u, 'склянка'],
@@ -57,16 +58,28 @@ function words(food: { name: string; aliases?: string[] }): string[] {
     .map((w) => (w.startsWith('відвар') ? w.slice(3) : w));
 }
 
-/** Foods (or dishes) whose name or aliases contain every query word (by stem); the closest first. */
+/** D77: the stems said right after «без» — «без цукру» is a property of a food, not a word to match. */
+function withoutStems(text: string): Set<string> {
+  const ws = normalize(text).split(/[\s(),/%]+/).filter(Boolean);
+  return new Set(ws.flatMap((w, i) => (ws[i - 1] === 'без' ? [stem(w)] : [])));
+}
+
+/** Foods (or dishes) whose name or aliases contain every query word (by stem); the closest first.
+ *  «з цукром» never finds «без цукру», nor «без цукру» a food with sugar (D77). */
 export function searchFoods<T extends { id: string; name: string; aliases?: string[] }>(foods: T[], text: string, limit = 8,
   prefer: ReadonlySet<string> = new Set()): T[] {
   const raw = normalize(text).split(' ').filter((t) => t.length >= 2);
   const tokens = raw.map(stem);
   if (tokens.length === 0) return [];
+  const qWithout = withoutStems(text);
+  const said = tokens.filter((t) => t !== 'без' && !qWithout.has(t));
   const scored: [T, number][] = [];
   for (const food of foods) {
     const ws = words(food);
     if (!tokens.every((t) => ws.some((w) => w.startsWith(t)))) continue;
+    const fWithout = withoutStems([food.name, ...(food.aliases ?? [])].join(' '));
+    if ([...fWithout].some((s) => said.some((t) => s.startsWith(t) || t.startsWith(s)))) continue; // «з цукром» ≠ «без цукру»
+    if ([...qWithout].some((s) => !fWithout.has(s) && ws.some((w) => w.startsWith(s)))) continue; // «без цукру» ≠ «з цукром»
     const name = normalize(food.name);
     // the name starting with the word first; then what this person usually eats (D30); then the shorter name
     // D45: the whole word said beats a longer one that shares its stem («кава» → Кава, not Кавун)
@@ -87,7 +100,8 @@ export function unitOf(food: Food | undefined, name: string | undefined): FoodUn
 export function itemFor(food: Food, q: Pick<Query, 'qty' | 'measure'>): MealItem {
   const first = food.units?.[0];
   const unit = q.measure === 'г' ? undefined
-    : q.measure ? unitOf(food, q.measure) ?? (q.measure === 'шт' ? first : undefined)
+    : q.measure ? unitOf(food, q.measure) ?? (q.measure === 'шматок' ? unitOf(food, 'скибка') : undefined)
+      ?? (q.measure === 'шт' || q.measure === 'шматок' ? first : undefined)
       : q.qty === undefined || q.qty < 20 ? first : undefined;
   if (unit) {
     const qty = q.qty ?? 1;
