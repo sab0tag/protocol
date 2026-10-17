@@ -214,3 +214,26 @@ describe('labs (D68)', () => {
       body: JSON.stringify({ image: JPEG }) })).status).toBe(503);
   });
 });
+
+describe('a doctor’s conclusion (D80)', () => {
+  it('a photo → a draft of the plan; counted with photos; off without a key', async () => {
+    const store = new Store(':memory:');
+    const RES = { readable: true, date: '2026-10-12', doctor: 'Ендокринолог', note: null, tests: ['Глюкоза натще'], nextVisit: '2026-12-10',
+      constraints: [{ tag: 'glycemic', title: 'Предіабет', reason: 'Без солодкого', allergens: [] }],
+      prescriptions: [{ kind: 'supplement', title: 'Вітамін D3', dose: '2000 МО', times: [], frequency: '1 раз на день', withFood: true }],
+      targets: { kcal: null, proteinG: null, carbsMaxG: null, fatG: null, waterMl: 2000, lastMealBy: null, weightGoalKg: null, maxWeightLossKgPerWeek: null } };
+    const app = createApp({ store, origins: [], conclusion: async () => ({ result: RES as never }), limits: { ...DEFAULT_LIMITS, photosPerVaultPerDay: 1 } });
+    const call = (body: unknown) => app.request(`/v1/vaults/${VAULT}/conclusion`, { method: 'POST',
+      headers: { Authorization: `Bearer ${AUTH}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    await app.request(`/v1/vaults/${VAULT}`, { method: 'PUT', headers: { Authorization: `Bearer ${AUTH}` } });
+    expect((await call({ image: 'not base64!' })).status).toBe(400);
+    const r = await call({ image: JPEG });
+    expect(r.status).toBe(200);
+    expect(await r.json()).toEqual(RES);
+    expect((await call({ image: JPEG })).status).toBe(429);
+    const off = createApp({ store: new Store(':memory:'), origins: [] });
+    await off.request(`/v1/vaults/${VAULT}`, { method: 'PUT', headers: { Authorization: `Bearer ${AUTH}` } });
+    expect((await off.request(`/v1/vaults/${VAULT}/conclusion`, { method: 'POST', headers: { Authorization: `Bearer ${AUTH}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image: JPEG }) })).status).toBe(503);
+  });
+});

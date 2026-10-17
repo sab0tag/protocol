@@ -1,5 +1,7 @@
 import { format, parseISO } from 'date-fns';
 import { ExampleNotice } from '../components/ExampleNotice';
+import { PlanScan } from '../components/PlanScan';
+import { timesToSet } from '../domain/conclusion';
 import { PlanVersions } from '../components/PlanVersions';
 import { Loading } from '../components/Recovery';
 import { saved } from '../components/Toast';
@@ -42,13 +44,15 @@ export function Plan() {
     <section className="space-y-4 pt-4">
       <h1 className="text-2xl font-semibold">{P.title}</h1>
       <ExampleNotice plan={plan} />
+      <PlanScan plan={plan} />
 
       <Block title={P.prescriptions} onAdd={() => setEditing({ what: 'prescription' })}>
         {plan.prescriptions.map((p) => (
           <Item key={p.id} onEdit={() => setEditing({ what: 'prescription', item: p })}
             title={p.title} meta={[P.kinds[p.kind], p.dose, p.schedule?.times.join(', '), p.schedule?.withFood ? P.withFood.toLowerCase() : undefined,
               p.dueDate ? `${P.dueDate.toLowerCase()} ${dmy(p.dueDate)}` : undefined,
-              ...(entries && stockLeft(p, entries) ? [P.stockDays(stockLeft(p, entries)!.days)] : [])]} note={p.notes} source={p.source} />
+              ...(entries && stockLeft(p, entries) ? [P.stockDays(stockLeft(p, entries)!.days)] : [])]} note={p.notes} source={p.source}
+            warn={timesToSet(p) ? P.setTimes(timesToSet(p)!) : undefined} />
         ))}
       </Block>
 
@@ -124,7 +128,7 @@ function Block({ title, onAdd, addLabel = P.add, children }: { title: string; on
   );
 }
 
-function Item({ title, meta, note, source, onEdit }: { title: string; meta: (string | undefined)[]; note?: string; source?: string; onEdit: () => void }) {
+function Item({ title, meta, note, source, warn, onEdit }: { title: string; meta: (string | undefined)[]; note?: string; source?: string; warn?: string; onEdit: () => void }) {
   return (
     <li className="flex items-start gap-2 border-t border-line px-3 py-2 first:border-t-0">
       <div className="min-w-0 flex-1 py-1">
@@ -132,6 +136,7 @@ function Item({ title, meta, note, source, onEdit }: { title: string; meta: (str
         <p className="text-sm text-muted">{meta.filter(Boolean).join(' · ')}</p>
         {note && <p className="text-sm">{note}</p>}
         {source && <p className="text-sm text-muted">{source}</p>}
+        {warn && <p className="mt-1 text-sm font-medium text-warn">{warn}</p>}
       </div>
       <EditButton label={title} onClick={onEdit} />
     </li>

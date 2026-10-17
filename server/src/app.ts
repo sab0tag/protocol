@@ -7,6 +7,7 @@ import { cors } from 'hono/cors';
 import type { MenuMaker } from './menu.ts';
 import type { WorkoutMaker } from './workout.ts';
 import type { LabsReader } from './labs.ts';
+import type { ConclusionReader } from './conclusion.ts';
 import type { Usage } from './photo.ts';
 import type { LabelReader } from './label.ts';
 import type { Recognizer } from './photo.ts';
@@ -30,6 +31,7 @@ export interface Deps {
   menu?: MenuMaker; // the same
   workout?: WorkoutMaker; // D63: the same
   labs?: LabsReader; // D68: the same
+  conclusion?: ConclusionReader; // D80: a doctor's conclusion — the same
   label?: LabelReader; // the same (D45)
   push?: { publicKey: string; send: Sender };
   backupAgeH?: () => number | null;
@@ -225,6 +227,31 @@ export function createApp(deps: Deps) {
     }
   });
 
+  // D80: a doctor's conclusion → a draft of the plan — counted with photos
+  app.post('/v1/vaults/:id/conclusion', bodyLimit({ maxSize: 3_500_000, onError: (c) => c.json({ error: 'too_large' }, 413) }), async (c) => {
+    const id = authed(c);
+    if (typeof id !== 'string') return id;
+    if (!deps.conclusion) return c.json({ error: 'photo_off' }, 503);
+    const body = await c.req.json().catch(() => null) as { image?: unknown } | null;
+    const image = body?.image;
+    if (typeof image !== 'string' || !B64.test(image)) return c.json({ error: 'bad_request' }, 400);
+    const bytes = Buffer.from(image, 'base64');
+    if (bytes.length > MAX_IMAGE || bytes[0] !== 0xff || bytes[1] !== 0xd8) return c.json({ error: 'bad_image' }, 400);
+    const at = now();
+    if (!store.take('photo:all', limits.photosPerDay, at) || !store.take(`photo:${id}`, limits.photosPerVaultPerDay, at)) return c.json({ error: 'too_many' }, 429);
+    try {
+      const { result, usage } = await deps.conclusion(image);
+      spent(id, 'conclusion', usage);
+      ai.lastOk = Date.now();
+      if (result === 'refused') return c.json({ error: 'refused' }, 422);
+      return c.json(result);
+    } catch (e) {
+      ai.lastError = Date.now();
+      console.error('conclusion failed:', (e as Error).message);
+      return c.json({ error: 'upstream' }, 502);
+    }
+  });
+
   /** This month's AI use of the vault: calls and an estimate in dollars (D36). */
   app.get('/v1/vaults/:id/usage', (c) => {
     const id = authed(c);
@@ -235,7 +262,7 @@ export function createApp(deps: Deps) {
       usd: Math.round(rows.reduce((s, r) => s + r.usd_micro, 0) / 10_000) / 100 });
   });
 
-  app.get('/health', (c) => c.json({ ok: true, photo: !!recognize, menu: !!menu, workout: !!deps.workout, labs: !!deps.labs, label: !!deps.label, push: !!deps.push,
+  app.get('/health', (c) => c.json({ ok: true, photo: !!recognize, menu: !!menu, workout: !!deps.workout, labs: !!deps.labs, conclusion: !!deps.conclusion, label: !!deps.label, push: !!deps.push,
     ai: { lastOk: ai.lastOk || null, lastError: ai.lastError || null, failing: ai.lastError > ai.lastOk },
     backupAgeH: deps.backupAgeH?.() ?? null }));
 

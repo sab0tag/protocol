@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { db, type PlanRow } from '../data/db';
 import { putDemo } from '../data/demoStore';
+import { PlanScan } from '../components/PlanScan';
 import { EXAMPLE_SOURCE, examplePlan, hasExample, withoutExample } from '../data/seed.example';
 import { usePlan } from '../data/queries';
 import { newId, todayISO } from '../domain/dates';
@@ -23,13 +24,14 @@ const TAGS: ConstraintTag[] = ['oxalate', 'gallbladder', 'lactose', 'glycemic', 
  *  empty; the example is opened only by its own button, on a plan that has nothing of the person's yet (D73). */
 export function Onboarding() {
   const plan = usePlan();
+  const [read, setRead] = useState(0); // D80: a conclusion put into the plan — the steps start again from it, on step 2
   if (!plan) return <Loading />;
-  return <Steps plan={plan} />;
+  return <Steps key={read} plan={plan} start={read ? 2 : 1} onScanned={() => setRead((n) => n + 1)} />;
 }
 
-function Steps({ plan }: { plan: PlanRow }) {
+function Steps({ plan, start, onScanned }: { plan: PlanRow; start: number; onScanned: () => void }) {
   const navigate = useNavigate();
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(start);
   const [weight, setWeight] = useState('');
   const own = (c: Constraint) => c.source !== EXAMPLE_SOURCE;
   const [chosen, setChosen] = useState<Record<string, Constraint | undefined>>(() =>
@@ -87,6 +89,7 @@ function Steps({ plan }: { plan: PlanRow }) {
 
       {step === 2 && (
         <>
+          <PlanScan plan={plan} onDone={onScanned} />
           <p className="text-sm text-muted">{L.constraintsHint}</p>
           <ul className="divide-y divide-line rounded-2xl border border-line bg-surface">
             {TAGS.map((tag) => {

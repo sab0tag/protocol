@@ -29,6 +29,7 @@ export interface SyncMeta {
   menuConsent?: boolean; // D33
   workoutConsent?: boolean; // D63
   labsConsent?: boolean; // D68: lab values go to Claude only after this
+  conclusionConsent?: boolean; // D80: a photo of a doctor's conclusion — the same
   device?: string; // D34: this device's id for push
   reminders?: ReminderSettings & { on: boolean };
   snoozed?: Record<string, number>; // D35: «Пізніше» — reminder key → until (ms)
