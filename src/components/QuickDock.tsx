@@ -21,11 +21,27 @@ interface Props {
   water: { ml: number; target?: number };
   onMed: () => Promise<Undo | undefined>;
   onWater: () => Promise<Undo | undefined>;
+  /** D82: the quick tiles are on screen — the medicine is marked in «Ритм дня» right below, and its button would cover a
+   *  tile; water stays, it has no other button up there */
+  hideMed?: boolean;
+}
+
+/** D82: whether an element is on screen now (for the dock — hidden while the quick tiles are in view). */
+export function useOnScreen<T extends Element>(): [(el: T | null) => void, boolean] {
+  const [el, setEl] = useState<T | null>(null);
+  const [on, setOn] = useState(false);
+  useEffect(() => {
+    if (!el || typeof IntersectionObserver === 'undefined') return;
+    const io = new IntersectionObserver(([e]) => setOn(!!e?.isIntersecting));
+    io.observe(el);
+    return () => io.disconnect();
+  }, [el]);
+  return [setEl, on];
 }
 
 let seq = 0;
 
-export function QuickDock({ med, meds, water, onMed, onWater }: Props) {
+export function QuickDock({ med, meds, water, onMed, onWater, hideMed }: Props) {
   const [note, setNote] = useState<Note | null>(null);
   useEffect(() => {
     if (!note) return;
@@ -54,7 +70,7 @@ export function QuickDock({ med, meds, water, onMed, onWater }: Props) {
   return (
     <div role="group" aria-label={L.label}
       className="fixed bottom-[calc(8.75rem+env(safe-area-inset-bottom))] right-4 z-20 flex flex-col gap-3 print:hidden md:bottom-8 md:right-8">
-      {meds.total > 0 && (
+      {meds.total > 0 && !hideMed && (
         <div className="relative">
           {bubble('med')}
           <Round progress={meds.done / meds.total} tone={med?.missed ? 'warn' : 'accent'} done={!med}

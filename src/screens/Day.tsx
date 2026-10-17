@@ -26,7 +26,7 @@ import { useUi } from '../store/ui';
 import { useSync } from '../sync/runner';
 import { SimpleEntrySheet } from './SimpleEntrySheet';
 import { NowCard } from '../components/NowCard';
-import { QuickDock } from '../components/QuickDock';
+import { QuickDock, useOnScreen } from '../components/QuickDock';
 import { DayHeader } from '../components/DayHeader';
 import { DayRhythm } from '../components/DayRhythm';
 import { ExampleNotice } from '../components/ExampleNotice';
@@ -67,6 +67,7 @@ export function Day() {
   const [confirming, setConfirming] = useState<DayEntry | null>(null); // D55
   const [adding, setAdding] = useState(false);
   const [yesterday, setYesterday] = useState(false);
+  const [tilesRef, tilesOnScreen] = useOnScreen<HTMLElement>(); // D82
   const all = useAllEntries();
   const best = foods && all && workouts
     ? habits({ plan, entries: all, workouts, foods, today: todayISO() }).filter((h) => h.streak >= 3).sort((a, b) => b.streak - a.streak)[0]
@@ -176,7 +177,7 @@ export function Day() {
           <Frown size={20} className="text-warn" aria-hidden />{t.addKinds.symptom}</button>
       </div>
 
-      <nav aria-label={t.day.quick} className="mb-5 grid grid-cols-5 gap-1">
+      <nav ref={tilesRef} aria-label={t.day.quick} className="mb-5 grid grid-cols-5 gap-1">
         {quick.map(({ label, Icon, go, badge, done }) => (
           <button key={label} type="button" onClick={go} aria-label={[label, done ? t.myday.workoutDone : badge].filter(Boolean).join(', ')} className="flex min-h-tap flex-col items-center gap-1 text-center">
             <span className="relative flex h-12 w-12 items-center justify-center rounded-2xl bg-surface shadow-sm"><Icon size={22} className="text-accent" aria-hidden />
@@ -270,7 +271,7 @@ export function Day() {
           <div className="h-40 md:h-16" aria-hidden />{/* D48: the end of the day stays visible above the dock */}
           <QuickDock meds={{ done: meds.filter((i) => i.done).length, total: meds.length }} water={checklist.water}
             med={nextMed && { title: nextMed.title, ...(nextMed.time ? { time: nextMed.time } : {}), missed: medMissed }}
-            onMed={dockMed} onWater={dockWater} />
+            onMed={dockMed} onWater={dockWater} hideMed={tilesOnScreen} />
         </>
       )}
       {askMed && <TimeChoice title={askMed.title} {...(askMed.time ? { planned: askMed.time } : {})} date={date} onClose={() => setAskMed(null)}

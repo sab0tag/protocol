@@ -66,3 +66,14 @@ test('«Ще» in groups; the exercise library is inside «Тренування�
   await page.getByRole('button', { name: 'Увімкнути синхронізацію' }).click();
   await expect(page).toHaveURL(/#\/sync\?back=%2Freminders/);
 });
+
+test('the medicine button hides while the quick tiles are on screen; water stays (D82)', async ({ browser }) => {
+  const page = await device(browser);
+  const dock = page.getByRole('group', { name: 'Ліки й вода' });
+  await expect(page.getByRole('navigation', { name: 'Швидко' })).toBeInViewport();
+  await expect(dock.getByRole('button', { name: /Додати 250 мл води/ })).toBeVisible();
+  await expect(dock.getByRole('button', { name: /^Відмітити прийнятим|^Ліки на сьогодні/ })).toHaveCount(0);
+  await page.setViewportSize({ width: 375, height: 600 }); // a small phone
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight)); // the tiles go off the top
+  await expect(dock.getByRole('button', { name: /^Відмітити прийнятим: Вітамін D/ })).toBeVisible();
+});
