@@ -2,6 +2,7 @@ import { format, parseISO } from 'date-fns';
 import { Loading } from '../components/Recovery';
 import { Link } from 'react-router-dom';
 import { saved as withToast } from '../components/Toast';
+import { keep, kept } from '../data/kept';
 import { uk } from 'date-fns/locale';
 import { Check, ChevronLeft, ChevronRight, Info, Plus, RefreshCw, Save, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
@@ -28,6 +29,7 @@ export function Workout() {
   const plan = usePlan();
   const workouts = useWorkouts();
   const [draft, setDraft] = useState<W | null>(null);
+  const base0 = useRef(''); // D87: the day's draft as it started — what counts as «nothing typed yet»
 
   const existing = workouts?.find((w) => w.date === date);
   const first = workouts?.[0]?.date;
@@ -38,11 +40,21 @@ export function Workout() {
     setAiAdvice(''); // a new day — the last day's advice is not about it
     const last = workouts.filter((w) => w.date < date).at(-1);
     const start = startingSet(last, last && first ? programmeWeek(first, last.date) : week, week); // D60
-    setDraft(existing ?? { id: newId(), date, durationMin: 30, equipment: EQUIPMENT, exercises: start.map(blankExercise) });
+    const base = existing ?? { id: newId(), date, durationMin: 30, equipment: EQUIPMENT, exercises: start.map(blankExercise) };
+    base0.current = JSON.stringify(base);
+    const k = kept<{ draft: W; advice: string }>(`workout:${date}`); // D87: sets typed before a locked phone reloaded the page
+    setDraft(k?.draft ?? base);
+    if (k?.advice) setAiAdvice(k.advice);
   }, [date, workouts === undefined]); // eslint-disable-line react-hooks/exhaustive-deps
   const [card, setCard] = useState<Exercise | null>(null);
   const [picking, setPicking] = useState<{ replace?: number } | null>(null); // D60: the library inline — to add, or to replace exercise #
   const [aiAdvice, setAiAdvice] = useState(''); // D63
+  useEffect(() => { // D87: kept while it differs from what is stored (or from the fresh day) — gone once recorded
+    if (!draft) return;
+    const s = JSON.stringify(draft), stored = workouts?.find((w) => w.date === draft.date); // the draft's own day, not the shown one
+    const untouched = (draft.date === date && s === base0.current) || (stored && s === JSON.stringify(stored));
+    keep(`workout:${draft.date}`, untouched ? undefined : { draft, advice: aiAdvice });
+  }, [draft, workouts, aiAdvice]); // eslint-disable-line react-hooks/exhaustive-deps
   const shownDate = useRef(date);
   shownDate.current = date; // a reply for a day no longer on screen is dropped, never written over another day's draft
 

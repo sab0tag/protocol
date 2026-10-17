@@ -121,3 +121,15 @@ test('the save button floats in view while the sets are typed, says «Збере
   await page.reload();
   await expect(page.getByRole('spinbutton', { name: /^Гоблет-присід, Підхід 2/ })).toHaveValue('9');
 });
+
+test('sets typed but not recorded come back after the page reloads; gone once recorded (D87)', async ({ browser }) => {
+  const page = await device(browser);
+  await page.goto('./#/workout');
+  await page.getByRole('spinbutton', { name: /^Гоблет-присід, Підхід 1/ }).fill('12');
+  await page.reload();
+  await expect(page.getByRole('spinbutton', { name: /^Гоблет-присід, Підхід 1/ })).toHaveValue('12');
+  await expect(page.getByRole('button', { name: 'Записати тренування' })).toBeVisible(); // still not recorded — says so
+  await page.getByRole('button', { name: 'Записати тренування' }).click();
+  await expect(page.getByRole('button', { name: 'Тренування записано' })).toBeVisible();
+  expect(await page.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith('protocol.kept.workout')))).toEqual([]);
+});

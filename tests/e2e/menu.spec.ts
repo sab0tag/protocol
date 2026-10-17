@@ -60,3 +60,23 @@ test('a 2-day menu (model stubbed): checked by the plan, a line added to one mea
   await expect(page.getByText('Яйце куряче')).toBeVisible();
   await expect(page.getByText(/^\d+ шт$/).first()).toBeVisible();
 });
+
+test('a menu made but not accepted comes back after the page reloads (a locked phone); gone once accepted (D87)', async ({ browser }) => {
+  const page = await device(browser);
+  await syncOn(page);
+  await page.route('**/menu', (r) => r.fulfill({ json: { tips: [], meals: [
+    { title: 'Сніданок', time: '08:00', items: [{ name: 'Яйце варене', grams: 100, count: 2 }] }] } }));
+  await page.goto('./#/menu');
+  await page.getByLabel('Побажання (необов’язково)').fill('легка вечеря');
+  await page.getByRole('button', { name: 'Скласти меню' }).click();
+  await page.getByRole('button', { name: 'Дозволити й скласти' }).click();
+  await expect(page.getByText('Разом за день')).toHaveCount(1);
+  await page.reload(); // what an unlock may do: iOS dropped the page, or a new version took over
+  await expect(page.getByText('Разом за день')).toHaveCount(1);
+  await expect(page.getByText('Яйце варене')).toBeVisible();
+  await expect(page.getByLabel('Побажання (необов’язково)')).toHaveValue('легка вечеря');
+  await page.getByRole('button', { name: /^Прийняти в план/ }).click();
+  await expect(toast(page)).toContainText('в плані');
+  await page.goto('./#/menu');
+  await expect(page.getByText('Разом за день')).toHaveCount(0); // accepted — nothing to bring back
+});

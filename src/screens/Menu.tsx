@@ -4,12 +4,13 @@ import { saved } from '../components/Toast';
 import { uk } from 'date-fns/locale';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Plus, RefreshCw, ShoppingCart, Sparkles, Undo2, X } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { AiSpend } from '../components/AiSpend';
 import { ItemPicker } from '../components/ItemPicker';
 import { planAllergies } from '../domain/allergens';
 import { db } from '../data/db';
+import { keep, kept } from '../data/kept';
 import { useAllEntries, useFoods, usePlan, useRecipes } from '../data/queries';
 import { atLocal, dateOf, newId, todayISO } from '../domain/dates';
 import { amountText } from '../domain/foodSearch';
@@ -29,6 +30,9 @@ const tomorrow = () => format(addDays(new Date(), 1), 'yyyy-MM-dd');
 const plus = (d: string, n: number) => format(addDays(parseISO(d), n), 'yyyy-MM-dd');
 const dm = (d: string) => format(parseISO(d), 'd MMMM, EEEE', { locale: uk });
 
+/** D87: an unaccepted menu, kept on the device until it is accepted or a day old. */
+interface Kept { date: string; days: number; wish: string; drafts: MenuDraft[] }
+
 /** «Меню на завтра» (SPEC.md D33, D37): the model proposes 1–3 days within the plan (or «Як учора» copies yesterday
  *  for free), the app checks and counts them, ↻ swaps a line for a similar one, the person accepts them as planned
  *  meals and later ticks what was eaten; «Що купити» sums them up. */
@@ -40,12 +44,18 @@ export function Menu() {
   const recipes = useRecipes();
   const all = useAllEntries();
   const meta = useLiveQuery(async () => (await db.meta.get('sync')) ?? null, []);
-  const [date, setDate] = useState(() => { const d = params.get('date'); return d && d >= todayISO() ? d : tomorrow(); });
-  const [days, setDays] = useState(1);
-  const [wish, setWish] = useState(() => params.get('wish') ?? ''); // D74: kept across enabling sync
+  // D87: a menu made but not accepted yet comes back after the phone was locked (the page may have been reloaded)
+  const [back] = useState(() => {
+    const k = kept<Kept>('menu'), asked = params.get('date');
+    return k && k.drafts.length && k.drafts[0]!.date >= todayISO() && (!asked || asked === k.date) ? k : undefined;
+  });
+  const [date, setDate] = useState(() => { const d = params.get('date'); return back?.date ?? (d && d >= todayISO() ? d : tomorrow()); });
+  const [days, setDays] = useState(back?.days ?? 1);
+  const [wish, setWish] = useState(() => params.get('wish') ?? back?.wish ?? ''); // D74: kept across enabling sync
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
-  const [drafts, setDrafts] = useState<MenuDraft[]>([]);
+  const [drafts, setDrafts] = useState<MenuDraft[]>(back?.drafts ?? []);
+  useEffect(() => { keep<Kept>('menu', drafts.length ? { date, days, wish, drafts } : undefined); }, [date, days, wish, drafts]);
   const [consent, setConsent] = useState(false);
   const [adding, setAdding] = useState<string | null>(null); // D54: "day:meal" with the picker open
 
@@ -113,6 +123,7 @@ export function Menu() {
       await db.entries.bulkPut(removed);
     }));
     if (!ok) return;
+    keep('menu', undefined); // in the plan now — nothing to bring back
     useUi.getState().setDate(drafts[0]!.date);
     navigate('/');
   };
