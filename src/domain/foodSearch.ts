@@ -37,7 +37,10 @@ export function parseQuery(raw: string): Query {
   let qty: number | undefined;
   let measure: string | undefined;
   const rest: string[] = [];
-  for (const w of words) {
+  for (const [i, w] of words.entries()) {
+    // D84: «кефір 1 %», «молоко 2,5%» — a number before «%» is part of the name, not how many
+    if (/^\d+(\.\d+)?$/.test(w) && words[i + 1] === '%') { rest.push(w.replace('.', ',')); continue; }
+    if (w === '%') { rest.push(w); continue; }
     if (qty === undefined && /^\d+(\.\d+)?$/.test(w)) { qty = Number(w); continue; }
     if (qty === undefined && w in NUMBER_WORDS) { qty = NUMBER_WORDS[w]; continue; }
     const m = MEASURES.find(([re]) => re.test(w));
@@ -119,14 +122,16 @@ export function unitOf(food: Food | undefined, name: string | undefined): FoodUn
   return food.units.find((u) => u.name === name) ?? food.units.find((u) => u.name.startsWith(name));
 }
 
-/** The meal line for a food and a parsed amount. Without a measure, a small number means the food's first
- *  household measure («2 яйця» = 2 шт), a big one means grams («150 гречки»); nothing given = one measure or 100 g. */
+/** The meal line for a food and a parsed amount. Without a measure, a small number means pieces or portions
+ *  («2 яйця» = 2 шт), a big one means grams («150 гречки»); nothing given = one portion («гречка» is a side dish, not a
+ *  spoon — D84), else the food's first measure, else 100 g. A spoon only when a spoon is said. */
 export function itemFor(food: Food, q: Pick<Query, 'qty' | 'measure'>): MealItem {
   const first = food.units?.[0];
+  const plain = q.qty === undefined ? unitOf(food, 'порція') ?? first : unitOf(food, 'шт') ?? unitOf(food, 'порція') ?? first;
   const unit = q.measure === 'г' ? undefined
     : q.measure ? unitOf(food, q.measure) ?? (q.measure === 'шматок' ? unitOf(food, 'скибка') : undefined)
       ?? (q.measure === 'шт' || q.measure === 'шматок' ? first : undefined)
-      : q.qty === undefined || q.qty < 20 ? first : undefined;
+      : q.qty === undefined || q.qty < 20 ? plain : undefined;
   if (unit) {
     const qty = q.qty ?? 1;
     return { foodId: food.id, name: food.name, grams: Math.round(qty * unit.grams), unit: { name: unit.name, qty, grams: unit.grams } };
@@ -168,7 +173,21 @@ export type { Recipe };
 // ------------------------------------------------------------------ a whole phrase (D30: dictation)
 /** «два варених яйця, склянку кефіру і салат» → its parts. */
 export function splitPhrase(raw: string): string[] {
-  return raw.split(/[,;.]|\s+(?:і|й|та|ще|плюс|а також)\s+/iu).map((s) => s.trim()).filter(Boolean);
+  // D84: a comma or dot inside a number («2,5 %»), inside brackets («(кріп, петрушка)») or after an abbreviation
+  // («конс.», «ст. л.») is not between two foods; a dot ends a part only before a capital letter or at the end
+  const parts: string[] = [];
+  let cur = '', depth = 0;
+  for (let i = 0; i < raw.length; i++) {
+    const c = raw[i]!, prev = raw[i - 1] ?? '', next = raw[i + 1] ?? '';
+    if (c === '(') depth++;
+    if (c === ')') depth = Math.max(0, depth - 1);
+    const inNumber = /\d/.test(prev) && /\d/.test(next);
+    const sentence = c === '.' && /^\s*($|\p{Lu})/u.test(raw.slice(i + 1));
+    if (depth === 0 && !inNumber && (c === ',' || c === ';' || sentence)) { parts.push(cur); cur = ''; continue; }
+    cur += c;
+  }
+  parts.push(cur);
+  return parts.flatMap((p) => p.split(/\s+(?:і|й|та|ще|плюс|а також)\s+/iu)).map((s) => s.trim()).filter(Boolean);
 }
 
 export interface Recognized {

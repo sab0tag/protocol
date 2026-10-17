@@ -177,3 +177,37 @@ describe('the exact name first (D83)', () => {
     }
   });
 });
+
+describe('names typed as people type them (D84)', () => {
+  const dish = (() => { throw new Error('no dishes here'); }) as never;
+  const typed = (name: string) => [name, name.toLowerCase(), name.replace(/\s+%/g, '%'), name.replace(/ /g, ' '), name.replace(/,(\d)/g, '.$1')];
+  it('«кефір 1 %», «кефір 1%», «Кефір 2,5%» — the number before % is the kind, not how many', () => {
+    const one = (q: string) => recognize(q, FOODS, [], dish)[0]!.item!;
+    expect(one('кефір 1 %').name).toBe('Кефір 1 %');
+    expect(one('кефір 1%').name).toBe('Кефір 1 %');
+    expect(one('склянка кефіру 1%')).toMatchObject({ name: 'Кефір 1 %', unit: { name: 'склянка', qty: 1 } });
+    expect(one('2 склянки кефіру 2,5%')).toMatchObject({ name: 'Кефір 2,5 %', unit: { qty: 2 } });
+  });
+  it('every food, typed in any of the usual ways, is the one recognised', () => {
+    for (const f of FOODS) for (const q of typed(f.name)) expect(recognize(q, FOODS, [], dish)[0]?.item?.name, q).toBe(f.name);
+  });
+  it('a grain, a porridge or сир said alone is a portion, not a spoon; the spoon when said', () => {
+    const one = (q: string) => recognize(q, FOODS, [], dish)[0]!.item!;
+    expect(one('гречка')).toMatchObject({ grams: 200, unit: { name: 'порція' } });
+    expect(one('рис')).toMatchObject({ grams: 200, unit: { name: 'порція' } });
+    expect(one('сир')).toMatchObject({ grams: 150, unit: { name: 'порція' } });
+    expect(one('вівсяні пластівці')).toMatchObject({ grams: 50, unit: { name: 'порція' } });
+    expect(one('ложка гречки')).toMatchObject({ grams: 25, unit: { name: 'ст. л.' } });
+    expect(one('2 яйця')).toMatchObject({ unit: { name: 'шт', qty: 2 } });
+    expect(one('150 г гречки').grams).toBe(150);
+  });
+});
+
+describe('splitting a phrase (D84)', () => {
+  it('between foods only — not inside numbers, brackets or abbreviations', async () => {
+    const { splitPhrase } = await import('../../src/domain/foodSearch');
+    expect(splitPhrase('кефір 2,5 %, хліб і сир')).toEqual(['кефір 2,5 %', 'хліб', 'сир']);
+    expect(splitPhrase('Тунець (конс.), Зелень (кріп, петрушка)')).toEqual(['Тунець (конс.)', 'Зелень (кріп, петрушка)']);
+    expect(splitPhrase('2 ст. л. сметани; Два яйця. Кава.')).toEqual(['2 ст. л. сметани', 'Два яйця', 'Кава']);
+  });
+});
