@@ -17,7 +17,7 @@ import { dishItem, foodFromLine, recipeFrom, setPortions, withComponents } from 
 import { atLocal, dateOf, newId, timeOf, todayISO } from '../domain/dates';
 import { activeMode, dayTotals, effectiveTargets, lineNutrients, mealNutrients, round } from '../domain/nutrition';
 import { applySwaps, checkMeal, hasSwaps, mealVerdict, type ItemCheck } from '../domain/rules';
-import { amountText, approxG, itemFor, measureWord, parseQuery, readMeal, type Query, type Recognized } from '../domain/foodSearch';
+import { amountText, approxG, measureWord, parseQuery, readMeal, type Recognized } from '../domain/foodSearch';
 import { fromPhoto } from '../domain/photo';
 import { ApiError, photo as recognizePhoto } from '../sync/api';
 import { currentKeys } from '../sync/runner';
@@ -180,7 +180,7 @@ export function AddMeal() {
                   <button type="button" data-item={dish.name} className="flex min-h-tap w-full items-center justify-between gap-2 px-3 text-left"
                     onClick={() => { setItems((xs) => [...xs, dish]); setQuery(''); }}>
                     <span>{f.name}{(() => { const h = allergyHits(f, allergies); return h.length ? <span className="ml-2 text-sm font-medium text-warn">{t.allergen.badge(h.map((a) => t.allergen.name[a]).join(', '))}</span> : null; })()}</span>
-                    <span className="tabular shrink-0 text-right text-sm text-muted">{matchHint(f, parsed)}</span>
+                    <span className="tabular shrink-0 text-right text-sm text-muted">{matchHint(dish)}</span>
                   </button>
                 </li>
               ))}
@@ -478,8 +478,10 @@ function FreeItemForm({ onAdd }: { onAdd: (item: MealItem) => void }) {
 /** D77: «Як приготовано» only where it can matter — not for tea, bread, kefir or an apple. A line without a base food keeps it. */
 const COOKED = new Set(['veg', 'meat', 'fish', 'egg', 'grain', 'legume', 'liver']);
 const RAW = new Set(['drink', 'bread', 'dairy', 'cheese', 'sweet', 'nuts', 'seeds', 'condiment', 'alcohol', 'soup']);
+/** D88: a name that already says how it was cooked («Гречка варена», «Хек запечений», «Пшоняна каша») has no choice to make. */
+const COOKED_NAME = /(варен|запечен|печен|смажен|тушкован|на пару|гриль|копчен|відвар|\bкаша\b|пюре)/iu;
 function cookable(food: Food | undefined): boolean {
-  return !food || (food.tags.some((x) => COOKED.has(x)) && !food.tags.some((x) => RAW.has(x)));
+  return !food || (food.tags.some((x) => COOKED.has(x)) && !food.tags.some((x) => RAW.has(x)) && !COOKED_NAME.test(food.name));
 }
 
 /** «Перевірка»: each item's verdict with the reason, the meal as a whole, and what «Записати заміну» would write. */
@@ -530,13 +532,9 @@ function Badge({ verdict, small }: { verdict: 'ok' | 'replace' | 'remove' | 'adj
 const fmt = (n: number) => String(Math.round(n * 10) / 10).replace('.', ',');
 
 /** What tapping a search result adds: «2 шт ≈ 100 г», or the food's first measure, or carbs per 100 g. */
-function matchHint(food: Food, q: Query): string {
-  if (q.qty !== undefined || q.measure) {
-    const it = itemFor(food, q);
-    return it.unit ? `${fmt(it.unit.qty)} ${measureWord(it.unit.name, it.unit.qty)} ≈ ${approxG(it.grams)} г` : `${it.grams} г`;
-  }
-  const u = food.units?.[0];
-  return u ? `1 ${u.name} ≈ ${u.grams} г` : `${food.per100g.carbs} г В / 100 г`;
+/** D88: the line shows exactly what a tap adds — «1 порція ≈ 200 г» for «гречка», not the food's first measure. */
+function matchHint(it: MealItem): string {
+  return it.unit ? `${fmt(it.unit.qty)} ${measureWord(it.unit.name, it.unit.qty)} ≈ ${approxG(it.grams)} г` : `${it.grams} г`;
 }
 
 

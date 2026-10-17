@@ -31,7 +31,9 @@ function profile(p: Row['profile']): { ctx: MealContext; plan: Plan } {
   return { ctx: { foods: FOODS, recipes: RECIPES, dishItem, prefer }, plan: examplePlan(NOW) };
 }
 
-const show = (it?: MealItem) => (it ? `${it.name}${it.unit ? ` · ${it.unit.qty} ${it.unit.name}` : ''} · ${it.grams} г` : '—');
+/** The amount as «Розпізнано» shows it: a measure, or a dish's portions. */
+const amount = (it?: MealItem) => it?.unit ?? (it?.recipe ? { qty: it.recipe.portions, name: 'порція' } : undefined);
+const show = (it?: MealItem) => (it ? `${it.name}${amount(it) ? ` · ${amount(it)!.qty} ${amount(it)!.name}` : ''} · ${it.grams} г` : '—');
 
 /** What differs from the row's expectations, one line per position; empty when the row holds. */
 function check(row: Row): string[] {
@@ -46,11 +48,11 @@ function check(row: Row): string[] {
     const r = got[i], it = r?.item;
     const bad: string[] = [];
     if (it?.name !== w.name) bad.push(`назва «${it?.name ?? '—'}»`);
-    if (w.qty !== undefined && it?.unit?.qty !== w.qty) bad.push(`кількість ${it?.unit?.qty ?? '—'}`);
-    if (w.unit !== undefined && it?.unit?.name !== w.unit) bad.push(`одиниця «${it?.unit?.name ?? '—'}»`);
+    if (w.qty !== undefined && amount(it)?.qty !== w.qty) bad.push(`кількість ${amount(it)?.qty ?? '—'}`);
+    if (w.unit !== undefined && amount(it)?.name !== w.unit) bad.push(`одиниця «${amount(it)?.name ?? '—'}»`);
     if (w.grams && (!it || it.grams < w.grams[0] || it.grams > w.grams[1])) bad.push(`${it?.grams ?? '—'} г поза [${w.grams.join(', ')}]`);
     const hits = checks[i]?.hits ?? [];
-    for (const f of w.flags ?? []) if (!hits.some((h) => h.message === f || h.reason === f)) bad.push(`немає відмітки «${f}» (є: ${hits.map((h) => h.message).join(', ') || '—'})`);
+    for (const f of w.flags ?? []) if (!hits.some((h) => h.message.toLowerCase().includes(f.toLowerCase()) || h.reason === f)) bad.push(`немає відмітки «${f}» (є: ${hits.map((h) => h.message).join(', ') || '—'})`);
     for (const x of w.alt_excludes ?? []) if (r?.others?.some((o) => o.name === x)) bad.push(`«${x}» в «або:»`);
     if (bad.length) out.push(`#${i + 1} очікується ${w.name}${w.qty !== undefined ? ` · ${w.qty}` : ''}${w.unit ? ` ${w.unit}` : ''}, є ${show(it)}: ${bad.join('; ')}`);
   });

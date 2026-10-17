@@ -1,277 +1,347 @@
-# Эталонные фразы записи еды (SPEC.md D85). Каждая строка проходит полный путь «Записати їжу»: readMeal() — та же
-# функция, что вызывает экран при наборе. Строки не удаляются: исправленная остаётся навсегда как регрессия.
-# Поля и правила — в ТЗ «Эталонные фразы и разбор записи еды» (17.10.2026):
-#   profile: clean — пустой профиль; demo — «Подивитись на прикладі» (план-пример и две недели записей)
-#   expect: позиции по порядку; name — точно как в базе; qty/unit — как в «Розпізнано»; grams — [мин, макс]
-#   flags (demo) — подмножество отметок «Перевірки за планом» (сообщение или тег правила); alt_excludes — чего нет в «або:»
-#   not_found — части, которые дают «— не знайдено»; status: fixed | open; found — дата; note — что сейчас (для open)
+# Еталонні фрази для розбору запису їжі в «Протоколі».
+#
+# Кожен рядок проганяється через ПОВНИЙ шлях: набраний текст → розбір фрази
+# (кількість, одиниця, межі частин) → пошук → вибір першого варіанта →
+# перевірка за планом. Не через пошук напряму.
+#
+# Поля:
+#   id       — стабільний ідентифікатор
+#   phrase   — рівно те, що набрала або надиктувала людина
+#   profile  — clean (без історії) | demo (план-приклад, у ньому: порушена
+#              глікемія, непереносимість лактози, оксалатні камені)
+#   expect   — позиції в тому порядку, як мають з'явитися
+#     name     — назва першого варіанта (точно, як у базі)
+#     qty/unit — кількість і одиниця, як показано в рядку
+#     grams    — [мін, макс], допуск на округлення
+#     flags    — що має сказати «Перевірка за планом лікаря» (лише для demo)
+#     alt_excludes — чого не має бути серед «або:»
+#   not_found — частини фрази, які мають дати «— не знайдено — додайте вручну»
+#   status   — fixed (вже проходить, тримати як регресію) | open (ще падає)
+#   found    — дата, коли знайдено
+#
+# Правило для нових рядків: аналітик додає зі status: open, розробник
+# перемикає на fixed, коли тест проходить. Рядки не видаляються.
 
-- id: sugar-tea
-  phrase: чай з цукром
-  profile: clean
-  expect: [{ name: Чай з цукром, qty: 1, unit: склянка, grams: [240, 260] }]
-  status: fixed
-  found: 2026-10-17
+# ── Цукор і «з / без» ─────────────────────────────────────────────
 
-- id: no-sugar-tea
-  phrase: чай без цукру
-  profile: clean
-  expect: [{ name: Чай без цукру }]
-  status: fixed
-  found: 2026-10-17
-
-- id: sugar-flag-glycemia
-  phrase: чай з цукром
+- id: sugar-with
+  phrase: "чай з цукром"
   profile: demo
-  expect: [{ name: Чай з цукром, flags: [Доданий цукор] }]
-  status: fixed
-  found: 2026-10-17
-
-- id: coffee-sugar
-  phrase: кава з цукром
-  profile: clean
-  expect: [{ name: Кава з цукром }]
-  status: fixed
-  found: 2026-10-17
-
-- id: bread-pieces
-  phrase: 2 куски хліба
-  profile: clean
-  expect: [{ name: Білий хліб (батон), qty: 2, unit: скибка, grams: [55, 65] }]
-  status: fixed
-  found: 2026-10-17
-
-- id: three-parts
-  phrase: Борщ, 2 куски хліба, чай з цукром
-  profile: clean
   expect:
-    - { name: Борщ, grams: [400, 500] }
-    - { name: Білий хліб (батон), qty: 2, unit: скибка }
-    - { name: Чай з цукром }
+    - { name: "Чай з цукром", qty: 1, unit: склянка, grams: [240, 260], flags: ["Доданий цукор"] }
   status: fixed
   found: 2026-10-17
 
-- id: kuraga-not-soup
-  phrase: курага
+- id: sugar-without
+  phrase: "чай без цукру"
   profile: demo
-  expect: [{ name: Курага, flags: [Швидкі вуглеводи] }]
-  status: fixed
-  found: 2026-10-17
-
-- id: sirok-not-casserole
-  phrase: сирок
-  profile: clean
-  expect: [{ name: Сирок глазурований }]
-  status: fixed
-  found: 2026-10-17
-
-- id: sirok-full
-  phrase: сирок глазурований
-  profile: clean
-  expect: [{ name: Сирок глазурований }]
-  status: fixed
-  found: 2026-10-17
-
-- id: grechka-portion
-  phrase: гречка
-  profile: clean
-  expect: [{ name: Гречка варена, qty: 1, unit: порція, grams: [190, 210] }]
-  status: fixed
-  found: 2026-10-17
-
-- id: grechka-dish-said
-  phrase: гречка з куркою
-  profile: clean
-  expect: [{ name: Гречка з куркою }]
-  status: fixed
-  found: 2026-10-17
-
-- id: rice-portion
-  phrase: рис
-  profile: clean
-  expect: [{ name: Рис білий варений, unit: порція, grams: [190, 210] }]
-  status: fixed
-  found: 2026-10-17
-
-- id: syr-portion
-  phrase: сир
-  profile: clean
-  expect: [{ name: Сир кисломолочний 5 %, unit: порція, grams: [140, 160] }]
-  status: fixed
-  found: 2026-10-17
-
-- id: kefir-1-space
-  phrase: кефір 1 %
-  profile: clean
-  expect: [{ name: Кефір 1 % }]
-  status: fixed
-  found: 2026-10-17
-
-- id: kefir-1-no-space
-  phrase: кефір 1%
-  profile: clean
-  expect: [{ name: Кефір 1 % }]
-  status: fixed
-  found: 2026-10-17
-
-- id: kefir-glasses-percent
-  phrase: 2 склянки кефіру 2,5%
-  profile: clean
-  expect: [{ name: 'Кефір 2,5 %', qty: 2, unit: склянка, grams: [490, 510] }]
-  status: fixed
-  found: 2026-10-17
-
-- id: oats-portion
-  phrase: вівсяні пластівці
-  profile: clean
-  expect: [{ name: Вівсяні пластівці (сухі), unit: порція, grams: [45, 55] }]
-  status: fixed
-  found: 2026-10-17
-
-- id: salad-is-dish
-  phrase: салат
-  profile: clean
-  expect: [{ name: Салат овочевий з олією }]
-  status: fixed
-  found: 2026-10-17
-
-- id: kompot-no-twin
-  phrase: компот
-  profile: clean
-  expect: [{ name: Компот, alt_excludes: [Компот] }]
-  status: fixed
-  found: 2026-10-17
-
-- id: unknown-pie
-  phrase: бабусин пиріжок
-  profile: clean
-  expect: []
-  not_found: [бабусин пиріжок]
+  expect:
+    - { name: "Чай без цукру", qty: 1, unit: склянка, grams: [240, 260], flags: [] }
   status: fixed
   found: 2026-10-17
 
 - id: coffee-milk-lactose
-  phrase: кава з молоком
-  profile: demo
-  expect: [{ name: Кава з молоком (без цукру), flags: [lactose] }]
-  status: fixed
-  found: 2026-10-17
-
-- id: kompot-honey-glycemia
-  phrase: компот, мед
+  phrase: "кава з молоком"
   profile: demo
   expect:
-    - { name: Компот, flags: [Швидкі вуглеводи] }
-    - { name: Мед, flags: [Швидкі вуглеводи] }
+    - { name: "Кава з молоком (без цукру)", qty: 1, unit: склянка, grams: [240, 260], flags: ["Лактоза"] }
   status: fixed
   found: 2026-10-17
 
-# ---- были open 17.10.2026, исправлены в D85 (Т1–Т3)
+- id: sweets-by-type
+  phrase: "компот, мед"
+  profile: demo
+  expect:
+    - { name: "Компот", grams: [240, 260], flags: ["Швидкі вуглеводи"], alt_excludes: ["Компот"] }
+    - { name: "Мед", flags: ["Швидкі вуглеводи"] }
+  status: fixed
+  found: 2026-10-17
+
+# ── Схожі основи: точна назва має бути першою ─────────────────────
+
+- id: stem-kuraga
+  phrase: "курага"
+  profile: demo
+  expect:
+    - { name: "Курага", flags: ["Швидкі вуглеводи"] }
+  status: fixed
+  found: 2026-10-17
+
+- id: stem-syrok
+  phrase: "сирок"
+  profile: demo
+  expect:
+    - { name: "Сирок глазурований", qty: 1, unit: шт, grams: [35, 45] }
+  status: fixed
+  found: 2026-10-17
+
+- id: stem-syrok-full
+  phrase: "сирок глазурований"
+  profile: clean
+  expect:
+    - { name: "Сирок глазурований" }
+  status: fixed
+  found: 2026-10-17
+
+- id: stem-grechka
+  phrase: "гречка"
+  profile: clean
+  expect:
+    - { name: "Гречка варена", qty: 1, unit: порція, grams: [190, 210] }
+  status: fixed
+  found: 2026-10-17
+
+- id: dish-grechka-kurka
+  phrase: "гречка з куркою"
+  profile: clean
+  expect:
+    - { name: "Гречка з куркою" }
+  status: fixed
+  found: 2026-10-17
+
+- id: dish-salat
+  phrase: "салат"
+  profile: clean
+  expect:
+    - { name: "Салат овочевий з олією" }
+  status: fixed
+  found: 2026-10-17
+
+# ── Відсотки й числа в назві ──────────────────────────────────────
+
+- id: pct-space
+  phrase: "кефір 1 %"
+  profile: clean
+  expect:
+    - { name: "Кефір 1 %", qty: 1, unit: склянка, grams: [240, 260] }
+  status: fixed
+  found: 2026-10-17
+
+- id: pct-nospace
+  phrase: "кефір 1%"
+  profile: clean
+  expect:
+    - { name: "Кефір 1 %" }
+  status: fixed
+  found: 2026-10-17
+
+- id: pct-with-qty
+  phrase: "2 склянки кефіру 2,5%"
+  profile: clean
+  expect:
+    - { name: "Кефір 2,5 %", qty: 2, unit: склянка, grams: [490, 510] }
+  status: fixed
+  found: 2026-10-17
+
+# ── Порція за замовчуванням і названі одиниці ─────────────────────
+
+- id: default-portions
+  phrase: "гречка, рис, сир, вівсяні пластівці"
+  profile: clean
+  expect:
+    - { name: "Гречка варена", unit: порція, grams: [190, 210] }
+    - { name: "Рис білий варений", unit: порція, grams: [190, 210] }
+    - { name: "Сир кисломолочний 5 %", unit: порція, grams: [140, 160] }
+    - { name: "Вівсяні пластівці (сухі)", unit: порція, grams: [45, 55] }
+  status: fixed
+  found: 2026-10-17
+
+- id: spoon-singular
+  phrase: "ложка гречки"
+  profile: clean
+  expect:
+    - { name: "Гречка варена", qty: 1, unit: ст. л., grams: [20, 30] }
+  status: fixed
+  found: 2026-10-17
+
+- id: spoon-plural
+  phrase: "3 ложки гречки"
+  profile: clean
+  expect:
+    - { name: "Гречка варена", qty: 3, unit: ст. л., grams: [65, 85] }
+  status: fixed
+  found: 2026-10-17
+
+- id: half-plate
+  phrase: "пів тарілки гречки"
+  profile: clean
+  expect:
+    - { name: "Гречка варена", qty: 0.5, unit: порція, grams: [90, 110] }
+  status: fixed
+  found: 2026-10-17
+
+- id: plate-borshch
+  phrase: "тарілка борщу"
+  profile: demo
+  expect:
+    - { name: "Борщ", qty: 1, unit: порція, grams: [430, 470], flags: ["Багато оксалатів"] }
+  status: fixed
+  found: 2026-10-17
+
+- id: count-eggs
+  phrase: "2 яйця"
+  profile: clean
+  expect:
+    - { name: "Яйце варене", qty: 2, unit: шт, grams: [90, 110] }
+  status: fixed
+  found: 2026-10-17
+
+# ── Хліб ──────────────────────────────────────────────────────────
+
+- id: bread-default
+  phrase: "борщ, 2 куски хліба, чай з цукром"
+  profile: clean
+  expect:
+    - { name: "Борщ" }
+    - { name: "Білий хліб (батон)", qty: 2, unit: скибка }
+    - { name: "Чай з цукром" }
+  status: fixed
+  found: 2026-10-17
+
+# ── Не знайдено ───────────────────────────────────────────────────
+
+- id: not-found-line
+  phrase: "бабусин пиріжок"
+  profile: clean
+  expect: []
+  not_found: ["бабусин пиріжок"]
+  status: fixed
+  found: 2026-10-17
+
+# ── Були відкриті; перемкнуто на fixed 17.10 (D85–D86) ─────────────
 
 - id: case-syru
-  phrase: сиру
+  phrase: "сиру"
   profile: clean
-  expect: [{ name: Сир кисломолочний 5 % }]
+  expect:
+    - { name: "Сир кисломолочний 5 %" }
   status: fixed
   found: 2026-10-17
-  note: было — «сиру» → Сирна запіканка (падеж проигрывает основе)
+  note: "Було: дає «Сирна запіканка». «кисломолочного сиру» знаходиться правильно."
 
 - id: spoon-unit-kept
-  phrase: 3 ложки сиру
+  phrase: "3 ложки сиру"
   profile: clean
-  expect: [{ name: Сир кисломолочний 5 %, qty: 3, unit: ст. л., grams: [55, 65] }]
+  expect:
+    - { name: "Сир кисломолочний 5 %", qty: 3, unit: ст. л., grams: [50, 75] }
   status: fixed
   found: 2026-10-17
-  note: было — «3 ложки сиру» → 3 порції Сирної запіканки ≈ 800 г
+  note: "Було: «Сирна запіканка · 3 порції ≈ 800 г»: хибний продукт + ложки стали порціями."
 
 - id: unit-missing-on-product
-  phrase: ложка кефіру
+  phrase: "склянка гречки"
   profile: clean
-  expect: [{ name: 'Кефір 2,5 %', qty: 1, unit: ст. л., grams: [10, 25] }]
+  expect:
+    - { name: "Гречка варена", grams: [150, 250] }
   status: fixed
   found: 2026-10-17
-  note: было — у кефира нет «ст. л.» — названная ложка теряется, пишется 100 г
+  note: "Було: множилась порція. Якщо в продукту немає названої одиниці — перерахувати в грами, а не множити порцію."
 
 - id: dictation-dot-digit
-  phrase: Кава з молоком. 1,5 склянки кефіру
+  phrase: "Кава з молоком. 1,5 склянки кефіру"
   profile: clean
   expect:
-    - { name: Кава з молоком (без цукру) }
-    - { name: 'Кефір 2,5 %', qty: 1.5, unit: склянка }
+    - { name: "Кава з молоком (без цукру)" }
+    - { name: "Кефір 2,5 %", qty: 1.5, unit: склянка, grams: [365, 385] }
   status: fixed
   found: 2026-10-17
-  note: было — точка перед цифрой не делит фразу → «не знайдено»
+  note: "Було: уся фраза — «не знайдено». Крапка перед цифрою має ділити частини."
 
 - id: dictation-dot-lower
-  phrase: Два яйця. кава
+  phrase: "кава з молоком. 1,5 склянки кефіру"
   profile: clean
   expect:
-    - { name: Яйце варене, qty: 2, unit: шт }
-    - { name: Кава чорна }
+    - { name: "Кава з молоком (без цукру)" }
+    - { name: "Кефір 2,5 %", qty: 1.5, unit: склянка }
   status: fixed
   found: 2026-10-17
-  note: было — точка перед строчной буквой не делит фразу
 
 - id: dictation-capital
-  phrase: Два яйця. Кава.
+  phrase: "Два яйця. Кава з молоком."
   profile: clean
   expect:
-    - { name: Яйце варене, qty: 2, unit: шт }
-    - { name: Кава чорна }
+    - { name: "Яйце варене", qty: 2, unit: шт }
+    - { name: "Кава з молоком (без цукру)" }
   status: fixed
   found: 2026-10-17
-  note: было — диктовка с точками в конце предложений
+  note: "Було: склеювалось. «Два яйця.» уже проходить; рядок фіксує склейку з наступною частиною."
 
-# ---- обход аналитика 17.10.2026 на экране (сборка без D85 — экран шёл в старый список); как регрессии
+# ── Додано розробником 17.10 (з відновленого корпусу D85, чого немає вище) ──
+# Злиття 17.10: рядки відновленого корпусу, що збігаються за змістом із рядками аналітика, перейшли в їхні id
+# (sugar-tea → sugar-with, kuraga-not-soup → stem-kuraga, glass-grechka → unit-missing-on-product, …). Далі рядки не видаляються.
 
-- id: spoon-grechka
-  phrase: ложка гречки
-  profile: clean
-  expect: [{ name: Гречка варена, qty: 1, unit: ст. л., grams: [20, 30] }]
-  status: fixed
-  found: 2026-10-17
-  note: было — Гречка з грибами (блюдо выше продукта в списке)
-
-- id: spoons-grechka-3
-  phrase: 3 ложки гречки
-  profile: clean
-  expect: [{ name: Гречка варена, qty: 3, unit: ст. л., grams: [70, 80] }]
-  status: fixed
-  found: 2026-10-17
-  note: было — Гречка з грибами · 3 порції ≈ 1000 г
-
-- id: half-plate-grechka
-  phrase: пів тарілки гречки
-  profile: clean
-  expect: [{ name: Гречка варена, qty: 0.5, unit: порція, grams: [95, 105] }]
-  status: fixed
-  found: 2026-10-17
-  note: было — Гречка з грибами · 0,5 порції
-
-- id: glass-grechka
-  phrase: склянка гречки
-  profile: clean
-  expect: [{ name: Гречка варена, qty: 1, unit: склянка, grams: [180, 220] }]
-  status: fixed
-  found: 2026-10-17
-  note: было — Гречка з грибами; у Гречки вареної «100 г» вместо склянки
-
-- id: dictation-dot-digit-lower
-  phrase: кава з молоком. 1,5 склянки кефіру
+- id: sugar-coffee
+  phrase: "кава з цукром"
   profile: clean
   expect:
-    - { name: Кава з молоком (без цукру) }
-    - { name: 'Кефір 2,5 %', qty: 1.5, unit: склянка }
+    - { name: "Кава з цукром" }
   status: fixed
   found: 2026-10-17
-  note: было — не знайдено (фраза без запятой искалась как одно название)
 
-- id: eggs-coffee-milk
-  phrase: Два яйця. Кава з молоком.
+- id: bread-pieces-alone
+  phrase: "2 куски хліба"
   profile: clean
   expect:
-    - { name: Яйце варене, qty: 2, unit: шт }
-    - { name: Кава з молоком (без цукру) }
+    - { name: "Білий хліб (батон)", qty: 2, unit: скибка, grams: [55, 65] }
   status: fixed
   found: 2026-10-17
-  note: «яйця» без уточнения — варене, как в корпусе аналитика
+  note: "Одна частина без коми — шлях списку на екрані."
+
+- id: portion-rice-alone
+  phrase: "рис"
+  profile: clean
+  expect:
+    - { name: "Рис білий варений", qty: 1, unit: порція, grams: [190, 210] }
+  status: fixed
+  found: 2026-10-17
+
+- id: portion-syr-alone
+  phrase: "сир"
+  profile: clean
+  expect:
+    - { name: "Сир кисломолочний 5 %", qty: 1, unit: порція, grams: [140, 160] }
+  status: fixed
+  found: 2026-10-17
+
+- id: portion-oats-alone
+  phrase: "вівсяні пластівці"
+  profile: clean
+  expect:
+    - { name: "Вівсяні пластівці (сухі)", qty: 1, unit: порція, grams: [45, 55] }
+  status: fixed
+  found: 2026-10-17
+
+- id: kompot-alone
+  phrase: "компот"
+  profile: clean
+  expect:
+    - { name: "Компот", alt_excludes: ["Компот"] }
+  status: fixed
+  found: 2026-10-17
+
+- id: unit-missing-spoon-kefir
+  phrase: "ложка кефіру"
+  profile: clean
+  expect:
+    - { name: "Кефір 2,5 %", qty: 1, unit: ст. л., grams: [10, 25] }
+  status: fixed
+  found: 2026-10-17
+  note: "У кефіру немає «ст. л.» — названа ложка рахується за кухонною таблицею, не 100 г."
+
+- id: dictation-dot-lower-short
+  phrase: "Два яйця. кава"
+  profile: clean
+  expect:
+    - { name: "Яйце варене", qty: 2, unit: шт }
+    - { name: "Кава чорна" }
+  status: fixed
+  found: 2026-10-17
+
+- id: dictation-capital-short
+  phrase: "Два яйця. Кава."
+  profile: clean
+  expect:
+    - { name: "Яйце варене", qty: 2, unit: шт }
+    - { name: "Кава чорна" }
+  status: fixed
+  found: 2026-10-17

@@ -77,3 +77,15 @@ test('the medicine button hides while the quick tiles are on screen; water stays
   await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight)); // the tiles go off the top
   await expect(dock.getByRole('button', { name: /^Відмітити прийнятим: Вітамін D/ })).toBeVisible();
 });
+
+test('a word alone: the list line says what a tap adds; a cooked food has no «Як приготовано» (D88)', async ({ browser }) => {
+  const page = await device(browser, 'skip');
+  await page.goto('./#/meal/new');
+  await page.getByPlaceholder('Напр.: 2 яйця, кава').fill('гречка');
+  const first = page.locator('ul button[data-item]').first();
+  await expect(first).toContainText('Гречка варена');
+  await expect(first).toContainText('1 порція ≈ 200 г'); // not «1 ст. л. ≈ 25 г»
+  await first.click();
+  await expect(page.getByText('Гречка варена')).toBeVisible();
+  await expect(page.getByLabel('Як приготовано')).toHaveCount(0);
+});

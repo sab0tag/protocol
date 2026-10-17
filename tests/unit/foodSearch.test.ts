@@ -211,3 +211,12 @@ describe('splitting a phrase (D84)', () => {
     expect(splitPhrase('2 ст. л. сметани; Два яйця. Кава.')).toEqual(['2 ст. л. сметани', 'Два яйця', 'Кава']);
   });
 });
+
+describe('«≈» grams on screen (D88)', () => {
+  it('a whole count of a measure stays exact; a sum is rounded', async () => {
+    const { approxG } = await import('../../src/domain/foodSearch');
+    expect(approxG(375)).toBe(375); // 1,5 склянки × 250
+    expect(approxG(466)).toBe(470); // a dish's sum
+    expect(approxG(63)).toBe(65);
+  });
+});

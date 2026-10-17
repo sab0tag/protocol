@@ -180,7 +180,8 @@ export function measureWord(name: string, qty: number): string {
 
 /** D79: «≈» grams as people think of them — «тарілка ≈ 450 г», not «≈ 466 г». Display only; the line keeps its grams. */
 export function approxG(g: number): number {
-  const step = g < 100 ? 5 : g < 300 ? 10 : 50;
+  if (g % 5 === 0) return g; // D88: a whole count of a measure (1,5 × 250 = 375) stays as it is, only sums are rounded
+  const step = g < 100 ? 5 : 10;
   return Math.max(step, Math.round(g / step) * step);
 }
 
