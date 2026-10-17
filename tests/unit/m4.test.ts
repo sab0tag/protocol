@@ -125,7 +125,7 @@ describe('report — how the plan went (D40)', () => {
     expect(r.habits).toContainEqual({ key: 'protein', met: 1, of: 4 }); // the skipped day counts as a day with entries
     expect(r.menu).toEqual({ done: 1, skipped: 1, open: 1 });
     const text = reportText(r, (d) => d);
-    expect(text).toContain('Темп: −0,7 кг на тиждень (межа — не швидше 0,5)');
+    expect(text).toContain('Темп за період, за тижневими середніми: −0,7 кг на тиждень (межа — не швидше 0,5)');
     expect(text).toContain('Білок ≥ 90 % цілі: 1 з 4');
   });
 });

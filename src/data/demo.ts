@@ -53,7 +53,8 @@ export function demoData(foods: Map<string, Food>, today: Date = new Date()): De
   }
   for (let k = DEMO_DAYS - 1; k >= 0; k--) {
     const sleep = LATE.includes(k + 1) ? 2 : 4;
-    wellbeing.push({ date: day(k), sleep, ...(k > 0 ? { energy: sleep === 2 ? 3 : 4, mood: 4 } : {}),
+    // D81: energy does not follow the late dinner — the example's one clear lesson is the sleep after it
+    wellbeing.push({ date: day(k), sleep, ...(k > 0 ? { energy: k % 3 === 0 ? 3 : 4, mood: 4 } : {}),
       symptoms: [], demo: true } as Wellbeing); // «Здуття» is in the entries, with its time
   }
   return {

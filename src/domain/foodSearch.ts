@@ -64,6 +64,8 @@ function withoutStems(text: string): Set<string> {
   return new Set(ws.flatMap((w, i) => (ws[i - 1] === 'без' ? [stem(w)] : [])));
 }
 
+const USUAL: Record<string, string> = { хліб: 'bread-white', хліба: 'bread-white', хлібу: 'bread-white', рис: 'white-rice-boiled', риса: 'white-rice-boiled' };
+
 /** Foods (or dishes) whose name or aliases contain every query word (by stem); the closest first.
  *  «з цукром» never finds «без цукру», nor «без цукру» a food with sugar (D77). */
 export function searchFoods<T extends { id: string; name: string; aliases?: string[] }>(foods: T[], text: string, limit = 8,
@@ -84,7 +86,9 @@ export function searchFoods<T extends { id: string; name: string; aliases?: stri
     // the name starting with the word first; then what this person usually eats (D30); then the shorter name
     // D45: the whole word said beats a longer one that shares its stem («кава» → Кава, not Кавун)
     const whole = ws.some((w) => w === raw[0] || (raw[0]!.length >= 4 && w.startsWith(raw[0]!))) ? -0.3 : 0;
-    const score = (name.startsWith(tokens[0]!) ? 0 : 1) + whole + (prefer.has(food.id) ? -0.5 : 0) + name.split(' ').length / 100;
+    // D81: a word alone means the everyday kind («хліб» — wheat), over a name that merely starts with it; a habit (prefer) still wins
+    const usual = raw.length === 1 && USUAL[raw[0]!] === food.id ? -1.2 : 0;
+    const score = (name.startsWith(tokens[0]!) ? 0 : 1) + whole + usual + (prefer.has(food.id) ? -0.5 : 0) + name.split(' ').length / 100;
     scored.push([food, score]);
   }
   return scored.sort((a, b) => a[1] - b[1]).slice(0, limit).map(([f]) => f);
@@ -150,6 +154,7 @@ export function splitPhrase(raw: string): string[] {
 export interface Recognized {
   text: string;
   item?: MealItem; // undefined = nothing found for this part
+  others?: MealItem[]; // D81: other foods the same words fit («хліб» → житній, цільнозерновий) — one tap to choose
   estimate?: boolean; // D32: not in the base — nutrients are the photo's estimate
   unsure?: boolean; // D32: the photo was hard to read
 }
@@ -166,6 +171,9 @@ export function recognize(raw: string, foods: Food[], recipes: Recipe[], dishIte
     if (dish && (!food || normalize(dish.name).startsWith(stem(normalize(q.text).split(' ')[0]!)))) {
       return { text, item: dishItem(dish, q.qty ?? 1) };
     }
-    return food ? { text, item: itemFor(food, q) } : { text };
+    if (!food) return { text };
+    // a word alone may mean several kinds
+    const others = q.text.split(' ').length > 1 ? [] : searchFoods(foods, q.text, 4, prefer).filter((f) => f.id !== food.id).slice(0, 3).map((f) => itemFor(f, q));
+    return { text, item: itemFor(food, q), ...(others.length ? { others } : {}) };
   });
 }

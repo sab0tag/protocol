@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ensureSeeded, ProtocolDB } from '../../src/data/db';
 import { FOODS } from '../../src/data/foods';
-import { amountText, itemFor, parseQuery, searchFoods } from '../../src/domain/foodSearch';
+import { amountText, itemFor, parseQuery, recognize, searchFoods } from '../../src/domain/foodSearch';
 import { itemNutrients } from '../../src/domain/nutrition';
 
 const byId = new Map(FOODS.map((f) => [f.id, f]));
@@ -128,11 +128,24 @@ describe('what a patient says (D77)', () => {
   });
   it('«2 куски хліба» — bread by slices; «шматок сала» — a slice; компот', () => {
     const bread = FOODS.find((f) => f.name === name('2 куски хліба'))!;
-    expect(bread.name).toMatch(/Хліб/);
+    expect(bread.name).toBe('Білий хліб (батон)'); // D81: the everyday kind
     expect(itemFor(bread, parseQuery('2 куски хліба'))).toMatchObject({ grams: 60, unit: { name: 'скибка', qty: 2 } });
     const salo = FOODS.find((f) => f.id === 'salo')!;
     expect(itemFor(salo, parseQuery('шматок сала'))).toMatchObject({ grams: 10 });
     expect(name('склянка компоту')).toBe('Компот');
     expect(name('кус-кус')).toBe('Кус-кус варений'); // «кус» is not a measure here
+  });
+});
+
+describe('a word alone (D81)', () => {
+  it('«2 куски хліба» — the everyday wheat bread, the other kinds one tap away; a habit still wins', async () => {
+    const { RECIPES } = await import('../../src/data/recipes');
+    const { dishItem } = await import('../../src/domain/recipes');
+    const [r] = recognize('2 куски хліба', FOODS, RECIPES, dishItem);
+    expect(r!.item!.name).toBe('Білий хліб (батон)');
+    expect(r!.others!.map((o) => o.name)).toEqual(expect.arrayContaining(['Хліб житній', 'Хліб цільнозерновий']));
+    expect(r!.others![0]!.grams).toBe(60);
+    expect(recognize('хліб', FOODS, RECIPES, dishItem, new Set(['bread-wholegrain']))[0]!.item!.name).toBe('Хліб цільнозерновий');
+    expect(recognize('чай з цукром', FOODS, RECIPES, dishItem)[0]!.others).toBeUndefined(); // several words — meant as said
   });
 });

@@ -30,6 +30,7 @@ import { QuickDock } from '../components/QuickDock';
 import { DayHeader } from '../components/DayHeader';
 import { DayRhythm } from '../components/DayRhythm';
 import { ExampleNotice } from '../components/ExampleNotice';
+import { hasExample } from '../data/seed.example';
 import { DaySummary } from '../components/DaySummary';
 import { dayRhythm } from '../domain/rhythm';
 import { runningLow } from '../domain/stock';
@@ -149,7 +150,8 @@ export function Day() {
           </div>
         </div>
       )}
-      {!codeDue && !syncedRecently && exportDue(plan?.lastExportAt, firstEntry?.at.slice(0, 10), todayISO()) && (
+      {/* D81: no backup nag over the example — there is nothing of the person's to save yet */}
+      {!codeDue && !syncedRecently && !(plan && hasExample(plan)) && exportDue(plan?.lastExportAt, firstEntry?.at.slice(0, 10), todayISO()) && (
         <div role="status" className="mb-3 flex items-center gap-2 rounded-2xl border border-warn/30 bg-warn-bg p-3 text-sm text-warn">
           <span className="flex-1">{plan?.lastExportAt ? t.backup.remind : t.backup.remindFirst}</span>
           <button type="button" onClick={() => navigate('/more')} className="min-h-tap rounded-xl bg-warn px-3 font-medium text-surface">{t.backup.remindAction}</button>
@@ -176,7 +178,7 @@ export function Day() {
 
       <nav aria-label={t.day.quick} className="mb-5 grid grid-cols-5 gap-1">
         {quick.map(({ label, Icon, go, badge, done }) => (
-          <button key={label} type="button" onClick={go} aria-label={done ? `${label}, ${t.myday.workoutDone}` : undefined} className="flex min-h-tap flex-col items-center gap-1 text-center">
+          <button key={label} type="button" onClick={go} aria-label={[label, done ? t.myday.workoutDone : badge].filter(Boolean).join(', ')} className="flex min-h-tap flex-col items-center gap-1 text-center">
             <span className="relative flex h-12 w-12 items-center justify-center rounded-2xl bg-surface shadow-sm"><Icon size={22} className="text-accent" aria-hidden />
               {badge && <span className="tabular absolute -right-2 -top-1.5 rounded-full bg-accent px-1.5 text-xs font-medium text-surface">{badge}</span>}
               {done && <span className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full border-2 border-bg bg-accent text-surface" aria-hidden><Check size={11} strokeWidth={3} /></span>}</span>

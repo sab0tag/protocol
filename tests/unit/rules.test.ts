@@ -67,9 +67,9 @@ describe('dish check (SPEC §6, §11)', () => {
     expect(applySwaps(checkMeal(c), foods)[0]?.cooking).toBe('airfryer');
   });
 
-  it('calcium for oxalates: tomatoes without a calcium source get «Додай кальцій у цей прийом»', () => {
+  it('calcium for oxalates: tomatoes without a calcium source get «Додайте кальцій у цей прийом»', () => {
     const c = ctx([{ foodId: 'tomato', name: 'Помідор', grams: 150 }, { foodId: 'egg', name: 'Яйце куряче', grams: 100 }], ['oxalate']);
-    expect(hitsOf(c)).toEqual([expect.objectContaining({ verdict: 'adjust', message: 'Додай кальцій у цей прийом' })]);
+    expect(hitsOf(c)).toEqual([expect.objectContaining({ verdict: 'adjust', message: 'Додайте кальцій у цей прийом' })]);
     const withCheese = ctx([...c.meal, { foodId: 'parmesan', name: 'Пармезан / Grana Padano', grams: 25 }], ['oxalate']);
     expect(hitsOf(withCheese)).toEqual([]);
   });
@@ -109,5 +109,21 @@ describe('«Записати заміну» with several hits on one item', () =
   it('fried spinach becomes broccoli in the air fryer', () => {
     const c = ctx([{ name: 'Шпинат', grams: 150, cooking: 'fried' }], ['oxalate', 'gallbladder']);
     expect(applySwaps(checkMeal(c), foods)).toEqual([{ foodId: 'broccoli', name: 'Броколі', grams: 150, cooking: 'airfryer' }]);
+  });
+});
+
+describe('glycemia and sugar (D81)', () => {
+  const line = (id: string, grams = 250): MealItem => ({ foodId: id, name: foods.get(id)!.name, grams });
+  it('«Чай з цукром» → «Доданий цукор», swapped for the same tea without it; «Чай без цукру» passes', () => {
+    const c = ctx([line('tea-sugar')], ['glycemic']);
+    expect(hitsOf(c)).toMatchObject([{ verdict: 'replace', message: 'Доданий цукор', suggestion: 'Без цукру' }]);
+    expect(applySwaps(checkMeal(c), foods)).toMatchObject([{ foodId: 'tea', grams: 250 }]);
+    expect(hitsOf(ctx([line('tea')], ['glycemic']))).toEqual([]);
+    expect(hitsOf(ctx([line('coffee-milk')], ['glycemic']))).toEqual([]); // «(без цукру)» in its name
+  });
+  it('sweets by what the food is: a glazed curd, dried apricots, a free «кава з цукром»', () => {
+    for (const id of ['glazed-curd', 'dried-apricots', 'compote', 'honey']) expect(hitsOf(ctx([line(id, 50)], ['glycemic']))[0]?.reason).toBe('glycemic');
+    expect(hitsOf(ctx([{ name: 'Кава з цукром (кав’ярня)', grams: 200 }], ['glycemic']))[0]).toMatchObject({ verdict: 'remove', message: 'Доданий цукор' });
+    expect(hitsOf(ctx([line('tea-sugar')], ['lactose']))).toEqual([]); // silent without the limit
   });
 });

@@ -393,8 +393,10 @@ type PhotoState = { state: 'none' | 'busy' | 'consent' | 'nosync' } | { state: '
   | { state: 'done'; rows: Recognized[]; note?: string };
 
 /** Lines recognized from a dictated phrase (D30) or a photo (D32), each with a tick; nothing is added until «Додати». */
-function RecognizedPanel({ title, rows, note, onAdd }: { title: string; rows: Recognized[]; note?: string; onAdd: (items: MealItem[]) => void }) {
+function RecognizedPanel({ title, rows: given, note, onAdd }: { title: string; rows: Recognized[]; note?: string; onAdd: (items: MealItem[]) => void }) {
   const [skip, setSkip] = useState<Set<number>>(new Set());
+  const [chosen, setChosen] = useState<Record<number, MealItem>>({}); // D81: another kind picked in one tap
+  const rows = given.map((r, k) => (chosen[k] ? { ...r, item: chosen[k], others: [r.item!, ...(r.others ?? [])].filter((o) => o.foodId !== chosen[k]!.foodId) } : r));
   const picked = rows.filter((r, k) => r.item && !skip.has(k)).map((r) => r.item!);
   return (
     <div className="mt-2 rounded-xl border border-accent/40 p-2">
@@ -412,6 +414,13 @@ function RecognizedPanel({ title, rows, note, onAdd }: { title: string; rows: Re
                 </span>
               </label>
             ) : <p className="py-2 text-sm text-muted">«{r.text}» — {t.meal.notFound}</p>}
+            {r.item && r.others && r.others.length > 0 && (
+              <p className="flex flex-wrap items-center gap-1 pb-1 pl-8 text-sm"><span className="text-muted">{t.meal.orOther}</span>
+                {r.others.map((o) => (
+                  <button key={o.foodId ?? o.name} type="button" onClick={() => setChosen((c) => ({ ...c, [k]: o }))}
+                    className="min-h-[2.25rem] rounded-full border border-line px-2">{o.name}</button>
+                ))}</p>
+            )}
           </li>
         ))}
       </ul>

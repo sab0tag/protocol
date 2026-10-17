@@ -1,5 +1,5 @@
 // «Прогрес» (SPEC.md §5.7, §6.4): weekly weight, too-fast loss, lab table, noticed patterns. Pure.
-import { addDays, format, parseISO, startOfISOWeek } from 'date-fns';
+import { addDays, differenceInCalendarDays, format, parseISO, startOfISOWeek } from 'date-fns';
 import { coincidences, coincidenceText } from './symptoms';
 import { flatItems } from './rules';
 import { dateOf } from './dates';
@@ -25,7 +25,9 @@ export function weeklyWeights(logs: WeightLog[], maxLossPerWeek?: number): WeekW
   for (const [week, kgs] of byWeek) {
     const kg = r1(kgs.reduce((a, b) => a + b, 0) / kgs.length);
     const prev = weeks.at(-1);
-    const change = prev ? r1(kg - prev.kg) : undefined;
+    // D81: a week with no weighing between — the change is spread over the weeks that passed, still «per week»
+    const gap = prev ? Math.max(1, Math.round(differenceInCalendarDays(parseISO(week), parseISO(prev.week)) / 7)) : 1;
+    const change = prev ? r1((kg - prev.kg) / gap) : undefined;
     weeks.push({ week, kg, ...(change !== undefined ? { change } : {}),
       tooFast: maxLossPerWeek != null && change !== undefined && -change > maxLossPerWeek });
   }
@@ -38,9 +40,10 @@ export function tooFastTwoWeeks(weeks: WeekWeight[]): boolean {
   return withChange.length >= 2 && withChange.slice(-2).every((w) => w.tooFast);
 }
 
-/** D38: the weight's pace — the average change of the last (up to) two weeks with a change, kg per week. */
-export function pace(weeks: WeekWeight[]): number | undefined {
-  const ch = weeks.filter((w) => w.change !== undefined).slice(-2).map((w) => w.change!);
+/** D38: the weight's pace — the average change of the last (up to) `last` weeks with a change, kg per week, from weekly
+ *  averages. D81: «Прогрес» and the report count it the same way (the report — over its whole period), and say the window. */
+export function pace(weeks: WeekWeight[], last = 2): number | undefined {
+  const ch = weeks.filter((w) => w.change !== undefined).slice(-last).map((w) => w.change!);
   return ch.length ? r1(ch.reduce((a, b) => a + b, 0) / ch.length) : undefined;
 }
 

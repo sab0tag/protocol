@@ -45,9 +45,13 @@ test('a patient’s phrase: «чай з цукром, 2 куски хліба» 
   const found = page.locator('section, div').filter({ hasText: /^Розпізнано/ }).first();
   await expect(found).toContainText('Чай з цукром');
   await expect(found).not.toContainText('без цукру');
-  await expect(found).toContainText(/Хліб.*2 скибки/);
+  await expect(found).toContainText('Білий хліб (батон) · 2 скибки'); // D81: the everyday kind…
+  await found.getByRole('button', { name: 'Хліб житній' }).click(); // …another in one tap
+  await expect(found).toContainText('Хліб житній · 2 скибки');
   await page.getByRole('button', { name: 'Додати 2' }).click();
   await expect(page.getByText('Цей прийом')).toBeVisible();
+  // the example plan has «порушена глікемія»: the added sugar is said, and for an eaten meal — as a hint for next time
+  await expect(page.locator('section[aria-live]', { hasText: 'Перевірка за планом лікаря' })).toContainText('Доданий цукор');
 });
 
 test('«Ще» in groups; the exercise library is inside «Тренування»; reminders without sync offer to turn it on (D78)', async ({ browser }) => {

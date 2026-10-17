@@ -64,12 +64,12 @@ const isOxalateish = (it: MealItem) =>
 const isCalciumSource = (it: MealItem, foods: Map<string, Food>) =>
   (it.foodId !== undefined && foods.get(it.foodId)?.tags.includes('calcium')) || matchesAny(it.name, K.CALCIUM_SOURCES);
 
-/** Said once per meal, on its first oxalate item: «Додай кальцій у цей прийом». */
+/** Said once per meal, on its first oxalate item: «Додайте кальцій у цей прийом». */
 const oxalateCalcium: Rule = (item, _food, ctx) => {
   if (!active(ctx, 'oxalate')) return null;
   const first = ctx.meal.find(isOxalateish);
   if (first !== item || ctx.meal.some((it) => isCalciumSource(it, ctx.foods))) return null;
-  return { itemName: item.name, verdict: 'adjust', reason: 'oxalate', message: 'Додай кальцій у цей прийом',
+  return { itemName: item.name, verdict: 'adjust', reason: 'oxalate', message: 'Додайте кальцій у цей прийом',
     suggestion: '25 г твердого сиру або кефір' };
 };
 
@@ -90,15 +90,27 @@ const lactose: Rule = (item, food, ctx) => {
     ...(milk ? { swap: { kind: 'food' as const, foodId: 'kefir', grams: 'same' as const } } : {}) };
 };
 
+/** D81: sugar added to a drink — «з цукром» and the like, never «без цукру». The same drink without it is the swap. */
+const ADDED_SUGAR = /(^|[\s(])(з|із|зі)?\s*цукр/u, NO_SUGAR = /без\s+цукр/u;
+const UNSWEETENED: Record<string, string> = { 'tea-sugar': 'tea', 'coffee-sugar': 'coffee' };
+const addedSugar = (name: string) => { const n = normalize(name); return ADDED_SUGAR.test(n) && !NO_SUGAR.test(n); };
+
 const glycemic: Rule = (item, food, ctx) => {
   if (!active(ctx, 'glycemic') || food?.tags.includes('condiment')) return null; // a teaspoon of lemon juice is no «сік»
   const toSlow: Swap = { kind: 'food', foodId: 'buckwheat', grams: 'same-carbs' };
   const preparing = carbsMin(ctx) !== undefined; // §6.2: a mode with a carbs minimum never cuts carbs
+  if (!preparing && addedSugar(item.name)) {
+    const plain = item.foodId ? UNSWEETENED[item.foodId] : undefined;
+    return { itemName: item.name, verdict: plain ? 'replace' : 'remove', reason: 'glycemic', message: 'Доданий цукор',
+      suggestion: plain ? 'Без цукру' : 'Прибрати', swap: plain ? { kind: 'food', foodId: plain, grams: 'same' } : { kind: 'drop' } };
+  }
+  // D81: sweets by what the food is, not only by its name («Сирок глазурований», «Курага»)
+  const sweet = !!food?.tags.includes('sweet') && !food.tags.includes('slow-carb');
   if (matchesAny(item.name, K.GLYCEMIC_REPLACE) || (preparing && matchesAny(item.name, K.GLYCEMIC_REMOVE)))
     return { itemName: item.name, verdict: 'replace', reason: 'glycemic',
       message: preparing ? 'Швидкі вуглеводи — замініть на повільні, не зменшуючи кількість' : 'Швидкі вуглеводи',
       suggestion: 'Гречка, кіноа, бурий рис', swap: toSlow };
-  if (matchesAny(item.name, K.GLYCEMIC_REMOVE))
+  if (!preparing && (sweet || matchesAny(item.name, K.GLYCEMIC_REMOVE)))
     return { itemName: item.name, verdict: 'remove', reason: 'glycemic', message: 'Швидкі вуглеводи',
       suggestion: 'Прибрати', swap: { kind: 'drop' } };
   return null;

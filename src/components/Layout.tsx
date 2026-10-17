@@ -21,7 +21,7 @@ export function Layout({ children }: { children: ReactNode }) {
         <ul className="flex md:sticky md:top-0 md:flex-col md:gap-1 md:py-4">
           {TABS.map(({ to, label, Icon, end }) => (
             <li key={to} className="flex-1 md:flex-none">
-              <NavLink to={to} end={end}
+              <NavLink to={to} end={end} aria-label={label}
                 className={({ isActive }) =>
                   `flex min-h-tap flex-col items-center justify-center gap-0.5 py-1.5 text-xs ${isActive ? 'text-accent font-medium' : 'text-muted'}`}>
                 <Icon size={22} aria-hidden />

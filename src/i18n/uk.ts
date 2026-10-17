@@ -110,7 +110,7 @@ export const t = {
     eatenShort: 'з’їдено', plannedShort: 'заплановано',
     dictate: 'Можна надиктувати мікрофоном на клавіатурі: «два яйця, склянку кефіру і салат»',
     recognized: 'Розпізнано',
-    notFound: 'не знайдено — додайте вручну',
+    notFound: 'не знайдено — додайте вручну', orOther: 'або:', // D81
     addRecognized: (n: number) => `Додати ${n}`,
     likeBefore: (title: string) => `Як раніше · ${title}`,
     repeat: 'Повторити',
@@ -338,7 +338,7 @@ export const t = {
     habits: 'Добрі звички', habitsHint: 'Рахуються лише дні з записами. Пропущений день нічого не обнуляє — просто продовжуйте.',
     habit: { protein: 'Білок у нормі', carbs: 'Вуглеводи в межах', water: 'Вода — норма', meds: 'Ліки — всі вчасно', plan: 'План дня ≥ 80 %' },
     streak: (n: number) => `${n} дн. поспіль`, ofWeek: (n: number, d: number) => `${n} з ${d} дн. за тиждень`, best: (n: number) => `найкраще за місяць — ${n}`,
-    pace: (v: string) => `Темп за останні тижні: ${v} кг на тиждень`, paceLimit: (m: string) => ` (межа — не швидше ${m})`,
+    pace: (v: string) => `Темп за останні 2 тижні, за тижневими середніми: ${v} кг на тиждень`, paceLimit: (m: string) => ` (межа — не швидше ${m})`,
   },
   report: {
     title: 'Звіт для лікаря', from: 'З', to: 'По',
@@ -356,7 +356,7 @@ export const t = {
     deviations: (n: number, of: number) => `Прийомів їжі з відхиленням від обмежень: ${n} з ${of}`,
     noDeviations: (of: number) => `Усі ${of} записаних прийомів їжі — в межах обмежень плану.`,
     labs: 'Аналізи за період',
-    pace: (v: string) => `Темп ваги: ${v} кг на тиждень`, paceLimit: (m: string) => `(межа — не швидше ${m})`,
+    pace: (v: string) => `Темп ваги за період, за тижневими середніми: ${v} кг на тиждень`, paceLimit: (m: string) => `(межа — не швидше ${m})`,
     habitsCaption: 'Дні з записами, коли виконано', ofDays: (n: number, d: number) => `${n} з ${d}`,
     menu: (done: number, skipped: number, open: number) => `Меню з застосунку: з’їдено ${done}, пропущено ${skipped}, не відмічено ${open}`,
     visitedNote: (d: string) => `Попередній візит: ${d}. Наступний звіт почнеться з нього.`,

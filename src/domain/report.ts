@@ -7,7 +7,7 @@ import { activeMode } from './nutrition';
 import { t } from '../i18n/uk';
 import { checkMeal } from './rules';
 import { coincidences, coincidenceText } from './symptoms';
-import { wellbeingCoincidences } from './progress';
+import { pace, weeklyWeights, wellbeingCoincidences } from './progress';
 import type { DayEntry, Food, ISODate, LabResult, Plan, WeightLog, Wellbeing, Workout } from './types';
 
 export interface Report {
@@ -94,8 +94,8 @@ export function buildReport(args: {
     from, to, days,
     ...(total ? { checklistPct: Math.round((done / total) * 100) } : {}),
     ...(w.length ? { weightStart: w[0]!.kg, weightNow: w.at(-1)!.kg } : {}),
-    ...(w.length > 1 && differenceInCalendarDays(parseISO(w.at(-1)!.date), parseISO(w[0]!.date)) >= 7
-      ? { weightPace: Math.round(((w.at(-1)!.kg - w[0]!.kg) / (differenceInCalendarDays(parseISO(w.at(-1)!.date), parseISO(w[0]!.date)) / 7)) * 10) / 10 } : {}),
+    // D81: weekly averages over the period — the same count as «Прогрес», not first-to-last weighing
+    ...(pace(weeklyWeights(w), Infinity) !== undefined ? { weightPace: pace(weeklyWeights(w), Infinity)! } : {}),
     ...(plan?.targets.maxWeightLossKgPerWeek != null ? { maxLossPerWeek: plan.targets.maxWeightLossKgPerWeek } : {}),
     habits: (['protein', 'carbs', 'water', 'meds', 'plan'] as HabitKey[]).flatMap((key) => { const h = hab.get(key); return h ? [{ key, ...h }] : []; }),
     ...(menuMeals.length ? { menu: { done: menuMeals.filter((e) => e.status === 'done').length,
@@ -127,7 +127,7 @@ export function reportText(r: Report, dm: (d: ISODate) => string): string {
     r.labs.length ? `${t.report.labs}:\n${r.labs.map((l) => `• ${dm(l.date)} ${l.name}: ${dec(l.value)} ${l.unit}${l.target ? ` (ціль ${l.target})` : ''}`).join('\n')}` : '',
     r.checklistPct != null ? `План дня виконано: ${r.checklistPct} %` : '',
     r.weightStart != null ? `Вага: ${dec(r.weightStart)} → ${dec(r.weightNow!)} кг` : '',
-    r.weightPace != null ? `Темп: ${signedKg(r.weightPace)} кг на тиждень${r.maxLossPerWeek != null ? ` (межа — не швидше ${dec(r.maxLossPerWeek)})` : ''}` : '',
+    r.weightPace != null ? `Темп за період, за тижневими середніми: ${signedKg(r.weightPace)} кг на тиждень${r.maxLossPerWeek != null ? ` (межа — не швидше ${dec(r.maxLossPerWeek)})` : ''}` : '',
     r.habits.length ? `Дні з записами, коли виконано:\n${r.habits.map((h) => `• ${HABIT[h.key]}: ${h.met} з ${h.of}`).join('\n')}` : '',
     r.menu ? `Меню з застосунку: з’їдено ${r.menu.done}, пропущено ${r.menu.skipped}, не відмічено ${r.menu.open}` : '',
     `Тренувань: ${r.workouts}`,
