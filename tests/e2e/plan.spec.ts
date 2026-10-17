@@ -31,14 +31,32 @@ test('a skipped onboarding leaves the plan empty; the example is opened on purpo
   const empty = await device(browser, 'skip');
   await empty.goto('./#/plan');
   await expect(empty.getByText('Вітамін D')).toHaveCount(0);
-  await expect(empty.getByText(/Це план-приклад/)).toHaveCount(0);
+  await expect(empty.getByText(/Це приклад:/)).toHaveCount(0);
 
   const page = await device(browser); // «Подивитись на прикладі»
-  await expect(page.getByText(/Це план-приклад/)).toBeVisible();
+  await expect(page.getByText(/Це приклад:/)).toBeVisible();
   await page.getByRole('button', { name: 'Почати свій план' }).click();
   await expect(page).toHaveURL(/#\/welcome$/);
   await expect(page.getByRole('button', { name: 'Подивитись на прикладі' })).toBeVisible(); // nothing of the person's yet
   await page.goto('./#/plan');
   await expect(page.getByText('Вітамін D')).toHaveCount(0);
-  await expect(page.getByText(/Це план-приклад/)).toHaveCount(0);
+  await expect(page.getByText(/Це приклад:/)).toHaveCount(0);
+});
+
+test('the example comes with two invented weeks: «Прогрес» and the report’s «Головне» are filled; «Почати свій план» takes them too (D79)', async ({ browser }) => {
+  const page = await device(browser, 'demo');
+  await page.goto('./#/report');
+  const main = page.getByRole('region', { name: 'Головне' });
+  await expect(main).toContainText(/Ліки: прийнято 11 з 14 доз/);
+  await expect(main).toContainText(/Непереносимість лактози — 4/);
+  await expect(main).toContainText('Глюкоза натще');
+  await expect(page.getByText(/«Здуття» — 4 з 4/)).toBeVisible();
+  await page.goto('./#/progress');
+  await expect(page.getByText(/Ще немає зважувань/)).toHaveCount(0);
+  await page.getByRole('button', { name: 'Почати свій план' }).click();
+  await expect(page).toHaveURL(/#\/welcome$/);
+  await page.goto('./#/progress');
+  await expect(page.getByText(/Ще немає зважувань/)).toBeVisible();
+  await page.goto('./#/report');
+  await expect(page.getByRole('region', { name: 'Головне' })).toHaveCount(0);
 });

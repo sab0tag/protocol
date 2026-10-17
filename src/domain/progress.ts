@@ -95,7 +95,7 @@ export function patterns(args: { entries: DayEntry[]; wellbeing: Wellbeing[]; wo
     const avg = (xs: Wellbeing[]) => xs.reduce((a, w) => a + (w.energy ?? 0), 0) / xs.length;
     const on = scored.filter((w) => trained.has(w.date)), off = scored.filter((w) => !trained.has(w.date));
     if (on.length && off.length) {
-      out.push({ text: `Енергія в дні тренувань — ${avg(on).toFixed(1)}, в інші дні — ${avg(off).toFixed(1)} (з 5)` });
+      out.push({ text: `Енергія в дні тренувань — ${avg(on).toFixed(1).replace('.', ',')}, в інші дні — ${avg(off).toFixed(1).replace('.', ',')} (з 5)` });
     }
   }
   return out;

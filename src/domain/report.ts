@@ -3,9 +3,12 @@ import { addDays, differenceInCalendarDays, format, parseISO } from 'date-fns';
 import { buildChecklist } from './checklist';
 import { dateOf, isPast } from './dates';
 import { dayFlags, type HabitKey } from './habits';
+import { activeMode } from './nutrition';
+import { t } from '../i18n/uk';
+import { checkMeal } from './rules';
 import { coincidences, coincidenceText } from './symptoms';
 import { wellbeingCoincidences } from './progress';
-import type { DayEntry, Food, ISODate, Plan, WeightLog, Wellbeing, Workout } from './types';
+import type { DayEntry, Food, ISODate, LabResult, Plan, WeightLog, Wellbeing, Workout } from './types';
 
 export interface Report {
   from: ISODate;
@@ -27,13 +30,24 @@ export interface Report {
   habits: { key: HabitKey; met: number; of: number }[];
   /** D40: meals from «Меню на завтра» in the period that are past: eaten, skipped, not marked */
   menu?: { done: number; skipped: number; open: number };
+  /** D79 «Головне»: the doses due on the days with records (today — only those whose time has come), taken and missed */
+  meds?: { taken: number; due: number; missed: { title: string; count: number }[] };
+  /** D79: eaten meals the plan's check would have changed («замінити» / «прибрати»), by the doctor's limit */
+  deviations?: { meals: number; of: number; by: { title: string; count: number }[] };
+  /** D79: lab results in the period, the latest first */
+  labs: LabResult[];
 }
 
 export function buildReport(args: {
   from: ISODate; to: ISODate; plan: Plan | undefined; entries: DayEntry[]; workouts: Workout[]; wellbeing: Wellbeing[];
-  weights: WeightLog[]; foods: Map<string, Food>;
+  weights: WeightLog[]; foods: Map<string, Food>; labs?: LabResult[]; now?: Date;
 }): Report {
-  const { from, to, plan, entries, workouts, wellbeing, weights, foods } = args;
+  const { from, to, plan, entries, workouts, wellbeing, weights, foods, labs = [], now = new Date() } = args;
+  const today = format(now, 'yyyy-MM-dd'), hm = format(now, 'HH:mm');
+  let taken = 0, due = 0;
+  const missed = new Map<string, number>();
+  let devMeals = 0, eatenMeals = 0;
+  const devBy = new Map<string, number>();
   const inside = (d: ISODate) => d >= from && d <= to;
   const days = differenceInCalendarDays(parseISO(to), parseISO(from)) + 1;
 
@@ -45,6 +59,23 @@ export function buildReport(args: {
     const c = buildChecklist({ plan, date: d, entries: day, workouts, foods, now: new Date(`${d}T23:59:00`) });
     done += c.done; total += c.total;
     if (!day.length) continue;
+    for (const i of c.items) { // D79: doses — days without records are not counted as missed
+      if (i.kind !== 'med' || (d === today && !i.done && (!i.time || i.time > hm))) continue;
+      due += 1;
+      if (i.done) taken += 1; else missed.set(i.title, (missed.get(i.title) ?? 0) + 1);
+    }
+    if (plan) for (const m of day.filter((e) => e.kind === 'meal' && e.status === 'done' && e.items?.length)) {
+      eatenMeals += 1;
+      const checks = checkMeal({ plan, ...(activeMode(plan, d) ? { activeMode: activeMode(plan, d)!.mode } : {}), date: d, foods,
+        dayEntries: day.filter((e) => e.id !== m.id), meal: m.items!, recentEntries: entries.filter((e) => { const x = dateOf(e.at); return x < d && x >= format(addDays(parseISO(d), -7), 'yyyy-MM-dd'); }) });
+      const tags = new Set(checks.flatMap((c) => c.hits).filter((h) => h.verdict === 'replace' || h.verdict === 'remove').map((h) => h.reason));
+      if (!tags.size) continue;
+      devMeals += 1;
+      for (const tag of tags) {
+        const title = plan.constraints.find((c) => c.tag === tag)?.title ?? tag;
+        devBy.set(title, (devBy.get(title) ?? 0) + 1);
+      }
+    }
     for (const [k, ok] of Object.entries(dayFlags(plan, day, d, workouts, foods)) as [HabitKey, boolean][]) {
       const h = hab.get(k) ?? { met: 0, of: 0 };
       h.of += 1; if (ok) h.met += 1;
@@ -75,6 +106,9 @@ export function buildReport(args: {
     coincidences: [...coincidences(entries.filter((e) => inside(dateOf(e.at))), foods).map(coincidenceText),
       ...wellbeingCoincidences(entries.filter((e) => inside(dateOf(e.at))), wellbeing.filter((x) => inside(x.date)), foods, plan).map((p) => p.text)], // D71
     questions: plan?.questions ?? [],
+    ...(due ? { meds: { taken, due, missed: [...missed.entries()].map(([title, count]) => ({ title, count })).sort((a, b) => b.count - a.count) } } : {}),
+    ...(eatenMeals ? { deviations: { meals: devMeals, of: eatenMeals, by: [...devBy.entries()].map(([title, count]) => ({ title, count })).sort((a, b) => b.count - a.count) } } : {}),
+    labs: labs.filter((l) => inside(l.date)).sort((a, b) => b.date.localeCompare(a.date) || a.name.localeCompare(b.name)),
   };
 }
 
@@ -87,6 +121,10 @@ const signedKg = (n: number) => `${n > 0 ? '+' : n < 0 ? '−' : ''}${dec(Math.a
 export function reportText(r: Report, dm: (d: ISODate) => string): string {
   const lines = [
     `Звіт за ${dm(r.from)} — ${dm(r.to)} (${r.days} дн.)`,
+    r.meds ? `${t.report.meds(r.meds.taken, r.meds.due)}${r.meds.missed.length ? ` — ${r.meds.missed.map((m) => t.report.missed(m.title, m.count)).join('; ')}` : ''}` : '',
+    r.deviations ? (r.deviations.meals ? `${t.report.deviations(r.deviations.meals, r.deviations.of)}: ${r.deviations.by.map((b) => `${b.title} — ${b.count}`).join('; ')}`
+      : t.report.noDeviations(r.deviations.of)) : '',
+    r.labs.length ? `${t.report.labs}:\n${r.labs.map((l) => `• ${dm(l.date)} ${l.name}: ${dec(l.value)} ${l.unit}${l.target ? ` (ціль ${l.target})` : ''}`).join('\n')}` : '',
     r.checklistPct != null ? `План дня виконано: ${r.checklistPct} %` : '',
     r.weightStart != null ? `Вага: ${dec(r.weightStart)} → ${dec(r.weightNow!)} кг` : '',
     r.weightPace != null ? `Темп: ${signedKg(r.weightPace)} кг на тиждень${r.maxLossPerWeek != null ? ` (межа — не швидше ${dec(r.maxLossPerWeek)})` : ''}` : '',

@@ -4,6 +4,7 @@ import { toast } from '../components/Toast';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { db, type PlanRow } from '../data/db';
+import { putDemo } from '../data/demoStore';
 import { EXAMPLE_SOURCE, examplePlan, hasExample, withoutExample } from '../data/seed.example';
 import { usePlan } from '../data/queries';
 import { newId, todayISO } from '../domain/dates';
@@ -60,6 +61,7 @@ function Steps({ plan }: { plan: PlanRow }) {
   const showExample = async () => {
     const { constraints, prescriptions, targets, modes } = examplePlan();
     await db.plan.update('main', { constraints, prescriptions, targets, modes, onboardedAt: todayISO() });
+    await putDemo(); // D79: two invented weeks, so «Прогрес» and the report are not empty
     useUi.getState().setOnboarded();
     navigate('/', { replace: true });
   };

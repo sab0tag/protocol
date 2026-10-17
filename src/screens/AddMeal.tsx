@@ -17,7 +17,7 @@ import { dishItem, foodFromLine, recipeFrom, setPortions, withComponents } from 
 import { atLocal, dateOf, newId, timeOf, todayISO } from '../domain/dates';
 import { activeMode, dayTotals, effectiveTargets, lineNutrients, mealNutrients, round } from '../domain/nutrition';
 import { applySwaps, checkMeal, hasSwaps, mealVerdict, type ItemCheck } from '../domain/rules';
-import { amountText, itemFor, measureWord, parseQuery, recognize, searchFoods, splitPhrase, type Query, type Recognized } from '../domain/foodSearch';
+import { amountText, approxG, itemFor, measureWord, parseQuery, recognize, searchFoods, splitPhrase, type Query, type Recognized } from '../domain/foodSearch';
 import { fromPhoto } from '../domain/photo';
 import { ApiError, photo as recognizePhoto } from '../sync/api';
 import { currentKeys } from '../sync/runner';
@@ -171,7 +171,7 @@ export function AddMeal() {
                     <button type="button" className="flex min-h-tap w-full items-center justify-between gap-2 px-3 text-left"
                       onClick={() => { setItems((xs) => [...xs, dish]); setQuery(''); }}>
                       <span><span className="mr-1 rounded-full bg-accent/10 px-2 text-xs font-medium text-accent">{t.meal.dish}</span>{r.name}</span>
-                      <span className="tabular shrink-0 text-right text-sm text-muted">{fmt(portions)} {measureWord('порція', portions)} ≈ {dish.grams} г</span>
+                      <span className="tabular shrink-0 text-right text-sm text-muted">{fmt(portions)} {measureWord('порція', portions)} ≈ {approxG(dish.grams)} г</span>
                     </button>
                   </li>
                 );
@@ -243,7 +243,7 @@ export function AddMeal() {
                   <label className="block w-40"><span className="text-sm text-muted">{t.meal.portions}</span>
                     <input type="number" inputMode="decimal" min={0.5} step={0.5} value={it.recipe?.portions ?? 1} className={field}
                       onChange={(e) => { const v = Number(e.target.value); if (v > 0) setItems((xs) => xs.map((x, j) => (j === i ? setPortions(x, v) : x))); }} /></label>
-                  <span className="text-xs text-muted">≈ {it.grams} г</span>
+                  <span className="text-xs text-muted">≈ {approxG(it.grams)} г</span>
                   <details className="mt-1">
                     <summary className="min-h-tap cursor-pointer py-2 text-sm text-accent">{t.meal.composition(it.components.length)}</summary>
                     <ul className="space-y-2">
@@ -407,7 +407,7 @@ function RecognizedPanel({ title, rows, note, onAdd }: { title: string; rows: Re
               <label className="flex min-h-tap items-center gap-3">
                 <input type="checkbox" checked={!skip.has(k)} className="h-5 w-5 accent-[rgb(var(--accent))]"
                   onChange={(e) => setSkip((s) => { const n = new Set(s); if (e.target.checked) n.delete(k); else n.add(k); return n; })} />
-                <span className="flex-1">{r.item.name} <span className="text-muted">· {amountText(r.item)}{r.item.unit || r.item.recipe ? ` ≈ ${r.item.grams} г` : ''}</span>
+                <span className="flex-1">{r.item.name} <span className="text-muted">· {amountText(r.item)}{r.item.unit || r.item.recipe ? ` ≈ ${approxG(r.item.grams)} г` : ''}</span>
                   {(r.unsure || r.estimate) && <span className="block text-xs text-warn">{[r.unsure && t.meal.photoUnsure, r.estimate && t.meal.photoEstimate].filter(Boolean).join(' · ')}</span>}
                 </span>
               </label>
@@ -521,7 +521,7 @@ const fmt = (n: number) => String(Math.round(n * 10) / 10).replace('.', ',');
 function matchHint(food: Food, q: Query): string {
   if (q.qty !== undefined || q.measure) {
     const it = itemFor(food, q);
-    return it.unit ? `${fmt(it.unit.qty)} ${measureWord(it.unit.name, it.unit.qty)} ≈ ${it.grams} г` : `${it.grams} г`;
+    return it.unit ? `${fmt(it.unit.qty)} ${measureWord(it.unit.name, it.unit.qty)} ≈ ${approxG(it.grams)} г` : `${it.grams} г`;
   }
   const u = food.units?.[0];
   return u ? `1 ${u.name} ≈ ${u.grams} г` : `${food.per100g.carbs} г В / 100 г`;

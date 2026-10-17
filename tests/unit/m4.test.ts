@@ -55,7 +55,7 @@ describe('patterns (§6.4)', () => {
   it('energy on training days vs others, from 10 days of data', () => {
     const wellbeing: Wellbeing[] = Array.from({ length: 10 }, (_, i) => ({ date: `2026-09-${String(i + 1).padStart(2, '0')}`, energy: (i % 2 ? 4 : 3) as 3 | 4, symptoms: [] }));
     const workouts: Workout[] = wellbeing.filter((_, i) => i % 2).map((w) => ({ id: w.date, date: w.date, durationMin: 30, equipment: '', exercises: [] }));
-    expect(patterns({ entries: [], wellbeing, workouts, foods })[0]?.text).toBe('Енергія в дні тренувань — 4.0, в інші дні — 3.0 (з 5)');
+    expect(patterns({ entries: [], wellbeing, workouts, foods })[0]?.text).toBe('Енергія в дні тренувань — 4,0, в інші дні — 3,0 (з 5)');
     expect(patterns({ entries: [], wellbeing: wellbeing.slice(0, 9), workouts, foods })).toEqual([]);
   });
 });

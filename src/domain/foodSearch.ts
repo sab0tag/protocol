@@ -125,6 +125,12 @@ export function measureWord(name: string, qty: number): string {
   return n10 === 1 && n100 !== 11 ? f[0] : n10 >= 2 && n10 <= 4 && (n100 < 12 || n100 > 14) ? f[1] : f[2];
 }
 
+/** D79: «≈» grams as people think of them — «тарілка ≈ 450 г», not «≈ 466 г». Display only; the line keeps its grams. */
+export function approxG(g: number): number {
+  const step = g < 100 ? 5 : g < 300 ? 10 : 50;
+  return Math.max(step, Math.round(g / step) * step);
+}
+
 /** «2 шт» / «2 скибки» / «150 г» — how an item's amount reads. */
 export function amountText(item: MealItem): string {
   if (item.recipe) return `${String(item.recipe.portions).replace('.', ',')} ${measureWord('порція', item.recipe.portions)}`;

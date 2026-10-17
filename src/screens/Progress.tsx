@@ -1,5 +1,6 @@
 import { format, parseISO } from 'date-fns';
 import { LabsScan } from '../components/LabsScan';
+import { ExampleNotice } from '../components/ExampleNotice';
 import { Loading } from '../components/Recovery';
 import { saved } from '../components/Toast';
 import { AlertTriangle, FileText, Plus } from 'lucide-react';
@@ -43,6 +44,7 @@ export function Progress() {
         <Link to="/report" className="flex min-h-tap items-center gap-2 rounded-xl border border-accent px-3 font-medium text-accent">
           <FileText size={18} aria-hidden />{L.report}</Link>
       </div>
+      <ExampleNotice plan={plan} />
 
       <WeekCard summary={weekSummary({ plan, entries, workouts, foods, today: todayISO() })} />
       <HabitsCard list={habits({ plan, entries, workouts, foods, today: todayISO() })} />

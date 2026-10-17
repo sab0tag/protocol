@@ -166,6 +166,8 @@ export interface DayEntry {
   prescriptionId?: string; // med
   /** D18: which «Мій день» item this entry ticks (e.g. "med:p-vitd:08:30", "dinner", "mode:0"). */
   checkKey?: string;
+  /** D79: a record of the example week — taken out with the example plan («Почати свій план»). */
+  demo?: true;
   /** D33: a meal from «Меню на завтра» (replaced when a new menu is accepted while still planned); the day's
    *  practical tips ride on its first meal. */
   menu?: { tips?: string[] };
@@ -184,6 +186,7 @@ export interface Wellbeing {
   sleep?: 1 | 2 | 3 | 4 | 5;
   symptoms: string[];
   note?: string;
+  demo?: true; // D79
 }
 
 export interface WorkoutSet {
@@ -204,11 +207,13 @@ export interface Workout {
   equipment: string;
   exercises: WorkoutExercise[];
   feeling?: string;
+  demo?: true; // D79
 }
 
 export interface WeightLog {
   date: ISODate;
   kg: number;
+  demo?: true; // D79
 }
 export interface LabResult {
   date: ISODate;
@@ -216,4 +221,5 @@ export interface LabResult {
   value: number;
   unit: string;
   target?: string;
+  demo?: true; // D79
 }

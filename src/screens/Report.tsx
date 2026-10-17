@@ -1,11 +1,12 @@
 import { addDays, format, parseISO } from 'date-fns';
+import { ExampleNotice } from '../components/ExampleNotice';
 import { Loading } from '../components/Recovery';
 import { saved } from '../components/Toast';
 import { uk } from 'date-fns/locale';
 import { Plus, Printer, Share2, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { db } from '../data/db';
-import { useAllEntries, useAllWellbeing, useFoods, usePlan, useWeights, useWorkouts } from '../data/queries';
+import { useAllEntries, useAllWellbeing, useFoods, useLabs, usePlan, useWeights, useWorkouts } from '../data/queries';
 import { dateOf, todayISO } from '../domain/dates';
 import { buildReport, habitLabel, reportText } from '../domain/report';
 import { t } from '../i18n/uk';
@@ -22,16 +23,17 @@ export function Report() {
   const wellbeing = useAllWellbeing();
   const workouts = useWorkouts();
   const weights = useWeights();
+  const labs = useLabs();
   const foods = useFoods();
   const today = todayISO();
   const [range, setRange] = useState<{ from?: string; to: string }>({ to: today });
   const [question, setQuestion] = useState('');
   const [shared, setShared] = useState('');
-  if (!plan || !entries || !wellbeing || !workouts || !weights || !foods) return <Loading />;
+  if (!plan || !entries || !wellbeing || !workouts || !weights || !foods || !labs) return <Loading />;
 
   const first = [entries[0] && dateOf(entries[0].at), weights[0]?.date].filter(Boolean).sort()[0];
   const from = range.from ?? plan.lastVisit ?? first ?? format(addDays(new Date(), -13), 'yyyy-MM-dd');
-  const r = buildReport({ from, to: range.to, plan, entries, workouts, wellbeing, weights, foods });
+  const r = buildReport({ from, to: range.to, plan, entries, workouts, wellbeing, weights, foods, labs });
   const questions = plan.questions ?? [];
   const setQuestions = (q: string[], say: string = t.toast.saved) => saved(db.plan.update('main', { questions: q }), say);
 
@@ -46,6 +48,7 @@ export function Report() {
   return (
     <section className="space-y-4 pt-4 print:pt-0">
       <h1 className="text-2xl font-semibold">{L.title}</h1>
+      <div className="print:hidden"><ExampleNotice plan={plan} /></div>
       <div className="grid grid-cols-2 gap-3 print:hidden">
         <label className="block"><span className="text-sm text-muted">{L.from}</span>
           <input type="date" value={from} max={range.to} onChange={(e) => setRange({ ...range, from: e.target.value })} className={field} /></label>
@@ -53,6 +56,29 @@ export function Report() {
           <input type="date" value={range.to} max={today} onChange={(e) => setRange({ ...range, to: e.target.value })} className={field} /></label>
       </div>
       <p className="hidden print:block">{dmy(r.from)} — {dmy(r.to)} · {L.days(r.days)}</p>
+
+      {(r.meds || r.deviations || r.labs.length > 0) && (
+        <section aria-label={L.main} className="space-y-2 rounded-2xl border border-accent/40 bg-surface p-3">
+          <h2 className="font-semibold">{L.main}</h2>
+          {r.meds && <p>{L.meds(r.meds.taken, r.meds.due)}
+            {r.meds.missed.length > 0 && <span className="block text-sm text-muted">{r.meds.missed.map((m) => L.missed(m.title, m.count)).join(' · ')}</span>}</p>}
+          {r.deviations && (r.deviations.meals ? (
+            <p>{L.deviations(r.deviations.meals, r.deviations.of)}
+              <span className="block text-sm text-muted">{r.deviations.by.map((b) => `${b.title} — ${b.count}`).join(' · ')}</span></p>
+          ) : <p>{L.noDeviations(r.deviations.of)}</p>)}
+          {r.labs.length > 0 && (
+            <table className="w-full tabular text-sm">
+              <caption className="mb-1 text-left font-medium">{L.labs}</caption>
+              <tbody>{r.labs.map((l) => (
+                <tr key={l.date + l.name} className="border-t border-line"><td className="py-1">{l.name}</td>
+                  <td className="py-1 text-right">{num(l.value)} {l.unit}{l.target && <span className="block text-xs text-muted">{t.menu.target} {l.target}</span>}</td>
+                  <td className="whitespace-nowrap py-1 pl-2 text-right text-muted">{format(parseISO(l.date), 'dd.MM')}</td></tr>
+              ))}</tbody>
+            </table>
+          )}
+          <p className="text-xs text-muted">{L.mainHint}</p>
+        </section>
+      )}
 
       <dl className="grid grid-cols-2 gap-3 rounded-2xl border border-line bg-surface p-3 tabular sm:grid-cols-4">
         <Metric label={L.checklist} value={r.checklistPct != null ? `${r.checklistPct} %` : '—'} />
