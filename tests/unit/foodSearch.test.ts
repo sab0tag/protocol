@@ -149,3 +149,31 @@ describe('a word alone (D81)', () => {
     expect(recognize('чай з цукром', FOODS, RECIPES, dishItem)[0]!.others).toBeUndefined(); // several words — meant as said
   });
 });
+
+describe('the exact name first (D83)', () => {
+  const rec = async (q: string, prefer: Set<string> = new Set()) => {
+    const { RECIPES } = await import('../../src/data/recipes');
+    const { dishItem } = await import('../../src/domain/recipes');
+    return recognize(q, FOODS, RECIPES, dishItem, prefer)[0]!;
+  };
+  it('a short word against a look-alike beginning', async () => {
+    expect((await rec('курага')).item!.name).toBe('Курага');
+    expect((await rec('курка')).item!.name).toMatch(/^Куряче філе/);
+    expect((await rec('сирок')).item!.name).toBe('Сирок глазурований');
+    expect((await rec('сирок глазурований')).item!.name).toBe('Сирок глазурований');
+    expect((await rec('сир')).item!.name).toMatch(/^Сир /);
+    expect((await rec('гречка')).item!.name).toBe('Гречка варена');
+    expect((await rec('гречка з куркою')).item!.name).toBe('Гречка з куркою'); // the dish, when its words are said
+    expect((await rec('рис')).item!.name).toBe('Рис білий варений');
+    expect((await rec('салат')).item!.recipe).toBeDefined(); // an equal fit — the dish
+    expect((await rec('курага', new Set(['chicken-breast']))).item!.name).toBe('Курага'); // a habit never beats the exact word
+  });
+  it('every food in the base is found first by its own name, and never offered as its own twin', async () => {
+    for (const f of FOODS) {
+      const first = searchFoods(FOODS, f.name, 1)[0];
+      expect(first?.name, f.name).toBe(f.name);
+      const r = await rec(f.name);
+      expect(r.others?.some((o) => o.name === r.item?.name) ?? false, f.name).toBe(false);
+    }
+  });
+});

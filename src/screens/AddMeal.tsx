@@ -187,6 +187,10 @@ export function AddMeal() {
               ))}
             </ul>
           )}
+          {/* D83: nothing found is said — never a silent empty space under the field */}
+          {!phrase && query.trim().length >= 2 && matches.length === 0 && dishMatches.length === 0 && (
+            <p role="status" className="mt-2 text-sm text-muted">«{query.trim()}» — {t.meal.notFound}</p>
+          )}
           {!query && <FavoritesList onAdd={(xs) => setItems((ys) => [...ys, ...xs])} />}
           {!query && !id && items.length === 0 && all && (() => {
             const before = earlierMeals(all, title, date);

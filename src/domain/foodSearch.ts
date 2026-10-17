@@ -64,13 +64,33 @@ function withoutStems(text: string): Set<string> {
   return new Set(ws.flatMap((w, i) => (ws[i - 1] === 'без' ? [stem(w)] : [])));
 }
 
-const USUAL: Record<string, string> = { хліб: 'bread-white', хліба: 'bread-white', хлібу: 'bread-white', рис: 'white-rice-boiled', риса: 'white-rice-boiled' };
+const SEP = /[\s(),/%]+/; // D83: a name said as written, «(сухі)» and all, splits like the base's names
+
+/** D83: how well the said words fit a name (or one of its aliases): 0 — each is a word of it, 1 — each starts a word of
+ *  it, 2 — by stems only («курага» ~ «курячий»); then how many words the name has beyond what was said. Lower is closer.
+ *  The exact name always comes before a name that merely shares the beginning. */
+export function fit(food: { name: string; aliases?: string[] }, text: string): [number, number] {
+  const said = normalize(text).split(SEP).filter((w) => w.length >= 2 || /\d/.test(w)); // «Кефір 1 %» — the 1 counts
+  // «хліба» ~ «хліб», «гречки» ~ «гречка»: the word without its ending still starts the name's word
+  const near = (s: string, w: string) => w.startsWith(s) || (s.length >= 4 && w.startsWith(s.slice(0, -1))) || (s.length >= 5 && w.startsWith(s.slice(0, -2)));
+  let best: [number, number] = [3, 99];
+  for (const v of [food.name, ...(food.aliases ?? [])]) {
+    const ws = normalize(v).split(SEP).filter(Boolean).map((w) => (w.startsWith('відвар') ? w.slice(3) : w));
+    const rank = said.every((s) => ws.includes(s)) ? 0 : said.every((s) => s.length >= 4 && ws.some((w) => near(s, w))) ? 1 : 2;
+    const extra = Math.max(0, ws.length - said.length);
+    if (rank < best[0] || (rank === best[0] && extra < best[1])) best = [rank, extra];
+  }
+  return best;
+}
+
+const USUAL: Record<string, string> = { хліб: 'bread-white', хліба: 'bread-white', хлібу: 'bread-white', рис: 'white-rice-boiled', риса: 'white-rice-boiled',
+  гречка: 'buckwheat-boiled', гречки: 'buckwheat-boiled', гречку: 'buckwheat-boiled', сир: 'cottage-cheese', сиру: 'cottage-cheese' }; // what is on the plate
 
 /** Foods (or dishes) whose name or aliases contain every query word (by stem); the closest first.
  *  «з цукром» never finds «без цукру», nor «без цукру» a food with sugar (D77). */
 export function searchFoods<T extends { id: string; name: string; aliases?: string[] }>(foods: T[], text: string, limit = 8,
   prefer: ReadonlySet<string> = new Set()): T[] {
-  const raw = normalize(text).split(' ').filter((t) => t.length >= 2);
+  const raw = normalize(text).split(SEP).filter((t) => t.length >= 2 || /\d/.test(t));
   const tokens = raw.map(stem);
   if (tokens.length === 0) return [];
   const qWithout = withoutStems(text);
@@ -88,7 +108,7 @@ export function searchFoods<T extends { id: string; name: string; aliases?: stri
     const whole = ws.some((w) => w === raw[0] || (raw[0]!.length >= 4 && w.startsWith(raw[0]!))) ? -0.3 : 0;
     // D81: a word alone means the everyday kind («хліб» — wheat), over a name that merely starts with it; a habit (prefer) still wins
     const usual = raw.length === 1 && USUAL[raw[0]!] === food.id ? -1.2 : 0;
-    const score = (name.startsWith(tokens[0]!) ? 0 : 1) + whole + usual + (prefer.has(food.id) ? -0.5 : 0) + name.split(' ').length / 100;
+    const score = fit(food, text)[0] * 2 + (name.startsWith(tokens[0]!) ? 0 : 1) + whole + usual + (prefer.has(food.id) ? -0.5 : 0) + name.split(' ').length / 100;
     scored.push([food, score]);
   }
   return scored.sort((a, b) => a[1] - b[1]).slice(0, limit).map(([f]) => f);
@@ -167,13 +187,17 @@ export function recognize(raw: string, foods: Food[], recipes: Recipe[], dishIte
     if (!q.text) return { text };
     const dish = searchFoods(recipes, q.text, 1, prefer)[0];
     const food = searchFoods(foods, q.text, 1, prefer)[0];
-    // a dish wins only when the words fit it as well as a food (so «салат» is the salad, «огірок» the cucumber)
-    if (dish && (!food || normalize(dish.name).startsWith(stem(normalize(q.text).split(' ')[0]!)))) {
+    // D83: the closer fit wins — «курага» is the dried apricot, not «Курячий суп»; «гречка» the buckwheat, not «Гречка з
+    // куркою»; on an equal fit the dish (so «салат» is the salad, «огірок» the cucumber)
+    const df = dish && fit(dish, q.text), ff = food && fit(food, q.text);
+    if (dish && (!food || df![0] < ff![0] || (df![0] === ff![0] && df![1] <= ff![1] && normalize(dish.name).startsWith(stem(normalize(q.text).split(' ')[0]!))))) {
       return { text, item: dishItem(dish, q.qty ?? 1) };
     }
     if (!food) return { text };
     // a word alone may mean several kinds
-    const others = q.text.split(' ').length > 1 ? [] : searchFoods(foods, q.text, 4, prefer).filter((f) => f.id !== food.id).slice(0, 3).map((f) => itemFor(f, q));
+    const others = q.text.split(' ').length > 1 ? [] : searchFoods(foods, q.text, 6, prefer)
+      .filter((f, i, all) => f.id !== food.id && f.name !== food.name && fit(f, q.text)[0] < 2 && all.findIndex((x) => x.name === f.name) === i) // D83: no twins
+      .slice(0, 3).map((f) => itemFor(f, q));
     return { text, item: itemFor(food, q), ...(others.length ? { others } : {}) };
   });
 }
