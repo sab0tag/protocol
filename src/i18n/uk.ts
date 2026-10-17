@@ -263,7 +263,7 @@ export const t = {
     duration: 'Тривалість, хв',
     feeling: 'Як пройшло',
     feelings: ['Легко', 'Нормально', 'Важко', 'Щось боліло'],
-    save: 'Записати тренування', saved: 'Тренування записано',
+    save: 'Записати тренування', saved: 'Тренування записано', saveChanges: 'Зберегти зміни', // D76: the button floats above the tab bar
     nextOn: (d: string) => `Наступне — ${d}`,
     today: 'Сьогодні день тренування',
     notToday: 'Сьогодні відпочинок',

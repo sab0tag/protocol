@@ -2,7 +2,7 @@ import { format, parseISO } from 'date-fns';
 import { Loading } from '../components/Recovery';
 import { saved as withToast } from '../components/Toast';
 import { uk } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Info, Plus, RefreshCw, X } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, Info, Plus, RefreshCw, Save, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { db } from '../data/db';
 import { usePlan, useWorkouts } from '../data/queries';
@@ -27,7 +27,6 @@ export function Workout() {
   const plan = usePlan();
   const workouts = useWorkouts();
   const [draft, setDraft] = useState<W | null>(null);
-  const [saved, setSaved] = useState(false);
 
   const existing = workouts?.find((w) => w.date === date);
   const first = workouts?.[0]?.date;
@@ -35,7 +34,6 @@ export function Workout() {
 
   useEffect(() => {
     if (!workouts) return;
-    setSaved(false);
     setAiAdvice(''); // a new day — the last day's advice is not about it
     const last = workouts.filter((w) => w.date < date).at(-1);
     const start = startingSet(last, last && first ? programmeWeek(first, last.date) : week, week); // D60
@@ -54,6 +52,8 @@ export function Workout() {
   const remove = (i: number) => setDraft({ ...draft, exercises: draft.exercises.filter((_, j) => j !== i) });
 
   const setEx = (i: number, ex: WorkoutExercise) => setDraft({ ...draft, exercises: draft.exercises.map((x, j) => (j === i ? ex : x)) });
+  // D76: unsaved = the draft differs from what is stored (a new day's draft is unsaved until recorded)
+  const dirty = !existing || JSON.stringify(draft) !== JSON.stringify(existing);
   const save = async () => {
     await withToast(() => db.transaction('rw', db.workouts, db.entries, async () => {
       await db.workouts.put(draft);
@@ -61,7 +61,6 @@ export function Workout() {
       await db.entries.put({ id: entry?.id ?? newId(), at: entry?.at ?? atLocal(date, date === todayISO() ? format(new Date(), 'HH:mm') : '18:00'),
         kind: 'workout', status: 'done', title: L.title, workoutId: draft.id, checkKey: 'workout' });
     }), t.toast.workout);
-    setSaved(true);
     setAiAdvice('');
   };
 
@@ -205,8 +204,14 @@ export function Workout() {
         </div>
       </div>
 
-      <button type="button" onClick={() => void save()} className="min-h-tap w-full rounded-xl bg-accent px-4 font-medium text-surface">
-        {saved ? L.saved : L.save}</button>
+      {/* D76: a long list of sets — the save button floats above the tab bar while scrolling and rests here at the end */}
+      <div className="sticky bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-10 md:bottom-4">
+        <button type="button" onClick={() => void save()} disabled={!dirty}
+          className={`flex min-h-[3.25rem] w-full items-center justify-center gap-2 rounded-2xl px-4 font-semibold shadow-lg ${dirty
+            ? 'bg-accent text-surface' : 'border border-accent/40 bg-surface text-accent'}`}>
+          {dirty ? <Save size={20} aria-hidden /> : <Check size={20} aria-hidden />}
+          {dirty ? (existing ? L.saveChanges : L.save) : L.saved}</button>
+      </div>
       {card && <ExerciseCard exercise={card} onClose={() => setCard(null)} />}
     </section>
   );

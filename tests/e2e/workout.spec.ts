@@ -104,3 +104,20 @@ test('a symptom in the last 24 hours is said before an AI session; «Попро�
   await panel.getByRole('button', { name: 'Попросити легше' }).click();
   await expect(panel.getByLabel(/Побажання/)).toHaveValue(/легше/);
 });
+
+test('the save button floats in view while the sets are typed, says «Зберегти зміни» for a recorded day and rests when saved (D76)', async ({ browser }) => {
+  const page = await device(browser);
+  await page.goto('./#/workout');
+  const first = page.getByRole('spinbutton', { name: /^Гоблет-присід, Підхід 1/ });
+  await first.fill('10');
+  const button = page.getByRole('button', { name: 'Записати тренування' });
+  await expect(button).toBeInViewport(); // at the top of a long list, not only at its end
+  await button.click();
+  await expect(page.getByRole('button', { name: 'Тренування записано' })).toBeDisabled();
+  await page.getByRole('spinbutton', { name: /^Гоблет-присід, Підхід 2/ }).fill('9');
+  await expect(page.getByRole('button', { name: 'Зберегти зміни' })).toBeInViewport();
+  await page.getByRole('button', { name: 'Зберегти зміни' }).click();
+  await expect(page.getByRole('button', { name: 'Тренування записано' })).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole('spinbutton', { name: /^Гоблет-присід, Підхід 2/ })).toHaveValue('9');
+});
