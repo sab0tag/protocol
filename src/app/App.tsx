@@ -10,6 +10,7 @@ import { Dishes } from '../screens/Dishes';
 import { More } from '../screens/More';
 import { MyDay } from '../screens/MyDay';
 import { Onboarding } from '../screens/Onboarding';
+import { About } from '../screens/About';
 import { Plan } from '../screens/Plan';
 import { Progress } from '../screens/Progress';
 import { Report } from '../screens/Report';
@@ -70,6 +71,7 @@ export function App() {
             <Route path="/report" element={<Report />} />
             <Route path="/dishes" element={<Dishes />} />
             <Route path="/more" element={<More />} />
+            <Route path="/about" element={<About />} />
             <Route path="/sync" element={<Sync />} />
             <Route path="/menu" element={<Menu />} />
             <Route path="/reminders" element={<Reminders />} />

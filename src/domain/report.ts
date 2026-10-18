@@ -31,7 +31,9 @@ export interface Report {
   /** D40: meals from «Меню на завтра» in the period that are past: eaten, skipped, not marked */
   menu?: { done: number; skipped: number; open: number };
   /** D79 «Головне»: the doses due on the days with records (today — only those whose time has come), taken and missed */
-  meds?: { taken: number; due: number; missed: { title: string; count: number }[] };
+  meds?: { taken: number; due: number; missed: { title: string; count: number }[];
+    /** D89: each medicine — the trade name, its INN from the register, the dose as prescribed, doses taken of due */
+    list: { title: string; inn?: string; dose?: string; taken: number; due: number }[] };
   /** D79: eaten meals the plan's check would have changed («замінити» / «прибрати»), by the doctor's limit */
   deviations?: { meals: number; of: number; by: { title: string; count: number }[] };
   /** D79: lab results in the period, the latest first */
@@ -46,6 +48,7 @@ export function buildReport(args: {
   const today = format(now, 'yyyy-MM-dd'), hm = format(now, 'HH:mm');
   let taken = 0, due = 0;
   const missed = new Map<string, number>();
+  const perMed = new Map<string, { taken: number; due: number }>();
   let devMeals = 0, eatenMeals = 0;
   const devBy = new Map<string, number>();
   const inside = (d: ISODate) => d >= from && d <= to;
@@ -63,6 +66,9 @@ export function buildReport(args: {
       if (i.kind !== 'med' || (d === today && !i.done && (!i.time || i.time > hm))) continue;
       due += 1;
       if (i.done) taken += 1; else missed.set(i.title, (missed.get(i.title) ?? 0) + 1);
+      const m = perMed.get(i.prescriptionId ?? i.title) ?? { taken: 0, due: 0 };
+      m.due += 1; if (i.done) m.taken += 1;
+      perMed.set(i.prescriptionId ?? i.title, m);
     }
     if (plan) for (const m of day.filter((e) => e.kind === 'meal' && e.status === 'done' && e.items?.length)) {
       eatenMeals += 1;
@@ -106,7 +112,11 @@ export function buildReport(args: {
     coincidences: [...coincidences(entries.filter((e) => inside(dateOf(e.at))), foods).map(coincidenceText),
       ...wellbeingCoincidences(entries.filter((e) => inside(dateOf(e.at))), wellbeing.filter((x) => inside(x.date)), foods, plan).map((p) => p.text)], // D71
     questions: plan?.questions ?? [],
-    ...(due ? { meds: { taken, due, missed: [...missed.entries()].map(([title, count]) => ({ title, count })).sort((a, b) => b.count - a.count) } } : {}),
+    ...(due ? { meds: { taken, due, missed: [...missed.entries()].map(([title, count]) => ({ title, count })).sort((a, b) => b.count - a.count),
+      list: [...perMed.entries()].map(([key, n]) => {
+        const p = plan?.prescriptions.find((x) => x.id === key);
+        return { title: p?.title ?? key, ...(p?.med?.inn ? { inn: p.med.inn } : {}), ...(p?.dose ? { dose: p.dose } : {}), ...n };
+      }) } } : {}),
     ...(eatenMeals ? { deviations: { meals: devMeals, of: eatenMeals, by: [...devBy.entries()].map(([title, count]) => ({ title, count })).sort((a, b) => b.count - a.count) } } : {}),
     labs: labs.filter((l) => inside(l.date)).sort((a, b) => b.date.localeCompare(a.date) || a.name.localeCompare(b.name)),
   };
@@ -122,6 +132,7 @@ export function reportText(r: Report, dm: (d: ISODate) => string): string {
   const lines = [
     `Звіт за ${dm(r.from)} — ${dm(r.to)} (${r.days} дн.)`,
     r.meds ? `${t.report.meds(r.meds.taken, r.meds.due)}${r.meds.missed.length ? ` — ${r.meds.missed.map((m) => t.report.missed(m.title, m.count)).join('; ')}` : ''}` : '',
+    r.meds && r.meds.list.length > 1 ? r.meds.list.map((m) => `• ${t.report.medLine(m)}`).join('\n') : '',
     r.deviations ? (r.deviations.meals ? `${t.report.deviations(r.deviations.meals, r.deviations.of)}: ${r.deviations.by.map((b) => `${b.title} — ${b.count}`).join('; ')}`
       : t.report.noDeviations(r.deviations.of)) : '',
     r.labs.length ? `${t.report.labs}:\n${r.labs.map((l) => `• ${dm(l.date)} ${l.name}: ${dec(l.value)} ${l.unit}${l.target ? ` (ціль ${l.target})` : ''}`).join('\n')}` : '',

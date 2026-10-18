@@ -2,6 +2,15 @@
 export const t = {
   app: 'Протокол',
   nav: { day: 'День', food: 'Їжа', plan: 'План', progress: 'Прогрес', more: 'Ще' },
+  about: { // D89
+    title: 'Про застосунок', link: 'Про застосунок і джерела',
+    privacy: 'Ваші записи зберігаються на пристрої; синхронізація — зашифрована, сервер бачить лише шифротекст.',
+    sources: 'Джерела довідкових даних',
+    register: 'Назви препаратів — Державний реєстр лікарських засобів України, МОЗ України, набір відкритих даних на',
+    built: (d: string, n: number) => `індекс від ${d}, ${n} препаратів`,
+    registerUse: 'З реєстру береться лише назва, діюча речовина (МНН) і форма. Дозу застосунок ніколи не підставляє — вона з призначення лікаря.',
+    foods: 'Склад продуктів — орієнтовні значення з поширених таблиць харчової цінності; звіряйте з упаковкою.',
+  },
   more: { food: 'Їжа', health: 'Стан і тренування', settings: 'Нагадування й пристрої', app: 'Про застосунок' }, // D78
   day: {
     timeUnknown: 'час невідомий', // D52
@@ -353,6 +362,8 @@ export const t = {
     main: 'Головне', mainHint: 'Рахуються дні, коли були записи.',
     meds: (taken: number, due: number) => `Ліки: прийнято ${taken} з ${due} доз (${Math.round((taken / due) * 100)} %)`,
     missed: (title: string, n: number) => `${title} — пропущено ${n}`,
+    medLine: (m: { title: string; inn?: string; dose?: string; taken: number; due: number }) =>
+      `${m.title}${m.inn ? ` (${m.inn})` : ''}${m.dose ? `, ${m.dose}` : ''} — ${m.taken} з ${m.due} (${Math.round((m.taken / m.due) * 100)} %)`, // D89
     deviations: (n: number, of: number) => `Прийомів їжі з відхиленням від обмежень: ${n} з ${of}`,
     noDeviations: (of: number) => `Усі ${of} записаних прийомів їжі — в межах обмежень плану.`,
     labs: 'Аналізи за період',
@@ -568,6 +579,16 @@ export const t = {
     allergyPick: 'На що алергія (як сказав або написав лікар):', // D58
     stockLeft: 'Залишилось, шт', perDose: 'За прийом, шт', // D69
     stockDays: (d: number) => `вистачить на ~${d} дн.`,
+    // D89: the register — a name to pick, never a dose
+    medSearch: 'Почніть вводити назву або речовину — з Державного реєстру', offRegistry: 'не з реєстру', fromRegistry: 'з реєстру',
+    medInfo: (form: string, doses: string) => `${form}${doses ? ` · упаковки: ${doses}` : ''}`,
+    medDoseNote: 'Дозу вводьте зі слів лікаря — застосунок її не підставляє.',
+    medPhoto: 'Фото упаковки', medPhotoBusy: 'Читаю упаковку…', medPhotoAllow: 'Дозволити й вибрати фото',
+    medPhotoConsent: 'Фото упаковки йде через наш сервер до Claude (Anthropic), щоб прочитати назву. На сервері фото не зберігається.',
+    medPhotoNeedsSync: 'Упаковка читається через наш сервер — для цього потрібна синхронізація.',
+    medPhotoUnreadable: 'Не вдалося прочитати назву — спробуйте фото лицьового боку коробки.',
+    medPhotoRead: (what: string) => `На упаковці: ${what}. Перевірте назву; дозу вводьте з призначення лікаря.`,
+    duplicate: (titles: string[], inn: string) => `${titles.join(' і ')} — одна речовина (${inn}). Перевірте з лікарем.`,
     setTimes: (n: number) => `Вкажіть час прийому: лікар написав ${n} рази на день, а без часу застосунок рахує один прийом`, // D80
     allergyTitle: (names: string) => `Алергія: ${names}`,
     target: {

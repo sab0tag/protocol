@@ -6,6 +6,7 @@ import { claudeMenu } from './menu.ts';
 import { claudeWorkout } from './workout.ts';
 import { claudeLabs } from './labs.ts';
 import { claudeConclusion } from './conclusion.ts';
+import { claudeMedbox } from './medbox.ts';
 import { claudeRecognizer } from './photo.ts';
 import { tick, vapidKeys, webPushSender } from './push.ts';
 import { Store } from './store.ts';
@@ -26,6 +27,7 @@ const app = createApp({
   label: env.ANTHROPIC_API_KEY ? claudeLabel({ model: env.PHOTO_MODEL ?? 'claude-opus-5-5', effort }) : undefined,
   labs: env.ANTHROPIC_API_KEY ? claudeLabs({ model: env.PHOTO_MODEL ?? 'claude-opus-5-5', effort }) : undefined, // D68
   conclusion: env.ANTHROPIC_API_KEY ? claudeConclusion({ model: env.PHOTO_MODEL ?? 'claude-opus-5-5', effort }) : undefined, // D80
+  medbox: env.ANTHROPIC_API_KEY ? claudeMedbox({ model: env.PHOTO_MODEL ?? 'claude-opus-5-5', effort }) : undefined, // D89
   menu: env.ANTHROPIC_API_KEY
     ? claudeMenu({ model: env.MENU_MODEL ?? 'claude-opus-5-5', effort: (env.MENU_EFFORT ?? 'medium') as 'low' | 'medium' | 'high' }) : undefined,
   workout: env.ANTHROPIC_API_KEY // D63

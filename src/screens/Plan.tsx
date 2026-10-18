@@ -7,7 +7,10 @@ import { Loading } from '../components/Recovery';
 import { saved } from '../components/Toast';
 import { uk } from 'date-fns/locale';
 import { Pencil, Plus } from 'lucide-react';
-import { useState, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
+import { useMedIndex } from '../data/medsIndex';
+import { MedboxScan } from '../components/MedboxScan';
+import { duplicateInn, searchMeds } from '../domain/meds';
 import { Sheet } from '../components/Sheet';
 import { db, type PlanRow } from '../data/db';
 import { useAllEntries, usePlan } from '../data/queries';
@@ -46,10 +49,13 @@ export function Plan() {
       <ExampleNotice plan={plan} />
       <PlanScan plan={plan} />
 
+      {duplicateInn(plan.prescriptions).map((d) => ( /* D89: information, never «не приймайте» */
+        <p key={d.inn} role="status" className="rounded-2xl border border-line bg-surface p-3 text-sm">{P.duplicate(d.titles, d.inn)}</p>
+      ))}
       <Block title={P.prescriptions} onAdd={() => setEditing({ what: 'prescription' })}>
         {plan.prescriptions.map((p) => (
           <Item key={p.id} onEdit={() => setEditing({ what: 'prescription', item: p })}
-            title={p.title} meta={[P.kinds[p.kind], p.dose, p.schedule?.times.join(', '), p.schedule?.withFood ? P.withFood.toLowerCase() : undefined,
+            title={p.title} meta={[P.kinds[p.kind], (p.kind === 'medication' || p.kind === 'supplement') ? (p.med ? p.med.inn : P.offRegistry) : undefined, p.dose, p.schedule?.times.join(', '), p.schedule?.withFood ? P.withFood.toLowerCase() : undefined,
               p.dueDate ? `${P.dueDate.toLowerCase()} ${dmy(p.dueDate)}` : undefined,
               ...(entries && stockLeft(p, entries) ? [P.stockDays(stockLeft(p, entries)!.days)] : [])]} note={p.notes} source={p.source}
             warn={timesToSet(p) ? P.setTimes(timesToSet(p)!) : undefined} />
@@ -183,6 +189,9 @@ function PrescriptionForm({ plan, item, onClose }: { plan: PlanRow; item?: Presc
   const now = item && entries ? stockLeft(item, entries) : undefined;
   const [left, setLeft] = useState(now ? String(now.left) : ''); // D69: what is in the pack now
   const [perDose, setPerDose] = useState(String(item?.stock?.perDose ?? 1));
+  const drug = p.kind === 'medication' || p.kind === 'supplement';
+  const index = useMedIndex(drug); // D89: the register on the device — names only, never a dose
+  const suggestions = useMemo(() => (index && drug && !p.med ? searchMeds(index, p.title, 5) : []), [index, drug, p.med, p.title]);
   const onSave = () => {
     const ts = times.split(',').map((x) => x.trim()).filter((x) => /^\d{1,2}:\d{2}$/.test(x)).map((x) => x.padStart(5, '0'));
     const n = Number(left.replace(',', '.')), per = Number(perDose.replace(',', '.')) || 1;
@@ -196,11 +205,30 @@ function PrescriptionForm({ plan, item, onClose }: { plan: PlanRow; item?: Presc
   return (
     <FormSheet title={item ? P.edit : P.prescriptions} onClose={onClose} onSave={onSave}
       onDelete={item ? () => save({ prescriptions: plan.prescriptions.filter((x) => x.id !== item.id) }) : undefined}>
-      <Field label={P.title_}><input required value={p.title} onChange={(e) => setP({ ...p, title: e.target.value })} className={field} /></Field>
+      <Field label={P.title_}><input required value={p.title} placeholder={drug ? P.medSearch : undefined} className={field}
+        onChange={(e) => { const title = e.target.value; const { med: _m, ...rest } = p; setP(p.med && title === p.med.name ? p : { ...rest, title }); }} /></Field>
+      {drug && <MedboxScan onRead={(r) => { // D89: the box's name, matched in the register when it is there
+        const e = index && r.name ? searchMeds(index, r.name, 1)[0] ?? (r.inn ? searchMeds(index, r.inn, 1)[0] : undefined) : undefined;
+        const { med: _m, ...rest } = p;
+        setP(e ? { ...p, title: e.name, med: { name: e.name, ...(e.inn ? { inn: e.inn } : {}), ...(e.atc ? { atc: e.atc } : {}) } } : { ...rest, title: r.name ?? p.title });
+      }} />}
+      {drug && (p.med ? <p className="-mt-2 text-sm text-muted">{P.fromRegistry}{p.med.inn ? ` · ${p.med.inn}` : ''}</p>
+        : p.title.trim().length >= 2 && (
+          <div className="-mt-2 space-y-1">
+            {suggestions.map((e) => (
+              <button key={e.name + e.inn} type="button" onClick={() => setP({ ...p, title: e.name, med: { name: e.name, ...(e.inn ? { inn: e.inn } : {}), ...(e.atc ? { atc: e.atc } : {}) } })}
+                className="block min-h-tap w-full rounded-xl border border-line px-3 py-1 text-left">
+                <span className="block font-medium">{e.name}{e.inn && <span className="font-normal text-muted"> · {e.inn}</span>}</span>
+                <span className="block text-xs text-muted">{P.medInfo(e.form, e.doses)}</span></button>
+            ))}
+            <p className="text-xs text-muted">{suggestions.length ? '' : `${P.offRegistry} · `}{index?.source}</p>
+          </div>
+        ))}
       <Field label={P.kind}>
         <select value={p.kind} onChange={(e) => setP({ ...p, kind: e.target.value as Prescription['kind'] })} className={field}>
           {KINDS.map((k) => <option key={k} value={k}>{P.kinds[k]}</option>)}</select></Field>
       <Field label={P.dose}><input value={p.dose ?? ''} onChange={(e) => setP({ ...p, dose: e.target.value || undefined })} className={field} /></Field>
+      {drug && <p className="-mt-2 text-xs text-muted">{P.medDoseNote}</p>}
       <Field label={P.times}><input value={times} onChange={(e) => setTimes(e.target.value)} placeholder="08:30" className={field} /></Field>
       <label className="flex min-h-tap items-center gap-3">
         <input type="checkbox" checked={p.schedule?.withFood ?? false} className="h-5 w-5 accent-[rgb(var(--accent))]"

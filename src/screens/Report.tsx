@@ -61,7 +61,8 @@ export function Report() {
         <section aria-label={L.main} className="space-y-2 rounded-2xl border border-accent/40 bg-surface p-3">
           <h2 className="font-semibold">{L.main}</h2>
           {r.meds && <p>{L.meds(r.meds.taken, r.meds.due)}
-            {r.meds.missed.length > 0 && <span className="block text-sm text-muted">{r.meds.missed.map((m) => L.missed(m.title, m.count)).join(' · ')}</span>}</p>}
+            {r.meds.list.length > 1 ? <span className="mt-1 block space-y-0.5 text-sm text-muted">{r.meds.list.map((m) => <span key={m.title} className="block">{L.medLine(m)}</span>)}</span>
+              : r.meds.missed.length > 0 && <span className="block text-sm text-muted">{r.meds.missed.map((m) => L.missed(m.title, m.count)).join(' · ')}</span>}</p>}
           {r.deviations && (r.deviations.meals ? (
             <p>{L.deviations(r.deviations.meals, r.deviations.of)}
               <span className="block text-sm text-muted">{r.deviations.by.map((b) => `${b.title} — ${b.count}`).join(' · ')}</span></p>

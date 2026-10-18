@@ -49,6 +49,8 @@ import type { ConclusionResult } from '../domain/conclusion';
 export interface LabsResult { readable: boolean; date: string | null; items: { name: string; value: number; unit: string; reference: string | null }[]; note: string | null }
 export const labs = (keys: Keys, image: string, names: string[]) => call<LabsResult>(keys, 'POST', '/labs', { image, names });
 export const conclusion = (keys: Keys, image: string) => call<ConclusionResult>(keys, 'POST', '/conclusion', { image }); // D80
+export interface MedboxResult { readable: boolean; name: string | null; inn: string | null; strength: string | null; form: string | null; note: string | null }
+export const medbox = (keys: Keys, image: string) => call<MedboxResult>(keys, 'POST', '/medbox', { image }); // D89
 // D63
 export const aiWorkout = (keys: Keys, body: WorkoutBody) => call<AiWorkout>(keys, 'POST', '/workout', body);
 

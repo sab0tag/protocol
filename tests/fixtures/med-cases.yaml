@@ -1,0 +1,80 @@
+# Довідник препаратів і «препарат + їжа» (SPEC.md D89+). Код без ІІ — порівняння точне, один прогін.
+# Поля: query — що набрала людина; expect.first — назва першої підказки починається з; expect.inn — МНН першої підказки;
+# meds — назви, як їх вибрала людина (перша підказка на кожну); expect.duplicate_inn / says_not — для дублів;
+# phrase + expect.med_food_note — для кроку 4 (таблиця пар, перевірена фармацевтом). status: fixed | open; рядки не видаляються.
+
+- id: search-trade-name
+  query: нурофєн
+  expect: { first: Нурофєн, inn: Ibuprofen }
+  status: fixed
+  found: 2026-10-18
+
+- id: search-latin
+  query: nurofen
+  expect: { first: Нурофєн, inn: Ibuprofen }
+  status: fixed
+  found: 2026-10-18
+
+- id: search-inn-latin
+  query: ibuprofen
+  expect: { inn: Ibuprofen }
+  status: fixed
+  found: 2026-10-18
+
+- id: search-substance-ukrainian
+  query: ібупрофен
+  expect: { inn: Ibuprofen }
+  status: fixed
+  found: 2026-10-18
+
+- id: search-russian-layout
+  query: ибупрофен
+  expect: { inn: Ibuprofen }
+  status: fixed
+  found: 2026-10-18
+
+- id: search-typo
+  query: нурафен
+  expect: { first: Нурофєн }
+  status: fixed
+  found: 2026-10-18
+
+- id: search-levothyroxine
+  query: еутирокс
+  expect: { first: Еутирокс, inn: Levothyroxine sodium }
+  status: fixed
+  found: 2026-10-18
+
+- id: search-statin
+  query: аторвастатин
+  expect: { inn: Atorvastatin }
+  status: fixed
+  found: 2026-10-18
+
+- id: search-nothing
+  query: бабусині трави
+  expect: { none: true }
+  status: fixed
+  found: 2026-10-18
+
+- id: dup-ibuprofen
+  meds: [нурофєн, ібупрофен]
+  expect: { duplicate_inn: Ibuprofen, says_not: [не приймайте] }
+  status: fixed
+  found: 2026-10-18
+
+- id: no-dup-different
+  meds: [нурофєн, аторвастатин]
+  expect: { duplicate_inn: null }
+  status: fixed
+  found: 2026-10-18
+
+# ── крок 4: «препарат + їжа» — лише з перевіреної таблиці ──
+
+- id: food-statin-grapefruit
+  meds: [аторвастатин]
+  phrase: пів грейпфрута
+  expect: { med_food_note: true, source_quoted: true }
+  status: open
+  found: 2026-10-18
+  note: таблиця пар ще не перевірена фармацевтом — відмітки немає

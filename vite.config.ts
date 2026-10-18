@@ -9,7 +9,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['icon.svg', 'apple-touch-icon.png', 'push-sw.js'],
+      includeAssets: ['icon.svg', 'apple-touch-icon.png', 'push-sw.js', 'meds-index.json'], // D89: the register works offline
       manifest: {
         name: 'Протокол',
         short_name: 'Протокол',

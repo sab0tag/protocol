@@ -237,3 +237,22 @@ describe('a doctor’s conclusion (D80)', () => {
       body: JSON.stringify({ image: JPEG }) })).status).toBe(503);
   });
 });
+
+describe('a medicine package (D89)', () => {
+  it('a photo → name and strength; counted with photos; off without a key', async () => {
+    const store = new Store(':memory:');
+    const RES = { readable: true, name: 'Нурофєн Форте', inn: 'ібупрофен', strength: '400 мг', form: 'таблетки', note: null };
+    const app = createApp({ store, origins: [], medbox: async () => ({ result: RES }), limits: { ...DEFAULT_LIMITS, photosPerVaultPerDay: 1 } });
+    const call = (body: unknown) => app.request(`/v1/vaults/${VAULT}/medbox`, { method: 'POST',
+      headers: { Authorization: `Bearer ${AUTH}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    await app.request(`/v1/vaults/${VAULT}`, { method: 'PUT', headers: { Authorization: `Bearer ${AUTH}` } });
+    const r = await call({ image: JPEG });
+    expect(r.status).toBe(200);
+    expect(await r.json()).toEqual(RES);
+    expect((await call({ image: JPEG })).status).toBe(429);
+    const off = createApp({ store: new Store(':memory:'), origins: [] });
+    await off.request(`/v1/vaults/${VAULT}`, { method: 'PUT', headers: { Authorization: `Bearer ${AUTH}` } });
+    expect((await off.request(`/v1/vaults/${VAULT}/medbox`, { method: 'POST', headers: { Authorization: `Bearer ${AUTH}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image: JPEG }) })).status).toBe(503);
+  });
+});

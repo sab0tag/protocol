@@ -34,6 +34,8 @@ export interface Prescription {
   source: string;
   /** D69: pieces left when counted (`at`), and pieces a dose — what remains is counted down by the ticks since */
   stock?: { left: number; perDose: number; at: ISODateTime };
+  /** D89: picked from the medicines register — its trade name, INN and ATC (never a dose); absent = typed, «не з реєстру» */
+  med?: { name: string; inn?: string; atc?: string };
 }
 
 export interface Targets {
