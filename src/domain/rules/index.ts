@@ -2,6 +2,7 @@
 // its constraint is active in the plan; it speaks only the words of the SPEC rule table.
 import { dateOf } from '../dates';
 import { itemNutrients, normalize } from '../nutrition';
+import { dietOf } from '../diets';
 import type { ConstraintTag, DayEntry, Food, ISODate, MealItem, Mode, Plan } from '../types';
 import * as K from './keywords.uk';
 import { allergyHits, planAllergies } from '../allergens';
@@ -146,7 +147,23 @@ const allergy: Rule = (item, food, ctx) => {
     suggestion: 'Прибрати', swap: { kind: 'drop' } };
 };
 
-export const RULES: Rule[] = [allergy, oxalate, oxalateCalcium, gallbladder, lactose, glycemic, iron, sodium];
+/** D90: a diet of Наказ №931 — its rules that a dietitian checked and the person did not switch off. Unchecked — silent. */
+const diet: Rule = (item, food, ctx) => {
+  for (const c of ctx.plan.constraints) {
+    if (c.tag !== 'diet' || !c.active) continue;
+    for (const r of dietOf(c.diet)?.rules ?? []) {
+      if (!r.checkedBy || c.off?.includes(r.id)) continue;
+      const m = r.match, name = normalize(item.name);
+      const hit = (m.cooking?.includes(item.cooking!) ?? false) || (m.words?.some((w) => name.includes(normalize(w))) ?? false)
+        || (m.tags?.some((tg) => food?.tags.includes(tg)) ?? false);
+      if (hit) return { itemName: item.name, verdict: r.kind === 'exclude' ? 'remove' : 'adjust', reason: 'diet',
+        message: `${c.diet}: ${r.title}`, ...(r.kind === 'exclude' ? { suggestion: 'Прибрати', swap: { kind: 'drop' as const } } : {}) };
+    }
+  }
+  return null;
+};
+
+export const RULES: Rule[] = [allergy, oxalate, oxalateCalcium, gallbladder, lactose, glycemic, iron, sodium, diet];
 
 // ------------------------------------------------------------------ the meal as a whole (SPEC §6.3)
 export interface ItemCheck {

@@ -345,3 +345,81 @@
     - { name: "Кава чорна" }
   status: fixed
   found: 2026-10-17
+
+# ── Дієти за Наказом МОЗ №931 + особисте обмеження (D90) ─────────────
+# Профіль «<дієта>_<обмеження>»: shd = ЩД, ovd = ОВД, vbd = ВБД, nbd = НБД, nkd = НКД, d9 = №9, d1a = №1а, d4 = №4.
+# fixed — особисте обмеження працює поруч із дієтою. Відмітки самої дієти (open) чекають правил, перевірених дієтологом:
+# поки правил немає, неперевірена дієта їжу не перевіряє — і ці рядки мають падати.
+
+- id: ovd-lactose-milk
+  phrase: "молоко"
+  profile: ovd_lactose
+  expect:
+    - { name: "Молоко 2,5 %", flags: ["Лактоза"] }
+  status: fixed
+  found: 2026-10-18
+
+- id: shd-lactose-coffee
+  phrase: "кава з молоком"
+  profile: shd_lactose
+  expect:
+    - { name: "Кава з молоком (без цукру)", flags: ["Лактоза"] }
+  status: fixed
+  found: 2026-10-18
+
+- id: vbd-glycemic-sugar
+  phrase: "чай з цукром"
+  profile: vbd_glycemic
+  expect:
+    - { name: "Чай з цукром", flags: ["Доданий цукор"] }
+  status: fixed
+  found: 2026-10-18
+
+- id: nbd-oxalate-spinach
+  phrase: "шпинат"
+  profile: nbd_oxalate
+  expect:
+    - { name: "Шпинат", flags: ["Багато оксалатів"] }
+  status: fixed
+  found: 2026-10-18
+
+- id: nkd-glycemic-cookies
+  phrase: "печиво"
+  profile: nkd_glycemic
+  expect:
+    - { name: "Печиво", flags: ["Швидкі вуглеводи"] }
+  status: fixed
+  found: 2026-10-18
+
+- id: d9-glycemic-honey
+  phrase: "мед"
+  profile: d9_glycemic
+  expect:
+    - { name: "Мед", flags: ["Швидкі вуглеводи"] }
+  status: fixed
+  found: 2026-10-18
+
+- id: d1a-lactose-milk
+  phrase: "молоко"
+  profile: d1a_lactose
+  expect:
+    - { name: "Молоко 2,5 %", flags: ["Лактоза"] }
+  status: fixed
+  found: 2026-10-18
+
+- id: d4-glycemic-sugar
+  phrase: "чай з цукром"
+  profile: d4_glycemic
+  expect:
+    - { name: "Чай з цукром", flags: ["Доданий цукор"] }
+  status: fixed
+  found: 2026-10-18
+
+- id: shd-fried
+  phrase: "смажена картопля"
+  profile: shd_lactose
+  expect:
+    - { name: "Картопля смажена", flags: ["ЩД"] }
+  status: open
+  found: 2026-10-18
+  note: "Приклад із ТЗ. Правила ЩД ще не перевірені дієтологом — неперевірена дієта їжу не перевіряє, відмітки «ЩД» немає."

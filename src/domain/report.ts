@@ -4,6 +4,7 @@ import { buildChecklist } from './checklist';
 import { dateOf, isPast } from './dates';
 import { dayFlags, type HabitKey } from './habits';
 import { activeMode } from './nutrition';
+import { dietConflicts } from './diets';
 import { t } from '../i18n/uk';
 import { checkMeal } from './rules';
 import { coincidences, coincidenceText } from './symptoms';
@@ -38,6 +39,8 @@ export interface Report {
   deviations?: { meals: number; of: number; by: { title: string; count: number }[] };
   /** D79: lab results in the period, the latest first */
   labs: LabResult[];
+  /** D90: a doctor's target outside the chosen diet's norm — a question for the visit, never settled silently */
+  dietQuestions: string[];
 }
 
 export function buildReport(args: {
@@ -118,6 +121,7 @@ export function buildReport(args: {
         return { title: p?.title ?? key, ...(p?.med?.inn ? { inn: p.med.inn } : {}), ...(p?.dose ? { dose: p.dose } : {}), ...n };
       }) } } : {}),
     ...(eatenMeals ? { deviations: { meals: devMeals, of: eatenMeals, by: [...devBy.entries()].map(([title, count]) => ({ title, count })).sort((a, b) => b.count - a.count) } } : {}),
+    dietQuestions: plan ? dietConflicts(plan).map((x) => t.diet.conflict(x.code, t.diet.fields[x.field], x.target, x.range[0], x.range[1])) : [],
     labs: labs.filter((l) => inside(l.date)).sort((a, b) => b.date.localeCompare(a.date) || a.name.localeCompare(b.name)),
   };
 }
@@ -135,6 +139,7 @@ export function reportText(r: Report, dm: (d: ISODate) => string): string {
     r.meds && r.meds.list.length > 1 ? r.meds.list.map((m) => `• ${t.report.medLine(m)}`).join('\n') : '',
     r.deviations ? (r.deviations.meals ? `${t.report.deviations(r.deviations.meals, r.deviations.of)}: ${r.deviations.by.map((b) => `${b.title} — ${b.count}`).join('; ')}`
       : t.report.noDeviations(r.deviations.of)) : '',
+    r.dietQuestions.length ? r.dietQuestions.map((q) => `• ${q}`).join('\n') : '',
     r.labs.length ? `${t.report.labs}:\n${r.labs.map((l) => `• ${dm(l.date)} ${l.name}: ${dec(l.value)} ${l.unit}${l.target ? ` (ціль ${l.target})` : ''}`).join('\n')}` : '',
     r.checklistPct != null ? `План дня виконано: ${r.checklistPct} %` : '',
     r.weightStart != null ? `Вага: ${dec(r.weightStart)} → ${dec(r.weightNow!)} кг` : '',

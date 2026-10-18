@@ -4,7 +4,8 @@ import { Loading } from '../components/Recovery';
 import { saved } from '../components/Toast';
 import { useState } from 'react';
 import { db } from '../data/db';
-import { useFoods, useRecipes } from '../data/queries';
+import { useFoods, usePlan, useRecipes } from '../data/queries';
+import { harchDishes } from '../data/harchDishes';
 import { amountText } from '../domain/foodSearch';
 import { mealNutrients, round } from '../domain/nutrition';
 import { detachFood, sumGrams } from '../domain/recipes';
@@ -19,7 +20,9 @@ const L = t.dishes;
 export function Dishes() {
   const recipes = useRecipes();
   const foods = useFoods();
+  const plan = usePlan();
   if (!recipes || !foods) return <Loading />;
+  const diet = plan?.constraints.find((c) => c.tag === 'diet' && c.active)?.diet; // D90
   const mine = [...foods.values()].filter((f) => f.custom).sort((a, b) => a.name.localeCompare(b.name, 'uk'));
   const own = recipes.filter((r) => !r.builtIn), builtIn = recipes.filter((r) => r.builtIn);
   return (
@@ -29,6 +32,14 @@ export function Dishes() {
       {own.length === 0 && <p className="text-muted">{L.empty}</p>}
       <ul className="space-y-3">{own.map((r) => <Card key={r.id} recipe={r} foods={foods} />)}</ul>
       <ul className="space-y-3">{builtIn.map((r) => <Card key={r.id} recipe={r} foods={foods} />)}</ul>
+      {diet && (() => { const cards = harchDishes(foods).filter((d) => d.diets.includes(diet)); return cards.length > 0 && (
+        <details className="rounded-2xl border border-line bg-surface p-3">
+          <summary className="min-h-tap cursor-pointer font-medium">{L.harch(diet, cards.length)}</summary>
+          <p className="mb-2 text-xs text-warn">{L.harchHint}</p>
+          <ul className="divide-y divide-line text-sm">{cards.map((d) => { const n = mealNutrients(d.items, foods); return (
+            <li key={d.card} className="py-1.5"><span className="font-medium">{d.name}</span>
+              <span className="block text-xs text-muted">{d.category} · {d.outputG} г · {round(n.kcal)} ккал · Б {round(n.protein)} · В {round(n.carbs)}</span></li>); })}</ul>
+        </details>); })()}
 
       <h2 className="pt-2 text-xl font-semibold">{L.foods}</h2>
       <p className="text-sm text-muted">{L.foodsHint}</p>

@@ -10,6 +10,8 @@ import { Pencil, Plus } from 'lucide-react';
 import { useMemo, useState, type ReactNode } from 'react';
 import { useMedIndex } from '../data/medsIndex';
 import { MedboxScan } from '../components/MedboxScan';
+import { DietNorms, DietPicker } from '../components/DietPicker';
+import { dietConflicts, dietOf, fillEmptyTargets } from '../domain/diets';
 import { duplicateInn, searchMeds } from '../domain/meds';
 import { Sheet } from '../components/Sheet';
 import { db, type PlanRow } from '../data/db';
@@ -74,6 +76,20 @@ export function Plan() {
               <p className="font-medium">{c.title}{c.title !== P.tags[c.tag] && <span className="text-sm font-normal text-muted"> · {P.tags[c.tag]}</span>}</p>
               {c.reason && <p className="text-sm">{c.reason}</p>}
               <p className="text-sm text-muted">{c.source}</p>
+              {c.tag === 'diet' && dietOf(c.diet) && (() => { const d = dietOf(c.diet)!; return ( /* D90: the preset's rules, each can be switched off */
+                <div className="mt-1 space-y-1">
+                  {!d.verified && <p className="text-xs text-warn">{t.diet.unverified}</p>}
+                  <DietNorms d={d} />
+                  {d.rules.filter((r) => r.checkedBy).map((r) => (
+                    <label key={r.id} className="flex min-h-tap items-center gap-2 text-sm">
+                      <input type="checkbox" checked={!c.off?.includes(r.id)} className="h-5 w-5 accent-[rgb(var(--accent))]"
+                        onChange={(e) => save({ constraints: plan.constraints.map((x) => (x.id === c.id
+                          ? { ...x, off: e.target.checked ? (x.off ?? []).filter((o) => o !== r.id) : [...(x.off ?? []), r.id] } : x)) })} />
+                      <span>{r.title}</span></label>
+                  ))}
+                  {!d.rules.some((r) => r.checkedBy) && <p className="text-xs text-muted">{t.diet.noRules}</p>}
+                </div>
+              ); })()}
             </div>
             <EditButton label={c.title} onClick={() => setEditing({ what: 'constraint', item: c })} />
           </li>
@@ -82,6 +98,10 @@ export function Plan() {
 
       <Block title={P.targets} onAdd={() => setEditing({ what: 'targets' })} addLabel={P.edit}>
         <li className="px-3 py-2">{targetSummary(tg) || <span className="text-muted">{P.noTargets}</span>}</li>
+        {dietConflicts(plan).map((x) => ( /* D90: a doctor's target and a diet's norm that differ — a question, not settled */
+          <li key={x.code + x.field} role="status" className="border-t border-line px-3 py-2 text-sm text-warn">
+            {t.diet.conflict(x.code, t.diet.fields[x.field], x.target, x.range[0], x.range[1])}</li>
+        ))}
       </Block>
 
       <Block title={P.modes} onAdd={() => setEditing({ what: 'mode' })}>
@@ -249,15 +269,20 @@ function PrescriptionForm({ plan, item, onClose }: { plan: PlanRow; item?: Presc
 
 function ConstraintForm({ plan, item, onClose }: { plan: PlanRow; item?: Constraint; onClose: () => void }) {
   const [c, setC] = useState<Constraint>(item ?? { id: newId(), tag: 'custom', title: '', reason: '', source: '', active: true });
+  const [fill, setFill] = useState(false); // D90: the diet's norms into empty targets — only when asked
+  const d = c.tag === 'diet' ? dietOf(c.diet) : undefined;
   return (
     <FormSheet title={item ? P.edit : P.constraints} onClose={onClose}
       onSave={() => save({ constraints: upsert(plan.constraints, { ...c, title: c.title.trim()
-        || (c.tag === 'allergy' && c.allergens?.length ? P.allergyTitle(c.allergens.map((a) => t.allergen.name[a]).join(', ')) : P.tags[c.tag]) }) })}
+        || (c.tag === 'allergy' && c.allergens?.length ? P.allergyTitle(c.allergens.map((a) => t.allergen.name[a]).join(', ')) : P.tags[c.tag]) }),
+        ...(d && fill ? { targets: fillEmptyTargets(plan.targets, d) } : {}) })}
       onDelete={item ? () => save({ constraints: plan.constraints.filter((x) => x.id !== item.id) }) : undefined}>
       <Field label={P.tag}>
         <select value={c.tag} onChange={(e) => setC({ ...c, tag: e.target.value as ConstraintTag })} className={field}>
           {TAGS.map((tag) => <option key={tag} value={tag}>{P.tags[tag]}</option>)}</select></Field>
       {c.tag === 'allergy' && <AllergenPicker legend={P.allergyPick} value={c.allergens ?? []} onChange={(v) => setC({ ...c, allergens: v })} />}
+      {c.tag === 'diet' && <DietPicker value={c.diet} fill={fill} onFill={setFill}
+        onPick={(x) => setC({ ...c, diet: x.code, title: `${x.code} — ${x.name}`, source: c.source || 'Наказ МОЗ №931' })} />}
       <Field label={P.title_}><input value={c.title} onChange={(e) => setC({ ...c, title: e.target.value })} placeholder={P.tags[c.tag]} className={field} /></Field>
       <Field label={P.reason}><textarea value={c.reason} onChange={(e) => setC({ ...c, reason: e.target.value })} rows={2} className={`${field} py-2`} /></Field>
       <Field label={P.source}><input value={c.source} onChange={(e) => setC({ ...c, source: e.target.value })} placeholder="Уролог, 2025" className={field} /></Field>

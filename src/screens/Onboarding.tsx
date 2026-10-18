@@ -6,6 +6,8 @@ import { useNavigate } from 'react-router-dom';
 import { db, type PlanRow } from '../data/db';
 import { putDemo } from '../data/demoStore';
 import { PlanScan } from '../components/PlanScan';
+import { DietPicker } from '../components/DietPicker';
+import { dietOf, fillEmptyTargets, type DietPreset } from '../domain/diets';
 import { EXAMPLE_SOURCE, examplePlan, hasExample, withoutExample } from '../data/seed.example';
 import { usePlan } from '../data/queries';
 import { newId, todayISO } from '../domain/dates';
@@ -38,6 +40,14 @@ function Steps({ plan, start, onScanned }: { plan: PlanRow; start: number; onSca
     Object.fromEntries(plan.constraints.filter((c) => own(c) && c.active).map((c) => [c.tag, c])));
   const [rx, setRx] = useState<Prescription[]>(plan.prescriptions.filter((p) => p.source !== EXAMPLE_SOURCE));
   const [targets, setTargets] = useState<Partial<Targets>>(() => withoutExample(plan).targets);
+  // D90: a diet of Наказ №931 — its norms go into the empty targets only if asked (and come out again if unticked)
+  const [fill, setFill] = useState<Partial<Targets> | null>(null);
+  const pickDiet = (d: DietPreset) => setChosen((x) => ({ ...x, diet: { id: x.diet?.id ?? newId(), tag: 'diet', diet: d.code, title: `${d.code} — ${d.name}`,
+    reason: '', source: 'Наказ МОЗ №931', active: true } }));
+  const fillDiet = (on: boolean) => {
+    const d = dietOf(chosen.diet?.diet);
+    if (on && d) { setFill(targets); setTargets(fillEmptyTargets(targets as Targets, d)); } else if (fill) { setTargets(fill); setFill(null); }
+  };
 
   const done = async (skip: boolean) => {
     const today = todayISO();
@@ -90,6 +100,10 @@ function Steps({ plan, start, onScanned }: { plan: PlanRow; start: number; onSca
       {step === 2 && (
         <>
           <PlanScan plan={plan} onDone={onScanned} />
+          <details className="rounded-2xl border border-line bg-surface p-3" open={!!chosen.diet}>
+            <summary className="min-h-tap cursor-pointer font-medium">{chosen.diet ? chosen.diet.title : L.diet}</summary>
+            <div className="mt-2"><DietPicker value={chosen.diet?.diet} onPick={pickDiet} fill={!!fill} onFill={fillDiet} /></div>
+          </details>
           <p className="text-sm text-muted">{L.constraintsHint}</p>
           <ul className="divide-y divide-line rounded-2xl border border-line bg-surface">
             {TAGS.map((tag) => {

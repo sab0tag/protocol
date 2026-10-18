@@ -16,7 +16,7 @@ import corpus from '../fixtures/meal-phrases.yaml?raw'; // Vite reads it — no 
 import type { MealItem, Plan } from '../../src/domain/types';
 
 interface Want { name: string; qty?: number; unit?: string; grams?: [number, number]; flags?: string[]; alt_excludes?: string[] }
-interface Row { id: string; phrase: string; profile: 'clean' | 'demo'; expect: Want[]; not_found?: string[]; status: 'fixed' | 'open'; found: string; note?: string }
+interface Row { id: string; phrase: string; profile: string; expect: Want[]; not_found?: string[]; status: 'fixed' | 'open'; found: string; note?: string }
 
 const rows = parse(corpus) as Row[];
 const NOW = new Date('2026-10-17T12:00:00');
@@ -24,7 +24,17 @@ const TODAY = '2026-10-17';
 const foods = new Map(FOODS.map((f) => [f.id, f]));
 
 /** clean — an empty store; demo — what «Подивитись на прикладі» puts in (the plan and its two weeks, so habits count). */
+const DIET_CODE: Record<string, string> = { ovd: 'ОВД', shd: 'ЩД', vbd: 'ВБД', nbd: 'НБД', nkd: 'НКД', d9: '№9', d1a: '№1а', d4: '№4' };
+
 function profile(p: Row['profile']): { ctx: MealContext; plan: Plan } {
+  // D90: «shd_lactose» — a diet of Наказ №931 plus a personal limit, on an empty profile
+  const dl = /^([a-z0-9]+)_([a-z]+)$/.exec(p);
+  if (dl && DIET_CODE[dl[1]!]) {
+    const plan: Plan = { ...emptyPlan(), constraints: [
+      { id: 'diet', tag: 'diet', diet: DIET_CODE[dl[1]!], title: DIET_CODE[dl[1]!]!, reason: '', source: 'Наказ МОЗ №931', active: true },
+      { id: 'own', tag: dl[2] as Plan['constraints'][number]['tag'], title: dl[2]!, reason: '', source: 'лікар', active: true }] };
+    return { ctx: { foods: FOODS, recipes: RECIPES, dishItem, prefer: new Set() }, plan };
+  }
   if (p === 'clean') return { ctx: { foods: FOODS, recipes: RECIPES, dishItem, prefer: new Set() }, plan: emptyPlan() };
   const { entries } = demoData(foods, NOW);
   const prefer = new Set(frequentItems(entries, TODAY, 60, 50).map((f) => f.item.recipe?.id ?? f.item.foodId ?? ''));
@@ -42,7 +52,7 @@ function check(row: Row): string[] {
   const got = read.filter((r) => r.item);
   const out: string[] = [];
   if (got.length !== row.expect.length) out.push(`позицій ${got.length}, очікується ${row.expect.length}: ${got.map((r) => show(r.item)).join('; ') || '—'}`);
-  const checks = row.profile === 'demo' && got.length
+  const checks = row.profile !== 'clean' && got.length
     ? checkMeal({ plan, date: TODAY, foods, dayEntries: [], meal: got.map((r) => r.item!), recentEntries: [] }) : [];
   row.expect.forEach((w, i) => {
     const r = got[i], it = r?.item;

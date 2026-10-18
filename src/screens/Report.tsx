@@ -57,7 +57,7 @@ export function Report() {
       </div>
       <p className="hidden print:block">{dmy(r.from)} — {dmy(r.to)} · {L.days(r.days)}</p>
 
-      {(r.meds || r.deviations || r.labs.length > 0) && (
+      {(r.meds || r.deviations || r.labs.length > 0 || r.dietQuestions.length > 0) && (
         <section aria-label={L.main} className="space-y-2 rounded-2xl border border-accent/40 bg-surface p-3">
           <h2 className="font-semibold">{L.main}</h2>
           {r.meds && <p>{L.meds(r.meds.taken, r.meds.due)}
@@ -77,6 +77,7 @@ export function Report() {
               ))}</tbody>
             </table>
           )}
+          {r.dietQuestions.map((q) => <p key={q} className="text-sm text-warn">{q}</p>)}
           <p className="text-xs text-muted">{L.mainHint}</p>
         </section>
       )}

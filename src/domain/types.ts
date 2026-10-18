@@ -11,6 +11,7 @@ export type ConstraintTag =
   | 'iron' // high ferritin
   | 'sodium' // salt restriction
   | 'allergy' // D58: an allergy confirmed by a doctor, with its allergens
+  | 'diet' // D90: a diet of Наказ МОЗ №931 (a preset: its rules and reference norms), `diet` holds its code
   | 'custom';
 
 export interface Constraint {
@@ -21,6 +22,8 @@ export interface Constraint {
   source: string;
   active: boolean;
   allergens?: Allergen[]; // D58: for `allergy`
+  diet?: string; // D90: for `diet` — the code («ЩД»)
+  off?: string[]; // D90: for `diet` — ids of the preset's rules the person switched off
 }
 
 export interface Prescription {

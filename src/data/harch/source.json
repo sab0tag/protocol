@@ -1,0 +1,14 @@
+{
+ "repo": "sab0tag/harch",
+ "path": "seed/",
+ "commit": "7fa5f79491b4d1291374dcd4832a2bc7bd605075",
+ "taken": "2026-10-18",
+ "verified": false,
+ "note": "Чернетка з Excel-прототипу харчоблоку: норми довідкові, усе не перевірено дієтологом.",
+ "files": {
+  "diets.json": "dd40171a78687e3d",
+  "dishes.json": "85d9f098873154e6",
+  "substitutions.json": "e770a005bd0abfd3",
+  "products.json": "624d7cf4b2443792"
+ }
+}
