@@ -28,6 +28,9 @@ export class Store {
         usd_micro INTEGER NOT NULL, PRIMARY KEY (vault, month, kind));
       CREATE TABLE IF NOT EXISTS pairs (pid TEXT PRIMARY KEY, blob TEXT NOT NULL, expires INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS acks (vault TEXT NOT NULL, rid TEXT NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (vault, rid));
+      CREATE TABLE IF NOT EXISTS concierge_log (id TEXT PRIMARY KEY, vault TEXT NOT NULL, ts INTEGER NOT NULL, scenario TEXT NOT NULL,
+        record TEXT NOT NULL, outcome TEXT, edit TEXT);
+      CREATE INDEX IF NOT EXISTS concierge_log_vault ON concierge_log (vault, ts);
     `);
   }
 
@@ -181,6 +184,24 @@ export class Store {
     return (vault
       ? this.db.prepare('SELECT kind, calls, usd_micro FROM usage WHERE vault = ? AND month = ? ORDER BY kind').all(vault, month)
       : this.db.prepare('SELECT kind, SUM(calls) AS calls, SUM(usd_micro) AS usd_micro FROM usage WHERE month = ? GROUP BY kind ORDER BY kind').all(month)) as never;
+  }
+
+  // ---------------------------------------------------------------- the concierge's log (D91): only with its own consent
+  logConcierge(id: string, vault: string, ts: number, scenario: string, record: unknown) {
+    this.db.prepare('INSERT INTO concierge_log (id, vault, ts, scenario, record) VALUES (?, ?, ?, ?, ?)').run(id, vault, ts, scenario, JSON.stringify(record));
+  }
+  /** What the person did with the answer — on the vault's own record only. */
+  conciergeOutcome(vault: string, id: string, outcome: string, edit: unknown): boolean {
+    return this.db.prepare('UPDATE concierge_log SET outcome = ?, edit = ? WHERE id = ? AND vault = ?')
+      .run(outcome, edit === undefined ? null : JSON.stringify(edit), id, vault).changes > 0;
+  }
+  conciergeLog(vault: string): { id: string; ts: number; scenario: string; record: string; outcome: string | null; edit: string | null }[] {
+    return this.db.prepare('SELECT id, ts, scenario, record, outcome, edit FROM concierge_log WHERE vault = ? ORDER BY ts DESC LIMIT 500').all(vault) as never;
+  }
+  deleteConciergeLog(vault: string): number { return Number(this.db.prepare('DELETE FROM concierge_log WHERE vault = ?').run(vault).changes); }
+  purgeConcierge(before: number): number { return Number(this.db.prepare('DELETE FROM concierge_log WHERE ts < ?').run(before).changes); }
+  conciergeBetween(from: number, to: number): { id: string; vault: string; ts: number; scenario: string; record: string; outcome: string | null; edit: string | null }[] {
+    return this.db.prepare('SELECT id, vault, ts, scenario, record, outcome, edit FROM concierge_log WHERE ts >= ? AND ts < ? ORDER BY ts').all(from, to) as never;
   }
 
   /** A consistent copy of the live database (D36: nightly backups). */

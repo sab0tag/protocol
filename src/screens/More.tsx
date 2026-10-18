@@ -24,6 +24,7 @@ const GROUPS = [
   { title: t.more.app, links: [
     { to: '/frictions', Icon: MessageSquareWarning, title: t.friction.title },
     { to: '/welcome', Icon: UserRound, title: t.welcome.again },
+    { to: '/concierge-log', Icon: Sparkles, title: t.conciergeLog.link },
     { to: '/about', Icon: Info, title: t.about.link },
   ] },
 ];

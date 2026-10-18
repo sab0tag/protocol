@@ -1,3 +1,6 @@
+import { ConciergeNotFound, type Suggested } from '../components/ConciergeNotFound';
+import { whyFlagged } from '../domain/concierge';
+import { conciergeOutcome } from '../sync/api';
 import { format } from 'date-fns';
 import { AllergenNote } from '../components/AllergenPicker';
 import { FavoritesList, pinMeal } from '../components/Favorites';
@@ -7,8 +10,8 @@ import { Loading } from '../components/Recovery';
 import { saved } from '../components/Toast';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Camera, ChevronDown, Plus, Star, Trash2 } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { db } from '../data/db';
 import { useAllEntries, useDayEntries, useFoods, usePlan, useRecentEntries, useRecipes } from '../data/queries';
 import { earlierMeals, frequentItems } from '../domain/habits';
@@ -23,7 +26,7 @@ import { ApiError, photo as recognizePhoto } from '../sync/api';
 import { currentKeys } from '../sync/runner';
 import { shrink } from '../sync/shrink';
 import { Mic } from 'lucide-react';
-import type { Cooking, DayEntry, Food, MealItem, Nutrients } from '../domain/types';
+import type { Cooking, DayEntry, Food, MealItem, Nutrients, Plan } from '../domain/types';
 import { t } from '../i18n/uk';
 import { useUi } from '../store/ui';
 
@@ -54,6 +57,8 @@ export function AddMeal() {
   const [title, setTitle] = useState(() => defaultMealName(time));
   const [eaten, setEaten] = useState(uiDate <= todayISO());
   const [items, setItems] = useState<MealItem[]>([]);
+  const suggested = useRef<Suggested[]>([]); // D91: what the concierge offered and was tapped — its outcome is told on save
+  const concierge = (s: Suggested) => { setItems((xs) => [...xs, s.item]); suggested.current.push(s); };
   const [query, setQuery] = useState('');
   const [free, setFree] = useState(false);
   const [metaOpen, setMetaOpen] = useState(false);
@@ -127,6 +132,13 @@ export function AddMeal() {
     const entry: DayEntry = { id: id ?? newId(), at: atLocal(date, time), kind: 'meal', status: eaten ? 'done' : 'planned',
       title: title.trim() || defaultMealName(time), items: what };
     if (!await saved(db.entries.put(entry).then(() => true), (entry.status === 'done' ? t.toast.meal : t.toast.planned)(entry.title))) return;
+    const keys = currentKeys(); // D91: accepted as offered, the grams corrected, or taken out again
+    for (const s of suggested.current) {
+      if (!s.logId || !keys) continue;
+      const now = what.find((x) => x.name === s.item.name);
+      void conciergeOutcome(keys, s.logId, !now ? 'dismissed' : now.grams === s.item.grams ? 'accepted' : 'edited',
+        now && now.grams !== s.item.grams ? { field: 'grams', from: s.item.grams, to: now.grams } : undefined).catch(() => undefined);
+    }
     useUi.getState().setDate(date);
     navigate('/');
   };
@@ -155,7 +167,8 @@ export function AddMeal() {
           {photo.state === 'nosync' && <p className="mt-2 text-sm text-muted">{t.meal.photoNeedsSync}</p>}
           {!query && <p className="mt-1 flex items-start gap-1 text-xs text-muted"><Mic size={14} className="mt-0.5 shrink-0" aria-hidden />{t.meal.dictate}</p>}
           {phrase && <RecognizedPanel key={query} title={t.meal.recognized} rows={phrase}
-            onAdd={(picked) => { setItems((xs) => [...xs, ...picked]); setQuery(''); }} />}
+            onAdd={(picked) => { setItems((xs) => [...xs, ...picked]); setQuery(''); }}
+            notFound={(text) => recipes && <ConciergeNotFound text={text} plan={plan} foods={foods} recipes={recipes} date={date} onAdd={concierge} />} />}
           {photo.state === 'busy' && <p role="status" className="mt-2 text-sm text-muted">{t.meal.photoBusy}</p>}
           {photo.state === 'error' && <p role="alert" className="mt-2 text-sm text-warn">{photo.message}</p>}
           {photo.state === 'done' && (photo.rows.length > 0
@@ -188,7 +201,9 @@ export function AddMeal() {
           )}
           {/* D83: nothing found is said — never a silent empty space under the field */}
           {!phrase && query.trim().length >= 2 && list.length === 0 && (
-            <p role="status" className="mt-2 text-sm text-muted">«{query.trim()}» — {t.meal.notFound}</p>
+            <><p role="status" className="mt-2 text-sm text-muted">«{query.trim()}» — {t.meal.notFound}</p>
+              {recipes && <ConciergeNotFound key={query.trim()} text={query.trim()} plan={plan} foods={foods} recipes={recipes} date={date}
+                onAdd={(s) => { concierge(s); setQuery(''); }} />}</>
           )}
           {!query && <FavoritesList onAdd={(xs) => setItems((ys) => [...ys, ...xs])} />}
           {!query && !id && items.length === 0 && all && (() => {
@@ -327,7 +342,7 @@ export function AddMeal() {
           {dishSaved && <p role="status" className="mt-1 text-sm text-accent">{dishSaved}</p>}
         </div>
 
-        {items.length > 0 && <CheckPanel checks={checks} anyActive={anyActive} swapped={swapped} eaten={eaten && hasSwaps(checks)} />}
+        {items.length > 0 && <CheckPanel checks={checks} anyActive={anyActive} swapped={swapped} eaten={eaten && hasSwaps(checks)} plan={plan} />}
 
         {/* D78: the totals only once there is something to add up — no «0 ккал» on an empty meal */}
         {items.length > 0 && <div className="rounded-2xl border border-line bg-surface p-3 tabular">
@@ -396,7 +411,9 @@ type PhotoState = { state: 'none' | 'busy' | 'consent' | 'nosync' } | { state: '
   | { state: 'done'; rows: Recognized[]; note?: string };
 
 /** Lines recognized from a dictated phrase (D30) or a photo (D32), each with a tick; nothing is added until «Додати». */
-function RecognizedPanel({ title, rows: given, note, onAdd }: { title: string; rows: Recognized[]; note?: string; onAdd: (items: MealItem[]) => void }) {
+function RecognizedPanel({ title, rows: given, note, onAdd, notFound }: {
+  title: string; rows: Recognized[]; note?: string; onAdd: (items: MealItem[]) => void; notFound?: (text: string) => ReactNode;
+}) {
   const [skip, setSkip] = useState<Set<number>>(new Set());
   const [chosen, setChosen] = useState<Record<number, MealItem>>({}); // D81: another kind picked in one tap
   const rows = given.map((r, k) => (chosen[k] ? { ...r, item: chosen[k], others: [r.item!, ...(r.others ?? [])].filter((o) => o.foodId !== chosen[k]!.foodId) } : r));
@@ -416,7 +433,7 @@ function RecognizedPanel({ title, rows: given, note, onAdd }: { title: string; r
                   {(r.unsure || r.estimate) && <span className="block text-xs text-warn">{[r.unsure && t.meal.photoUnsure, r.estimate && t.meal.photoEstimate].filter(Boolean).join(' · ')}</span>}
                 </span>
               </label>
-            ) : <p className="py-2 text-sm text-muted">«{r.text}» — {t.meal.notFound}</p>}
+            ) : <div className="py-2"><p className="text-sm text-muted">«{r.text}» — {t.meal.notFound}</p>{notFound?.(r.text)}</div>}
             {r.item && r.others && r.others.length > 0 && (
               <p className="flex flex-wrap items-center gap-1 pb-1 pl-8 text-sm"><span className="text-muted">{t.meal.orOther}</span>
                 {r.others.map((o) => (
@@ -485,7 +502,8 @@ function cookable(food: Food | undefined): boolean {
 }
 
 /** «Перевірка»: each item's verdict with the reason, the meal as a whole, and what «Записати заміну» would write. */
-function CheckPanel({ checks, anyActive, swapped, eaten }: { checks: ItemCheck[]; anyActive: boolean; swapped: MealItem[] | null; eaten: boolean }) {
+function CheckPanel({ checks, anyActive, swapped, eaten, plan }: { checks: ItemCheck[]; anyActive: boolean; swapped: MealItem[] | null; eaten: boolean; plan: Plan | undefined }) {
+  const [why, setWhy] = useState<string | null>(null); // D91: «Чому?» — open for one flag at a time
   if (!anyActive) return <p className="rounded-2xl border border-line bg-surface p-3 text-muted">{t.check.noPlan}</p>;
   const v = mealVerdict(checks);
   return (
@@ -500,9 +518,14 @@ function CheckPanel({ checks, anyActive, swapped, eaten }: { checks: ItemCheck[]
               <Badge verdict={hits[0]?.verdict ?? 'ok'} />
             </div>
             {hits.map((h, j) => (
-              <p key={j} className="text-sm">
-                {j > 0 && <Badge verdict={h.verdict} small />} {h.itemName !== item.name && <span className="font-medium">{h.itemName}: </span>}{h.message}{h.suggestion && <span className="text-muted"> → {h.suggestion}</span>}
-              </p>
+              <div key={j} className="text-sm">
+                <p>{j > 0 && <Badge verdict={h.verdict} small />} {h.itemName !== item.name && <span className="font-medium">{h.itemName}: </span>}{h.message}{h.suggestion && <span className="text-muted"> → {h.suggestion}</span>}
+                  {plan && <button type="button" onClick={() => setWhy(why === `${i}:${j}` ? null : `${i}:${j}`)} aria-expanded={why === `${i}:${j}`}
+                    className="ml-2 min-h-[2rem] px-1 text-accent underline">{t.why.ask}</button>}</p>
+                {plan && why === `${i}:${j}` && (
+                  <p className="mt-1 rounded-lg bg-bg p-2">{whyFlagged(h, plan).text} <Link to="/plan" className="text-accent underline">{t.why.openPlan}</Link></p>
+                )}
+              </div>
             ))}
           </li>
         ))}

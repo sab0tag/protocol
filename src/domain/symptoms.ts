@@ -15,6 +15,11 @@ export const DANGER = ['Набряк губ, язика чи горла', 'Ва�
 
 export const isDanger = (s: string) => (DANGER as readonly string[]).includes(s);
 
+/** D91: a danger sign written in free text — the concierge shows the 103 card instead of any answer of its own. */
+const DANGER_WORDS = [/важко\s+дихати|не\s+можу\s+дихати|задиха/iu, /набр[яе]к\S*\s+(губ|язик|горл|облич)/iu, /(губ|язик|горло)\S*\s+набряк/iu,
+  /висип\S*\s+по\s+(всьому\s+)?тілу/iu, /запаморочен|непритом|втрат\S*\s+свідом/iu, /бол\S*\s+(у|в)\s+грудях|біль\s+(у|в)\s+грудях/iu];
+export const dangerInText = (text: string) => DANGER_WORDS.some((re) => re.test(text));
+
 /** How far back «що їли перед цим» looks. */
 export const BEFORE_HOURS = 6;
 

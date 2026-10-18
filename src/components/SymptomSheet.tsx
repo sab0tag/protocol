@@ -1,8 +1,9 @@
 // «Мені погано» (SPEC.md D56): what is felt, since when, how strongly — and right below, what was eaten in the
 // hours before, so the person sees it side by side. A danger sign shows «телефонуйте 103» at once, before anything
 // is saved. The app records and shows; it never says what caused it.
+import { DangerCard } from './DangerCard';
 import { format } from 'date-fns';
-import { Phone, Plus, TriangleAlert } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { useState } from 'react';
 import { db } from '../data/db';
 import { atLocal, newId, timeOf, todayISO } from '../domain/dates';
@@ -54,12 +55,7 @@ export function SymptomSheet({ date, entry, all, foods, onClose }: { date: strin
       <div className="flex flex-wrap gap-2" role="group" aria-label={L.danger}>
         {DANGER.map((s) => <button key={s} type="button" aria-pressed={picked.includes(s)} onClick={() => toggle(s)} className={chip(picked.includes(s), true)}>{s}</button>)}
       </div>
-      {danger && (
-        <div role="alert" className="mt-3 space-y-2 rounded-xl border border-warn bg-warn-bg p-3 text-warn">
-          <p className="flex items-start gap-2 font-medium"><TriangleAlert size={20} className="mt-0.5 shrink-0" aria-hidden />{L.dangerAlert}</p>
-          <a href="tel:103" className="flex min-h-tap items-center justify-center gap-2 rounded-xl bg-warn px-4 font-semibold text-surface"><Phone size={18} aria-hidden />{L.call}</a>
-        </div>
-      )}
+      {danger && <DangerCard />}
 
       <div className="mt-3 grid grid-cols-[8rem_1fr] items-end gap-3">
         <label className="block"><span className="text-sm text-muted">{L.when}</span>

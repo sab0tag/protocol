@@ -9,6 +9,8 @@ import type { WorkoutMaker } from './workout.ts';
 import type { LabsReader } from './labs.ts';
 import type { ConclusionReader } from './conclusion.ts';
 import type { MedboxReader } from './medbox.ts';
+import { PROMPT_NOT_FOUND, userLabel, type NotFoundReader } from './concierge.ts';
+import { randomBytes } from 'node:crypto';
 import type { Usage } from './photo.ts';
 import type { LabelReader } from './label.ts';
 import type { Recognizer } from './photo.ts';
@@ -22,9 +24,10 @@ export interface Limits {
   photosPerDay: number;
   menusPerVaultPerDay: number;
   workoutsPerVaultPerDay: number; // D63
+  conciergePerVaultPerDay: number; // D91
 }
 
-export const DEFAULT_LIMITS: Limits = { vaultsPerIpPerDay: 5, vaultBytes: 50_000_000, photosPerVaultPerDay: 30, photosPerDay: 150, menusPerVaultPerDay: 15, workoutsPerVaultPerDay: 10 };
+export const DEFAULT_LIMITS: Limits = { vaultsPerIpPerDay: 5, vaultBytes: 50_000_000, photosPerVaultPerDay: 30, photosPerDay: 150, menusPerVaultPerDay: 15, workoutsPerVaultPerDay: 10, conciergePerVaultPerDay: 60 };
 
 export interface Deps {
   store: Store;
@@ -34,6 +37,8 @@ export interface Deps {
   labs?: LabsReader; // D68: the same
   conclusion?: ConclusionReader; // D80: a doctor's conclusion — the same
   medbox?: MedboxReader; // D89: a medicine package — the same
+  notFound?: NotFoundReader; // D91: the concierge, scenario 1
+  conciergeModel?: string; // D91: written into the log's versions
   label?: LabelReader; // the same (D45)
   push?: { publicKey: string; send: Sender };
   backupAgeH?: () => number | null;
@@ -279,6 +284,67 @@ export function createApp(deps: Deps) {
     }
   });
 
+  // ---------------------------------------------------------------- the concierge (D91)
+  const OUTCOMES = new Set(['accepted', 'edited', 'dismissed', 'snoozed', 'ignored']);
+  /** Scenario 1: what a line the base did not find is like — names from the base the app sent, at most 3. Logged only
+   *  when the request says the person agreed to the log (a consent of its own, not the sync's). */
+  app.post('/v1/vaults/:id/concierge/not-found', bodyLimit({ maxSize: 64_000, onError: (c) => c.json({ error: 'too_large' }, 413) }), async (c) => {
+    const id = authed(c);
+    if (typeof id !== 'string') return id;
+    if (!deps.notFound) return c.json({ error: 'ai_off' }, 503);
+    const body = await c.req.json().catch(() => null) as { text?: unknown; names?: unknown; log?: unknown; versions?: unknown; context?: unknown } | null;
+    const text = typeof body?.text === 'string' ? body.text.trim().slice(0, 200) : '';
+    const names = list(body?.names, 600, 80);
+    if (!text || !names.length) return c.json({ error: 'bad_request' }, 400);
+    const at = now();
+    if (!store.take(`concierge:${id}`, limits.conciergePerVaultPerDay, at)) return c.json({ error: 'too_many' }, 429);
+    const started = Date.now();
+    try {
+      const { result, usage } = await deps.notFound(text, names);
+      spent(id, 'concierge', usage);
+      ai.lastOk = Date.now();
+      if (result === 'refused') return c.json({ error: 'refused' }, 422);
+      const known = new Set(names);
+      const candidates = [...new Set(result.candidates)].filter((n) => known.has(n)).slice(0, 3); // the code's check on the way out
+      let logId: string | undefined;
+      if (body?.log === true) {
+        logId = `c-${at.toISOString().slice(0, 10)}-${randomBytes(3).toString('hex')}`;
+        const v = (body.versions ?? {}) as Record<string, unknown>;
+        store.logConcierge(logId, id, at.getTime(), 'not_found', {
+          id: logId, ts: at.toISOString(), user: userLabel(id), scenario: 'not_found',
+          versions: { app: String(v.app ?? '').slice(0, 40), model: deps.conciergeModel ?? '', prompt: PROMPT_NOT_FOUND, plan: String(v.plan ?? '').slice(0, 40) },
+          context: typeof body.context === 'object' && body.context ? body.context : {}, input: text,
+          output: { items: candidates.map((name) => ({ name })) },
+          checker: { from_db: result.candidates.every((n) => known.has(n)), count: result.candidates.length, numbers_match: true },
+          latency_ms: Date.now() - started,
+        });
+      }
+      return c.json({ candidates, ...(logId ? { id: logId } : {}) });
+    } catch (e) {
+      ai.lastError = Date.now();
+      console.error('concierge failed:', (e as Error).message);
+      return c.json({ error: 'upstream' }, 502);
+    }
+  });
+  app.post('/v1/vaults/:id/concierge/outcome', async (c) => {
+    const id = authed(c);
+    if (typeof id !== 'string') return id;
+    const body = await c.req.json().catch(() => null) as { id?: unknown; outcome?: unknown; edit?: unknown } | null;
+    if (typeof body?.id !== 'string' || typeof body.outcome !== 'string' || !OUTCOMES.has(body.outcome)) return c.json({ error: 'bad_request' }, 400);
+    return c.json({ ok: store.conciergeOutcome(id, body.id, body.outcome, body.edit) });
+  });
+  /** The person's own log — to look at, and to delete in one tap. */
+  app.get('/v1/vaults/:id/concierge/log', (c) => {
+    const id = authed(c);
+    if (typeof id !== 'string') return id;
+    return c.json(store.conciergeLog(id).map((r) => ({ ...JSON.parse(r.record), outcome: r.outcome, ...(r.edit ? { edit: JSON.parse(r.edit) } : {}) })));
+  });
+  app.delete('/v1/vaults/:id/concierge/log', (c) => {
+    const id = authed(c);
+    if (typeof id !== 'string') return id;
+    return c.json({ deleted: store.deleteConciergeLog(id) });
+  });
+
   /** This month's AI use of the vault: calls and an estimate in dollars (D36). */
   app.get('/v1/vaults/:id/usage', (c) => {
     const id = authed(c);
@@ -289,7 +355,7 @@ export function createApp(deps: Deps) {
       usd: Math.round(rows.reduce((s, r) => s + r.usd_micro, 0) / 10_000) / 100 });
   });
 
-  app.get('/health', (c) => c.json({ ok: true, photo: !!recognize, menu: !!menu, workout: !!deps.workout, labs: !!deps.labs, conclusion: !!deps.conclusion, medbox: !!deps.medbox, label: !!deps.label, push: !!deps.push,
+  app.get('/health', (c) => c.json({ ok: true, photo: !!recognize, menu: !!menu, workout: !!deps.workout, labs: !!deps.labs, conclusion: !!deps.conclusion, medbox: !!deps.medbox, concierge: !!deps.notFound, label: !!deps.label, push: !!deps.push,
     ai: { lastOk: ai.lastOk || null, lastError: ai.lastError || null, failing: ai.lastError > ai.lastOk },
     backupAgeH: deps.backupAgeH?.() ?? null }));
 

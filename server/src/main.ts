@@ -7,6 +7,8 @@ import { claudeWorkout } from './workout.ts';
 import { claudeLabs } from './labs.ts';
 import { claudeConclusion } from './conclusion.ts';
 import { claudeMedbox } from './medbox.ts';
+import { claudeNotFound } from './concierge.ts';
+import { conciergeHousekeeping } from './conciergeLog.ts';
 import { claudeRecognizer } from './photo.ts';
 import { tick, vapidKeys, webPushSender } from './push.ts';
 import { Store } from './store.ts';
@@ -28,6 +30,8 @@ const app = createApp({
   labs: env.ANTHROPIC_API_KEY ? claudeLabs({ model: env.PHOTO_MODEL ?? 'claude-opus-5-5', effort }) : undefined, // D68
   conclusion: env.ANTHROPIC_API_KEY ? claudeConclusion({ model: env.PHOTO_MODEL ?? 'claude-opus-5-5', effort }) : undefined, // D80
   medbox: env.ANTHROPIC_API_KEY ? claudeMedbox({ model: env.PHOTO_MODEL ?? 'claude-opus-5-5', effort }) : undefined, // D89
+  notFound: env.ANTHROPIC_API_KEY ? claudeNotFound({ model: env.CONCIERGE_MODEL ?? env.PHOTO_MODEL ?? 'claude-opus-5-5', effort: 'low' }) : undefined, // D91
+  conciergeModel: env.CONCIERGE_MODEL ?? env.PHOTO_MODEL ?? 'claude-opus-5-5',
   menu: env.ANTHROPIC_API_KEY
     ? claudeMenu({ model: env.MENU_MODEL ?? 'claude-opus-5-5', effort: (env.MENU_EFFORT ?? 'medium') as 'low' | 'medium' | 'high' }) : undefined,
   workout: env.ANTHROPIC_API_KEY // D63
@@ -53,6 +57,7 @@ const timer = setInterval(() => {
 // D36: a backup a day — checked hourly, made once per date (after 03:00 Kyiv ≈ 00:00–01:00 UTC)
 const backupTimer = setInterval(() => {
   backupOnce(store, backups, new Date()).catch((e) => console.error('backup failed:', (e as Error).message));
+  try { conciergeHousekeeping(store, `${backups}/concierge`, new Date()); } catch (e) { console.error('concierge log housekeeping failed:', (e as Error).message); } // D91
 }, 3600_000);
 setTimeout(() => backupOnce(store, backups, new Date()).catch((e) => console.error('backup failed:', (e as Error).message)), 60_000);
 for (const sig of ['SIGINT', 'SIGTERM'] as const) process.on(sig, () => { clearInterval(timer); clearInterval(backupTimer); server.close(); store.close(); process.exit(0); });

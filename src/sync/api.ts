@@ -51,6 +51,15 @@ export const labs = (keys: Keys, image: string, names: string[]) => call<LabsRes
 export const conclusion = (keys: Keys, image: string) => call<ConclusionResult>(keys, 'POST', '/conclusion', { image }); // D80
 export interface MedboxResult { readable: boolean; name: string | null; inn: string | null; strength: string | null; form: string | null; note: string | null }
 export const medbox = (keys: Keys, image: string) => call<MedboxResult>(keys, 'POST', '/medbox', { image }); // D89
+// D91: the concierge
+export interface NotFoundBody { text: string; names: string[]; log: boolean; versions: { app: string; plan: string }; context: Record<string, unknown> }
+export const conciergeNotFound = (keys: Keys, body: NotFoundBody) => call<{ candidates: string[]; id?: string }>(keys, 'POST', '/concierge/not-found', body);
+export type Outcome = 'accepted' | 'edited' | 'dismissed' | 'snoozed' | 'ignored';
+export const conciergeOutcome = (keys: Keys, id: string, outcome: Outcome, edit?: unknown) =>
+  call<{ ok: boolean }>(keys, 'POST', '/concierge/outcome', { id, outcome, ...(edit ? { edit } : {}) });
+export interface LogRecord { id: string; ts: string; scenario: string; input: string; output: { items: { name: string }[] }; outcome: Outcome | null }
+export const conciergeLog = (keys: Keys) => call<LogRecord[]>(keys, 'GET', '/concierge/log');
+export const deleteConciergeLog = (keys: Keys) => call<{ deleted: number }>(keys, 'DELETE', '/concierge/log');
 // D63
 export const aiWorkout = (keys: Keys, body: WorkoutBody) => call<AiWorkout>(keys, 'POST', '/workout', body);
 

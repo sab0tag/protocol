@@ -256,3 +256,54 @@ describe('a medicine package (D89)', () => {
       body: JSON.stringify({ image: JPEG }) })).status).toBe(503);
   });
 });
+
+describe('the concierge, scenario 1, and its log (D91)', () => {
+  const names = ['Пиріжок з капустою печений', 'Пиріжок з картоплею', 'Вареники з картоплею', 'Чай без цукру'];
+  const setup = (log = true) => {
+    const store = new Store(':memory:');
+    let asked = '';
+    const app = createApp({ store, origins: [], conciergeModel: 'test-model',
+      notFound: async (text) => { asked = text; return { result: { candidates: ['Пиріжок з капустою печений', 'Вигадана страва', 'Пиріжок з картоплею', 'Вареники з картоплею', 'Чай без цукру'] } }; } });
+    const call = (path: string, init: RequestInit = {}) => app.request(`/v1/vaults/${VAULT}${path}`, { ...init,
+      headers: { Authorization: `Bearer ${AUTH}`, 'Content-Type': 'application/json' } });
+    return { store, app, call, asked: () => asked, log };
+  };
+  it('only names from the base, at most 3; logged only with consent; outcome on the own record; the log seen and deleted', async () => {
+    const { call, asked } = setup();
+    await call('', { method: 'PUT' });
+    const r = await call('/concierge/not-found', { method: 'POST', body: JSON.stringify({ text: 'бабусин пиріжок від Олени', names, log: true, versions: { app: 'x', plan: 'a1b2c3d4' } }) });
+    const body = await r.json() as { candidates: string[]; id: string };
+    expect(asked()).toBe('бабусин пиріжок від Олени');
+    expect(body.candidates).toEqual(['Пиріжок з капустою печений', 'Пиріжок з картоплею', 'Вареники з картоплею']); // the invented one dropped
+    expect(body.id).toMatch(/^c-\d{4}-\d{2}-\d{2}-[0-9a-f]{6}$/);
+    expect((await (await call('/concierge/outcome', { method: 'POST', body: JSON.stringify({ id: body.id, outcome: 'edited', edit: { field: 'grams', from: 80, to: 120 } }) })).json())).toEqual({ ok: true });
+    expect((await call('/concierge/outcome', { method: 'POST', body: JSON.stringify({ id: body.id, outcome: 'whatever' }) })).status).toBe(400);
+    const log = await (await call('/concierge/log')).json() as { outcome: string; checker: { from_db: boolean }; versions: { model: string; plan: string }; user: string }[];
+    expect(log).toHaveLength(1);
+    expect(log[0]).toMatchObject({ outcome: 'edited', checker: { from_db: false }, versions: { model: 'test-model', plan: 'a1b2c3d4' } });
+    expect(log[0]!.user).toMatch(/^p-[0-9a-f]{4}$/);
+    const none = await call('/concierge/not-found', { method: 'POST', body: JSON.stringify({ text: 'пиріжок', names }) });
+    expect((await none.json() as { id?: string }).id).toBeUndefined(); // no consent — nothing written
+    expect(await (await call('/concierge/log', { method: 'DELETE' })).json()).toEqual({ deleted: 1 });
+  });
+  it('the weekly export: a label instead of the vault, names replaced; kept 30 days', async () => {
+    const { conciergeHousekeeping, isoWeek } = await import('../src/conciergeLog.ts');
+    const { scrubNames } = await import('../src/concierge.ts');
+    const { mkdtempSync, readFileSync } = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    expect(scrubNames('бабусин пиріжок від Олени. Олена пекла з ЩД')).toBe('бабусин пиріжок від [ім’я]. Олена пекла з ЩД');
+    expect(isoWeek(new Date('2026-10-18T12:00:00Z')).slice(0, 2)).toEqual([2026, 42]);
+    const store = new Store(':memory:');
+    const tuesday = Date.parse('2026-10-13T10:00:00Z');
+    store.logConcierge('c-1', VAULT, tuesday, 'not_found', { id: 'c-1', input: 'пиріжок від Олени', user: 'x' });
+    store.logConcierge('c-old', VAULT, tuesday - 40 * 86_400_000, 'not_found', { id: 'c-old', input: 'старе' });
+    const dir = mkdtempSync(`${tmpdir()}/concierge-`);
+    const done = conciergeHousekeeping(store, dir, new Date('2026-10-19T09:00:00Z')); // a Monday — last week out
+    expect(done.purged).toBe(1);
+    const line = JSON.parse(readFileSync(done.exported!, 'utf8').trim()) as { input: string; user: string; outcome: string };
+    expect(done.exported).toMatch(/concierge-log-2026-42\.jsonl$/);
+    expect(line).toMatchObject({ input: 'пиріжок від [ім’я]', outcome: 'ignored' });
+    expect(line.user).toMatch(/^p-[0-9a-f]{4}$/);
+    expect(conciergeHousekeeping(store, dir, new Date('2026-10-19T10:00:00Z')).exported).toBeUndefined(); // once a week
+  });
+});

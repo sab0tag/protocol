@@ -31,6 +31,8 @@ export interface SyncMeta {
   labsConsent?: boolean; // D68: lab values go to Claude only after this
   conclusionConsent?: boolean; // D80: a photo of a doctor's conclusion — the same
   medboxConsent?: boolean; // D89: a photo of a medicine package — the same
+  conciergeConsent?: boolean; // D91: the concierge may send a line and the base's names to Claude
+  conciergeLog?: boolean; // D91: its calls are logged for the weekly review — a consent of its own, off by default
   device?: string; // D34: this device's id for push
   reminders?: ReminderSettings & { on: boolean };
   snoozed?: Record<string, number>; // D35: «Пізніше» — reminder key → until (ms)

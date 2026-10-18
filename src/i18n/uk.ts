@@ -2,6 +2,25 @@
 export const t = {
   app: 'Протокол',
   nav: { day: 'День', food: 'Їжа', plan: 'План', progress: 'Прогрес', more: 'Ще' },
+  why: { // D91: «Чому позначено?» — from the plan itself
+    ask: 'Чому?', openPlan: 'Відкрити в плані',
+    plan: (title: string, reason: string, source: string) => `У вашому плані: «${title}»${reason ? ` — ${reason}` : ''}${source ? ` (${source})` : ''}.`,
+    found: (item: string, message: string, suggestion?: string) => `Тут: ${item} — ${message.charAt(0).toLowerCase()}${message.slice(1)}${suggestion ? `; ${suggestion.charAt(0).toLowerCase()}${suggestion.slice(1)}` : ''}.`,
+  },
+  concierge: { // D91: scenario 1 — a line the base did not find
+    ask: 'Запитати ІІ, на що схоже', busy: 'Шукаю схоже в базі…', like: 'Схоже на', yes: 'Так, додати', no: 'Ні, не те',
+    none: 'Нічого схожого в базі — додайте вручну.',
+    consent: 'Назва з вашого запису й список назв бази йдуть через наш сервер до Claude (Anthropic): ІІ лише обере до 3 схожих страв із бази. Грами рахує застосунок, нічого не запишеться без вашого натиску.',
+    logAsk: 'Записувати ці звернення для покращення помічника (30 днів, без імені; переглянути й видалити — «Ще → Журнал помічника»)',
+    allow: 'Дозволити й запитати', needsSync: 'Помічник працює через наш сервер — для цього потрібна синхронізація.',
+  },
+  conciergeLog: { // D91
+    title: 'Журнал помічника', link: 'Журнал помічника (ІІ)',
+    hint: 'Що ІІ-помічник пропонував і що ви з цим зробили. Записується лише з вашої згоди, зберігається 30 днів; раз на тиждень — знеособлений розбір для покращення.',
+    consent: 'Записувати звернення до помічника', empty: 'Записів немає.', delete: 'Видалити мій журнал', deleted: (n: number) => `Видалено записів: ${n}`,
+    outcome: { accepted: 'прийнято', edited: 'виправлено', dismissed: 'відхилено', snoozed: 'не сьогодні', ignored: 'без відповіді' } as Record<string, string>,
+    needsSync: 'Журнал зберігається на нашому сервері — для нього потрібна синхронізація.',
+  },
   diet: { // D90
     search: 'Дієта або номер столу', searchPh: 'Напр.: ЩД або «стіл 5»', list: 'Дієти за Наказом МОЗ №931',
     byTable: (n: string, code: string) => `Стіл №${n} тепер — ${code}. Підтвердіть, що лікар призначив саме це.`,
