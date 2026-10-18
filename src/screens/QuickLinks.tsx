@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { t } from '../i18n/uk';
 
 const L = t.quick;
-const ACTIONS = [['water', L.water], ['water?ml=500', L.water500], ['med', L.med], ['symptom', L.symptom], ['meal', L.meal]] as const;
+const ACTIONS = [['voice', t.voice.open], ['water', L.water], ['water?ml=500', L.water500], ['med', L.med], ['symptom', L.symptom], ['meal', L.meal]] as const;
 
 export function QuickLinks() {
   const base = `${location.origin}${location.pathname}#/do/`;

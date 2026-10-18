@@ -262,3 +262,41 @@ describe('sync between two devices', () => {
     expect(hashOf({ a: 1 })).not.toBe(hashOf({ a: 2 }));
   });
 });
+
+describe('a server that rolls a record back (D96)', () => {
+  it('an older version of a record this device already agreed on is not taken; the newer one goes up again', async () => {
+    const code = newCode();
+    const keys = await deriveKeys(parseCode(code)!);
+    const server = fakeServer();
+    const phone = await device(code), laptop = await device(code);
+    await phone.plan.update('main', { onboardedAt: '2026-10-01', targets: { kcal: 1800 } });
+    await syncOnce(phone, keys, server.api, 1_000_000);
+    await syncOnce(laptop, keys, server.api, 1_100_000);
+    const k = await recordKey(keys, 'plan:main#targets');
+    const old = server.records.get(k)!.v!; // the sealed version of an hour before — the server keeps a copy
+    await laptop.plan.update('main', { targets: { kcal: 1600 } }); // the doctor changed it
+    await syncOnce(laptop, keys, server.api, 9_000_000);
+    await syncOnce(phone, keys, server.api, 9_100_000);
+    expect((await phone.plan.get('main'))!.targets).toEqual({ kcal: 1600 });
+    server.records.set(k, { k, v: old, seq: 999 }); // a rollback: the old, validly sealed record served as the newest
+    const r = await syncOnce(phone, keys, server.api, 12_000_000);
+    expect(r.rolledBack).toBe(1);
+    expect((await phone.plan.get('main'))!.targets).toEqual({ kcal: 1600 }); // not 1800
+    expect(r.pushed).toBeGreaterThanOrEqual(1); // and the right one went up again
+    await syncOnce(laptop, keys, server.api, 12_100_000);
+    expect((await laptop.plan.get('main'))!.targets).toEqual({ kcal: 1600 });
+  });
+  it('a clock a minute behind is not a rollback', async () => {
+    const code = newCode();
+    const keys = await deriveKeys(parseCode(code)!);
+    const server = fakeServer();
+    const phone = await device(code), laptop = await device(code);
+    await phone.plan.update('main', { onboardedAt: '2026-10-01', targets: { kcal: 1800 } });
+    await syncOnce(phone, keys, server.api, 1_000_000);
+    await syncOnce(laptop, keys, server.api, 1_000_000);
+    await laptop.plan.update('main', { targets: { kcal: 1700 } });
+    await syncOnce(laptop, keys, server.api, 1_000_000 - 60_000); // its clock is a minute behind the phone's
+    expect((await syncOnce(phone, keys, server.api, 1_010_000)).rolledBack).toBeUndefined();
+    expect((await phone.plan.get('main'))!.targets).toEqual({ kcal: 1700 });
+  });
+});

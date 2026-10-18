@@ -5,12 +5,12 @@ import { markMeds, TimeChoice } from '../components/MarkTime';
 import { ConfirmMeal } from '../components/ConfirmMeal';
 import { SymptomSheet } from '../components/SymptomSheet';
 import { saved } from '../components/Toast';
-import { Check, Droplet, Dumbbell, Frown, HeartPulse, ListChecks, NotebookPen, Pencil, Pill, Plus, Sparkles, Star, Target, Trash2, Undo2, UtensilsCrossed, X } from 'lucide-react';
+import { Check, Droplet, Dumbbell, Frown, HeartPulse, ListChecks, Mic, NotebookPen, Pencil, Pill, Plus, Sparkles, Star, Target, Trash2, Undo2, UtensilsCrossed, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Sheet, SheetButton } from '../components/Sheet';
 import { db } from '../data/db';
-import { useAllEntries, useDayEntries, useFoods, usePlan, useWorkouts } from '../data/queries';
+import { useAllEntries, useDayEntries, useFoods, usePlan, useRecipes, useWorkouts } from '../data/queries';
 import { buildChecklist, type CheckItem } from '../domain/checklist';
 import { NOW_AFTER_MIN } from '../domain/reminders';
 import { habits, mealsOf, frequentItems } from '../domain/habits';
@@ -18,7 +18,7 @@ import { addDays, parseISO as parseDay } from 'date-fns';
 import { amountText } from '../domain/foodSearch';
 import { exportDue } from '../data/backup';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { atLocal, newId, timeOf, todayISO } from '../domain/dates';
+import { atLocal, dateOf, newId, timeOf, todayISO } from '../domain/dates';
 import { activeMode, dayTotals, effectiveTargets } from '../domain/nutrition';
 import type { DayEntry, EntryKind } from '../domain/types';
 import { t } from '../i18n/uk';
@@ -33,6 +33,7 @@ import { ExampleNotice } from '../components/ExampleNotice';
 import { hasExample } from '../data/seed.example';
 import { DaySummary } from '../components/DaySummary';
 import { TopupCard } from '../components/TopupCard';
+import { VoiceSheet } from '../components/VoiceSheet';
 import { nearLimit, topups, type DayState } from '../domain/topup';
 import { dayRhythm } from '../domain/rhythm';
 import { runningLow } from '../domain/stock';
@@ -45,6 +46,8 @@ export function Day() {
   const { date, setDate } = useUi();
   // D34: a reminder opens its day (#/?date=…)
   const [params, setParams] = useSearchParams();
+  const [voice, setVoice] = useState(false); // D95
+  const recipes = useRecipes();
   const linked = params.get('date');
   useEffect(() => {
     if (linked && /^\d{4}-\d{2}-\d{2}$/.test(linked)) { setDate(linked); setParams({}, { replace: true }); }
@@ -52,6 +55,7 @@ export function Day() {
   const opening = params.get('open'); // D66: `#/do/symptom` lands here
   useEffect(() => {
     if (opening === 'symptom') { setSymptom({}); setParams({}, { replace: true }); }
+    if (opening === 'voice') { setVoice(true); setParams({}, { replace: true }); } // D95: `#/do/voice` — Back Tap straight to the voice
   }, [opening, setParams]);
   const entries = useDayEntries(date);
   const foods = useFoods();
@@ -173,6 +177,9 @@ export function Day() {
         <button type="button" onClick={() => navigate('/meal/new')}
           className="flex min-h-[3.5rem] flex-1 items-center justify-center gap-2 rounded-2xl border border-accent/40 bg-surface text-lg font-semibold text-accent shadow-sm">
           <UtensilsCrossed size={22} aria-hidden />{t.day.recordFood}</button>
+        {/* D95: say it — a meal, a medicine, water — in one window */}
+        <button type="button" onClick={() => setVoice(true)} aria-label={t.voice.open}
+          className="flex min-h-[3.5rem] w-14 shrink-0 items-center justify-center rounded-2xl border border-accent/40 bg-surface text-accent shadow-sm"><Mic size={22} aria-hidden /></button>
         {/* D56: a symptom with its time, next to the food it may follow */}
         <button type="button" onClick={() => setSymptom({})}
           className="flex min-h-[3.5rem] shrink-0 items-center justify-center gap-1.5 rounded-2xl border border-line bg-surface px-3 font-medium shadow-sm">
@@ -229,6 +236,10 @@ export function Day() {
       {totals && <DaySummary totals={totals} targets={targets} meds={{ done: meds.filter((i) => i.done).length, total: meds.length }}
         {...(isToday && best ? { streak: t.day.streak(t.progress.habit[best.key], best.streak) } : {})} />}
 
+      {voice && foods && all && (() => { const c = checklist ?? buildChecklist({ plan, date, entries: entries ?? [], workouts: workouts ?? [], foods, now: new Date() }); return (
+        <VoiceSheet date={date} plan={plan} foods={foods} recipes={recipes ?? []} today={entries ?? []}
+          yesterday={all.filter((e) => dateOf(e.at) === prevDay)} onClose={() => setVoice(false)}
+          meds={c.items.filter((i) => i.kind === 'med').map((i) => ({ key: i.key, title: i.title, ...(i.prescriptionId ? { prescriptionId: i.prescriptionId } : {}) }))} />); })()}
       {rowFor && (
         <Sheet title={rowFor.title} onClose={() => setRowFor(null)}>
           <EntryPreview entry={rowFor} foods={foods} {...(all ? { all } : {})} />

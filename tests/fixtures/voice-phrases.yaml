@@ -1,0 +1,100 @@
+# Голосове вікно (SPEC.md D95): сказане → чернетка → команди над нею. Код, без моделі — точне порівняння.
+# say — те, що людина сказала, по черзі (перше — фраза, далі — команди або «ще»); profile: clean | demo
+# expect: title; items — назва, кількість/одиниця, sure (кількість названо або природна — інакше застосунок питає);
+#         meds — назви ліків; water — мл; not_found; ready — чи можна записати без уточнень
+# status: fixed | open; рядки не видаляються.
+
+- id: breakfast-eggs-bread-coffee
+  say: ["на сніданок з'їв два яйця, 60 грамів хліба і випив каву з молоком"]
+  profile: clean
+  expect:
+    title: Сніданок
+    items:
+      - { name: "Яйце варене", qty: 2, unit: шт, sure: true }
+      - { name: "Білий хліб (батон)", grams: [55, 65], sure: true }
+      - { name: "Кава з молоком (без цукру)", sure: true }
+    ready: true
+  status: fixed
+  found: 2026-10-18
+
+- id: quantity-not-said-asks
+  say: ["на обід гречка з куркою і салат"]
+  profile: clean
+  expect:
+    title: Обід
+    items:
+      - { name: "Гречка з куркою", sure: false }
+      - { name: "Салат овочевий з олією", sure: false }
+    ready: false
+  status: fixed
+  found: 2026-10-18
+  note: "Порцію ніхто не назвав — застосунок питає, а не вигадує грами."
+
+- id: remove-milk
+  say: ["кава з молоком і печиво", "прибери печиво"]
+  profile: clean
+  expect:
+    items:
+      - { name: "Кава з молоком (без цукру)" }
+  status: fixed
+  found: 2026-10-18
+
+- id: bread-was-40
+  say: ["два шматки хліба і чай", "хліба було 40 грамів"]
+  profile: clean
+  expect:
+    items:
+      - { name: "Білий хліб (батон)", grams: [40, 40], sure: true }
+      - { name: "Чай без цукру" }
+  status: fixed
+  found: 2026-10-18
+
+- id: add-more
+  say: ["гречка 200 грамів", "додай яблуко"]
+  profile: clean
+  expect:
+    items:
+      - { name: "Гречка варена", grams: [200, 200] }
+      - { name: "Яблуко", qty: 1, unit: шт }
+    ready: true
+  status: fixed
+  found: 2026-10-18
+
+- id: med-and-water
+  say: ["вітамін д випив і дві склянки води"]
+  profile: demo
+  expect:
+    meds: ["Вітамін D"]
+    water: 500
+    items: []
+    ready: true
+  status: fixed
+  found: 2026-10-18
+
+- id: half-litre
+  say: ["пів літра води"]
+  profile: clean
+  expect: { water: 500, items: [], ready: true }
+  status: fixed
+  found: 2026-10-18
+
+- id: not-found-goes-to-concierge
+  say: ["бабусин пиріжок і чай з цукром"]
+  profile: clean
+  expect:
+    items:
+      - { name: "Чай з цукром" }
+    not_found: ["бабусин пиріжок"]
+  status: fixed
+  found: 2026-10-18
+
+- id: as-yesterday-breakfast
+  say: ["сніданок як учора"]
+  profile: demo
+  expect:
+    title: Сніданок
+    items_min: 1
+    ready: true
+  status: fixed
+  found: 2026-10-18
+  note: "Демо: учорашній сніданок — з записів прикладу."

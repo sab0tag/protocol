@@ -18,6 +18,8 @@ export interface SyncRow {
   h?: string; // agreed hash; "-" = deleted; absent = never synced
   dh?: string;
   dat?: number;
+  /** D96: the time (inside the sealed record) of the version this device last agreed on — an older one from the server is a rollback */
+  at?: number;
 }
 
 export interface SyncMeta {

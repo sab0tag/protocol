@@ -10,6 +10,7 @@ import { db } from '../data/db';
 import { atLocal, newId, todayISO } from '../domain/dates';
 import type { Friction } from '../domain/types';
 import { t } from '../i18n/uk';
+import { voiceSeconds } from '../components/VoiceSheet';
 
 const L = t.friction;
 const KINDS: Friction['kind'][] = ['search', 'fix', 'skip', 'other'];
@@ -30,6 +31,8 @@ export function Frictions() {
     <section className="space-y-4 pt-4">
       <h1 className="text-2xl font-semibold">{L.title}</h1>
       <p className="text-sm text-muted">{L.hint}</p>
+      {(() => { const xs = voiceSeconds(); if (!xs.length) return null; const m = [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)]!; /* D95: the pilot's measure */
+        return <p className="text-sm">{t.voice.median(m, xs.length)}</p>; })()}
       <form className="space-y-3 rounded-2xl border border-line bg-surface p-3" onSubmit={(e) => { e.preventDefault(); void add(); }}>
         <div className="flex flex-wrap gap-2" role="group" aria-label={L.what}>
           {KINDS.map((k) => (

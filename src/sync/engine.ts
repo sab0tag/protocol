@@ -54,7 +54,8 @@ export interface Api {
   push(records: { k: string; v: string }[]): Promise<{ seq: number }>;
 }
 
-export interface Result { pulled: number; pushed: number }
+export interface Result { pulled: number; pushed: number; rolledBack?: number } // D96
+const ROLLBACK_SLACK_MS = 2 * 60_000;
 
 export async function syncOnce(db: ProtocolDB, keys: Keys, api: Api, now = Date.now()): Promise<Result> {
   const meta = await db.meta.get('sync');
@@ -100,6 +101,7 @@ export async function syncOnce(db: ProtocolDB, keys: Keys, api: Api, now = Date.
 
   // 2. pull
   let since = meta.seq, pulled = 0;
+  const rolledBack: string[] = [];
   for (;;) {
     const page = await api.pull(since);
     for (const r of page.records) {
@@ -116,6 +118,9 @@ export async function syncOnce(db: ProtocolDB, keys: Keys, api: Api, now = Date.
       const myParts = legacyPlan ? [...dirty.values()].filter((x) => x.tid.startsWith(`plan:${PLAN}#`)) : [];
       if (legacyPlan && !first && myParts.some((x) => (x.dat ?? 0) > p.at)) continue; // our parts are later
       if (!mine && base.get(tid)?.h === h) continue; // our own change coming back
+      // D96: a version older than the one this device already agreed on — the server rolled it back; keep ours (and push it again)
+      // (2 minutes of slack: devices' clocks differ a little; a real rollback brings back hours or days)
+      if ((base.get(tid)?.at ?? 0) - p.at > ROLLBACK_SLACK_MS) { rolledBack.push(tid); continue; }
       await db.transaction('rw', [db.table(p.t), db.sync], async () => {
         if (p.t === 'plan' && p.id.startsWith(`${PLAN}#`)) {
           const field = p.id.slice(PLAN.length + 1);
@@ -125,7 +130,7 @@ export async function syncOnce(db: ProtocolDB, keys: Keys, api: Api, now = Date.
           await db.plan.put(next as never);
         } else if (p.d) await db.table(p.t).put(p.d);
         else await db.table(p.t).delete(pkOf(p.t, p.id));
-        const row: SyncRow = { tid, k: r.k, h };
+        const row: SyncRow = { tid, k: r.k, h, at: p.at };
         await db.sync.put(row);
         base.set(tid, row);
       });
@@ -137,6 +142,8 @@ export async function syncOnce(db: ProtocolDB, keys: Keys, api: Api, now = Date.
     if (!page.more) break;
   }
   await db.meta.update('sync', { seq: since });
+  // D96: what the server rolled back goes up again as this device has it
+  for (const tid of rolledBack) { const b = base.get(tid); if (b?.h) dirty.set(tid, { tid, k: b.k, dh: b.h, ...(b.at ? { dat: b.at } : {}) }); }
 
   // 3. push what is still ours
   const out = [...dirty.values()];
@@ -149,10 +156,10 @@ export async function syncOnce(db: ProtocolDB, keys: Keys, api: Api, now = Date.
       return { k: s.k, v: await seal(keys, s.k, p) };
     }));
     await api.push(records);
-    await db.sync.bulkPut(chunk.map((s) => ({ tid: s.tid, k: s.k, h: s.dh! })));
+    await db.sync.bulkPut(chunk.map((s) => ({ tid: s.tid, k: s.k, h: s.dh!, at: s.dat ?? now })));
   }
   await db.meta.update('sync', { lastAt: now } satisfies Partial<SyncMeta>);
-  return { pulled, pushed: out.length };
+  return { pulled, pushed: out.length, ...(rolledBack.length ? { rolledBack: rolledBack.length } : {}) };
 }
 
 /** D43: a plan that lost its backbone (or the «onboarded» mark) is filled in from the whole-plan record the vault

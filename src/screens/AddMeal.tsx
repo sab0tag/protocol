@@ -500,7 +500,7 @@ function FreeItemForm({ onAdd }: { onAdd: (item: MealItem) => void }) {
 const COOKED = new Set(['veg', 'meat', 'fish', 'egg', 'grain', 'legume', 'liver']);
 const RAW = new Set(['drink', 'bread', 'dairy', 'cheese', 'sweet', 'nuts', 'seeds', 'condiment', 'alcohol', 'soup']);
 /** D88: a name that already says how it was cooked («Гречка варена», «Хек запечений», «Пшоняна каша») has no choice to make. */
-const COOKED_NAME = /(варен|запечен|печен|смажен|тушкован|на пару|гриль|копчен|відвар|\bкаша\b|пюре)/iu;
+const COOKED_NAME = /(варен|запечен|печен|смажен|тушкован|на пару|гриль|копчен|відвар|(^|\s)каша(?=\s|$)|пюре)/iu;
 function cookable(food: Food | undefined): boolean {
   return !food || (food.tags.some((x) => COOKED.has(x)) && !food.tags.some((x) => RAW.has(x)) && !COOKED_NAME.test(food.name));
 }

@@ -30,7 +30,7 @@ export const MED_FOOD: MedFoodPair[] = [
 
 const GROUP: Record<FoodGroup, (name: string, food: Food | undefined) => boolean> = {
   grapefruit: (n) => /грейпфрут/i.test(n),
-  dairy: (n, f) => !!f?.allergens?.includes('milk') || /молок|кефір|йогурт|сир\b|сирок|ряжанк/i.test(n),
+  dairy: (n, f) => !!f?.allergens?.includes('milk') || /молок|кефір|йогурт|(^|\s)сир(?=\s|$)|сирок|ряжанк/iu.test(n),
   calcium: (n, f) => !!f?.tags.includes('calcium') || GROUP.dairy(n, f),
   coffee: (n) => /кав[аиу]|еспресо|капучино|лате/i.test(n),
   vitk: (n) => /шпинат|броколі|капуст|кейл|петрушк|кріп|зелень|руккол|салат листов/i.test(n),
