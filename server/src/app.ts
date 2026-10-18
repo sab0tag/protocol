@@ -25,9 +25,10 @@ export interface Limits {
   menusPerVaultPerDay: number;
   workoutsPerVaultPerDay: number; // D63
   conciergePerVaultPerDay: number; // D91
+  aiPerDay: number; // D94: all text AI calls of the server together (menu, workout, concierge) — a ceiling on spend
 }
 
-export const DEFAULT_LIMITS: Limits = { vaultsPerIpPerDay: 5, vaultBytes: 50_000_000, photosPerVaultPerDay: 30, photosPerDay: 150, menusPerVaultPerDay: 15, workoutsPerVaultPerDay: 10, conciergePerVaultPerDay: 60 };
+export const DEFAULT_LIMITS: Limits = { vaultsPerIpPerDay: 5, vaultBytes: 50_000_000, photosPerVaultPerDay: 30, photosPerDay: 150, menusPerVaultPerDay: 15, workoutsPerVaultPerDay: 10, conciergePerVaultPerDay: 60, aiPerDay: 800 };
 
 export interface Deps {
   store: Store;
@@ -297,7 +298,7 @@ export function createApp(deps: Deps) {
     const names = list(body?.names, 600, 80);
     if (!text || !names.length) return c.json({ error: 'bad_request' }, 400);
     const at = now();
-    if (!store.take(`concierge:${id}`, limits.conciergePerVaultPerDay, at)) return c.json({ error: 'too_many' }, 429);
+    if (!store.take(`concierge:${id}`, limits.conciergePerVaultPerDay, at) || !store.take('ai:all', limits.aiPerDay, at)) return c.json({ error: 'too_many' }, 429);
     const started = Date.now();
     try {
       const { result, usage } = await deps.notFound(text, names);
@@ -326,7 +327,7 @@ export function createApp(deps: Deps) {
       return c.json({ error: 'upstream' }, 502);
     }
   });
-  app.post('/v1/vaults/:id/concierge/outcome', async (c) => {
+  app.post('/v1/vaults/:id/concierge/outcome', bodyLimit({ maxSize: 4_000 }), async (c) => {
     const id = authed(c);
     if (typeof id !== 'string') return id;
     const body = await c.req.json().catch(() => null) as { id?: unknown; outcome?: unknown; edit?: unknown } | null;
@@ -360,7 +361,8 @@ export function createApp(deps: Deps) {
     backupAgeH: deps.backupAgeH?.() ?? null }));
 
   const token = (c: Context) => c.req.header('Authorization')?.match(/^Bearer ([A-Za-z0-9_-]{40,64})$/)?.[1];
-  const ip = (c: Context) => c.req.header('X-Forwarded-For')?.split(',')[0]?.trim() || 'unknown';
+  // D94: the address the proxy (Caddy) saw — the last one in the chain; a client can prepend any value but not this one
+  const ip = (c: Context) => c.req.header('X-Forwarded-For')?.split(',').at(-1)?.trim() || 'unknown';
 
   /** 401 for a wrong key, 404 for an unknown vault: the app tells «код не знайдено» from «помилка». */
   const authed = (c: Context): string | Response => {
@@ -453,7 +455,7 @@ export function createApp(deps: Deps) {
         if (/^[a-zA-Z]{1,30}$/.test(k) && (typeof v === 'number' || (typeof v === 'string' && /^\d{2}:\d{2}$/.test(v)))) targets[k] = v;
       }
     }
-    if (!store.take(`menu:${id}`, limits.menusPerVaultPerDay, now())) return c.json({ error: 'too_many' }, 429);
+    if (!store.take(`menu:${id}`, limits.menusPerVaultPerDay, now()) || !store.take('ai:all', limits.aiPerDay, now())) return c.json({ error: 'too_many' }, 429);
     try {
       const { result, usage } = await menu({ date, targets, rules: list(b?.rules, 30, 300), foods, dishes: list(b?.dishes, 100, 80),
         usual: list(b?.usual, 50, 80), wish: str(b?.wish, 300), avoid: list(b?.avoid, 60, 80) });
@@ -488,7 +490,7 @@ export function createApp(deps: Deps) {
       return typeof x?.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(x.date) ? [{ date: x.date, feeling: str(x.feeling, 30), items: list(x.items, 10, 120) }] : [];
     });
     const minutes = typeof b?.minutes === 'number' ? Math.min(90, Math.max(10, Math.round(b.minutes))) : 35;
-    if (!store.take(`workout:${id}`, limits.workoutsPerVaultPerDay, now())) return c.json({ error: 'too_many' }, 429);
+    if (!store.take(`workout:${id}`, limits.workoutsPerVaultPerDay, now()) || !store.take('ai:all', limits.aiPerDay, now())) return c.json({ error: 'too_many' }, 429);
     try {
       const { result, usage } = await deps.workout({ exercises, history, rules: list(b?.rules, 30, 300), equipment: str(b?.equipment, 40) || 'Гиря 16 кг',
         minutes, wish: str(b?.wish, 300) });

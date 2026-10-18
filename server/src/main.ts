@@ -43,6 +43,7 @@ const app = createApp({
     ...(env.MENUS_PER_VAULT_PER_DAY ? { menusPerVaultPerDay: Number(env.MENUS_PER_VAULT_PER_DAY) } : {}),
     ...(env.WORKOUTS_PER_VAULT_PER_DAY ? { workoutsPerVaultPerDay: Number(env.WORKOUTS_PER_VAULT_PER_DAY) } : {}),
     ...(env.VAULTS_PER_IP_PER_DAY ? { vaultsPerIpPerDay: Number(env.VAULTS_PER_IP_PER_DAY) } : {}), // e2e only
+    ...(env.AI_PER_DAY ? { aiPerDay: Number(env.AI_PER_DAY) } : {}),
   },
 });
 

@@ -45,7 +45,8 @@ export function ConciergeNotFound({ text, plan, foods, recipes, date, onAdd }: {
     try {
       const names = [...[...foods.values()].map((f) => f.name), ...recipes.map((r) => r.name)];
       const r = await conciergeNotFound(keys, { text, names, log: logNow, versions: { app: appVersion(), plan: planVersion(plan) },
-        context: { restrictions: (plan?.constraints ?? []).filter((c) => c.active).map((c) => c.diet ?? c.tag) } });
+        // D94: the plan's limits go only into the log (with its consent) — the model never needs them, the server keeps nothing otherwise
+        context: logNow ? { restrictions: (plan?.constraints ?? []).filter((c) => c.active).map((c) => c.diet ?? c.tag) } : {} });
       logId.current = r.id;
       const q = parseQuery(text); // the amount from the person's own words; the name from the base
       setItems(r.candidates.flatMap((name) => {

@@ -307,3 +307,25 @@ describe('the concierge, scenario 1, and its log (D91)', () => {
     expect(conciergeHousekeeping(store, dir, new Date('2026-10-19T10:00:00Z')).exported).toBeUndefined(); // once a week
   });
 });
+
+describe('security review (D94)', () => {
+  it('the per-IP limit counts the address the proxy saw, not one the client prepended', async () => {
+    const store = new Store(':memory:');
+    const app = createApp({ store, origins: [], limits: { ...DEFAULT_LIMITS, vaultsPerIpPerDay: 1 } });
+    const put = (vault: string, xff: string) => app.request(`/v1/vaults/${vault}`, { method: 'PUT', headers: { Authorization: `Bearer ${AUTH}`, 'X-Forwarded-For': xff } });
+    expect((await put('a'.repeat(32), '1.1.1.1, 203.0.113.9')).status).toBe(201);
+    expect((await put('b'.repeat(32), '9.9.9.9, 203.0.113.9')).status).toBe(429); // same real address, a different prefix
+  });
+  it('text AI has a ceiling for the whole server, across vaults', async () => {
+    const store = new Store(':memory:');
+    const app = createApp({ store, origins: [], limits: { ...DEFAULT_LIMITS, aiPerDay: 1, vaultsPerIpPerDay: 10 },
+      notFound: async () => ({ result: { candidates: [] } }) });
+    const ask = async (vault: string) => {
+      await app.request(`/v1/vaults/${vault}`, { method: 'PUT', headers: { Authorization: `Bearer ${AUTH}` } });
+      return (await app.request(`/v1/vaults/${vault}/concierge/not-found`, { method: 'POST', headers: { Authorization: `Bearer ${AUTH}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: 'пиріжок', names: ['Млинці'] }) })).status;
+    };
+    expect(await ask('c'.repeat(32))).toBe(200);
+    expect(await ask('d'.repeat(32))).toBe(429);
+  });
+});

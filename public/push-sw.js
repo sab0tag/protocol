@@ -133,7 +133,9 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const url = new URL((event.notification.data && event.notification.data.url) || './', self.registration.scope).href;
+  // D94: only a page of this app opens — a payload's absolute address to another site is ignored
+  const asked = new URL((event.notification.data && event.notification.data.url) || './', self.registration.scope);
+  const url = asked.origin === self.location.origin ? asked.href : self.registration.scope;
   event.waitUntil((async () => {
     const all = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
     for (const c of all) {
