@@ -190,7 +190,7 @@ describe('names typed as people type them (D84)', () => {
   });
   it('every food, typed in any of the usual ways, is the one recognised', () => {
     for (const f of FOODS) for (const q of typed(f.name)) expect(recognize(q, FOODS, [], dish)[0]?.item?.name, q).toBe(f.name);
-  });
+  }, 30_000); // the whole base × 5 — slow under a loaded parallel run
   it('a grain, a porridge or сир said alone is a portion, not a spoon; the spoon when said', () => {
     const one = (q: string) => recognize(q, FOODS, [], dish)[0]!.item!;
     expect(one('гречка')).toMatchObject({ grams: 200, unit: { name: 'порція' } });

@@ -19,3 +19,12 @@ export const byAt = (a: { at: ISODateTime }, b: { at: ISODateTime }): number => 
 export const isPast = (at: ISODateTime, now = Date.now()): boolean => Date.parse(at) < now;
 
 export const newId = (): string => crypto.randomUUID();
+
+/** D99: the week arrows — to the next week's Monday or the previous week's Sunday (the day next to where you were:
+ *  from Sunday 18 «→» is Monday 19, not Sunday 25); today, when it is in that week. */
+export function weekStep(date: ISODate, dir: 1 | -1, today: ISODate): ISODate {
+  const d = parseISO(date), wd = (d.getDay() + 6) % 7; // Monday = 0
+  const monday = new Date(d.getFullYear(), d.getMonth(), d.getDate() - wd + dir * 7);
+  const days = Array.from({ length: 7 }, (_, i) => format(new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + i), 'yyyy-MM-dd'));
+  return days.includes(today) ? today : dir > 0 ? days[0]! : days[6]!;
+}

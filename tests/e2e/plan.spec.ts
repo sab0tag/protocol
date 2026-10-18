@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { device } from './helpers';
+import { device, seed } from './helpers';
 
 test('medicine stock: the count in «План», «вистачить на» there and a notice on «День» when it runs low (D69)', async ({ browser }) => {
   const page = await device(browser);
@@ -53,7 +53,7 @@ test('the example comes with two invented weeks: «Прогрес» and the repo
   await expect(page.getByText(/«Здуття» — 4 з 4/)).toBeVisible();
   await page.goto('./#/progress');
   await expect(page.getByText(/Ще немає зважувань/)).toHaveCount(0);
-  await page.getByRole('button', { name: 'Почати свій план' }).first().click(); // D98: out of the example's database
+  await page.getByRole('button', { name: 'Повернутися до своїх даних' }).first().click(); // D98: out of the example's database
   await expect(page).toHaveURL(/#\/welcome$/); // the own one, as it was — not onboarded yet
   await page.getByRole('button', { name: /^Пропустити/ }).click();
   await expect(page.getByRole('heading', { level: 1 })).not.toHaveText(/Знайомство|Про себе/);
@@ -71,14 +71,30 @@ test('the example is a database of its own: the own records stay, «Подиви
   await page.getByRole('dialog', { name: 'Призначення' }).getByRole('button', { name: 'Зберегти' }).click();
   await page.goto('./#/more');
   await page.getByRole('button', { name: /Подивитись на прикладі/ }).click(); // the own plan is not empty — still there
+  await page.getByRole('button', { name: 'Відкрити приклад' }).click(); // D99: asked first — the own data stays
   await expect(page.getByText(/Це приклад:/)).toBeVisible();
   await page.goto('./#/plan');
   await expect(page.getByText('Вітамін D')).toBeVisible();
   await expect(page.getByText('Мій препарат')).toHaveCount(0); // not mixed
   await page.goto('./#/sync');
   await expect(page.getByText(/синхронізація в ньому вимкнена/)).toBeVisible();
-  await page.getByRole('button', { name: 'Почати свій план' }).click();
+  await page.getByRole('button', { name: 'Повернутися до своїх даних' }).click();
   await page.goto('./#/plan');
   await expect(page.getByText('Мій препарат')).toBeVisible(); // the own, untouched
   await expect(page.getByText('Вітамін D')).toHaveCount(0);
+});
+
+test('the day\'s own records are there after a look at the example — the example said so, and the way back is named (D99)', async ({ browser }) => {
+  const page = await device(browser, 'skip');
+  const at = await page.evaluate(() => { const d = new Date(), p = (n: number) => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T08:00:00+03:00`; });
+  await seed(page, [{ store: 'entries', value: { id: 'own-1', at, kind: 'meal', status: 'done', title: 'Сніданок', items: [{ foodId: 'egg-boiled', name: 'Яйце варене', grams: 100 }] } }]);
+  await expect(page.getByText('Сніданок').first()).toBeVisible();
+  await page.goto('./#/more');
+  await page.getByRole('button', { name: /Подивитись на прикладі/ }).click();
+  await expect(page.getByText(/Ваші дані залишаються окремо/)).toBeVisible();
+  await page.getByRole('button', { name: 'Відкрити приклад' }).click();
+  await expect(page.getByText(/Ваші власні записи не зникли/)).toBeVisible();
+  await page.getByRole('button', { name: 'Повернутися до своїх даних' }).click();
+  await expect(page.getByText(/Ваші власні записи не зникли/)).toHaveCount(0);
+  await expect(page.getByText('Сніданок').first()).toBeVisible(); // the morning's record, as it was
 });

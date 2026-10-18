@@ -30,7 +30,7 @@ export function Sync() {
       {inDemo() ? ( /* D98: nothing of the example goes to the server */
         <div className="space-y-2 rounded-2xl border border-line bg-surface p-3">
           <p>{t.example.noSync}</p>
-          <button type="button" onClick={() => void leaveDemo()} className="min-h-tap rounded-xl bg-accent px-3 font-medium text-surface">{t.example.start}</button>
+          <button type="button" onClick={() => void leaveDemo()} className="min-h-tap rounded-xl bg-accent px-3 font-medium text-surface">{t.example.leave}</button>
         </div>
       ) : meta ? <On code={meta.code} photo={!!meta.photoConsent} /> : <Off />}
     </section>

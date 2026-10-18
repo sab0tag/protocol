@@ -32,3 +32,13 @@ describe('the autumn hour, 25 October (D75)', () => {
     expect(isPast('2026-10-14T15:45:00+03:00', now)).toBe(false);
   });
 });
+
+describe('the week arrows (D99)', () => {
+  it('from Sunday the next week opens on Monday, not a week later; back — on Sunday; today when it is there', async () => {
+    const { weekStep } = await import('../../src/domain/dates');
+    expect(weekStep('2026-10-18', 1, '2026-10-01')).toBe('2026-10-19');
+    expect(weekStep('2026-10-12', -1, '2026-10-01')).toBe('2026-10-11');
+    expect(weekStep('2026-10-14', 1, '2026-10-21')).toBe('2026-10-21'); // today is in that week
+    expect(weekStep('2026-10-25', 1, '2026-10-01')).toBe('2026-10-26'); // across the autumn hour
+  });
+});

@@ -1,12 +1,13 @@
 // «День» header (SPEC.md §14.1, D53): the day by name, a week strip — a dot under a day means it has records —
-// and the sync status as a cloud with a mark (R6). A tap on a day opens it; the arrows move by a week.
+// and the sync status as a cloud with a mark (R6). A tap on a day opens it; the arrows open the next / previous week
+// on the day next to this one (D99), or on today when it is there.
 import { addDays, format, parseISO, startOfISOWeek } from 'date-fns';
 import { uk } from 'date-fns/locale';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { ChevronLeft, ChevronRight, Cloud, CloudAlert, CloudCheck, CloudOff } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { db } from '../data/db';
-import { todayISO } from '../domain/dates';
+import { todayISO, weekStep } from '../domain/dates';
 import { t } from '../i18n/uk';
 import { useSync, type SyncStatus } from '../sync/runner';
 
@@ -39,7 +40,7 @@ export function DayHeader({ date, setDate }: { date: string; setDate: (d: string
           className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-surface shadow-sm"><Icon size={22} className={tone} aria-hidden /></button>
       </div>
       <nav aria-label={L.week} className="mt-3 flex items-center gap-1">
-        <button type="button" onClick={() => setDate(format(addDays(d, -7), 'yyyy-MM-dd'))} aria-label={L.prevWeek}
+        <button type="button" onClick={() => setDate(weekStep(date, -1, today))} aria-label={L.prevWeek}
           className="flex min-h-tap w-7 shrink-0 items-center justify-center text-muted"><ChevronLeft size={18} aria-hidden /></button>
         <ol className="grid flex-1 grid-cols-7 gap-1">
           {days.map((day) => {
@@ -57,7 +58,7 @@ export function DayHeader({ date, setDate }: { date: string; setDate: (d: string
             );
           })}
         </ol>
-        <button type="button" onClick={() => setDate(format(addDays(d, 7), 'yyyy-MM-dd'))} aria-label={L.nextWeek}
+        <button type="button" onClick={() => setDate(weekStep(date, 1, today))} aria-label={L.nextWeek}
           className="flex min-h-tap w-7 shrink-0 items-center justify-center text-muted"><ChevronRight size={18} aria-hidden /></button>
       </nav>
       {!isToday && (

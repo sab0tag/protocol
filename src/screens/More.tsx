@@ -1,4 +1,5 @@
 import { Eye, Info, Activity, BellRing, ChevronRight, Dumbbell, FileText, RefreshCw, Salad, ShoppingCart, Sparkles, UserRound, CalendarRange, MessageSquareWarning, Zap } from 'lucide-react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Backup } from '../components/Backup';
 import { enterDemo, inDemo } from '../data/db';
@@ -46,13 +47,28 @@ export function More() {
           </ul>
         </section>
       ))}
-      {!inDemo() && ( /* D98: the example — always one tap away, in its own database */
-        <button type="button" onClick={enterDemo} className="mb-4 flex min-h-tap w-full items-center gap-3 rounded-2xl border border-line bg-surface px-3 py-2 text-left">
-          <Eye size={20} className="text-accent" aria-hidden /><span className="flex-1"><span className="block font-medium">{t.welcome.example}</span>
-            <span className="block text-sm text-muted">{t.example.safe}</span></span></button>
-      )}
+      {!inDemo() && <ExampleEntry />}
       <Backup />
       <p className="mt-4 text-sm text-muted">{t.plan.disclaimer}</p>
     </section>
   );
 }
+
+/** D98–D99: the example, one tap away — but asked first: from «Ще» the person has their own data, and must know it stays. */
+function ExampleEntry() {
+  const [asking, setAsking] = useState(false);
+  return asking ? (
+    <div role="alertdialog" aria-label={t.welcome.example} className="mb-4 space-y-2 rounded-2xl border border-accent/40 bg-surface p-3 text-sm">
+      <p>{t.example.confirm}</p>
+      <div className="flex flex-wrap gap-2">
+        <button type="button" onClick={enterDemo} className="min-h-tap rounded-xl bg-accent px-3 font-medium text-surface">{t.example.confirmYes}</button>
+        <button type="button" onClick={() => setAsking(false)} className="min-h-tap rounded-xl border border-line px-3">{t.example.confirmNo}</button>
+      </div>
+    </div>
+  ) : (
+    <button type="button" onClick={() => setAsking(true)} className="mb-4 flex min-h-tap w-full items-center gap-3 rounded-2xl border border-line bg-surface px-3 py-2 text-left">
+      <Eye size={20} className="text-accent" aria-hidden /><span className="flex-1"><span className="block font-medium">{t.welcome.example}</span>
+        <span className="block text-sm text-muted">{t.example.safe}</span></span></button>
+  );
+}
+
