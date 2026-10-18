@@ -2,6 +2,18 @@
 export const t = {
   app: 'Протокол',
   nav: { day: 'День', food: 'Їжа', plan: 'План', progress: 'Прогрес', more: 'Ще' },
+  medFood: { // D89 step 4: information beside the plan's flags, never a ban
+    title: 'Препарати й їжа',
+    line: (food: string, medicine: string, quote: string) => `${food} · в інструкції до ${medicine}: «${quote}»`,
+    avoid: 'запитайте лікаря, якщо їсте це часто', separate: (h: number) => `між ними — щонайменше ${h} год; запитайте лікаря`, steady: 'тримайте кількість рівною з дня в день',
+    source: 'Інструкція', report: (n: number) => `Перетини препарат + їжа: ${n}`,
+  },
+  topup: { // D92: scenarios 3–4 — the numbers are the code's
+    title: 'Підказки на вечір', snack: 'Перекус', protein: 'Білка', calcium: 'Кальцію',
+    ask: (what: string, have: number, target: number, unit: string) => `${what} ${have} з ${target} ${unit}. Добрати до вечора?`,
+    near: (have: number, max: number) => `Вуглеводів ${have} з ${max} г — на вечерю краще без гарніру.`,
+    planned: (name: string) => `${name} — у плані на вечір`, notToday: 'Не сьогодні', ok: 'Зрозуміло',
+  },
   why: { // D91: «Чому позначено?» — from the plan itself
     ask: 'Чому?', openPlan: 'Відкрити в плані',
     plan: (title: string, reason: string, source: string) => `У вашому плані: «${title}»${reason ? ` — ${reason}` : ''}${source ? ` (${source})` : ''}.`,

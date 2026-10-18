@@ -5,6 +5,7 @@ import { dateOf, isPast } from './dates';
 import { dayFlags, type HabitKey } from './habits';
 import { activeMode } from './nutrition';
 import { dietConflicts } from './diets';
+import { medFoodNotes } from './medFood';
 import { t } from '../i18n/uk';
 import { checkMeal } from './rules';
 import { coincidences, coincidenceText } from './symptoms';
@@ -41,6 +42,8 @@ export interface Report {
   labs: LabResult[];
   /** D90: a doctor's target outside the chosen diet's norm — a question for the visit, never settled silently */
   dietQuestions: string[];
+  /** D89 step 4: meals that met a medicine of the plan, by the checked table */
+  medFood: number;
 }
 
 export function buildReport(args: {
@@ -121,6 +124,8 @@ export function buildReport(args: {
         return { title: p?.title ?? key, ...(p?.med?.inn ? { inn: p.med.inn } : {}), ...(p?.dose ? { dose: p.dose } : {}), ...n };
       }) } } : {}),
     ...(eatenMeals ? { deviations: { meals: devMeals, of: eatenMeals, by: [...devBy.entries()].map(([title, count]) => ({ title, count })).sort((a, b) => b.count - a.count) } } : {}),
+    medFood: plan ? entries.filter((e) => e.kind === 'meal' && e.status === 'done' && e.items?.length && inside(dateOf(e.at))).filter((m) => medFoodNotes(plan.prescriptions, m.items!, foods, {
+      mealAt: m.at, doses: new Map(plan.prescriptions.map((p) => [p.id, entries.filter((e) => e.kind === 'med' && e.status === 'done' && e.prescriptionId === p.id && !e.timeUnknown && dateOf(e.at) === dateOf(m.at)).map((e) => e.at)])) }).length > 0).length : 0,
     dietQuestions: plan ? dietConflicts(plan).map((x) => t.diet.conflict(x.code, t.diet.fields[x.field], x.target, x.range[0], x.range[1])) : [],
     labs: labs.filter((l) => inside(l.date)).sort((a, b) => b.date.localeCompare(a.date) || a.name.localeCompare(b.name)),
   };
@@ -139,6 +144,7 @@ export function reportText(r: Report, dm: (d: ISODate) => string): string {
     r.meds && r.meds.list.length > 1 ? r.meds.list.map((m) => `• ${t.report.medLine(m)}`).join('\n') : '',
     r.deviations ? (r.deviations.meals ? `${t.report.deviations(r.deviations.meals, r.deviations.of)}: ${r.deviations.by.map((b) => `${b.title} — ${b.count}`).join('; ')}`
       : t.report.noDeviations(r.deviations.of)) : '',
+    r.medFood ? t.medFood.report(r.medFood) : '',
     r.dietQuestions.length ? r.dietQuestions.map((q) => `• ${q}`).join('\n') : '',
     r.labs.length ? `${t.report.labs}:\n${r.labs.map((l) => `• ${dm(l.date)} ${l.name}: ${dec(l.value)} ${l.unit}${l.target ? ` (ціль ${l.target})` : ''}`).join('\n')}` : '',
     r.checklistPct != null ? `План дня виконано: ${r.checklistPct} %` : '',

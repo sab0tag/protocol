@@ -39,14 +39,22 @@ const GROUP: Record<FoodGroup, (name: string, food: Food | undefined) => boolean
 
 export interface MedFoodNote { medicine: string; food: string; pair: MedFoodPair; quote: string }
 
+/** When the meal is and when each medicine was taken that day — a «separate» pair speaks only if they came closer than its
+ *  interval; without the times it stays silent rather than guess (D52: no invented time). */
+export interface MealTiming { mealAt?: string; doses?: Map<string, string[]> } // prescriptionId → ISO times of the ticks
+
 /** Notes for the lines of a meal against the plan's medicines — checked rows only. */
-export function medFoodNotes(prescriptions: Prescription[], items: MealItem[], foods: Map<string, Food>, table = MED_FOOD): MedFoodNote[] {
+export function medFoodNotes(prescriptions: Prescription[], items: MealItem[], foods: Map<string, Food>, timing: MealTiming = {}, table = MED_FOOD): MedFoodNote[] {
   const out: MedFoodNote[] = [];
   for (const p of prescriptions) {
     const inn = p.med?.inn?.toLowerCase();
     if (!inn) continue;
     for (const pair of table) {
       if (!pair.checkedBy || !pair.quote || pair.inn.toLowerCase() !== inn) continue;
+      if (pair.kind === 'separate') {
+        const doses = timing.doses?.get(p.id) ?? [];
+        if (!timing.mealAt || !pair.hours || !doses.some((d) => Math.abs(Date.parse(d) - Date.parse(timing.mealAt!)) < pair.hours! * 3_600_000)) continue;
+      }
       for (const it of flatItems(items)) {
         if (GROUP[pair.food](it.name, it.foodId ? foods.get(it.foodId) : undefined)) out.push({ medicine: p.title, food: it.name, pair, quote: pair.quote });
       }

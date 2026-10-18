@@ -77,6 +77,7 @@ export function Report() {
               ))}</tbody>
             </table>
           )}
+          {r.medFood > 0 && <p className="text-sm">{t.medFood.report(r.medFood)}</p>}
           {r.dietQuestions.map((q) => <p key={q} className="text-sm text-warn">{q}</p>)}
           <p className="text-xs text-muted">{L.mainHint}</p>
         </section>

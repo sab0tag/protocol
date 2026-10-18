@@ -13,7 +13,7 @@ import { db } from '../data/db';
 import { useAllEntries, useDayEntries, useFoods, usePlan, useWorkouts } from '../data/queries';
 import { buildChecklist, type CheckItem } from '../domain/checklist';
 import { NOW_AFTER_MIN } from '../domain/reminders';
-import { habits, mealsOf } from '../domain/habits';
+import { habits, mealsOf, frequentItems } from '../domain/habits';
 import { addDays, parseISO as parseDay } from 'date-fns';
 import { amountText } from '../domain/foodSearch';
 import { exportDue } from '../data/backup';
@@ -32,6 +32,8 @@ import { DayRhythm } from '../components/DayRhythm';
 import { ExampleNotice } from '../components/ExampleNotice';
 import { hasExample } from '../data/seed.example';
 import { DaySummary } from '../components/DaySummary';
+import { TopupCard } from '../components/TopupCard';
+import { nearLimit, topups, type DayState } from '../domain/topup';
 import { dayRhythm } from '../domain/rhythm';
 import { runningLow } from '../domain/stock';
 
@@ -215,6 +217,14 @@ export function Day() {
           <ul className="list-disc space-y-1 pl-5 text-sm">{tips.map((x) => <li key={x}>{x}</li>)}</ul>
         </details>
       )}
+
+      {isToday && plan && totals && foods && all && entries && (() => { // D92: top-up and «close to the limit», code only
+        const s: DayState = { plan, targets, date, now: format(new Date(), 'HH:mm'), foods,
+          mealsDone: entries.filter((e) => e.kind === 'meal' && e.status === 'done').length,
+          usual: frequentItems(all, date, 60, 50).map((f) => f.item.foodId ?? '').filter(Boolean),
+          have: { protein: totals.protein, calciumMg: totals.calciumMg, carbs: totals.carbs } };
+        return <TopupCard date={date} targets={targets} tops={topups(s)} near={nearLimit(s)} />;
+      })()}
 
       {totals && <DaySummary totals={totals} targets={targets} meds={{ done: meds.filter((i) => i.done).length, total: meds.length }}
         {...(isToday && best ? { streak: t.day.streak(t.progress.habit[best.key], best.streak) } : {})} />}

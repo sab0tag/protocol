@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { device, syncOn, toast } from './helpers';
+import { device, seed, syncOn, toast } from './helpers';
 
 test('scenario 1 (model stubbed): only names of the base, nothing written without a tap, the outcome told on save — edited, with what (D91)', async ({ browser }) => {
   const page = await device(browser, 'skip');
@@ -63,4 +63,25 @@ test('«Журнал помічника»: off by default, the own records with 
   await expect(page.getByText(/Млинці · виправлено/)).toBeVisible();
   await page.getByRole('button', { name: 'Видалити мій журнал' }).click();
   await expect(page.getByText('Записів немає.')).toBeVisible();
+});
+
+test('scenarios 3–4 on «День»: the numbers of the day, options that pass the plan, a tap plans — not eats; «Не сьогодні» hides it for the day (D92)', async ({ browser }) => {
+  const page = await device(browser); // the example plan: protein 140 g, calcium 1000 mg, carbs up to 190 g, last meal by 20:00
+  await page.clock.setFixedTime(new Date('2026-10-18T18:00:00+03:00'));
+  const meal = (id: string, time: string, grams: number) => ({ store: 'entries', value: { id, at: `2026-10-18T${time}:00+03:00`, kind: 'meal', status: 'done', title: 'Обід',
+    items: [{ foodId: 'buckwheat-boiled', name: 'Гречка варена', grams }] } });
+  await seed(page, [meal('m1', '08:00', 200), meal('m2', '13:00', 300)]);
+  const card = page.getByRole('region', { name: 'Підказки на вечір' });
+  await expect(card).toContainText(/Білка \d+ з 140 г\. Добрати до вечора\?/);
+  await expect(card).toContainText(/Кальцію \d+ з 1000 мг/);
+  await card.locator('[data-item]').first().click();
+  await expect(toast(page)).toContainText('у плані на вечір');
+  await expect(card).not.toContainText('Білка');
+  await card.getByRole('button', { name: 'Не сьогодні' }).first().click();
+  await expect(card).toHaveCount(0);
+  expect(await page.evaluate(async () => {
+    const req = indexedDB.open('protocol'); await new Promise((r) => { req.onsuccess = r; });
+    const all = req.result.transaction('entries').objectStore('entries').getAll(); await new Promise((r) => { all.onsuccess = r; });
+    return (all.result as { status: string; title: string }[]).filter((e) => e.title === 'Перекус').map((e) => e.status);
+  })).toEqual(['planned']); // planned for the evening, not eaten
 });

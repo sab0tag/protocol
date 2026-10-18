@@ -11,13 +11,27 @@ import { readMeal } from '../../src/domain/foodSearch';
 import { dishItem } from '../../src/domain/recipes';
 import { checkMeal } from '../../src/domain/rules';
 import { dangerInText } from '../../src/domain/symptoms';
+import { nearLimit, topups, type DayState } from '../../src/domain/topup';
+import { effectiveTargets } from '../../src/domain/nutrition';
+import { frequentItems } from '../../src/domain/habits';
+import { demoData } from '../../src/data/demo';
+import { emptyPlan } from '../../src/data/seed.example';
 
-interface Row { id: string; scenario: string; phrase?: string; input?: string; status: 'fixed' | 'open'
-  expect: { mentions?: string[]; links_plan?: boolean; no_digits_beyond_plan?: boolean; danger_card?: boolean } }
+interface Row { id: string; scenario: string; phrase?: string; input?: string; status: 'fixed' | 'open'; profile?: string; time?: string
+  day?: { protein?: number; calcium?: number; carbs?: number }
+  expect: { mentions?: string[]; links_plan?: boolean; no_digits_beyond_plan?: boolean; danger_card?: boolean
+    asks?: boolean; goals?: string[]; numbers?: Record<string, number>; items_pass_plan?: boolean; items_exclude_tags?: string[]; items_ready_minutes_max?: number } }
 const rows = parse(corpus) as Row[];
 const foods = new Map(FOODS.map((f) => [f.id, f]));
 const plan = examplePlan(new Date('2026-10-18T12:00:00'));
-const BUILT = new Set(['why', 'danger']);
+const BUILT = new Set(['why', 'danger', 'goal_topup', 'near_limit']);
+const usual = frequentItems(demoData(foods, new Date('2026-10-18T12:00:00')).entries, '2026-10-18', 60, 50).map((f) => f.item.foodId ?? '').filter(Boolean);
+
+function dayState(row: Row): DayState {
+  const p = row.profile === 'demo' ? plan : emptyPlan();
+  return { plan: p, targets: effectiveTargets(p, '2026-10-18'), date: '2026-10-18', now: row.time ?? '18:00', mealsDone: 2, foods,
+    usual: row.profile === 'demo' ? usual : [], have: { protein: row.day?.protein ?? 0, calciumMg: row.day?.calcium ?? 0, carbs: row.day?.carbs ?? 0 } };
+}
 
 function check(row: Row): string[] {
   const out: string[] = [];
@@ -33,6 +47,19 @@ function check(row: Row): string[] {
       const allowed = JSON.stringify(plan);
       for (const d of text.match(/\d+([.,]\d+)?/g) ?? []) if (!allowed.includes(d)) out.push(`число «${d}» не з плану`);
     }
+  }
+  if (row.scenario === 'goal_topup' || row.scenario === 'near_limit') {
+    const s = dayState(row), w = row.expect;
+    const tops = row.scenario === 'goal_topup' ? topups(s) : [], near = row.scenario === 'near_limit' ? nearLimit(s) : null;
+    const asks = row.scenario === 'goal_topup' ? tops.length > 0 : !!near;
+    if (w.asks !== undefined && asks !== w.asks) out.push(`питає: ${asks ? 'так' : 'ні'}`);
+    for (const g of w.goals ?? []) if (!tops.some((x) => x.goal === g)) out.push(`немає добору «${g}»`);
+    const nums: Record<string, number | undefined> = { protein_gap: tops.find((x) => x.goal === 'proteinG')?.gap, calcium_gap: tops.find((x) => x.goal === 'calciumMg')?.gap, carbs_left: near?.left };
+    for (const [k, v] of Object.entries(w.numbers ?? {})) if (nums[k] !== v) out.push(`${k}: ${nums[k] ?? '—'}, очікується ${v}`);
+    const items = tops.flatMap((x) => x.items);
+    if (w.items_pass_plan) for (const it of items) if (checkMeal({ plan: s.plan, date: s.date, foods, dayEntries: [], recentEntries: [], meal: [it] }).some((c) => c.hits.length)) out.push(`«${it.name}» не проходить план`);
+    if (w.items_exclude_tags?.includes('milk')) for (const it of items) if (foods.get(it.foodId!)?.tags.includes('dairy')) out.push(`«${it.name}» — молочне`);
+    if (w.items_ready_minutes_max !== undefined) for (const it of items) if (/\((сир|сух)/iu.test(it.name)) out.push(`«${it.name}» треба готувати`);
   }
   if (row.scenario === 'danger' && dangerInText(row.input!) !== row.expect.danger_card) out.push(`картка 103: ${dangerInText(row.input!) ? 'є' : 'немає'}`);
   return out;

@@ -117,15 +117,17 @@
   status: fixed
   found: 2026-10-18
 
-# ── сценарії 3–4 і розмова: ще не побудовані ──
+# ── сценарії 3–4: добір цілі й «близько до межі» — код (D92) ──
+# items_exclude_tags: [milk] — молочне з повною лактозою (тег dairy); кисломолочне з малою лактозою план-приклад дозволяє.
+# items_ready_minutes_max — нічого сирого чи сухого, що треба готувати. Кожен рядок — 2 прийоми записано.
 
 - id: topup-protein-lactose-evening
   scenario: goal_topup
   profile: demo
   time: "19:00"
-  day: { protein: 85, carbs: 150 }
+  day: { protein: 85, calcium: 380, carbs: 150 }
   expect: { asks: true, numbers: { protein_gap: 55 }, items_pass_plan: true, items_exclude_tags: [milk], items_ready_minutes_max: 20 }
-  status: open
+  status: fixed
   found: 2026-10-18
 
 - id: topup-no-goal
@@ -134,16 +136,67 @@
   time: "18:00"
   day: { protein: 30 }
   expect: { asks: false }
-  status: open
+  status: fixed
   found: 2026-10-18
+  note: "Межа 7: у плані немає цілі з білка — немає й добору."
+
+- id: topup-calcium-oxalate
+  scenario: goal_topup
+  profile: demo
+  time: "18:00"
+  day: { protein: 130, calcium: 300, carbs: 120 }
+  expect: { asks: true, goals: [calciumMg], numbers: { calcium_gap: 700 }, items_pass_plan: true }
+  status: fixed
+  found: 2026-10-18
+  note: "При оксалатних каменях кальцій важить не менше за білок."
+
+- id: topup-reached
+  scenario: goal_topup
+  profile: demo
+  time: "18:00"
+  day: { protein: 120, calcium: 900, carbs: 120 }
+  expect: { asks: false }
+  status: fixed
+  found: 2026-10-18
+
+- id: topup-too-late
+  scenario: goal_topup
+  profile: demo
+  time: "19:45"
+  day: { protein: 60, calcium: 300, carbs: 120 }
+  expect: { asks: false }
+  status: fixed
+  found: 2026-10-18
+  note: "Останній прийом до 20:00 — за 15 хвилин уже не пропонуємо."
 
 - id: near-limit-carbs
   scenario: near_limit
   profile: demo
-  day: { carbs: 170 }
+  time: "18:00"
+  day: { protein: 120, calcium: 900, carbs: 170 }
   expect: { asks: true, numbers: { carbs_left: 20 } }
-  status: open
+  status: fixed
   found: 2026-10-18
+
+- id: near-limit-far
+  scenario: near_limit
+  profile: demo
+  time: "18:00"
+  day: { protein: 120, calcium: 900, carbs: 120 }
+  expect: { asks: false }
+  status: fixed
+  found: 2026-10-18
+
+- id: near-limit-no-max
+  scenario: near_limit
+  profile: clean_no_protein_goal
+  time: "18:00"
+  day: { carbs: 300 }
+  expect: { asks: false }
+  status: fixed
+  found: 2026-10-18
+
+# ── розмова: ще не побудована ──
 
 - id: boundary-double-dose
   scenario: chat

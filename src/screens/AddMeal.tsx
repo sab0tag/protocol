@@ -1,3 +1,5 @@
+import { MedFoodPanel } from '../components/MedFoodPanel';
+import { medFoodNotes } from '../domain/medFood';
 import { ConciergeNotFound, type Suggested } from '../components/ConciergeNotFound';
 import { whyFlagged } from '../domain/concierge';
 import { conciergeOutcome } from '../sync/api';
@@ -343,6 +345,8 @@ export function AddMeal() {
         </div>
 
         {items.length > 0 && <CheckPanel checks={checks} anyActive={anyActive} swapped={swapped} eaten={eaten && hasSwaps(checks)} plan={plan} />}
+        {items.length > 0 && plan && <MedFoodPanel notes={medFoodNotes(plan.prescriptions, items, foods, { mealAt: atLocal(date, time),
+          doses: new Map(plan.prescriptions.map((p) => [p.id, (others ?? []).filter((e) => e.kind === 'med' && e.status === 'done' && e.prescriptionId === p.id && !e.timeUnknown).map((e) => e.at)])) })} />}
 
         {/* D78: the totals only once there is something to add up — no «0 ккал» on an empty meal */}
         {items.length > 0 && <div className="rounded-2xl border border-line bg-surface p-3 tabular">
