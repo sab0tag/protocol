@@ -39,6 +39,10 @@ export interface Prescription {
   stock?: { left: number; perDose: number; at: ISODateTime };
   /** D97: the day it entered the plan — doses before it are not due (a medicine added today is not «missed» for two weeks) */
   since?: ISODate;
+  /** D100: the last day of a course («14 днів» from the start) or the day it was cancelled — no doses after it; history stays */
+  until?: ISODate;
+  /** D100: taken when needed, not at set times — the only way a medicine is kept without a time */
+  asNeeded?: true;
   /** D89: picked from the medicines register — its trade name, INN and ATC (never a dose); absent = typed, «не з реєстру» */
   med?: { name: string; inn?: string; atc?: string };
 }

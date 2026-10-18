@@ -68,6 +68,8 @@ test('the example is a database of its own: the own records stay, «Подиви
   await page.goto('./#/plan');
   await page.locator('section.rounded-2xl').filter({ has: page.getByRole('heading', { name: 'Призначення', exact: true }) }).getByRole('button', { name: 'Додати' }).click();
   await page.getByRole('dialog', { name: 'Призначення' }).getByRole('textbox', { name: 'Назва' }).fill('Мій препарат');
+  await page.getByRole('dialog', { name: 'Призначення' }).getByRole('textbox', { name: /^Доза/ }).fill('1 таб.');
+  await page.getByRole('dialog', { name: 'Призначення' }).getByRole('textbox', { name: /^Час прийому/ }).fill('09:00');
   await page.getByRole('dialog', { name: 'Призначення' }).getByRole('button', { name: 'Зберегти' }).click();
   await page.goto('./#/more');
   await page.getByRole('button', { name: /Подивитись на прикладі/ }).click(); // the own plan is not empty — still there

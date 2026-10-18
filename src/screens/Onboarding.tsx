@@ -69,6 +69,8 @@ function Steps({ plan, start, onScanned }: { plan: PlanRow; start: number; onSca
     navigate('/', { replace: true });
   };
 
+  // D100: the plan does not start with a medicine that has no dose or no time — the same rule as the medicine form
+  const rxBlocked = rx.filter((p) => p.title.trim()).map((p) => (!p.dose?.trim() ? `${p.title}: ${P.needDose}` : !p.schedule?.times.length && !p.asNeeded ? `${p.title}: ${P.needTime}` : '')).find(Boolean);
   const toggle = (tag: ConstraintTag, on: boolean) => setChosen((x) => ({ ...x,
     [tag]: on ? x[tag] ?? { id: newId(), tag, title: P.tags[tag], reason: '', source: '', active: true } : undefined }));
   const setC = (tag: ConstraintTag, patch: Partial<Constraint>) => setChosen((x) => ({ ...x, [tag]: { ...x[tag]!, ...patch } }));
@@ -145,9 +147,10 @@ function Steps({ plan, start, onScanned }: { plan: PlanRow; start: number; onSca
         </>
       )}
 
+      {step === 3 && rxBlocked && <p role="status" className="text-sm text-warn">{rxBlocked}</p>}
       <div className="flex flex-wrap gap-2">
         {step < 3 ? <button type="button" onClick={() => setStep(step + 1)} className="min-h-tap flex-1 rounded-xl bg-accent px-4 font-medium text-surface">{L.next}</button>
-          : <button type="button" onClick={() => void done(false)} className="min-h-tap flex-1 rounded-xl bg-accent px-4 font-medium text-surface">{L.finish}</button>}
+          : <button type="button" onClick={() => void done(false)} disabled={!!rxBlocked} className="min-h-tap flex-1 rounded-xl bg-accent px-4 font-medium text-surface disabled:opacity-40">{L.finish}</button>}
         {step > 1 && <button type="button" onClick={() => setStep(step - 1)} className="min-h-tap rounded-xl border border-line px-4">{L.back}</button>}
       </div>
       <button type="button" onClick={() => void done(true)} className="min-h-tap text-muted underline">{L.skip}</button>

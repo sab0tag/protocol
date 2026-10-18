@@ -16,7 +16,7 @@ describe('«Мій день»', () => {
     const c = buildChecklist({ plan, date: DATE, entries: [], workouts: [], foods, now: new Date(`${DATE}T09:00:00`) });
     expect(c.items.map((i) => i.key)).toEqual(['med:p-vitd:08:30', 'water', 'workout', 'dinner']);
     expect(c).toMatchObject({ done: 0, total: 4 });
-    expect(c.items[0]?.detail).toBe('08:30 · під час їжі');
+    expect(c.items[0]?.detail).toBe('08:30 · 2000 МО · під час їжі');
   });
 
   it('a medicine without a time is once a day, after the timed ones (D49)', () => {

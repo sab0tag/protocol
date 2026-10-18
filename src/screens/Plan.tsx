@@ -178,15 +178,17 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
   return <label className="block"><span className="text-sm text-muted">{label}</span>{children}</label>;
 }
 
-function FormSheet({ title, onClose, onSave, onDelete, children }: {
+function FormSheet({ title, onClose, onSave, onDelete, children, blocked }: {
   title: string; onClose: () => void; onSave: () => Promise<unknown> | void; onDelete?: () => Promise<unknown> | void; children: ReactNode;
+  blocked?: string; // D100: why it cannot be saved yet — said next to the button, the button off
 }) {
   return (
     <Sheet title={title} onClose={onClose}>
-      <form className="max-h-[70dvh] space-y-3 overflow-y-auto" onSubmit={async (e) => { e.preventDefault(); await onSave(); onClose(); }}>
+      <form className="max-h-[70dvh] space-y-3 overflow-y-auto" onSubmit={async (e) => { e.preventDefault(); if (blocked) return; await onSave(); onClose(); }}>
         {children}
+        {blocked && <p role="status" className="text-sm text-warn">{blocked}</p>}
         <div className="flex flex-wrap gap-2 pt-1">
-          <button type="submit" className="min-h-tap flex-1 rounded-xl bg-accent px-4 font-medium text-surface">{P.save}</button>
+          <button type="submit" disabled={!!blocked} className="min-h-tap flex-1 rounded-xl bg-accent px-4 font-medium text-surface disabled:opacity-40">{P.save}</button>
           <button type="button" onClick={onClose} className="min-h-tap rounded-xl border border-line px-4">{P.cancel}</button>
           {onDelete && <button type="button" onClick={async () => { await onDelete(); onClose(); }}
             className="min-h-tap rounded-xl px-3 text-warn">{P.delete}</button>}
@@ -224,6 +226,7 @@ function PrescriptionForm({ plan, item, onClose }: { plan: PlanRow; item?: Presc
   };
   return (
     <FormSheet title={item ? P.edit : P.prescriptions} onClose={onClose} onSave={onSave}
+      blocked={drug && p.title.trim() ? (!p.dose?.trim() ? P.needDose : !times.trim() && !p.asNeeded ? P.needTime : undefined) : undefined}
       onDelete={item ? () => save({ prescriptions: plan.prescriptions.filter((x) => x.id !== item.id) }) : undefined}>
       <Field label={P.title_}><input required value={p.title} placeholder={drug ? P.medSearch : undefined} className={field}
         onChange={(e) => { const title = e.target.value; const { med: _m, ...rest } = p; setP(p.med && title === p.med.name ? p : { ...rest, title }); }} /></Field>
@@ -250,7 +253,14 @@ function PrescriptionForm({ plan, item, onClose }: { plan: PlanRow; item?: Presc
       <Field label={P.dose}><input value={p.dose ?? ''} onChange={(e) => setP({ ...p, dose: e.target.value || undefined })} className={field} /></Field>
       {drug && <p className={`-mt-2 text-xs ${p.dose?.trim() ? 'text-muted' : 'text-warn'}`}>{p.dose?.trim() ? P.medDoseNote : P.noDose}</p>}
       <Field label={P.times}><input value={times} onChange={(e) => setTimes(e.target.value)} placeholder={P.timesPh} className={field} /></Field>
-      {drug && !times.trim() && <p className="-mt-2 text-xs text-warn">{P.noTime}</p>}
+      {drug && (
+        <label className="-mt-1 flex min-h-tap items-center gap-3">
+          <input type="checkbox" checked={!!p.asNeeded} onChange={(e) => { const { asNeeded: _a, ...rest } = p; setP(e.target.checked ? { ...p, asNeeded: true } : rest); }}
+            className="h-5 w-5 accent-[rgb(var(--accent))]" /><span>{P.asNeeded}</span></label>
+      )}
+      {drug && (
+        <Field label={P.until}><input type="date" value={p.until ?? ''} min={p.since} onChange={(e) => { const { until: _u, ...rest } = p; setP(e.target.value ? { ...p, until: e.target.value } : rest); }} className={field} /></Field>
+      )}
       <label className="flex min-h-tap items-center gap-3">
         <input type="checkbox" checked={p.schedule?.withFood ?? false} className="h-5 w-5 accent-[rgb(var(--accent))]"
           onChange={(e) => setP({ ...p, schedule: { times: p.schedule?.times ?? [], withFood: e.target.checked } })} />

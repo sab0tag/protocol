@@ -13,7 +13,7 @@ export function examplePlan(today: Date = new Date()): Plan {
       { id: 'c-iron', tag: 'iron', title: 'Високий феритин', reason: 'Печінка — не частіше разу на тиждень.', source: 'Приклад', active: true },
     ],
     prescriptions: [
-      { id: 'p-vitd', kind: 'supplement', title: 'Вітамін D', schedule: { times: ['08:30'], withFood: true }, source: 'Приклад', since: d(-30) },
+      { id: 'p-vitd', kind: 'supplement', title: 'Вітамін D', dose: '2000 МО', schedule: { times: ['08:30'], withFood: true }, source: 'Приклад', since: d(-30) },
     ],
     targets: {
       kcal: 2100, proteinG: 140, carbsG: { max: 190 }, fatG: 80, calciumMg: 1000, waterMl: 2500,

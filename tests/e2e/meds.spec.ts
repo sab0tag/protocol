@@ -10,6 +10,9 @@ async function addFromRegistry(page: import('@playwright/test').Page, typed: str
   await form.getByRole('button', { name: pick }).first().click();
   await expect(form.getByText(/^з реєстру · Ibuprofen/)).toBeVisible();
   await expect(form.getByRole('textbox', { name: /^Доза/ })).toHaveValue(''); // the register never fills a dose
+  await expect(form.getByRole('button', { name: 'Зберегти' })).toBeDisabled(); // D100: not without a dose and a time
+  await form.getByRole('textbox', { name: /^Доза/ }).fill('200 мг');
+  await form.getByRole('checkbox', { name: /За потреби/ }).check();
   await form.getByRole('button', { name: 'Зберегти' }).click();
 }
 
@@ -49,9 +52,11 @@ test('a medicine without a time or a dose says so — a hint never passes for a 
   await page.locator('section.rounded-2xl').filter({ has: page.getByRole('heading', { name: 'Призначення', exact: true }) }).getByRole('button', { name: 'Додати' }).click();
   const form = page.getByRole('dialog', { name: 'Призначення' });
   await form.getByRole('textbox', { name: 'Назва' }).fill('Метформін');
-  await expect(form.getByText('Час не вказано — нагадування не буде, ліки рахуються як «раз на день».')).toBeVisible();
-  await expect(form.getByText(/^Дозу не вказано/)).toBeVisible();
+  await expect(form.getByText('Вкажіть дозу зі слів лікаря — без неї ліки не зберегти.')).toBeVisible(); // D100: blocked, and why
+  await expect(form.getByRole('button', { name: 'Зберегти' })).toBeDisabled();
   await expect(form.getByRole('textbox', { name: /^Час прийому/ })).toHaveAttribute('placeholder', 'напр. 08:30, 20:00');
+  await form.getByRole('textbox', { name: /^Доза/ }).fill('500 мг');
+  await expect(form.getByText('Вкажіть час прийому або позначте «За потреби».')).toBeVisible();
   await form.getByRole('textbox', { name: /^Час прийому/ }).fill('08:00');
-  await expect(form.getByText(/^Час не вказано/)).toHaveCount(0);
+  await expect(form.getByRole('button', { name: 'Зберегти' })).toBeEnabled();
 });

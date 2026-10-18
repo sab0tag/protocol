@@ -128,7 +128,7 @@ test('the service worker fills reminders in from the phone\'s own data', async (
   };
   await push({ t: 'На завтра', b: '—', k: 'evening', d: tomorrow }, 'На завтра — Зваріть яйця звечора');
   await push({ t: 'На завтра', b: '—', k: 'evening', d: '2031-01-01' }, 'На завтра — Меню на завтра ще не складено — скласти?');
-  await push({ t: 'Ліки', b: '—', k: 'med', h: '08:30', n: 1 }, '⏰ Ще раз: Ліки — Вітамін D під час їжі');
+  await push({ t: 'Ліки', b: '—', k: 'med', h: '08:30', n: 1 }, '⏰ Ще раз: Ліки — Вітамін D 2000 МО під час їжі');
   await push({ t: 'План на сьогодні', b: '—', k: 'morning', d: today }, 'План на сьогодні — ліки: 08:30');
   await push({ t: 'Вода', b: '—', k: 'water', d: today }, 'Вода — Випито 0 з 2,5 л — склянка води?'); // D70
 });
