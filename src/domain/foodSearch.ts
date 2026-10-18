@@ -31,6 +31,11 @@ export interface Query {
   measure?: string; // "г", "шт", "ст. л."…
 }
 
+/** D97: words around the food that are not food — «з'їв борщ», «випила каву», «на обід гречка», «я ще поїв». */
+const NOT_FOOD = new Set(['я', 'ще', 'зїв', 'зїла', 'зїли', 'їв', 'їла', 'їли', 'поїв', 'поїла', 'поїли', 'випив', 'випила', 'випили', 'пив', 'пила', 'пили',
+  'скуштував', 'скуштувала', 'перекусив', 'перекусила', 'снідав', 'снідала', 'обідав', 'обідала', 'вечеряв', 'вечеряла']);
+const MEAL_WORD = /^(сніданок|обід|вечерю|вечеря|перекус|полуденок)$/u;
+
 export function parseQuery(raw: string): Query {
   const words = normalize(raw).replace(/(^|\s)ст\.?\s*л\.?/gu, '$1стл ').replace(/(^|\s)ч\.?\s*л\.?/gu, '$1чл ')
     .replace(/(\d),(\d)/g, '$1.$2').replace(/(\d)([^\d\s.])/gu, '$1 $2').split(' ').filter(Boolean);
@@ -38,6 +43,7 @@ export function parseQuery(raw: string): Query {
   let measure: string | undefined;
   const rest: string[] = [];
   for (const [i, w] of words.entries()) {
+    if (NOT_FOOD.has(w) || ((w === 'на' || w === 'в' || w === 'у') && MEAL_WORD.test(words[i + 1] ?? '')) || (MEAL_WORD.test(w) && /^(на|в|у)$/u.test(words[i - 1] ?? ''))) continue;
     // D84: «кефір 1 %», «молоко 2,5%» — a number before «%» is part of the name, not how many
     if (/^\d+(\.\d+)?$/.test(w) && words[i + 1] === '%') { rest.push(w.replace('.', ',')); continue; }
     if (w === '%') { rest.push(w); continue; }

@@ -203,7 +203,7 @@ const str = (n: number | undefined) => (n == null ? '' : String(n));
 
 // ------------------------------------------------------------------ forms
 function PrescriptionForm({ plan, item, onClose }: { plan: PlanRow; item?: Prescription; onClose: () => void }) {
-  const [p, setP] = useState<Prescription>(item ?? { id: newId(), kind: 'medication', title: '', source: '' });
+  const [p, setP] = useState<Prescription>(item ?? { id: newId(), kind: 'medication', title: '', source: '', since: todayISO() }); // D97
   const [times, setTimes] = useState(item?.schedule?.times.join(', ') ?? '');
   const entries = useAllEntries();
   const now = item && entries ? stockLeft(item, entries) : undefined;
@@ -248,15 +248,16 @@ function PrescriptionForm({ plan, item, onClose }: { plan: PlanRow; item?: Presc
         <select value={p.kind} onChange={(e) => setP({ ...p, kind: e.target.value as Prescription['kind'] })} className={field}>
           {KINDS.map((k) => <option key={k} value={k}>{P.kinds[k]}</option>)}</select></Field>
       <Field label={P.dose}><input value={p.dose ?? ''} onChange={(e) => setP({ ...p, dose: e.target.value || undefined })} className={field} /></Field>
-      {drug && <p className="-mt-2 text-xs text-muted">{P.medDoseNote}</p>}
-      <Field label={P.times}><input value={times} onChange={(e) => setTimes(e.target.value)} placeholder="08:30" className={field} /></Field>
+      {drug && <p className={`-mt-2 text-xs ${p.dose?.trim() ? 'text-muted' : 'text-warn'}`}>{p.dose?.trim() ? P.medDoseNote : P.noDose}</p>}
+      <Field label={P.times}><input value={times} onChange={(e) => setTimes(e.target.value)} placeholder={P.timesPh} className={field} /></Field>
+      {drug && !times.trim() && <p className="-mt-2 text-xs text-warn">{P.noTime}</p>}
       <label className="flex min-h-tap items-center gap-3">
         <input type="checkbox" checked={p.schedule?.withFood ?? false} className="h-5 w-5 accent-[rgb(var(--accent))]"
           onChange={(e) => setP({ ...p, schedule: { times: p.schedule?.times ?? [], withFood: e.target.checked } })} />
         <span>{P.withFood}</span></label>
       {(p.kind === 'medication' || p.kind === 'supplement') && (
         <div className="grid grid-cols-2 gap-2">
-          <Field label={P.stockLeft}><input inputMode="numeric" value={left} onChange={(e) => setLeft(e.target.value)} placeholder="30" className={field} /></Field>
+          <Field label={P.stockLeft}><input inputMode="numeric" value={left} onChange={(e) => setLeft(e.target.value)} placeholder={P.stockPh} className={field} /></Field>
           <Field label={P.perDose}><input inputMode="decimal" value={perDose} onChange={(e) => setPerDose(e.target.value)} className={field} /></Field>
         </div>
       )}

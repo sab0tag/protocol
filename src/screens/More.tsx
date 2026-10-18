@@ -1,6 +1,7 @@
-import { Info, Activity, BellRing, ChevronRight, Dumbbell, FileText, RefreshCw, Salad, ShoppingCart, Sparkles, UserRound, CalendarRange, MessageSquareWarning, Zap } from 'lucide-react';
+import { Eye, Info, Activity, BellRing, ChevronRight, Dumbbell, FileText, RefreshCw, Salad, ShoppingCart, Sparkles, UserRound, CalendarRange, MessageSquareWarning, Zap } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Backup } from '../components/Backup';
+import { enterDemo, inDemo } from '../data/db';
 import { t } from '../i18n/uk';
 
 // D78: four short groups instead of one list of 14; «Мій день» lives on «День», the exercise library inside «Тренування»
@@ -45,6 +46,11 @@ export function More() {
           </ul>
         </section>
       ))}
+      {!inDemo() && ( /* D98: the example — always one tap away, in its own database */
+        <button type="button" onClick={enterDemo} className="mb-4 flex min-h-tap w-full items-center gap-3 rounded-2xl border border-line bg-surface px-3 py-2 text-left">
+          <Eye size={20} className="text-accent" aria-hidden /><span className="flex-1"><span className="block font-medium">{t.welcome.example}</span>
+            <span className="block text-sm text-muted">{t.example.safe}</span></span></button>
+      )}
       <Backup />
       <p className="mt-4 text-sm text-muted">{t.plan.disclaimer}</p>
     </section>

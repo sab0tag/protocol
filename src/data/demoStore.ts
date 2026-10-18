@@ -1,18 +1,12 @@
-// D79: the example week goes into the database with the example plan and leaves with it — only rows marked `demo`.
+// D79: an example week an older version put into the person's own database leaves with «Почати свій план» — only rows
+// marked `demo`. Since D98 the example lives in a database of its own; this only cleans what older versions left.
 import { db } from './db';
-import { demoData, type DemoData } from './demo';
+import type { DemoData } from './demo';
 
 const TABLES = ['entries', 'workouts', 'weights', 'wellbeing', 'labs'] as const;
 type Row = { id?: string; date?: string; name?: string };
 const keyOf = (t: (typeof TABLES)[number], r: Row) => (t === 'labs' ? [r.date!, r.name!] : t === 'weights' || t === 'wellbeing' ? r.date! : r.id!);
 
-export async function putDemo(): Promise<void> {
-  const foods = new Map((await db.foods.toArray()).map((f) => [f.id, f]));
-  const d = demoData(foods);
-  await db.transaction('rw', TABLES.map((t) => db.table(t)), async () => {
-    for (const t of TABLES) await db.table(t).bulkPut(d[t]);
-  });
-}
 
 /** Takes the example week out; returns it, so «Скасувати» can put it back. */
 export async function takeDemo(): Promise<DemoData> {

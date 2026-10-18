@@ -29,3 +29,18 @@ describe('the example weeks and the report’s «Головне» (D79)', () => 
     expect(text.split('\n')[1]).toBe('Ліки: прийнято 11 з 14 доз (79 %) — Вітамін D — пропущено 3');
   });
 });
+
+describe('a medicine added today is not «missed» before it (D97)', () => {
+  it('the report counts doses from the day it entered the plan', async () => {
+    const { buildChecklist } = await import('../../src/domain/checklist');
+    const now2 = new Date('2026-10-17T21:00:00');
+    const d = demoData(foods, now2);
+    const plan = examplePlan(now2);
+    const withNew = { ...plan, prescriptions: [...plan.prescriptions, { id: 'm', kind: 'medication' as const, title: 'Метформін', source: 'Лікар', since: '2026-10-17', schedule: { times: ['08:00'] } }] };
+    const r = buildReport({ from: '2026-10-03', to: '2026-10-17', plan: withNew, ...d, foods, now: now2 });
+    expect(r.meds!.list.find((m) => m.title === 'Метформін')?.due ?? 0).toBe(0); // nothing due before the day it was added
+    expect(r.meds!.list.find((m) => m.title === 'Вітамін D')).toMatchObject({ taken: 11, due: 14 });
+    const past = buildChecklist({ plan: withNew, date: '2026-10-10', entries: [], workouts: [], foods, now: now2 });
+    expect(past.items.map((i) => i.title)).not.toContain('Метформін');
+  });
+});

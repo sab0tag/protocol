@@ -1,4 +1,6 @@
 import { MedFoodPanel } from '../components/MedFoodPanel';
+import { DangerCard } from '../components/DangerCard';
+import { dangerInText } from '../domain/symptoms';
 import { medFoodNotes } from '../domain/medFood';
 import { ConciergeNotFound, type Suggested } from '../components/ConciergeNotFound';
 import { whyFlagged } from '../domain/concierge';
@@ -84,6 +86,7 @@ export function AddMeal() {
   const read = useMemo(() => (foods && recipes && query.trim() ? readMeal(query, { foods: [...foods.values()], recipes, dishItem, prefer: usual }) : null),
     [foods, recipes, query, usual]);
   const phrase = read && !read.list ? read.rows : null;
+  const danger = dangerInText(query);
   const list = read?.list ?? [];
   const [photo, setPhoto] = useState<PhotoState>({ state: 'none' });
   const photoInput = useRef<HTMLInputElement>(null);
@@ -168,7 +171,8 @@ export function AddMeal() {
           )}
           {photo.state === 'nosync' && <p className="mt-2 text-sm text-muted">{t.meal.photoNeedsSync}</p>}
           {!query && <p className="mt-1 flex items-start gap-1 text-xs text-muted"><Mic size={14} className="mt-0.5 shrink-0" aria-hidden />{t.meal.dictate}</p>}
-          {phrase && <RecognizedPanel key={query} title={t.meal.recognized} rows={phrase}
+          {danger && <DangerCard className="mt-2" /> /* D97: one card for a danger sign, nothing else about those words */}
+          {!danger && phrase && <RecognizedPanel key={query} title={t.meal.recognized} rows={phrase}
             onAdd={(picked) => { setItems((xs) => [...xs, ...picked]); setQuery(''); }}
             notFound={(text) => recipes && <ConciergeNotFound text={text} plan={plan} foods={foods} recipes={recipes} date={date} onAdd={concierge} />} />}
           {photo.state === 'busy' && <p role="status" className="mt-2 text-sm text-muted">{t.meal.photoBusy}</p>}
@@ -177,7 +181,7 @@ export function AddMeal() {
             ? <RecognizedPanel title={t.meal.photoTitle} rows={photo.rows} note={photo.note}
                 onAdd={(picked) => { setItems((xs) => [...xs, ...picked]); setPhoto({ state: 'none' }); }} />
             : <p role="status" className="mt-2 text-sm text-muted">{photo.note ?? t.meal.photoEmpty}</p>)}
-          {!phrase && list.length > 0 && (
+          {!danger && !phrase && list.length > 0 && (
             <ul className="mt-2 divide-y divide-line rounded-xl border border-line">
               {list.map(({ item: dish, recipe: r, food: f }) => r ? (() => {
                 const portions = parsed.qty ?? 1;
@@ -202,7 +206,7 @@ export function AddMeal() {
             </ul>
           )}
           {/* D83: nothing found is said — never a silent empty space under the field */}
-          {!phrase && query.trim().length >= 2 && list.length === 0 && (
+          {!danger && !phrase && query.trim().length >= 2 && list.length === 0 && (
             <><p role="status" className="mt-2 text-sm text-muted">«{query.trim()}» — {t.meal.notFound}</p>
               {recipes && <ConciergeNotFound key={query.trim()} text={query.trim()} plan={plan} foods={foods} recipes={recipes} date={date}
                 onAdd={(s) => { concierge(s); setQuery(''); }} />}</>

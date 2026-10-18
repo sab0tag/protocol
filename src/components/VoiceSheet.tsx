@@ -5,7 +5,7 @@
 import { format } from 'date-fns';
 import { Mic, Square, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { db } from '../data/db';
+import { db, inDemo } from '../data/db';
 import { listen, speechSupported, type SpeechError } from '../data/speech';
 import { atLocal, newId } from '../domain/dates';
 import { amountText, approxG } from '../domain/foodSearch';
@@ -15,11 +15,13 @@ import { emptyDraft, hear, ready, type DraftMed, type VoiceDraft } from '../doma
 import type { DayEntry, Food, MealItem, Plan, Recipe } from '../domain/types';
 import { t } from '../i18n/uk';
 import { ConciergeNotFound } from './ConciergeNotFound';
+import { DangerCard } from './DangerCard';
+import { dangerInText } from '../domain/symptoms';
 import { Sheet } from './Sheet';
 import { saved } from './Toast';
 
 const L = t.voice;
-const OK_KEY = 'protocol.voice.ok', METRIC_KEY = 'protocol.metrics.voice';
+const OK_KEY = 'protocol.voice.ok', METRIC_KEY = `protocol.metrics.voice${inDemo() ? '.demo' : ''}`; // D98: the pilot's measure from own use only
 const okGiven = () => { try { return localStorage.getItem(OK_KEY) === '1'; } catch { return false; } };
 
 /** D95: seconds from opening the window to writing — the pilot's measure; the last 50, on this device only. */
@@ -73,6 +75,7 @@ export function VoiceSheet({ date, plan, foods, recipes, today, yesterday, meds,
     if (done) { remember(Math.round((Date.now() - opened.current) / 1000)); onClose(); }
   };
   const setItem = (i: number, it: MealItem | null) => setDraft((d) => ({ ...d, items: it ? d.items.map((x, j) => (j === i ? { ...x, item: it, sure: true } : x)) : d.items.filter((_, j) => j !== i) }));
+  const danger = dangerInText(heard) || draft.notFound.some(dangerInText); // D97: one 103 card, nothing else about those words
   const checks = plan && draft.items.length ? checkMeal({ plan, date, foods, dayEntries: today, recentEntries: [], meal: draft.items.map((x) => x.item) }) : [];
 
   if (!ok) return (
@@ -93,6 +96,7 @@ export function VoiceSheet({ date, plan, foods, recipes, today, yesterday, meds,
         <p role="status" className="min-h-[3rem] flex-1 text-sm">{heard || (busy ? L.listening : empty ? L.hint : '')}</p>
       </div>
       {error && <p role="alert" className="mt-2 text-sm text-warn">{L.errors[error]}</p>}
+      {danger && <DangerCard />}
       <form className="mt-2 flex gap-2" onSubmit={(e) => { e.preventDefault(); take(typed); setTyped(''); }}>
         <label className="flex-1"><span className="sr-only">{L.typed}</span>
           <input value={typed} onChange={(e) => setTyped(e.target.value)} placeholder={L.typedPh} className="block min-h-tap w-full rounded-xl border border-line bg-bg px-3" /></label>
@@ -134,8 +138,11 @@ export function VoiceSheet({ date, plan, foods, recipes, today, yesterday, meds,
                   );
                 })}
               </ul>
-              {draft.notFound.map((text) => (
-                <div key={text} className="text-sm"><p className="text-muted">«{text}» — {t.meal.notFound}</p>
+              {!danger && draft.notFound.map((text) => (
+                <div key={text} className="text-sm">
+                  <p className="flex items-start gap-2"><span className="flex-1 text-warn">«{text}» — {t.meal.notFound}</span>
+                    <button type="button" onClick={() => setDraft((d) => ({ ...d, notFound: d.notFound.filter((n) => n !== text) }))}
+                      className="min-h-[2rem] px-1 text-muted underline">{L.drop}</button></p>
                   <ConciergeNotFound text={text} plan={plan} foods={foods} recipes={recipes} date={date}
                     onAdd={(s) => setDraft((d) => ({ ...d, notFound: d.notFound.filter((n) => n !== text), items: [...d.items, { item: s.item, said: text, sure: true }] }))} /></div>
               ))}
@@ -148,6 +155,7 @@ export function VoiceSheet({ date, plan, foods, recipes, today, yesterday, meds,
         </div>
       )}
 
+      {draft.notFound.length > 0 && !danger && <p className="mt-3 text-sm text-warn">{L.unread(draft.notFound.length)}</p>}
       <div className="mt-3 flex gap-2">
         <button type="button" disabled={!ready(draft) || saving} onClick={() => void save()}
           className="min-h-tap flex-1 rounded-xl bg-accent px-4 font-medium text-surface disabled:opacity-40">{L.save}</button>

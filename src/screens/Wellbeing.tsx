@@ -27,7 +27,8 @@ export function Wellbeing() {
     if (ok !== undefined) setSavedAt({ date, hm: format(new Date(), 'HH:mm') });
   };
   const typed = note?.date === date ? note.text : (w.note ?? '');
-  const saveNote = () => { const text = typed.trim() || undefined; setNote(null); if (text !== w.note) void put({ note: text }); };
+  // D97: the typed note stays until it is written — closing the app right after the tap never loses it
+  const saveNote = () => { const text = typed.trim() || undefined; if (text === w.note) { setNote(null); return; } void put({ note: text }).then(() => setNote(null)); };
   const chips = [...new Set([...L.defaults, ...w.symptoms])];
   const toggle = (s: string) => put({ symptoms: w.symptoms.includes(s) ? w.symptoms.filter((x) => x !== s) : [...w.symptoms, s] });
 

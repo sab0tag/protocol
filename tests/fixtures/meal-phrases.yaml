@@ -423,3 +423,39 @@
   status: open
   found: 2026-10-18
   note: "Приклад із ТЗ. Правила ЩД ще не перевірені дієтологом — неперевірена дієта їжу не перевіряє, відмітки «ЩД» немає."
+
+# ── Дієслова навколо їжі (D97, обхід аналітика 18.10) ──
+
+- id: verb-ate-borshch
+  phrase: "з'їв борщ"
+  profile: clean
+  expect:
+    - { name: "Борщ" }
+  status: fixed
+  found: 2026-10-18
+  note: "Було: «не знайдено» — дієслово йшло в пошук як назва."
+
+- id: verb-drank-coffee
+  phrase: "випив каву"
+  profile: clean
+  expect:
+    - { name: "Кава чорна" }
+  status: fixed
+  found: 2026-10-18
+
+- id: verb-meal-word
+  phrase: "на обід гречка з куркою, випила чай"
+  profile: clean
+  expect:
+    - { name: "Гречка з куркою" }
+    - { name: "Чай без цукру" }
+  status: fixed
+  found: 2026-10-18
+
+- id: verb-amount-kept
+  phrase: "з'їла два яйця"
+  profile: clean
+  expect:
+    - { name: "Яйце варене", qty: 2, unit: шт }
+  status: fixed
+  found: 2026-10-18

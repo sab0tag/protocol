@@ -5,7 +5,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import qrcode from 'qrcode-generator';
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { db } from '../data/db';
+import { db, inDemo, leaveDemo } from '../data/db';
 import { t } from '../i18n/uk';
 import { ApiError } from '../sync/api';
 import { newCode, parseCode, parsePairCode } from '../sync/crypto';
@@ -27,7 +27,12 @@ export function Sync() {
   return (
     <section className="space-y-4 pt-6">
       <h1 className="text-2xl font-semibold">{L.title}</h1>
-      {meta ? <On code={meta.code} photo={!!meta.photoConsent} /> : <Off />}
+      {inDemo() ? ( /* D98: nothing of the example goes to the server */
+        <div className="space-y-2 rounded-2xl border border-line bg-surface p-3">
+          <p>{t.example.noSync}</p>
+          <button type="button" onClick={() => void leaveDemo()} className="min-h-tap rounded-xl bg-accent px-3 font-medium text-surface">{t.example.start}</button>
+        </div>
+      ) : meta ? <On code={meta.code} photo={!!meta.photoConsent} /> : <Off />}
     </section>
   );
 }

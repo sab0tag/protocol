@@ -162,12 +162,21 @@
 - id: topup-too-late
   scenario: goal_topup
   profile: demo
-  time: "19:45"
+  time: "20:05"
   day: { protein: 60, calcium: 300, carbs: 120 }
   expect: { asks: false }
   status: fixed
   found: 2026-10-18
-  note: "Останній прийом до 20:00 — за 15 хвилин уже не пропонуємо."
+  note: "Після «їжа до 20:00» не пропонуємо. (D97: було 19:45 — аналітик записав вечерю о 19:29 й не побачив добору; вікно тепер до самого «їжа до».)"
+
+- id: topup-after-dinner-1929
+  scenario: goal_topup
+  profile: demo
+  time: "19:30"
+  day: { protein: 60, calcium: 300, carbs: 120 }
+  expect: { asks: true }
+  status: fixed
+  found: 2026-10-18
 
 - id: near-limit-carbs
   scenario: near_limit

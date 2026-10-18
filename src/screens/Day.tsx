@@ -174,16 +174,21 @@ export function Day() {
 
       {/* D53: recording food is one strong button on «День», not a row under a table */}
       <div className="mb-4 flex gap-2">
-        <button type="button" onClick={() => navigate('/meal/new')}
-          className="flex min-h-[3.5rem] flex-1 items-center justify-center gap-2 rounded-2xl border border-accent/40 bg-surface text-lg font-semibold text-accent shadow-sm">
-          <UtensilsCrossed size={22} aria-hidden />{t.day.recordFood}</button>
-        {/* D95: say it — a meal, a medicine, water — in one window */}
-        <button type="button" onClick={() => setVoice(true)} aria-label={t.voice.open}
-          className="flex min-h-[3.5rem] w-14 shrink-0 items-center justify-center rounded-2xl border border-accent/40 bg-surface text-accent shadow-sm"><Mic size={22} aria-hidden /></button>
+        {/* D97: the main action keeps its width — the voice sits inside its right edge, not beside it */}
+        <div className="relative flex min-w-0 flex-1">
+          <button type="button" onClick={() => navigate('/meal/new')}
+            className="flex min-h-[3.5rem] min-w-0 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-2xl border border-accent/40 bg-surface pl-2 pr-11 text-base font-semibold text-accent shadow-sm">
+            <UtensilsCrossed size={20} className="shrink-0" aria-hidden />{t.day.recordFood}</button>
+          {/* D95: say it — a meal, a medicine, water — in one window */}
+          <button type="button" onClick={() => setVoice(true)} aria-label={t.voice.open}
+            className="absolute inset-y-1 right-1 flex w-10 items-center justify-center rounded-xl border-l border-accent/20 text-accent"><Mic size={20} aria-hidden /></button>
+        </div>
         {/* D56: a symptom with its time, next to the food it may follow */}
-        <button type="button" onClick={() => setSymptom({})}
-          className="flex min-h-[3.5rem] shrink-0 items-center justify-center gap-1.5 rounded-2xl border border-line bg-surface px-3 font-medium shadow-sm">
-          <Frown size={20} className="text-warn" aria-hidden />{t.addKinds.symptom}</button>
+        <button type="button" onClick={() => setSymptom({})} aria-label={t.addKinds.symptom}
+          className="flex min-h-[3.5rem] shrink-0 items-center justify-center gap-1.5 rounded-2xl border border-line bg-surface px-2.5 text-[15px] font-medium shadow-sm">
+          <Frown size={20} className="text-warn" aria-hidden />
+          {/* D97: narrow phones keep «Записати їжу» whole — the words here get shorter, the name for a screen reader stays */}
+          <span className="hidden min-[385px]:inline" aria-hidden>{t.addKinds.symptom}</span><span className="hidden min-[340px]:inline min-[385px]:hidden" aria-hidden>{t.day.unwellShort}</span></button>
       </div>
 
       <nav ref={tilesRef} aria-label={t.day.quick} className="mb-5 grid grid-cols-5 gap-1">

@@ -80,3 +80,16 @@ test('a dish said without an amount offers its portions — ½, 1, 1½, 2 (D95)'
   await pick.getByRole('button', { name: '1,5 порції' }).click();
   await expect(page.locator('[data-item="Гречка з куркою"]')).toContainText('1,5 порції');
 });
+
+test('a line not found is never dropped silently: «Записати» waits until it is matched or taken out (D97, audit P1)', async ({ browser }) => {
+  const page = await device(browser, 'skip');
+  await fakeSpeech(page, ['гречка 200 грамів, бабусин пиріжок і склянка води']);
+  await page.getByRole('button', { name: 'Сказати голосом' }).click();
+  await page.getByRole('button', { name: 'Зрозуміло, говорити' }).click();
+  const sheet = page.getByRole('dialog', { name: /Скажіть, що з’їли/ });
+  await expect(sheet).toContainText('«бабусин пиріжок» — не знайдено');
+  await expect(sheet).toContainText('Не розібрано: 1');
+  await expect(sheet.getByRole('button', { name: 'Записати' })).toBeDisabled();
+  await sheet.getByRole('button', { name: 'Прибрати', exact: true }).click(); // on purpose
+  await expect(sheet.getByRole('button', { name: 'Записати' })).toBeEnabled();
+});

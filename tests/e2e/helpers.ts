@@ -1,25 +1,33 @@
 import { expect, type Browser, type Page } from '@playwright/test';
+import { examplePlan } from '../../src/data/seed.example';
 
-/** A fresh «device»: the app loaded, its service worker settled, the example plan opened (D73) — without its two invented
- *  weeks (D79) unless `demo` — or onboarding skipped. */
+/** A fresh «device»: the app loaded, its service worker settled, then — `example`: the example plan put into the own
+ *  database on a clean history (a fixture); `demo`: «Подивитись на прикладі», the example's own database (D98); `skip`: nothing. */
 export async function device(browser: Browser, start: 'example' | 'demo' | 'skip' = 'example'): Promise<Page> {
   const ctx = await browser.newContext();
   const page = await ctx.newPage();
   await page.goto('./');
   await page.evaluate(() => navigator.serviceWorker.ready);
   await page.waitForTimeout(500);
-  await page.getByRole('button', { name: start === 'skip' ? /^Пропустити/ : 'Подивитись на прикладі' }).click();
+  if (start === 'demo') { // D98: the example's own database, opened as a person opens it
+    await page.getByRole('button', { name: 'Подивитись на прикладі' }).click();
+    await expect(page.getByText(/Це приклад:/)).toBeVisible();
+    return page;
+  }
+  await page.getByRole('button', { name: /^Пропустити/ }).click();
   await expect(page.getByRole('heading', { level: 1 })).not.toHaveText(/Знайомство|Про себе/);
-  if (start === 'example') { // the example plan on a clean history
-    await page.evaluate(async () => {
+  if (start === 'example') { // the example plan in the person's own database, on a clean history — a fixture for the tests
+    await page.evaluate(async (plan) => {
       const req = indexedDB.open('protocol');
       await new Promise((r) => { req.onsuccess = r; });
-      const stores = ['entries', 'workouts', 'weights', 'wellbeing', 'labs'];
-      const tx = req.result.transaction(stores, 'readwrite');
-      for (const s of stores) tx.objectStore(s).clear();
+      const tx = req.result.transaction('plan', 'readwrite');
+      const store = tx.objectStore('plan');
+      const get = store.get('main');
+      await new Promise((r) => { get.onsuccess = r; });
+      store.put({ ...get.result, ...plan, id: 'main' });
       await new Promise((r) => { tx.oncomplete = r; });
       req.result.close();
-    });
+    }, examplePlan());
     await page.reload();
     await page.waitForTimeout(300);
   }

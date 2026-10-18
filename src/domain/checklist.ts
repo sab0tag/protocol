@@ -48,6 +48,7 @@ export function buildChecklist(args: {
 
   for (const p of plan?.prescriptions ?? []) {
     if (p.kind !== 'medication' && p.kind !== 'supplement') continue;
+    if (p.since && date < p.since) continue; // D97: not in the plan yet that day
     // D49: a medicine without a time in the plan is once a day, whenever — still on the list, not forgotten
     const times: (string | undefined)[] = p.schedule?.times.length ? p.schedule.times : [undefined];
     for (const time of times) {

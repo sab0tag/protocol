@@ -58,7 +58,9 @@ export function searchMeds(index: MedIndex, query: string, limit = 8): MedEntry[
       }
       best = Math.min(best, score);
     }
-    if (best < Infinity) scored.push([e, best + e.name.length / 1000]);
+    // D97: what a patient takes at home first — infusions, injections, ampoules go down the list
+    const hospital = /інфуз|ін[’']?єкц|ампул|концентрат для|для розчину для|парентеральн/iu.test(e.form) ? 0.5 : 0;
+    if (best < Infinity) scored.push([e, best + hospital + e.name.length / 1000]);
   }
   return scored.sort((a, b) => a[1] - b[1]).slice(0, limit).map(([e]) => e);
 }

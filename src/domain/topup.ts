@@ -34,7 +34,7 @@ const ready = (f: Food) => !/\((сир|сух)(а|е|і|ий)\)/iu.test(f.name) 
 
 function evening(s: DayState): boolean {
   const by = s.targets.lastMealBy ?? '20:00';
-  return s.mealsDone >= 2 && minutes(s.now) >= minutes('13:00') && minutes(s.now) <= minutes(by) - 30;
+  return s.mealsDone >= 2 && minutes(s.now) >= minutes('13:00') && minutes(s.now) < minutes(by); // D97: right up to «їжа до», not half an hour before
 }
 
 /** Scenario 3: a target of the plan the day will not reach — and three things that pass the plan to add. */

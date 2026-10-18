@@ -21,6 +21,8 @@
 
 html, body { background: rgb(var(--bg)); color: rgb(var(--ink)); }
 body { font-family: 'Golos Text', system-ui, -apple-system, sans-serif; -webkit-tap-highlight-color: transparent; }
+/* D97: a hint never looks like a value typed in («08:30» that is not set) */
+::placeholder { color: rgb(var(--muted)); opacity: 0.55; font-style: italic; }
 .tabular { font-variant-numeric: tabular-nums; }
 .pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); }
 .pt-safe { padding-top: env(safe-area-inset-top, 0px); }

@@ -31,3 +31,18 @@ describe('the base on start (D83)', () => {
     d.close();
   });
 });
+
+describe('the example\'s own database (D98)', () => {
+  it('is seeded with the example plan (onboarded) and its two weeks, once', async () => {
+    const { DEMO_DB } = await import('../../src/data/db');
+    const d = new ProtocolDB(DEMO_DB);
+    await ensureSeeded(d);
+    const n = await d.entries.count();
+    expect(n).toBeGreaterThan(50);
+    expect((await d.plan.get('main'))?.onboardedAt).toBeDefined();
+    expect((await d.plan.get('main'))?.prescriptions.map((p) => p.title)).toContain('Вітамін D');
+    await ensureSeeded(d);
+    expect(await d.entries.count()).toBe(n); // not twice
+    d.close();
+  });
+});

@@ -21,10 +21,10 @@ export function TopupCard({ date, targets, tops, near }: { date: string; targets
   const answer = (key: string, what: string) => { keep(`topup:${date}:${key}`, what); redraw((n) => n + 1); };
   const showTops = tops.filter((x) => !done(x.goal)), showNear = near && !done('carbs') ? near : null;
   if (!showTops.length && !showNear) return null;
-  const when = () => { // an hour from now, but not past «останній прийом до» less half an hour
+  const when = () => { // a quarter of an hour from now, never past «останній прийом до»
     const by = targets.lastMealBy ?? '20:00', now = new Date();
-    const later = format(new Date(now.getTime() + 3_600_000), 'HH:mm'), cap = format(new Date(`${date}T${by}:00`).getTime() - 1_800_000, 'HH:mm');
-    return later < cap ? later : cap;
+    const later = format(new Date(now.getTime() + 900_000), 'HH:mm');
+    return later < by ? later : by;
   };
   const plan = async (x: Topup, i: number) => {
     const e: DayEntry = { id: newId(), at: atLocal(date, when()), kind: 'meal', status: 'planned', title: L.snack, items: [x.items[i]!] };

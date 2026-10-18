@@ -26,8 +26,16 @@ function parse(src) {
 const [head, ...data] = parse(text);
 const ix = Object.fromEntries(head.map((h, i) => [h.trim(), i]));
 const g = (r, n) => (r[ix[n]] ?? '').trim();
-const cap = (s) => { const l = s.toLocaleLowerCase('uk'); return l.charAt(0).toLocaleUpperCase('uk') + l.slice(1); };
-const DOSE = /по\s+(\d+(?:[.,]\d+)?\s*(?:мг|мкг|г|МО|мл|%|ОД))/giu;
+// D97: «Вітамін D3», «Аторвастатин Крка», «Нурофєн® для дітей» — not «Вітамін d3» or «Аторвастатин крка»
+const SMALL = new Set(['для', 'з', 'із', 'зі', 'та', 'і', 'й', 'у', 'в', 'на', 'по', 'від', 'до', 'дітей', 'дорослих', 'немовлят']);
+const part = (w, first) => {
+  if (/\d/.test(w) && /^[A-Z0-9.+/]+$/.test(w)) return w; // D3, B12, 5HTP
+  if (/^[A-Z]{1,4}$/.test(w)) return w; // a short Latin abbreviation: XR, SR, MR
+  const l = w.toLocaleLowerCase('uk');
+  return !first && SMALL.has(l) ? l : l.charAt(0).toLocaleUpperCase('uk') + l.slice(1);
+};
+const cap = (s) => s.split(' ').map((w, i) => w.split(/([-–])/).map((x, j) => (x === '-' || x === '–' ? x : part(x, i === 0 && j === 0))).join('')).join(' ');
+const DOSE = /по\s+(\d+(?:[.,]\d+)?\s*(?:мг|мкг|г|МО|ОД))(?![\p{L}])/giu; // D97: strengths only — not «100 мл» of an infusion
 
 const byKey = new Map();
 for (const r of data) {

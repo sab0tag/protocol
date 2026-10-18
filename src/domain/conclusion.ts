@@ -34,7 +34,7 @@ export function sourceOf(r: Pick<ConclusionResult, 'doctor' | 'date'>): string {
   return [r.doctor?.trim() || 'Висновок лікаря', d].filter(Boolean).join(', ');
 }
 
-export function draftLines(r: ConclusionResult, newId: () => string): DraftLine[] {
+export function draftLines(r: ConclusionResult, newId: () => string, today = new Date().toISOString().slice(0, 10)): DraftLine[] {
   const source = sourceOf(r);
   const out: DraftLine[] = [];
   for (const c of r.constraints) {
@@ -48,7 +48,7 @@ export function draftLines(r: ConclusionResult, newId: () => string): DraftLine[
     if (!p.title.trim()) continue;
     const times = [...new Set(p.times.filter((x) => HHMM.test(x)))].sort();
     out.push({ kind: 'prescription', key: `p:${out.length}`, ...(p.frequency?.trim() ? { frequency: p.frequency.trim() } : {}),
-      prescription: { id: newId(), kind: p.kind === 'medication' ? 'medication' : 'supplement', title: p.title.trim(), source,
+      prescription: { id: newId(), kind: p.kind === 'medication' ? 'medication' : 'supplement', title: p.title.trim(), source, since: today,
         ...(p.dose?.trim() ? { dose: p.dose.trim() } : {}),
         ...(times.length || p.withFood != null ? { schedule: { times, ...(p.withFood != null ? { withFood: p.withFood } : {}) } } : {}),
         ...(p.frequency?.trim() ? { notes: p.frequency.trim() } : {}) } });
@@ -99,7 +99,7 @@ export function applyLines(plan: Plan, lines: DraftLine[]): Pick<Plan, 'constrai
     } else if (l.kind === 'prescription') {
       const p = l.prescription;
       const i = prescriptions.findIndex((x) => same(x.title, p.title));
-      if (i >= 0) prescriptions[i] = { ...prescriptions[i]!, ...p, id: prescriptions[i]!.id };
+      if (i >= 0) prescriptions[i] = { ...prescriptions[i]!, ...p, id: prescriptions[i]!.id, ...(prescriptions[i]!.since ? { since: prescriptions[i]!.since } : {}) };
       else prescriptions = [...prescriptions, p];
     } else if (l.kind === 'target') {
       (targets as Record<string, unknown>)[l.key] = l.value;

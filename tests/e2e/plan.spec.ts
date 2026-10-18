@@ -53,10 +53,32 @@ test('the example comes with two invented weeks: «Прогрес» and the repo
   await expect(page.getByText(/«Здуття» — 4 з 4/)).toBeVisible();
   await page.goto('./#/progress');
   await expect(page.getByText(/Ще немає зважувань/)).toHaveCount(0);
-  await page.getByRole('button', { name: 'Почати свій план' }).click();
-  await expect(page).toHaveURL(/#\/welcome$/);
+  await page.getByRole('button', { name: 'Почати свій план' }).first().click(); // D98: out of the example's database
+  await expect(page).toHaveURL(/#\/welcome$/); // the own one, as it was — not onboarded yet
+  await page.getByRole('button', { name: /^Пропустити/ }).click();
+  await expect(page.getByRole('heading', { level: 1 })).not.toHaveText(/Знайомство|Про себе/);
   await page.goto('./#/progress');
   await expect(page.getByText(/Ще немає зважувань/)).toBeVisible();
   await page.goto('./#/report');
   await expect(page.getByRole('region', { name: 'Головне' })).toHaveCount(0);
+});
+
+test('the example is a database of its own: the own records stay, «Подивитись приклад» is always in «Ще», no sync in it (D98)', async ({ browser }) => {
+  const page = await device(browser, 'skip');
+  await page.goto('./#/plan');
+  await page.locator('section.rounded-2xl').filter({ has: page.getByRole('heading', { name: 'Призначення', exact: true }) }).getByRole('button', { name: 'Додати' }).click();
+  await page.getByRole('dialog', { name: 'Призначення' }).getByRole('textbox', { name: 'Назва' }).fill('Мій препарат');
+  await page.getByRole('dialog', { name: 'Призначення' }).getByRole('button', { name: 'Зберегти' }).click();
+  await page.goto('./#/more');
+  await page.getByRole('button', { name: /Подивитись на прикладі/ }).click(); // the own plan is not empty — still there
+  await expect(page.getByText(/Це приклад:/)).toBeVisible();
+  await page.goto('./#/plan');
+  await expect(page.getByText('Вітамін D')).toBeVisible();
+  await expect(page.getByText('Мій препарат')).toHaveCount(0); // not mixed
+  await page.goto('./#/sync');
+  await expect(page.getByText(/синхронізація в ньому вимкнена/)).toBeVisible();
+  await page.getByRole('button', { name: 'Почати свій план' }).click();
+  await page.goto('./#/plan');
+  await expect(page.getByText('Мій препарат')).toBeVisible(); // the own, untouched
+  await expect(page.getByText('Вітамін D')).toHaveCount(0);
 });

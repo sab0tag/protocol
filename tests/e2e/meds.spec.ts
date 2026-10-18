@@ -42,3 +42,16 @@ test('a package photo (model stubbed): the name found in the register; the stren
   await expect(form.getByText(/На упаковці: Еутирокс, 100 мкг, таблетки/)).toBeVisible();
   await expect(form.getByRole('textbox', { name: /^Доза/ })).toHaveValue('');
 });
+
+test('a medicine without a time or a dose says so — a hint never passes for a value (D97)', async ({ browser }) => {
+  const page = await device(browser, 'skip');
+  await page.goto('./#/plan');
+  await page.locator('section.rounded-2xl').filter({ has: page.getByRole('heading', { name: 'Призначення', exact: true }) }).getByRole('button', { name: 'Додати' }).click();
+  const form = page.getByRole('dialog', { name: 'Призначення' });
+  await form.getByRole('textbox', { name: 'Назва' }).fill('Метформін');
+  await expect(form.getByText('Час не вказано — нагадування не буде, ліки рахуються як «раз на день».')).toBeVisible();
+  await expect(form.getByText(/^Дозу не вказано/)).toBeVisible();
+  await expect(form.getByRole('textbox', { name: /^Час прийому/ })).toHaveAttribute('placeholder', 'напр. 08:30, 20:00');
+  await form.getByRole('textbox', { name: /^Час прийому/ }).fill('08:00');
+  await expect(form.getByText(/^Час не вказано/)).toHaveCount(0);
+});

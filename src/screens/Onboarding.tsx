@@ -3,12 +3,11 @@ import { Loading } from '../components/Recovery';
 import { toast } from '../components/Toast';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { db, type PlanRow } from '../data/db';
-import { putDemo } from '../data/demoStore';
+import { db, enterDemo, type PlanRow } from '../data/db';
 import { PlanScan } from '../components/PlanScan';
 import { DietPicker } from '../components/DietPicker';
 import { dietOf, fillEmptyTargets, type DietPreset } from '../domain/diets';
-import { EXAMPLE_SOURCE, examplePlan, hasExample, withoutExample } from '../data/seed.example';
+import { EXAMPLE_SOURCE, withoutExample } from '../data/seed.example';
 import { usePlan } from '../data/queries';
 import { newId, todayISO } from '../domain/dates';
 import type { Constraint, ConstraintTag, Prescription, Targets } from '../domain/types';
@@ -67,14 +66,6 @@ function Steps({ plan, start, onScanned }: { plan: PlanRow; start: number; onSca
     }
     useUi.getState().setOnboarded();
     if (!skip) toast(t.toast.plan);
-    navigate('/', { replace: true });
-  };
-  const blank = !plan.constraints.length && !plan.prescriptions.length && !Object.keys(plan.targets).length && !hasExample(plan);
-  const showExample = async () => {
-    const { constraints, prescriptions, targets, modes } = examplePlan();
-    await db.plan.update('main', { constraints, prescriptions, targets, modes, onboardedAt: todayISO() });
-    await putDemo(); // D79: two invented weeks, so «Прогрес» and the report are not empty
-    useUi.getState().setOnboarded();
     navigate('/', { replace: true });
   };
 
@@ -142,7 +133,7 @@ function Steps({ plan, start, onScanned }: { plan: PlanRow; start: number; onSca
               </li>
             ))}
           </ul>
-          <button type="button" onClick={() => setRx([...rx, { id: newId(), kind: 'medication', title: '', source: '' }])}
+          <button type="button" onClick={() => setRx([...rx, { id: newId(), kind: 'medication', title: '', source: '', since: todayISO() }])}
             className="flex min-h-tap items-center gap-2 rounded-xl border border-accent px-3 text-accent"><Plus size={18} />{L.addPrescription}</button>
         </>
       )}
@@ -160,8 +151,8 @@ function Steps({ plan, start, onScanned }: { plan: PlanRow; start: number; onSca
         {step > 1 && <button type="button" onClick={() => setStep(step - 1)} className="min-h-tap rounded-xl border border-line px-4">{L.back}</button>}
       </div>
       <button type="button" onClick={() => void done(true)} className="min-h-tap text-muted underline">{L.skip}</button>
-      {step === 1 && blank && (
-        <div><button type="button" onClick={() => void showExample()} className="min-h-tap text-accent underline">{L.example}</button>
+      {step === 1 && (
+        <div><button type="button" onClick={enterDemo} className="min-h-tap text-accent underline">{L.example}</button>
           <p className="text-sm text-muted">{L.exampleHint}</p></div>
       )}
       {step === 1 && <button type="button" onClick={() => navigate('/sync')} className="block min-h-tap text-accent underline">{t.sync.welcome}</button>}

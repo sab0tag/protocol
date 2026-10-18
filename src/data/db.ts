@@ -4,7 +4,9 @@ import type { ReminderSettings } from '../domain/reminders';
 import type { DayEntry, Favorite, Food, Friction, LabResult, Plan, Recipe, WeightLog, Wellbeing, Workout } from '../domain/types';
 import { FOODS } from './foods';
 import { RECIPES } from './recipes';
-import { emptyPlan } from './seed.example';
+import { emptyPlan, examplePlan } from './seed.example';
+import { demoData } from './demo';
+import { todayISO } from '../domain/dates';
 
 export interface PlanRow extends Plan {
   id: 'main';
@@ -73,7 +75,21 @@ export class ProtocolDB extends Dexie {
   }
 }
 
-export const db = new ProtocolDB();
+/** D98: the example lives in a database of its own — «Подивитись приклад» is always there, the person's own data is never
+ *  mixed with invented records, and nothing of the example can reach the server (no sync in it). A flag on the device picks
+ *  the database at start; leaving the example deletes it and opens the person's own, untouched. */
+export const DEMO_DB = 'protocol-demo';
+const DEMO_FLAG = 'protocol.demo';
+export const inDemo = (): boolean => { try { return localStorage.getItem(DEMO_FLAG) === '1'; } catch { return false; } };
+export const db = new ProtocolDB(inDemo() ? DEMO_DB : 'protocol');
+export function enterDemo(): void { try { localStorage.setItem(DEMO_FLAG, '1'); } catch { /* private mode — stays */ } location.hash = '#/'; location.reload(); }
+export async function leaveDemo(): Promise<void> {
+  try { localStorage.removeItem(DEMO_FLAG); } catch { /* private mode */ }
+  db.close();
+  await Dexie.delete(DEMO_DB).catch(() => undefined);
+  location.hash = '#/';
+  location.reload();
+}
 
 /** D43: a plan missing a part (a sync mishap) still reads as a plan for the screens — never `undefined` lists.
  *  Only for reading: sync sees the stored row as it is, so the defaults are never sent anywhere. */
@@ -93,10 +109,19 @@ export async function ensureSeeded(target: ProtocolDB = db): Promise<void> {
     await target.recipes.bulkPut(RECIPES); // built-in dishes too; the user's own have other ids (D27)
     if (!(await target.plan.get('main'))) {
       const local = import.meta.glob<{ localPlan?: () => Plan }>('./seed.local.ts', { eager: true });
-      const plan = Object.values(local)[0]?.localPlan?.() ?? emptyPlan();
+      const today = todayISO();
+      const plan = target.name === DEMO_DB ? { ...examplePlan(), onboardedAt: today } : Object.values(local)[0]?.localPlan?.() ?? emptyPlan();
       await target.plan.put({ id: 'main', ...plan });
     }
   });
+  // D98: the example database gets its two invented weeks once
+  if (target.name === DEMO_DB && (await target.entries.count()) === 0) {
+    const d = demoData(new Map((await target.foods.toArray()).map((f) => [f.id, f])));
+    await target.transaction('rw', [target.entries, target.workouts, target.weights, target.wellbeing, target.labs], async () => {
+      await target.entries.bulkPut(d.entries); await target.workouts.bulkPut(d.workouts); await target.weights.bulkPut(d.weights);
+      await target.wellbeing.bulkPut(d.wellbeing); await target.labs.bulkPut(d.labs);
+    });
+  }
 }
 
 /** Ask the browser not to evict our data (Safari may clear storage of sites unused for 7 days). */

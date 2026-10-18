@@ -105,5 +105,6 @@ export function applyCommand(text: string, d: VoiceDraft, ctx: VoiceContext): Vo
 /** Speak again: a command if it is one, else more of the same meal. */
 export const hear = (text: string, d: VoiceDraft, ctx: VoiceContext) => applyCommand(text, d, ctx) ?? readUtterance(text, ctx, d);
 
-/** Ready to write: something in it, and every quantity either said or confirmed by a tap. */
-export const ready = (d: VoiceDraft) => (d.items.length > 0 || d.meds.length > 0 || d.waterMl > 0) && d.items.every((x) => x.sure);
+/** Ready to write: something in it, every quantity said or confirmed by a tap, and nothing said left unread — a line not
+ *  found is either matched (the concierge) or taken out on purpose; it is never dropped silently (D97). */
+export const ready = (d: VoiceDraft) => (d.items.length > 0 || d.meds.length > 0 || d.waterMl > 0) && d.items.every((x) => x.sure) && d.notFound.length === 0;
