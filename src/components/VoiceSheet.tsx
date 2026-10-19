@@ -160,6 +160,10 @@ export function VoiceSheet({ date, plan, foods, recipes, today, yesterday, meds,
                 <label className="ml-auto text-sm"><span className="sr-only">{L.time}</span>
                   <input type="time" value={time} onChange={(e) => setTime(e.target.value)} className="min-h-[2.25rem] rounded-lg border border-line bg-bg px-2" /></label>
               </div>
+              {shown.items.filter((x) => !x.sure).length > 1 && ( /* D109: one tap for all, instead of one per line */
+                <button type="button" onClick={() => edit((d) => ({ ...d, items: d.items.map((x) => (x.sure ? x : { ...x, item: options(x.item)[1]!, sure: true })) }), L.allUsualDone)}
+                  className="min-h-[2.25rem] rounded-full border border-accent px-3 text-sm text-accent">{L.allUsual}</button>
+              )}
               <ul className="space-y-2">
                 {draft.items.map((x, i) => {
                   const hits = checks[i]?.hits ?? [];
@@ -167,7 +171,9 @@ export function VoiceSheet({ date, plan, foods, recipes, today, yesterday, meds,
                     <li key={i} data-item={x.item.name} className="rounded-lg bg-bg p-2 text-sm">
                       <div className="flex items-start gap-2">
                         <span className="flex-1"><span className="font-medium">{x.item.name}</span>
-                          <span className="text-muted"> · {amountText(x.item)}{needsGrams(x.item) ? ` ≈ ${approxG(x.item.grams)} г` : ''}</span></span>
+                          {x.sure /* D109: an amount nobody said is not shown as if it were — «1 порція» beside «не названо» read as recorded */
+                            ? <span className="text-muted"> · {amountText(x.item)}{needsGrams(x.item) ? ` ≈ ${approxG(x.item.grams)} г` : ''}</span>
+                            : <span className="text-warn"> · {L.noAmount}</span>}</span>
                         <button type="button" onClick={() => setItem(i, null)} aria-label={`${t.meal.remove}: ${x.item.name}`} className="flex h-8 w-8 items-center justify-center text-muted"><X size={16} aria-hidden /></button>
                       </div>
                       {hits.length > 0 && <p className="text-xs text-warn">{[...new Set(hits.map((h) => h.message))].join(' · ')}</p>}

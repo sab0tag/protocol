@@ -528,3 +528,24 @@
   status: fixed
   found: 2026-10-19
   note: "«яєць» — не основа «яйц-»: було «Омлет з 2 яєць»."
+
+- id: espresso-is-a-shot
+  phrase: "гречка, сир і еспресо"
+  profile: clean
+  expect:
+    - { name: "Гречка варена" }
+    - { name: "Сир кисломолочний 5 %" }
+    - { name: "Еспресо", qty: 1, unit: шт, grams: [25, 35] }
+  status: fixed
+  found: 2026-10-19
+  note: "Еспресо — не «Кава чорна» 200 г (користувач не впізнав його в чернетці)."
+
+- id: espresso-russian
+  phrase: "гречка и эспрессо"
+  profile: clean
+  expect:
+    - { name: "Гречка варена" }
+    - { name: "Еспресо", qty: 1, unit: шт }
+  status: fixed
+  found: 2026-10-19
+  note: "Safari може почути російською: «и», «эспрессо»."

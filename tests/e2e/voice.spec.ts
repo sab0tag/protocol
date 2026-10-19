@@ -155,3 +155,21 @@ test('a recogniser that glues what was said before to the new words: only the ne
   await expect(sheet.locator('[data-item]')).toHaveCount(1);
   await expect(sheet).not.toContainText('не знайдено');
 });
+
+test('amounts nobody said are not shown as if they were; one tap gives all a usual portion; the espresso is written as itself (D109)', async ({ browser }) => {
+  const page = await device(browser, 'skip');
+  await fakeSpeech(page, ['куряче філе, салат, гречка і еспресо']);
+  await page.getByRole('button', { name: 'Сказати голосом' }).click();
+  await page.getByRole('button', { name: 'Зрозуміло, говорити' }).click();
+  const sheet = page.getByRole('dialog', { name: /Скажіть, що з’їли/ });
+  await expect(sheet.locator('[data-item]')).toHaveCount(4);
+  await expect(sheet.locator('[data-item="Гречка варена"]')).toContainText('скільки — не сказано');
+  await expect(sheet.locator('[data-item="Гречка варена"]')).not.toContainText('1 порція ≈');
+  await expect(sheet.locator('[data-item="Еспресо"]')).toContainText('1 шт ≈ 30 г');
+  await expect(sheet.getByRole('button', { name: 'Записати' })).toBeDisabled();
+  await sheet.getByRole('button', { name: 'Усім — звичайна порція' }).click();
+  await expect(sheet.locator('[data-item="Гречка варена"]')).toContainText('1 порція');
+  await sheet.getByRole('button', { name: 'Записати' }).click();
+  await expect(toast(page)).toContainText('Записано');
+  expect((await meals(page)).filter((r) => r.startsWith('meal:'))[0]).toContain('Еспресо');
+});

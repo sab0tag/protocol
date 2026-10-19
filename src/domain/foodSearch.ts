@@ -261,7 +261,7 @@ export function splitPhrase(raw: string): string[] {
     cur += c;
   }
   parts.push(cur);
-  return parts.flatMap((p) => p.split(/\s+(?:і|й|та|ще|плюс|а також)\s+/iu)).flatMap(splitOnAmounts).map((s) => s.trim()).filter(Boolean);
+  return parts.flatMap((p) => p.split(/\s+(?:і|й|та|и|ще|плюс|а також)\s+/iu)).flatMap(splitOnAmounts).map((s) => s.trim()).filter(Boolean);
 }
 
 const EDGE = /^(з|із|зі|без|по|на|до|в|у|для|і|й|та|або|чи)$/u;
