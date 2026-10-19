@@ -25,6 +25,15 @@ export const t = {
     save: 'Записати', saved: 'Записано', cancel: 'Скасувати', empty: 'Поки нічого.',
     drop: 'Прибрати', unread: (n: number) => `Не розібрано: ${n} — оберіть схоже або приберіть, щоб записати`, // D97
     median: (s: number, n: number) => `Голосом: медіана ${s} с від відкриття до запису (останні ${n})`,
+    cmd: { // D107: what a command did, one line under the draft
+      removed: (x: string) => `Прибрано: ${x}`, missing: (x: string) => `«${x}» — у чернетці немає`, changed: (x: string, a: string) => `${x}: тепер ${a}`,
+      added: (x: string) => `Додано: ${x}`, replaced: (a: string, b: string) => `Замінено: ${a} → ${b}`, meal: (x: string) => `Прийом їжі: ${x}`,
+      undone: 'Скасовано останню зміну', nothingToUndo: 'Немає що скасовувати', noYesterday: 'Учора такого прийому їжі не записано',
+      cleared: 'Чернетку очищено', waterWord: 'вода', undo: 'Скасувати',
+      askWhole: (x: string) => `Прибрати всю «${x}»`, askInstead: (x: string) => `Замінити на «${x}»`, askKeep: 'Залишити як є',
+      ask: (part: string, whole: string) => `«${part}» — частина страви «${whole}». Що зробити?`,
+      clear: 'Очистити чернетку?', clearYes: 'Так, очистити', clearNo: 'Ні',
+    },
   },
   topup: { // D92: scenarios 3–4 — the numbers are the code's
     title: 'Підказки на вечір', snack: 'Перекус', protein: 'Білка', calcium: 'Кальцію',

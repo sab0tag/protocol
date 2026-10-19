@@ -112,3 +112,25 @@ test('dictation as on an iPhone — no commas, «це все», never a final re
   await expect(toast(page)).toContainText('Записано');
   expect((await meals(page)).filter((r) => r.startsWith('meal:')).map((r) => r.split(':')[2])).toEqual(['Вівсянка на воді+Яйце варене+Курячі стегна запечені']); // the meal's name goes by the hour
 });
+
+test('commands on the draft: a quantity fixed, a line of what was done with «Скасувати», a part of a dish asked — never a line «не знайдено» (D107)', async ({ browser }) => {
+  const page = await device(browser, 'skip');
+  await fakeSpeech(page, ['гречка з куркою 2 яйця і кава з молоком це все', 'не 2 а 3 яйця', 'видали каву', 'прибери курку']);
+  await page.getByRole('button', { name: 'Сказати голосом' }).click();
+  await page.getByRole('button', { name: 'Зрозуміло, говорити' }).click();
+  const sheet = page.getByRole('dialog', { name: /Скажіть, що з’їли/ });
+  await expect(sheet.locator('[data-item]')).toHaveCount(3);
+  await sheet.getByRole('button', { name: 'Сказати ще' }).click();
+  await expect(sheet.locator('[data-item="Яйце варене"]')).toContainText('3 шт');
+  await expect(sheet.getByRole('status').filter({ hasText: 'Яйце варене: тепер 3 шт' })).toBeVisible();
+  await sheet.getByRole('button', { name: 'Сказати ще' }).click();
+  await expect(sheet.locator('[data-item]')).toHaveCount(2);
+  await sheet.getByRole('button', { name: 'Скасувати', exact: true }).first().click(); // the coffee comes back
+  await expect(sheet.locator('[data-item]')).toHaveCount(3);
+  await sheet.getByRole('button', { name: 'Сказати ще' }).click();
+  const ask = sheet.getByRole('group', { name: /«курку» — частина страви «Гречка з куркою»/ });
+  await ask.getByRole('button', { name: 'Замінити на «Гречка варена»' }).click();
+  await expect(sheet.locator('[data-item="Гречка варена"]')).toBeVisible();
+  await expect(sheet.locator('[data-item="Гречка з куркою"]')).toHaveCount(0);
+  await expect(sheet).not.toContainText('не знайдено');
+});

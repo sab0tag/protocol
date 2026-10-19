@@ -519,3 +519,12 @@
   status: fixed
   found: 2026-10-19
   note: "Порція за замовчуванням — гарнір, не 340 г."
+
+- id: eggs-genitive-plural
+  phrase: "5 яєць"
+  profile: clean
+  expect:
+    - { name: "Яйце варене", qty: 5, unit: шт }
+  status: fixed
+  found: 2026-10-19
+  note: "«яєць» — не основа «яйц-»: було «Омлет з 2 яєць»."

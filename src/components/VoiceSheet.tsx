@@ -13,7 +13,7 @@ import { atLocal, newId } from '../domain/dates';
 import { amountText, needsGrams, approxG } from '../domain/foodSearch';
 import { dishItem, setPortions } from '../domain/recipes';
 import { checkMeal } from '../domain/rules';
-import { emptyDraft, hear, ready, type DraftMed, type VoiceDraft } from '../domain/voice';
+import { change, emptyDraft, newSession, ready, step, type DraftMed, type VoiceDraft, type VoiceSession } from '../domain/voice';
 import type { DayEntry, Food, MealItem, Plan, Recipe } from '../domain/types';
 import { t } from '../i18n/uk';
 import { ConciergeNotFound } from './ConciergeNotFound';
@@ -23,6 +23,7 @@ import { Sheet } from './Sheet';
 import { saved } from './Toast';
 
 const L = t.voice;
+const C = t.voice.cmd;
 const OK_KEY = 'protocol.voice.ok', METRIC_KEY = `protocol.metrics.voice${inDemo() ? '.demo' : ''}`; // D98: the pilot's measure from own use only
 const okGiven = () => { try { return localStorage.getItem(OK_KEY) === '1'; } catch { return false; } };
 
@@ -44,7 +45,7 @@ export function VoiceSheet({ date, plan, foods, recipes, today, yesterday, meds,
   const opened = useRef(Date.now());
   const ids = useRef({ meal: newId(), water: newId(), meds: new Map<string, string>() }); // fixed: a second tap writes the same rows
   const [ok, setOk] = useState(okGiven);
-  const [base, setDraft] = useState<VoiceDraft>(emptyDraft); // what is taken in; the field's words go on top of it
+  const [session, setSession] = useState<VoiceSession>(newSession); // what is taken in (D107: with its history); the field's words go on top of it
   const [heard, setHeard] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<SpeechError | null>(null);
@@ -56,10 +57,13 @@ export function VoiceSheet({ date, plan, foods, recipes, today, yesterday, meds,
     meds: meds.filter((m) => !today.some((e) => e.checkKey === m.key && e.status === 'done')) }), [foods, recipes, plan, yesterday, meds, today]);
 
   // the field is read as it is, on top of what is already in the draft; an action on the draft takes the field in first
-  const shown = useMemo(() => (typed.trim() ? hear(typed, base, ctx) : base), [typed, base, ctx]);
-  const edit = (fn: (d: VoiceDraft) => VoiceDraft) => { setDraft(fn(shown)); setTyped(''); };
+  const now = useMemo(() => (typed.trim() ? step(session, typed, ctx) : session), [typed, session, ctx]);
+  const shown = now.draft;
+  const commit = () => { setSession(now); setTyped(''); };
+  const edit = (fn: (d: VoiceDraft) => VoiceDraft, note?: string) => { setSession(change(now, fn(now.draft), note)); setTyped(''); };
+  const undo = () => { const prev = now.history.at(-1); if (prev) setSession({ draft: prev, history: now.history.slice(0, -1), note: C.undone }); setTyped(''); };
   const start = () => {
-    if (typed.trim()) edit((d) => d); // the next words are more of the meal or a command on it
+    if (typed.trim()) commit(); // the next words are more of the meal or a command on it
     setError(null); setHeard(''); setBusy(true);
     stop.current = listen({ interim: setHeard, final: (x) => { setHeard(''); setTyped(x); }, error: setError, end: () => setBusy(false) });
   };
@@ -104,12 +108,34 @@ export function VoiceSheet({ date, plan, foods, recipes, today, yesterday, meds,
       </div>
       {error && <p role="alert" className="mt-2 text-sm text-warn">{L.errors[error]}</p>}
       {danger && <DangerCard />}
-      <form className="mt-2 flex gap-2" onSubmit={(e) => { e.preventDefault(); edit((d) => d); }}>
+      <form className="mt-2 flex gap-2" onSubmit={(e) => { e.preventDefault(); commit(); }}>
         <label className="flex-1"><span className="sr-only">{L.typed}</span>
           <input value={typed} onChange={(e) => setTyped(e.target.value)} placeholder={L.typedPh} className="block min-h-tap w-full rounded-xl border border-line bg-bg px-3" /></label>
         <button type="submit" className="min-h-tap rounded-xl border border-accent px-3 text-accent">{L.apply}</button>
       </form>
 
+      {now.ask && ( /* D107: a part of a dish — the whole dish, or the dish without it; never guessed */
+        <div role="group" aria-label={C.ask(now.ask.part, now.ask.whole)} className="mt-3 space-y-2 rounded-xl border border-warn/40 p-2 text-sm">
+          <p>{C.ask(now.ask.part, now.ask.whole)}</p>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" className="min-h-tap rounded-xl border border-line px-3" onClick={() => { const a = now.ask!; edit((d) => ({ ...d, items: d.items.filter((_, j) => j !== a.index) }), C.removed(a.whole)); }}>{C.askWhole(now.ask.whole)}</button>
+            {now.ask.instead && <button type="button" className="min-h-tap rounded-xl border border-line px-3" onClick={() => { const a = now.ask!;
+              edit((d) => ({ ...d, items: d.items.map((x, j) => (j === a.index ? { item: a.instead!, said: a.part, sure: false } : x)) }), C.replaced(a.whole, a.instead!.name)); }}>{C.askInstead(now.ask.instead.name)}</button>}
+            <button type="button" className="min-h-tap rounded-xl border border-line px-3" onClick={() => { setSession({ draft: now.draft, history: now.history }); setTyped(''); }}>{C.askKeep}</button>
+          </div>
+        </div>
+      )}
+      {now.confirmClear && (
+        <div role="group" aria-label={C.clear} className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-warn/40 p-2 text-sm">
+          <span className="flex-1">{C.clear}</span>
+          <button type="button" className="min-h-tap rounded-xl border border-warn px-3" onClick={() => edit(() => emptyDraft(), C.cleared)}>{C.clearYes}</button>
+          <button type="button" className="min-h-tap rounded-xl border border-line px-3" onClick={() => { setSession({ draft: now.draft, history: now.history }); setTyped(''); }}>{C.clearNo}</button>
+        </div>
+      )}
+      {now.note && ( /* D107: what the last command did — so a wrong reading is seen, with a way back */
+        <p role="status" className="mt-2 flex items-center gap-2 text-sm"><span className="flex-1 text-muted">{now.note}</span>
+          {now.history.length > 0 && now.note !== C.undone && <button type="button" onClick={undo} className="min-h-[2rem] px-1 text-accent underline">{C.undo}</button>}</p>
+      )}
       {!empty && (
         <div className="mt-3 space-y-3" aria-label={L.meal}>
           {(draft.items.length > 0 || draft.notFound.length > 0) && (

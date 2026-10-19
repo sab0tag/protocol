@@ -1,0 +1,142 @@
+# Команди над чернеткою голосового вікна (SPEC.md D107). Код, без моделі — точне порівняння.
+# start — що сказано до команди (по черзі); say — команди (по черзі); expect — позиції чернетки після («Назва N од.»);
+# expect_note — частина рядка під чернеткою; expect_ask — варіанти питання; expect_meal — прийом їжі;
+# no_not_found — команда не додає рядків «не знайдено»; expect_clear_asked — очищення чекає підтвердження.
+# status: fixed | open; рядки не видаляються. Аналітик, 19.10: з восьми команд працювала лише «прибери X».
+
+- id: cmd-remove-part-of-dish
+  start: ["гречка з куркою 2 яйця"]
+  say: ["прибери курку"]
+  expect: ["Гречка з куркою", "Яйце варене 2 шт"]
+  expect_ask: ["Прибрати всю «Гречка з куркою»", "Замінити на «Гречка варена»"]
+  status: fixed
+  found: 2026-10-19
+
+- id: cmd-remove-missing
+  start: ["2 яйця"]
+  say: ["прибери гречку"]
+  expect: ["Яйце варене 2 шт"]
+  expect_note: "«гречку» — у чернетці немає"
+  no_not_found: true
+  status: fixed
+  found: 2026-10-19
+
+- id: cmd-remove-ok
+  start: ["2 яйця кава з молоком"]
+  say: ["видали каву"]
+  expect: ["Яйце варене 2 шт"]
+  expect_note: "Прибрано: Кава з молоком (без цукру)"
+  status: fixed
+  found: 2026-10-19
+
+- id: cmd-add-more-merge
+  start: ["2 яйця"]
+  say: ["ще 2 яйця"]
+  expect: ["Яйце варене 4 шт"]
+  status: fixed
+  found: 2026-10-19
+
+- id: cmd-add-one-more
+  start: ["2 яйця"]
+  say: ["ще одне"]
+  expect: ["Яйце варене 3 шт"]
+  status: fixed
+  found: 2026-10-19
+
+- id: cmd-fix-qty
+  start: ["2 яйця"]
+  say: ["не 2 а 3 яйця"]
+  expect: ["Яйце варене 3 шт"]
+  no_not_found: true
+  status: fixed
+  found: 2026-10-19
+
+- id: cmd-fix-qty-words
+  start: ["два яйця"]
+  say: ["не два, а три яйця"]
+  expect: ["Яйце варене 3 шт"]
+  no_not_found: true
+  status: fixed
+  found: 2026-10-19
+  note: "Safari може віддати числа словами"
+
+- id: cmd-fix-qty-short
+  start: ["2 яйця"]
+  say: ["яєць 3"]
+  expect: ["Яйце варене 3 шт"]
+  status: fixed
+  found: 2026-10-19
+
+- id: cmd-make-qty
+  start: ["2 яйця"]
+  say: ["зроби 3 яйця"]
+  expect: ["Яйце варене 3 шт"]
+  status: fixed
+  found: 2026-10-19
+
+- id: cmd-replace
+  start: ["кава з молоком"]
+  say: ["замість кави чай"]
+  expect: ["Чай без цукру 1 склянка"]
+  expect_note: "Замінено: Кава з молоком (без цукру) → Чай без цукру"
+  no_not_found: true
+  status: fixed
+  found: 2026-10-19
+
+- id: cmd-replace-not-a
+  start: ["кава з молоком"]
+  say: ["не каву, а чай"]
+  expect: ["Чай без цукру 1 склянка"]
+  status: fixed
+  found: 2026-10-19
+
+- id: cmd-undo
+  start: ["2 яйця кава з молоком"]
+  say: ["видали каву", "скасуй останнє"]
+  expect: ["Яйце варене 2 шт", "Кава з молоком (без цукру) 1 склянка"]
+  expect_note: "Скасовано останню зміну"
+  status: fixed
+  found: 2026-10-19
+
+- id: cmd-meal-type
+  start: ["2 яйця"]
+  say: ["це на сніданок"]
+  expect: ["Яйце варене 2 шт"]
+  expect_meal: Сніданок
+  no_not_found: true
+  status: fixed
+  found: 2026-10-19
+
+- id: cmd-meal-after-food
+  start: []
+  say: ["два яйця це було на сніданок"]
+  expect: ["Яйце варене 2 шт"]
+  expect_meal: Сніданок
+  no_not_found: true
+  status: fixed
+  found: 2026-10-19
+
+- id: cmd-clear-asks
+  start: ["2 яйця"]
+  say: ["все заново"]
+  expect: ["Яйце варене 2 шт"]
+  expect_clear_asked: true
+  status: fixed
+  found: 2026-10-19
+
+- id: cmd-not-a-command
+  start: []
+  say: ["без цукру чай"]
+  expect: ["Чай без цукру 1 склянка"]
+  status: fixed
+  found: 2026-10-19
+  note: "«без» на початку тут — їжа, а не команда «прибрати»: у чернетці нема цукру."
+
+- id: cmd-fix-qty-ru
+  start: ["2 яйця"]
+  say: ["не два а три яйца"]
+  expect: ["Яйце варене 3 шт"]
+  no_not_found: true
+  status: fixed
+  found: 2026-10-19
+  note: "Safari може розпізнати російською — команда й тоді спрацьовує"
