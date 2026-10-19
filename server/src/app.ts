@@ -26,9 +26,11 @@ export interface Limits {
   workoutsPerVaultPerDay: number; // D63
   conciergePerVaultPerDay: number; // D91
   aiPerDay: number; // D94: all text AI calls of the server together (menu, workout, concierge) — a ceiling on spend
+  deviceTokensPerIpPerDay: number; // D101
+  devicePhotosPerDay: number; // D101: a device without sync
 }
 
-export const DEFAULT_LIMITS: Limits = { vaultsPerIpPerDay: 5, vaultBytes: 50_000_000, photosPerVaultPerDay: 30, photosPerDay: 150, menusPerVaultPerDay: 15, workoutsPerVaultPerDay: 10, conciergePerVaultPerDay: 60, aiPerDay: 800 };
+export const DEFAULT_LIMITS: Limits = { vaultsPerIpPerDay: 5, vaultBytes: 50_000_000, photosPerVaultPerDay: 30, photosPerDay: 150, menusPerVaultPerDay: 15, workoutsPerVaultPerDay: 10, conciergePerVaultPerDay: 60, aiPerDay: 800, deviceTokensPerIpPerDay: 5, devicePhotosPerDay: 10 };
 
 export interface Deps {
   store: Store;
@@ -235,21 +237,19 @@ export function createApp(deps: Deps) {
     }
   });
 
-  // D80: a doctor's conclusion → a draft of the plan — counted with photos
-  app.post('/v1/vaults/:id/conclusion', bodyLimit({ maxSize: 3_500_000, onError: (c) => c.json({ error: 'too_large' }, 413) }), async (c) => {
-    const id = authed(c);
-    if (typeof id !== 'string') return id;
+  // D80, D101: a doctor's conclusion (up to 4 pages) → a draft of the plan — counted with photos. The same reading for a
+  // vault and for a device without sync (step 0: the first screen of onboarding needs no account).
+  const readConclusion = async (c: Context, who: string, perDay: number) => {
     if (!deps.conclusion) return c.json({ error: 'photo_off' }, 503);
-    const body = await c.req.json().catch(() => null) as { image?: unknown } | null;
-    const image = body?.image;
-    if (typeof image !== 'string' || !B64.test(image)) return c.json({ error: 'bad_request' }, 400);
-    const bytes = Buffer.from(image, 'base64');
-    if (bytes.length > MAX_IMAGE || bytes[0] !== 0xff || bytes[1] !== 0xd8) return c.json({ error: 'bad_image' }, 400);
+    const body = await c.req.json().catch(() => null) as { image?: unknown; images?: unknown } | null;
+    const images = Array.isArray(body?.images) ? body.images : body?.image !== undefined ? [body.image] : [];
+    if (!images.length || images.length > 4 || !images.every((x): x is string => typeof x === 'string' && B64.test(x))) return c.json({ error: 'bad_request' }, 400);
+    for (const im of images) { const b = Buffer.from(im, 'base64'); if (b.length > MAX_IMAGE || b[0] !== 0xff || b[1] !== 0xd8) return c.json({ error: 'bad_image' }, 400); }
     const at = now();
-    if (!store.take('photo:all', limits.photosPerDay, at) || !store.take(`photo:${id}`, limits.photosPerVaultPerDay, at)) return c.json({ error: 'too_many' }, 429);
+    if (!store.take('photo:all', limits.photosPerDay, at) || !store.take(`photo:${who}`, perDay, at)) return c.json({ error: 'too_many' }, 429);
     try {
-      const { result, usage } = await deps.conclusion(image);
-      spent(id, 'conclusion', usage);
+      const { result, usage } = await deps.conclusion(images);
+      spent(who, 'conclusion', usage);
       ai.lastOk = Date.now();
       if (result === 'refused') return c.json({ error: 'refused' }, 422);
       return c.json(result);
@@ -258,6 +258,29 @@ export function createApp(deps: Deps) {
       console.error('conclusion failed:', (e as Error).message);
       return c.json({ error: 'upstream' }, 502);
     }
+  };
+  const PAGES = bodyLimit({ maxSize: 10_000_000, onError: (c) => c.json({ error: 'too_large' }, 413) });
+  app.post('/v1/vaults/:id/conclusion', PAGES, async (c) => {
+    const id = authed(c);
+    return typeof id !== 'string' ? id : readConclusion(c, id, limits.photosPerVaultPerDay);
+  });
+
+  // D101: a device without sync — a random token (the server keeps its hash), a few a day per address, its own photo limit
+  app.post('/v1/devices', (c) => {
+    if (!store.take(`devtoken:${ip(c)}`, limits.deviceTokensPerIpPerDay, now())) return c.json({ error: 'too_many' }, 429);
+    const token = randomBytes(32).toString('base64url');
+    store.addDeviceToken(hash(token), now().getTime());
+    return c.json({ token }, 201);
+  });
+  const device = (c: Context): string | Response => {
+    const t = /^Device ([A-Za-z0-9_-]{43})$/.exec(c.req.header('Authorization') ?? '')?.[1];
+    if (!t) return c.json({ error: 'unauthorized' }, 401);
+    const h = hash(t);
+    return store.hasDeviceToken(h) ? `dev-${h.slice(0, 16)}` : c.json({ error: 'unauthorized' }, 401);
+  };
+  app.post('/v1/device/conclusion', PAGES, async (c) => {
+    const who = device(c);
+    return typeof who !== 'string' ? who : readConclusion(c, who, limits.devicePhotosPerDay);
   });
 
   // D89: a medicine package → its name and strength — counted with photos

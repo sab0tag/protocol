@@ -80,7 +80,8 @@ test('the example is a database of its own: the own records stay, «Подиви
   await expect(page.getByText('Мій препарат')).toHaveCount(0); // not mixed
   await page.goto('./#/sync');
   await expect(page.getByText(/синхронізація в ньому вимкнена/)).toBeVisible();
-  await page.getByRole('button', { name: 'Повернутися до своїх даних' }).click();
+  // leaving deletes the example's database and reloads — wait for that reload, or it lands after the next navigation
+  await Promise.all([page.waitForEvent('load'), page.getByRole('button', { name: 'Повернутися до своїх даних' }).click()]);
   await page.goto('./#/plan');
   await expect(page.getByText('Мій препарат')).toBeVisible(); // the own, untouched
   await expect(page.getByText('Вітамін D')).toHaveCount(0);

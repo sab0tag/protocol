@@ -12,3 +12,19 @@ export async function shrink(file: Blob, max = 1280, quality = 0.8): Promise<str
   const blob = await new Promise<Blob>((ok, fail) => canvas.toBlob((b) => (b ? ok(b) : fail(new Error('jpeg'))), 'image/jpeg', quality));
   return b64(new Uint8Array(await blob.arrayBuffer()));
 }
+
+/** D101: the piece of a page a line was read from (`box` in fractions of the page, a little margin around) — a small JPEG
+ *  shown beside the line, so the person checks it against the paper without hunting for it. */
+export async function cut(page: string, box: [number, number, number, number], max = 900): Promise<string> {
+  const bytes = Uint8Array.from(atob(page), (ch) => ch.charCodeAt(0));
+  const bmp = await createImageBitmap(new Blob([bytes], { type: 'image/jpeg' }));
+  const pad = 0.01;
+  const x = Math.max(0, box[0] - pad) * bmp.width, y = Math.max(0, box[1] - pad) * bmp.height;
+  const w = Math.min(bmp.width - x, (box[2] + 2 * pad) * bmp.width), h = Math.min(bmp.height - y, (box[3] + 2 * pad) * bmp.height);
+  const scale = Math.min(1, max / w);
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(1, Math.round(w * scale)); canvas.height = Math.max(1, Math.round(h * scale));
+  canvas.getContext('2d')!.drawImage(bmp, x, y, w, h, 0, 0, canvas.width, canvas.height);
+  bmp.close();
+  return canvas.toDataURL('image/jpeg', 0.8);
+}

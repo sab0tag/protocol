@@ -28,6 +28,7 @@ export class Store {
         usd_micro INTEGER NOT NULL, PRIMARY KEY (vault, month, kind));
       CREATE TABLE IF NOT EXISTS pairs (pid TEXT PRIMARY KEY, blob TEXT NOT NULL, expires INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS acks (vault TEXT NOT NULL, rid TEXT NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (vault, rid));
+      CREATE TABLE IF NOT EXISTS device_tokens (h TEXT PRIMARY KEY, created INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS concierge_log (id TEXT PRIMARY KEY, vault TEXT NOT NULL, ts INTEGER NOT NULL, scenario TEXT NOT NULL,
         record TEXT NOT NULL, outcome TEXT, edit TEXT);
       CREATE INDEX IF NOT EXISTS concierge_log_vault ON concierge_log (vault, ts);
@@ -185,6 +186,10 @@ export class Store {
       ? this.db.prepare('SELECT kind, calls, usd_micro FROM usage WHERE vault = ? AND month = ? ORDER BY kind').all(vault, month)
       : this.db.prepare('SELECT kind, SUM(calls) AS calls, SUM(usd_micro) AS usd_micro FROM usage WHERE month = ? GROUP BY kind ORDER BY kind').all(month)) as never;
   }
+
+  // ---------------------------------------------------------------- device tokens (D101): the hash only
+  addDeviceToken(h: string, at: number) { this.db.prepare('INSERT OR IGNORE INTO device_tokens (h, created) VALUES (?, ?)').run(h, at); }
+  hasDeviceToken(h: string): boolean { return !!this.db.prepare('SELECT 1 FROM device_tokens WHERE h = ?').get(h); }
 
   // ---------------------------------------------------------------- the concierge's log (D91): only with its own consent
   logConcierge(id: string, vault: string, ts: number, scenario: string, record: unknown) {

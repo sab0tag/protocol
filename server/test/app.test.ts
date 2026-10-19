@@ -329,3 +329,25 @@ describe('security review (D94)', () => {
     expect(await ask('d'.repeat(32))).toBe(429);
   });
 });
+
+describe('step 0 without sync: a device token (D101)', () => {
+  it('a token for a device, its hash kept; a conclusion of several pages read with it; a wrong one refused; a few tokens an address', async () => {
+    const store = new Store(':memory:');
+    let pages = 0;
+    const app = createApp({ store, origins: [], conclusion: async (imgs) => { pages = imgs.length; return { result: { readable: true } as never }; },
+      limits: { ...DEFAULT_LIMITS, deviceTokensPerIpPerDay: 2 } });
+    const get = () => app.request('/v1/devices', { method: 'POST', headers: { 'X-Forwarded-For': '203.0.113.7' } });
+    const r = await get();
+    expect(r.status).toBe(201);
+    const { token } = await r.json() as { token: string };
+    expect(token).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    const read = (t: string, body: unknown) => app.request('/v1/device/conclusion', { method: 'POST',
+      headers: { Authorization: `Device ${t}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    expect((await read(token, { images: [JPEG, JPEG] })).status).toBe(200);
+    expect(pages).toBe(2);
+    expect((await read('x'.repeat(43), { images: [JPEG] })).status).toBe(401);
+    expect((await read(token, { images: [JPEG, JPEG, JPEG, JPEG, JPEG] })).status).toBe(400); // up to 4 pages
+    expect((await get()).status).toBe(201);
+    expect((await get()).status).toBe(429);
+  });
+});
