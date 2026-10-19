@@ -30,6 +30,8 @@ export const t = {
       added: (x: string) => `Додано: ${x}`, replaced: (a: string, b: string) => `Замінено: ${a} → ${b}`, meal: (x: string) => `Прийом їжі: ${x}`,
       undone: 'Скасовано останню зміну', nothingToUndo: 'Немає що скасовувати', noYesterday: 'Учора такого прийому їжі не записано',
       cleared: 'Чернетку очищено', waterWord: 'вода', undo: 'Скасувати',
+      notThereAdded: (was: string, x: string) => `«${was}» не було, додано: ${x}`,
+      same: (x: string, a: string) => `${x} вже є (${a}). Що зробити?`, sameMore: (a: string) => `Додати ще ${a}`, sameNow: (a: string) => `Тепер ${a}`,
       askWhole: (x: string) => `Прибрати всю «${x}»`, askInstead: (x: string) => `Замінити на «${x}»`, askKeep: 'Залишити як є',
       ask: (part: string, whole: string) => `«${part}» — частина страви «${whole}». Що зробити?`,
       clear: 'Очистити чернетку?', clearYes: 'Так, очистити', clearNo: 'Ні',

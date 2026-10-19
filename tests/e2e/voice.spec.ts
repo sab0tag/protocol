@@ -3,8 +3,8 @@ import { device, toast } from './helpers';
 
 /** The browser's speech recognition, stubbed: each start() «hears» the next phrase of window.__say (or fails as told).
  *  `final: false` — like Safari on iPhone: the words come only as interim results and it ends without a final one (D105). */
-async function fakeSpeech(page: Page, say: string[], error?: string, final = true) {
-  await page.addInitScript(([phrases, err, fin]) => {
+async function fakeSpeech(page: Page, say: string[], error?: string, final = true, glued = false) {
+  await page.addInitScript(([phrases, err, fin, glue]) => {
     const w = window as unknown as Record<string, unknown>;
     w.__say = phrases;
     w.SpeechRecognition = class {
@@ -12,7 +12,9 @@ async function fakeSpeech(page: Page, say: string[], error?: string, final = tru
       onresult: ((e: unknown) => void) | null = null; onerror: ((e: unknown) => void) | null = null; onend: (() => void) | null = null;
       start() {
         setTimeout(() => {
-          const next = (w.__say as string[]).shift();
+          const one = (w.__say as string[]).shift();
+          // `glued`: the recogniser hands back everything heard so far, glued without a space (D107, the analyst's run)
+          const next = one && glue === '1' ? (w.__heard = `${(w.__heard as string | undefined) ?? ''}${one}`) as string : one;
           if (err) this.onerror?.({ error: err });
           else if (next) {
             const res = Object.assign([{ transcript: next }], { isFinal: fin === '1' });
@@ -23,7 +25,7 @@ async function fakeSpeech(page: Page, say: string[], error?: string, final = tru
       }
       stop() { /* the stub ends by itself */ } abort() { /* — */ }
     };
-  }, [say, error ?? '', final ? '1' : ''] as const);
+  }, [say, error ?? '', final ? '1' : '', glued ? '1' : ''] as const);
   await page.reload();
 }
 
@@ -132,5 +134,24 @@ test('commands on the draft: a quantity fixed, a line of what was done with «С
   await ask.getByRole('button', { name: 'Замінити на «Гречка варена»' }).click();
   await expect(sheet.locator('[data-item="Гречка варена"]')).toBeVisible();
   await expect(sheet.locator('[data-item="Гречка з куркою"]')).toHaveCount(0);
+  await expect(sheet).not.toContainText('не знайдено');
+});
+
+test('a recogniser that glues what was said before to the new words: only the new words reach the field, the command works (D107)', async ({ browser }) => {
+  const page = await device(browser, 'skip');
+  await fakeSpeech(page, ['гречка з куркою 2 яйця кава з молоком це все', 'прибери курку', 'видали каву'], undefined, true, true);
+  await page.getByRole('button', { name: 'Сказати голосом' }).click();
+  await page.getByRole('button', { name: 'Зрозуміло, говорити' }).click();
+  const sheet = page.getByRole('dialog', { name: /Скажіть, що з’їли/ });
+  await expect(sheet.locator('[data-item]')).toHaveCount(3);
+  await expect(page.getByRole('button', { name: 'Сказати голосом', includeHidden: true })).toBeDisabled(); // one window, one listener
+  await sheet.getByRole('button', { name: 'Сказати ще' }).click();
+  const field = sheet.getByRole('textbox', { name: 'Або напишіть тут' });
+  await expect(field).toHaveValue('прибери курку'); // not «…це всеприбери курку»
+  await sheet.getByRole('group', { name: /«курку» — частина страви/ }).getByRole('button', { name: /^Прибрати всю/ }).click();
+  await expect(field).toHaveValue('');
+  await sheet.getByRole('button', { name: 'Сказати ще' }).click();
+  await expect(field).toHaveValue('видали каву'); // not «прибери куркувидали каву»
+  await expect(sheet.locator('[data-item]')).toHaveCount(1);
   await expect(sheet).not.toContainText('не знайдено');
 });

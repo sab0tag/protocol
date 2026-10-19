@@ -140,3 +140,48 @@
   status: fixed
   found: 2026-10-19
   note: "Safari може розпізнати російською — команда й тоді спрацьовує"
+
+# ── Аналітик, 19.10, другий прохід ──
+
+- id: cmd-same-product-again
+  start: ["4 яйця"]
+  say: ["5 яєць"]
+  expect: ["Яйце варене 4 шт"]
+  expect_ask: ["Додати ще 5 шт", "Тепер 5 шт"]
+  status: fixed
+  found: 2026-10-19
+  note: "Той самий продукт ще раз — не другий рядок (було 4 + 5 = 9 яєць двома рядками), а питання"
+
+- id: cmd-same-product-more
+  start: ["4 яйця"]
+  say: ["5 яєць"]
+  answer: more
+  expect: ["Яйце варене 9 шт"]
+  status: fixed
+  found: 2026-10-19
+
+- id: cmd-same-product-now
+  start: ["4 яйця"]
+  say: ["5 яєць"]
+  answer: now
+  expect: ["Яйце варене 5 шт"]
+  status: fixed
+  found: 2026-10-19
+
+- id: cmd-replace-missing-adds
+  start: ["2 яйця"]
+  say: ["замість кави чай"]
+  expect: ["Яйце варене 2 шт", "Чай без цукру 1 склянка"]
+  expect_note: "«кави» не було, додано: Чай без цукру"
+  no_not_found: true
+  status: fixed
+  found: 2026-10-19
+
+- id: food-said-has-a-note
+  start: []
+  say: ["2 яйця і кава з молоком"]
+  expect: ["Яйце варене 2 шт", "Кава з молоком (без цукру) 1 склянка"]
+  expect_note: "Додано: Яйце варене, Кава з молоком (без цукру)"
+  status: fixed
+  found: 2026-10-19
+  note: "У звичайної їжі голосом теж рядок «Додано: … · Скасувати»"

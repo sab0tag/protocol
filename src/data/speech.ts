@@ -2,6 +2,7 @@
 // Apple's. The sound goes to them, not to our server; the app keeps only the text it shows. No support or no network —
 // the window says so and the same text can be typed (the reading is local).
 import { endsWithStop, withoutStop } from '../domain/foodSearch';
+import { newWords } from '../domain/voice';
 type Rec = { lang: string; interimResults: boolean; continuous: boolean; maxAlternatives: number; start(): void; stop(): void; abort(): void
   onresult: ((e: { resultIndex: number; results: ArrayLike<ArrayLike<{ transcript: string }> & { isFinal: boolean }> }) => void) | null
   onerror: ((e: { error: string }) => void) | null; onend: (() => void) | null };
@@ -18,7 +19,8 @@ export type SpeechError = 'no-support' | 'network' | 'not-allowed' | 'no-speech'
 /** Listen once (until a pause, or «це все» at the end — D105): the words as they come (`interim`), then the final text
  *  without the stop words. Returns stop(). Safari on iPhone often ends without ever marking a result final — then the
  *  last words heard are the text (they were shown and never reached the draft, D105). */
-export function listen(on: { interim: (text: string) => void; final: (text: string) => void; error: (e: SpeechError) => void; end: () => void }): () => void {
+export function listen(on: { interim: (text: string) => void; final: (text: string, heard: string) => void; error: (e: SpeechError) => void; end: () => void },
+  before: string[] = []): () => void {
   const C = ctor();
   if (!C) { on.error('no-support'); on.end(); return () => undefined; }
   const r = new C();
@@ -30,12 +32,12 @@ export function listen(on: { interim: (text: string) => void; final: (text: stri
       const res = e.results[i]!;
       if (res.isFinal) done += res[0]!.transcript; else interim += res[0]!.transcript;
     }
-    last = (done + interim).trim();
+    last = newWords((done + interim).trim(), before); // D107: a recogniser may hand back what was heard before, glued on
     on.interim(withoutStop(last));
     if (!stopped && endsWithStop(last)) { stopped = true; try { r.stop(); } catch { /* already stopping */ } }
   };
   r.onerror = (e) => on.error(e.error === 'network' ? 'network' : e.error === 'not-allowed' || e.error === 'service-not-allowed' ? 'not-allowed' : e.error === 'no-speech' ? 'no-speech' : 'other');
-  r.onend = () => { const text = withoutStop(done.trim() || last); if (text) on.final(text); on.end(); };
+  r.onend = () => { const heard = done.trim() ? newWords(done.trim(), before) : last; const text = withoutStop(heard); if (text) on.final(text, heard); on.end(); };
   try { r.start(); } catch { on.error('other'); on.end(); }
   return () => { try { r.stop(); } catch { /* already stopped */ } };
 }

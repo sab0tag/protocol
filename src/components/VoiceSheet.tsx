@@ -13,7 +13,7 @@ import { atLocal, newId } from '../domain/dates';
 import { amountText, needsGrams, approxG } from '../domain/foodSearch';
 import { dishItem, setPortions } from '../domain/recipes';
 import { checkMeal } from '../domain/rules';
-import { change, emptyDraft, newSession, ready, step, type DraftMed, type VoiceDraft, type VoiceSession } from '../domain/voice';
+import { answerSame, change, emptyDraft, newSession, ready, step, type DraftMed, type VoiceDraft, type VoiceSession } from '../domain/voice';
 import type { DayEntry, Food, MealItem, Plan, Recipe } from '../domain/types';
 import { t } from '../i18n/uk';
 import { ConciergeNotFound } from './ConciergeNotFound';
@@ -53,6 +53,7 @@ export function VoiceSheet({ date, plan, foods, recipes, today, yesterday, meds,
   const [time, setTime] = useState(() => format(new Date(), 'HH:mm'));
   const [saving, setSaving] = useState(false);
   const stop = useRef<() => void>(() => undefined);
+  const said = useRef<string[]>([]); // D107: what was heard before — a recogniser may glue it to the new words
   const ctx = useMemo(() => ({ foods: [...foods.values()], recipes, dishItem, prescriptions: plan?.prescriptions ?? [], yesterday,
     meds: meds.filter((m) => !today.some((e) => e.checkKey === m.key && e.status === 'done')) }), [foods, recipes, plan, yesterday, meds, today]);
 
@@ -65,7 +66,8 @@ export function VoiceSheet({ date, plan, foods, recipes, today, yesterday, meds,
   const start = () => {
     if (typed.trim()) commit(); // the next words are more of the meal or a command on it
     setError(null); setHeard(''); setBusy(true);
-    stop.current = listen({ interim: setHeard, final: (x) => { setHeard(''); setTyped(x); }, error: setError, end: () => setBusy(false) });
+    stop.current = listen({ interim: setHeard, final: (x, heard) => { said.current.push(heard); setHeard(''); setTyped(x); }, error: setError, end: () => setBusy(false) },
+      said.current);
   };
   useEffect(() => { if (ok && speechSupported()) start(); return () => stop.current(); }, [ok]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -86,6 +88,7 @@ export function VoiceSheet({ date, plan, foods, recipes, today, yesterday, meds,
   };
   const setItem = (i: number, it: MealItem | null) => edit((d) => ({ ...d, items: it ? d.items.map((x, j) => (j === i ? { ...x, item: it, sure: true } : x)) : d.items.filter((_, j) => j !== i) }));
   const draft = shown;
+  const partAsk = now.ask?.kind === 'part' ? now.ask : undefined;
   const danger = dangerInText(heard) || dangerInText(typed) || draft.notFound.some(dangerInText); // D97: one 103 card, nothing else about those words
   const checks = plan && draft.items.length ? checkMeal({ plan, date, foods, dayEntries: today, recentEntries: [], meal: draft.items.map((x) => x.item) }) : [];
 
@@ -114,13 +117,22 @@ export function VoiceSheet({ date, plan, foods, recipes, today, yesterday, meds,
         <button type="submit" className="min-h-tap rounded-xl border border-accent px-3 text-accent">{L.apply}</button>
       </form>
 
-      {now.ask && ( /* D107: a part of a dish — the whole dish, or the dish without it; never guessed */
-        <div role="group" aria-label={C.ask(now.ask.part, now.ask.whole)} className="mt-3 space-y-2 rounded-xl border border-warn/40 p-2 text-sm">
-          <p>{C.ask(now.ask.part, now.ask.whole)}</p>
+      {now.ask?.kind === 'same' && ( /* D107: the same food said again — one more lot, or the amount now */
+        <div role="group" aria-label={C.same(now.ask.item.name, amountText(shown.items[now.ask.index]!.item))} className="mt-3 space-y-2 rounded-xl border border-warn/40 p-2 text-sm">
+          <p>{C.same(now.ask.item.name, amountText(shown.items[now.ask.index]!.item))}</p>
           <div className="flex flex-wrap gap-2">
-            <button type="button" className="min-h-tap rounded-xl border border-line px-3" onClick={() => { const a = now.ask!; edit((d) => ({ ...d, items: d.items.filter((_, j) => j !== a.index) }), C.removed(a.whole)); }}>{C.askWhole(now.ask.whole)}</button>
-            {now.ask.instead && <button type="button" className="min-h-tap rounded-xl border border-line px-3" onClick={() => { const a = now.ask!;
-              edit((d) => ({ ...d, items: d.items.map((x, j) => (j === a.index ? { item: a.instead!, said: a.part, sure: false } : x)) }), C.replaced(a.whole, a.instead!.name)); }}>{C.askInstead(now.ask.instead.name)}</button>}
+            <button type="button" className="min-h-tap rounded-xl border border-line px-3" onClick={() => { setSession(answerSame(now, true)); setTyped(''); }}>{C.sameMore(amountText(now.ask.item))}</button>
+            <button type="button" className="min-h-tap rounded-xl border border-line px-3" onClick={() => { setSession(answerSame(now, false)); setTyped(''); }}>{C.sameNow(amountText(now.ask.item))}</button>
+          </div>
+        </div>
+      )}
+      {partAsk && ( /* D107: a part of a dish — the whole dish, or the dish without it; never guessed */
+        <div role="group" aria-label={C.ask(partAsk.part, partAsk.whole)} data-ask="part" className="mt-3 space-y-2 rounded-xl border border-warn/40 p-2 text-sm">
+          <p>{C.ask(partAsk.part, partAsk.whole)}</p>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" className="min-h-tap rounded-xl border border-line px-3" onClick={() => { const a = partAsk; edit((d) => ({ ...d, items: d.items.filter((_, j) => j !== a.index) }), C.removed(a.whole)); }}>{C.askWhole(partAsk.whole)}</button>
+            {partAsk.instead && <button type="button" className="min-h-tap rounded-xl border border-line px-3" onClick={() => { const a = partAsk;
+              edit((d) => ({ ...d, items: d.items.map((x, j) => (j === a.index ? { item: a.instead!, said: a.part, sure: false } : x)) }), C.replaced(a.whole, a.instead!.name)); }}>{C.askInstead(partAsk.instead.name)}</button>}
             <button type="button" className="min-h-tap rounded-xl border border-line px-3" onClick={() => { setSession({ draft: now.draft, history: now.history }); setTyped(''); }}>{C.askKeep}</button>
           </div>
         </div>

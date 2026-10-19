@@ -86,8 +86,10 @@ const named = (what: string, it: MealItem) => {
 };
 
 // ------------------------------------------------------------------ D107: commands on the draft
-/** Asked before taking a part out of a dish: the whole dish, or the dish without that part. */
-export interface Ask { index: number; part: string; whole: string; instead?: MealItem }
+/** A question before a change: a part of a dish (the whole dish, or the dish without that part), or a food already in the
+ *  draft said again (add to it, or that is the amount now). */
+export type Ask = { kind: 'part'; index: number; part: string; whole: string; instead?: MealItem }
+  | { kind: 'same'; index: number; item: MealItem; sure: boolean };
 /** The draft, the drafts before each change (for «скасуй»), what the last change did, a question waiting, a clear to confirm. */
 export interface VoiceSession { draft: VoiceDraft; history: VoiceDraft[]; note?: string; ask?: Ask; confirmClear?: true }
 export const newSession = (): VoiceSession => ({ draft: emptyDraft(), history: [] });
@@ -131,7 +133,7 @@ function remove(what: string, d: VoiceDraft, ctx: VoiceContext, strict: boolean)
     const ws = names(part.x.item);
     const head = ws.slice(0, part.at).filter((w) => !/^(з|із|зі|без|та|і|й)$/u.test(w)).join(' ');
     const instead = head ? candidates(head, ctx).list.find((c) => c.item.name !== part.x.item.name)?.item : undefined;
-    return { d, ask: { index: part.i, part: what, whole: part.x.item.name, ...(instead ? { instead } : {}) } };
+    return { d, ask: { kind: 'part', index: part.i, part: what, whole: part.x.item.name, ...(instead ? { instead } : {}) } };
   }
   const gone = new Set(hit.map((h) => h.i));
   const names_ = [...hit.map((h) => h.x.item.name), ...meds.map((m) => m.title), ...(water ? [V.waterWord] : [])];
@@ -181,8 +183,11 @@ export function command(text: string, d: VoiceDraft, ctx: VoiceContext): Done | 
     }
     const was = ws.slice(0, k).join(' '), now = ws.slice(k).join(' ').replace(/^[—–,-]\s*/u, '');
     const i = d.items.findIndex((x) => mentions(was, x.item));
-    if (i < 0) return { d, note: V.missing(was) };
     if (!now) return { d, note: V.missing(was) };
+    if (i < 0) { // D107: «замість кави чай» with no coffee — the tea was meant all the same
+      const add = readUtterance(now, ctx, d);
+      return { d: add, note: V.notThereAdded(was, list(add.items.slice(d.items.length).map((x) => x.item.name)) || now) };
+    }
     const add = readUtterance(now, ctx);
     const old = d.items[i]!.item.name;
     const items = [...d.items.slice(0, i), ...add.items, ...d.items.slice(i + 1)];
@@ -229,6 +234,34 @@ export function command(text: string, d: VoiceDraft, ctx: VoiceContext): Done | 
   return null;
 }
 
+/** The text with `prefix` cut off its start — spaces and case aside («прибери курку» + «видали каву» heard as «прибери
+ *  куркувидали каву»); undefined if it does not start so. */
+function cutPrefix(text: string, prefix: string): string | undefined {
+  let i = 0;
+  for (const ch of prefix) {
+    if (/\s/u.test(ch)) continue;
+    while (i < text.length && /\s/u.test(text[i]!)) i++;
+    if (i >= text.length || text[i]!.toLocaleLowerCase('uk') !== ch.toLocaleLowerCase('uk')) return undefined;
+    i++;
+  }
+  return text.slice(i);
+}
+
+/** D107: only the new words of a recognition. A recogniser may hand back what was said before with the new words
+ *  glued on (Safari on iPhone, the analyst's stub): the earlier phrases are cut off the start — never a phrase said
+ *  again as a whole («ще одне» twice is twice). */
+export function newWords(text: string, before: string[]): string {
+  let out = text.trim();
+  for (let changed = true; changed;) {
+    changed = false;
+    for (const p of [...before].sort((a, b) => b.length - a.length)) {
+      const rest = p.trim() ? cutPrefix(out, p) : undefined;
+      if (rest !== undefined && rest.trim()) { out = rest.replace(/^[\s,.;]+/u, ''); changed = true; break; }
+    }
+  }
+  return out;
+}
+
 /** Kept for the callers that only need the draft: a command if it is one, else more of the same meal. */
 export function applyCommand(text: string, d: VoiceDraft, ctx: VoiceContext): VoiceDraft | null {
   return command(text, d, ctx)?.d ?? null;
@@ -248,7 +281,28 @@ export function step(prev: VoiceSession, text: string, ctx: VoiceContext): Voice
   if (c?.clear) return { ...s, confirmClear: true };
   if (c?.ask) return { ...s, ask: c.ask };
   if (c) return c.d === s.draft ? { ...s, ...(c.note ? { note: c.note } : {}) } : { draft: c.d, history: [...s.history, s.draft], ...(c.note ? { note: c.note } : {}) };
-  return { draft: readUtterance(words, ctx, s.draft), history: [...s.history, s.draft] };
+  const read = readUtterance(words, ctx, s.draft);
+  const added = read.items.slice(s.draft.items.length);
+  // D107: a food already in the draft said again («5 яєць» with 4 eggs) — asked: one more lot, or the amount now; not a second line
+  const twin = added.findIndex((x) => s.draft.items.some((y) => y.item.name === x.item.name));
+  if (twin >= 0) {
+    const x = added[twin]!;
+    const draft = { ...read, items: read.items.filter((_, k) => k !== s.draft.items.length + twin) };
+    return { draft, history: [...s.history, s.draft], ask: { kind: 'same', index: s.draft.items.findIndex((y) => y.item.name === x.item.name), item: x.item, sure: x.sure } };
+  }
+  const names_ = [...added.map((x) => x.item.name), ...read.meds.filter((m) => !s.draft.meds.includes(m)).map((m) => m.title),
+    ...(read.waterMl > s.draft.waterMl ? [V.waterWord] : [])];
+  return { draft: read, history: [...s.history, s.draft], ...(names_.length ? { note: V.added(list(names_)) } : {}) };
+}
+
+/** D107: the answer to «Яйця вже є»: one more lot added to the same line, or that amount is the amount now. */
+export function answerSame(s: VoiceSession, more: boolean): VoiceSession {
+  const a = s.ask;
+  if (a?.kind !== 'same') return s;
+  const old = s.draft.items[a.index]!;
+  const item = more ? addTo(old.item, a.item) ?? a.item : a.item;
+  return { draft: { ...s.draft, items: s.draft.items.map((x, j) => (j === a.index ? { ...x, item, sure: more ? old.sure && a.sure : a.sure } : x)) },
+    history: s.history, note: V.changed(item.name, amountText(item)) };
 }
 
 /** A change made by a tap (a quantity chosen, a line taken out, the answer to a question) — on the history too. */

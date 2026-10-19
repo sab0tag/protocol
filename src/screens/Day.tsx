@@ -188,7 +188,7 @@ export function Day() {
             className="flex min-h-[3.5rem] min-w-0 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-2xl border border-accent/40 bg-surface pl-2 pr-11 text-base font-semibold text-accent shadow-sm">
             <UtensilsCrossed size={20} className="shrink-0" aria-hidden />{t.day.recordFood}</button>
           {/* D95: say it — a meal, a medicine, water — in one window */}
-          <button type="button" onClick={() => setVoice(true)} aria-label={t.voice.open}
+          <button type="button" onClick={() => setVoice(true)} aria-label={t.voice.open} disabled={voice} /* D107: one window, one listener */
             className="absolute inset-y-1 right-1 flex w-10 items-center justify-center rounded-xl border-l border-accent/20 text-accent"><Mic size={20} aria-hidden /></button>
         </div>
         {/* D56: a symptom with its time, next to the food it may follow */}
