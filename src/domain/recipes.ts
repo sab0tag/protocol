@@ -24,7 +24,7 @@ export function dishItem(recipe: Recipe, portions = 1): MealItem {
 export function setPortions(item: MealItem, portions: number): MealItem {
   if (!item.recipe || !item.components) return item;
   const components = scaleItems(item.components, portions / item.recipe.portions);
-  return { ...item, grams: sumGrams(components), recipe: { ...item.recipe, portions }, components };
+  return { ...item, grams: sumGrams(components), recipe: { id: item.recipe.id, portions }, components }; // in portions again (D106)
 }
 
 /** A dish's ingredients changed by hand: keep its weight in step. */

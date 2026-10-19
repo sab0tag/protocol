@@ -13,7 +13,7 @@ import { db } from '../data/db';
 import { keep, kept } from '../data/kept';
 import { useAllEntries, useFoods, usePlan, useRecipes } from '../data/queries';
 import { atLocal, dateOf, newId, todayISO } from '../domain/dates';
-import { amountText } from '../domain/foodSearch';
+import { amountText, needsGrams } from '../domain/foodSearch';
 import { frequentItems } from '../domain/habits';
 import { acceptPlan, asResult, draftFrom, draftTotals, likeYesterday, menuRequest, nextAlternative, type MenuDraft, type MenuResult } from '../domain/menu';
 import { effectiveTargets, lineNutrients, round } from '../domain/nutrition';
@@ -206,7 +206,7 @@ export function Menu() {
                     const alt = nextAlternative(it, foods, recipes, dishItem);
                     return (
                       <li key={k} className="flex min-h-tap items-center gap-1">
-                        <span className="flex-1">{it.name} <span className="text-muted">· {amountText(it)}{it.unit || it.recipe ? ` ≈ ${it.grams} г` : ''}</span></span>
+                        <span className="flex-1">{it.name} <span className="text-muted">· {amountText(it)}{needsGrams(it) ? ` ≈ ${it.grams} г` : ''}</span></span>
                         <span className="tabular text-sm text-muted">{round(lineNutrients(it, foods).kcal)}</span>
                         {alt && <button type="button" aria-label={`${L.swap}: ${it.name}`} title={L.swap} className="flex min-h-tap min-w-tap items-center justify-center text-accent"
                           onClick={() => edit(di, mi, (xs) => xs.map((x, n) => (n === k ? alt : x)))}><RefreshCw size={17} /></button>}

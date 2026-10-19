@@ -6,7 +6,7 @@ import { Sparkles } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { db } from '../data/db';
 import { appVersion, planVersion } from '../domain/concierge';
-import { approxG, amountText, itemFor, parseQuery } from '../domain/foodSearch';
+import { approxG, amountText, needsGrams, itemFor, parseQuery } from '../domain/foodSearch';
 import { dishItem } from '../domain/recipes';
 import { checkMeal } from '../domain/rules';
 import { dangerInText } from '../domain/symptoms';
@@ -91,7 +91,7 @@ export function ConciergeNotFound({ text, plan, foods, recipes, date, onAdd }: {
               <button key={it.name} type="button" onClick={() => pick(it)} data-item={it.name}
                 className="block min-h-tap w-full rounded-xl border border-line px-3 py-1 text-left">
                 <span className="block text-sm"><span className="text-muted">{L.like}: </span><span className="font-medium">{it.name}</span>
-                  <span className="text-muted"> · {amountText(it)}{it.unit || it.recipe ? ` ≈ ${approxG(it.grams)} г` : ''}</span></span>
+                  <span className="text-muted"> · {amountText(it)}{needsGrams(it) ? ` ≈ ${approxG(it.grams)} г` : ''}</span></span>
                 {hits.length > 0 && <span className="block text-xs text-warn">{[...new Set(hits.map((h) => h.message))].join(' · ')}</span>}
                 <span className="block text-xs text-accent">{L.yes}</span>
               </button>

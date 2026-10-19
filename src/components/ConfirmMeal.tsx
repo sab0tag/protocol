@@ -6,7 +6,7 @@
 import { differenceInMinutes, format } from 'date-fns';
 import { Pencil, Star, Trash2 } from 'lucide-react';
 import { useState } from 'react';
-import { amountText } from '../domain/foodSearch';
+import { amountText, needsGrams } from '../domain/foodSearch';
 import { lineNutrients, round } from '../domain/nutrition';
 import { setPortions } from '../domain/recipes';
 import { NOW_AFTER_MIN } from '../domain/reminders';
@@ -62,7 +62,7 @@ export function ConfirmMeal({ entry, date, foods, onClose, onEdit, onPin, onDele
                 <input type="checkbox" checked={on} className="h-5 w-5 shrink-0 accent-[rgb(var(--accent))]"
                   onChange={(e) => setTicked((s) => { const n = new Set(s); if (e.target.checked) n.add(i); else n.delete(i); return n; })} />
                 <span className="min-w-0 flex-1"><span className="block font-medium">{it.name}</span>
-                  <span className="block text-sm text-muted">{amountText(it)}{it.unit || it.recipe ? ` ≈ ${it.grams} г` : ''}
+                  <span className="block text-sm text-muted">{amountText(it)}{needsGrams(it) ? ` ≈ ${it.grams} г` : ''}
                     {foods ? ` · ${round(lineNutrients(it, foods).kcal)} ${t.units.kcal}` : ''}{was ? ` · ${was}` : ''}</span></span>
               </label>
               {on && (it.recipe && it.components

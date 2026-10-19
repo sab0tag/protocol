@@ -24,7 +24,7 @@ import { dishItem, foodFromLine, recipeFrom, setPortions, withComponents } from 
 import { atLocal, dateOf, newId, timeOf, todayISO } from '../domain/dates';
 import { activeMode, dayTotals, effectiveTargets, lineNutrients, mealNutrients, round } from '../domain/nutrition';
 import { applySwaps, checkMeal, hasSwaps, mealVerdict, type ItemCheck } from '../domain/rules';
-import { amountText, approxG, measureWord, parseQuery, readMeal, type Recognized } from '../domain/foodSearch';
+import { amountText, needsGrams, approxG, measureWord, readMeal, type Recognized } from '../domain/foodSearch';
 import { fromPhoto } from '../domain/photo';
 import { ApiError, photo as recognizePhoto } from '../sync/api';
 import { currentKeys } from '../sync/runner';
@@ -79,7 +79,6 @@ export function AddMeal() {
 
   const others = useDayEntries(date)?.filter((e) => e.id !== id);
   const recent = useRecentEntries(date)?.filter((e) => e.id !== id);
-  const parsed = useMemo(() => parseQuery(query), [query]);
   // D30: what this person usually eats wins among similar foods («кефір» = their kefir)
   const usual = useMemo(() => usualIds(all), [all]);
   // D85: one reading of the text for the screen and for the phrase corpus (tests/fixtures/meal-phrases.yaml)
@@ -184,13 +183,13 @@ export function AddMeal() {
           {!danger && !phrase && list.length > 0 && (
             <ul className="mt-2 divide-y divide-line rounded-xl border border-line">
               {list.map(({ item: dish, recipe: r, food: f }) => r ? (() => {
-                const portions = parsed.qty ?? 1;
+                const portions = dish.recipe?.portions ?? 1; // D106: what the dish was made of, not the number said («250 г»)
                 return (
                   <li key={r.id}>
                     <button type="button" data-item={dish.name} className="flex min-h-tap w-full items-center justify-between gap-2 px-3 text-left"
                       onClick={() => { setItems((xs) => [...xs, dish]); setQuery(''); }}>
                       <span><span className="mr-1 rounded-full bg-accent/10 px-2 text-xs font-medium text-accent">{t.meal.dish}</span>{r.name}</span>
-                      <span className="tabular shrink-0 text-right text-sm text-muted">{fmt(portions)} {measureWord('порція', portions)} ≈ {approxG(dish.grams)} г</span>
+                      <span className="tabular shrink-0 text-right text-sm text-muted">{dish.recipe?.byGrams ? `${dish.grams} г` : <>{fmt(portions)} {measureWord('порція', portions)} ≈ {approxG(dish.grams)} г</>}</span>
                     </button>
                   </li>
                 );
@@ -437,7 +436,7 @@ function RecognizedPanel({ title, rows: given, note, onAdd, notFound }: {
               <label data-item={r.item.name} className="flex min-h-tap items-center gap-3">
                 <input type="checkbox" checked={!skip.has(k)} className="h-5 w-5 accent-[rgb(var(--accent))]"
                   onChange={(e) => setSkip((s) => { const n = new Set(s); if (e.target.checked) n.delete(k); else n.add(k); return n; })} />
-                <span className="flex-1">{r.item.name} <span className="text-muted">· {amountText(r.item)}{r.item.unit || r.item.recipe ? ` ≈ ${approxG(r.item.grams)} г` : ''}</span>
+                <span className="flex-1">{r.item.name} <span className="text-muted">· {amountText(r.item)}{needsGrams(r.item) ? ` ≈ ${approxG(r.item.grams)} г` : ''}</span>
                   {(r.unsure || r.estimate) && <span className="block text-xs text-warn">{[r.unsure && t.meal.photoUnsure, r.estimate && t.meal.photoEstimate].filter(Boolean).join(' · ')}</span>}
                 </span>
               </label>

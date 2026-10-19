@@ -23,7 +23,7 @@ describe('dishes (D27)', () => {
     expect(salad.components?.map((c) => c.name)).toEqual(expect.arrayContaining(['Олія оливкова', 'Бальзамічний оцет', 'Сіль']));
     expect(salad.grams).toBe(salad.components!.reduce((g, c) => g + c.grams, 0));
     const n = lineNutrients(salad, foods);
-    expect(n.fat).toBeCloseTo(10 * 1 + 0.1 * 1.2 + 0.2 * 1.2 + 0.3 * 0.6 + 0.1 * 0.2 + 0.7 * 0.04, 1); // the oil is the fat
+    expect(n.fat).toBeCloseTo((10 * 1 + 0.1 * 1.2 + 0.2 * 1.2 + 0.3 * 0.6 + 0.1 * 0.2 + 0.7 * 0.04) / 2, 1); // the oil is the fat; a side portion since D106
     expect(mealNutrients([salad], foods).kcal).toBeCloseTo(n.kcal);
   });
 
@@ -52,7 +52,7 @@ describe('dishes (D27)', () => {
   it('editing the ingredients of a dish in a meal keeps its weight in step', () => {
     const salad = dishItem(recipe('dish-salad-veg'));
     const lighter = withComponents(salad, salad.components!.filter((c) => c.foodId !== 'olive-oil'));
-    expect(lighter.grams).toBe(salad.grams - 10);
+    expect(lighter.grams).toBe(salad.grams - 5); // 1 ч. л. of oil (D106: a side portion)
   });
 
   it('«Зберегти як мою страву» makes one portion from the meal (dishes opened up)', () => {

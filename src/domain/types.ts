@@ -158,7 +158,7 @@ export interface MealItem {
   unit?: { name: string; qty: number; grams: number };
   /** D27: a dish — the recipe and how many portions; `components` are its ingredients as eaten (a copy, so
    *  editing the recipe later does not change history); `grams` = their sum. */
-  recipe?: { id: string; portions: number };
+  recipe?: { id: string; portions: number; byGrams?: true }; // D106: said in grams («250 г гречки з куркою») — shown in grams
   components?: MealItem[];
 }
 

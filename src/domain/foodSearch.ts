@@ -47,6 +47,12 @@ export function parseQuery(raw: string): Query {
     // D84: «кефір 1 %», «молоко 2,5%» — a number before «%» is part of the name, not how many
     if (/^\d+(\.\d+)?$/.test(w) && words[i + 1] === '%') { rest.push(w.replace('.', ',')); continue; }
     if (w === '%') { rest.push(w); continue; }
+    // D106: «чай з 2 ложками цукру» — the number after «з», «без» is the sugar's, not the tea's: neither it nor its measure
+    // is the amount of what is eaten (the words stay for the search)
+    if (/^(з|із|зі|без)$/u.test(words[i - 1] ?? '') && (/^\d+(\.\d+)?$/.test(w) || w in NUMBER_WORDS)) {
+      if (MEASURES.some(([re]) => re.test(words[i + 1] ?? ''))) words.splice(i + 1, 1);
+      continue;
+    }
     if (qty === undefined && /^\d+(\.\d+)?$/.test(w)) { qty = Number(w); continue; }
     if (qty === undefined && w in NUMBER_WORDS) { qty = NUMBER_WORDS[w]; continue; }
     const m = MEASURES.find(([re]) => re.test(w));
@@ -193,7 +199,11 @@ export function approxG(g: number): number {
 }
 
 /** «2 шт» / «2 скибки» / «150 г» — how an item's amount reads. */
+/** Whether «≈ N г» goes after the amount — not when the amount already is grams (D106: a dish said in grams). */
+export const needsGrams = (item: MealItem): boolean => !!item.unit || (!!item.recipe && !item.recipe.byGrams);
+
 export function amountText(item: MealItem): string {
+  if (item.recipe?.byGrams) return `${item.grams} г`;
   if (item.recipe) return `${String(item.recipe.portions).replace('.', ',')} ${measureWord('порція', item.recipe.portions)}`;
   if (!item.unit) return `${item.grams} г`;
   const q = Number.isInteger(item.unit.qty) ? String(item.unit.qty) : String(item.unit.qty).replace('.', ',');
@@ -283,14 +293,14 @@ export interface Recognized {
 export interface MealContext { foods: Food[]; recipes: Recipe[]; dishItem: (r: Recipe, portions: number) => MealItem; prefer?: ReadonlySet<string> }
 export interface Candidate { item: MealItem; food?: Food; recipe?: Recipe }
 
-/** D105: portions of a dish from what was said — «250 г» is grams (a portion's weight decides), as is a big bare number
- *  («гречка з куркою 300»); «2», «2 порції» — portions. It was read as 250 portions (85 kg). */
-function dishPortions(d: Recipe, q: Query, ctx: MealContext): number {
+/** D105: a dish from what was said — «250 г» is grams (a portion's weight decides), as is a big bare number («гречка з
+ *  куркою 300»); «2», «2 порції» — portions. It was read as 250 portions (85 kg). D106: said in grams, it is shown in grams. */
+function dishFor(d: Recipe, q: Query, ctx: MealContext): MealItem {
   const qty = q.qty ?? 1;
-  const grams = q.measure === 'г' || (!q.measure && qty > 20);
-  if (!grams) return qty;
+  if (!(q.measure === 'г' || (!q.measure && qty > 20))) return ctx.dishItem(d, qty);
   const one = ctx.dishItem(d, 1).grams;
-  return one > 0 ? Math.max(0.1, Math.round((qty / one) * 100) / 100) : 1;
+  const item = ctx.dishItem(d, one > 0 ? Math.max(0.01, Math.round((qty / one) * 100) / 100) : 1);
+  return { ...item, recipe: { ...item.recipe!, byGrams: true } };
 }
 
 /** D85: what one part of the text can be, best first — dishes and foods in one order, by how closely the words fit;
@@ -311,7 +321,7 @@ export function candidates(text: string, ctx: MealContext): { q: Query; list: Ca
   let a = 0, b = 0;
   while (a < dishes.length || b < foods.length) {
     const d = dishes[a], f = foods[b];
-    if (d && dishFirst(d, f)) { list.push({ item: ctx.dishItem(d, dishPortions(d, q, ctx)), recipe: d }); a++; }
+    if (d && dishFirst(d, f)) { list.push({ item: dishFor(d, q, ctx), recipe: d }); a++; }
     else { list.push({ item: itemFor(f!, q), food: f! }); b++; }
   }
   return { q, list };

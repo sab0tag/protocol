@@ -9,6 +9,8 @@ interface UiState {
   /** Onboarding finished or skipped in this session — the gate must not wait for the live query to catch up. */
   onboarded: boolean;
   setOnboarded: () => void;
+  /** D106: a new version is downloading — the page reloads itself when it is in */
+  updating: boolean;
 }
 
 export const useUi = create<UiState>((set, get) => ({
@@ -17,4 +19,5 @@ export const useUi = create<UiState>((set, get) => ({
   shift: (days) => set({ date: format(addDays(parseISO(get().date), days), 'yyyy-MM-dd') }),
   onboarded: false,
   setOnboarded: () => set({ onboarded: true }),
+  updating: false,
 }));

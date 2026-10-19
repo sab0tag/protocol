@@ -42,7 +42,7 @@ function profile(p: Row['profile']): { ctx: MealContext; plan: Plan } {
 }
 
 /** The amount as «Розпізнано» shows it: a measure, or a dish's portions. */
-const amount = (it?: MealItem) => it?.unit ?? (it?.recipe ? { qty: it.recipe.portions, name: 'порція' } : undefined);
+const amount = (it?: MealItem) => it?.unit ?? (it?.recipe ? (it.recipe.byGrams ? { qty: it.grams, name: 'г' } : { qty: it.recipe.portions, name: 'порція' }) : undefined);
 const show = (it?: MealItem) => (it ? `${it.name}${amount(it) ? ` · ${amount(it)!.qty} ${amount(it)!.name}` : ''} · ${it.grams} г` : '—');
 
 /** What differs from the row's expectations, one line per position; empty when the row holds. */

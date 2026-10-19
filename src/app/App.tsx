@@ -4,6 +4,7 @@ import { Layout } from '../components/Layout';
 import { ErrorBoundary } from '../components/Recovery';
 import { usePlan } from '../data/queries';
 import { useUi } from '../store/ui';
+import { t } from '../i18n/uk';
 import { AddMeal } from '../screens/AddMeal';
 import { Day } from '../screens/Day';
 import { Dishes } from '../screens/Dishes';
@@ -47,10 +48,17 @@ function ScreenBoundary({ children }: { children: ReactNode }) {
   return <ErrorBoundary key={useLocation().pathname}>{children}</ErrorBoundary>;
 }
 
+/** D106: a new version is downloading; the page reloads itself when it is in. */
+function UpdateBar() {
+  const on = useUi((s) => s.updating);
+  return on ? <p role="status" className="fixed inset-x-0 top-0 z-50 bg-accent px-4 py-1 text-center text-sm text-surface">{t.update.coming}</p> : null;
+}
+
 // Hash routing works on any static host without rewrite rules.
 export function App() {
   return (
     <HashRouter>
+      <UpdateBar />
       <Layout>
         <OnboardingGate>
           <ScreenBoundary>

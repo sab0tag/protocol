@@ -1,6 +1,6 @@
 import type { DayEntry, Food } from '../domain/types';
 import { shownTime } from '../domain/dates';
-import { amountText } from '../domain/foodSearch';
+import { amountText, needsGrams } from '../domain/foodSearch';
 import { lineNutrients, mealNutrients, round } from '../domain/nutrition';
 import { BEFORE_HOURS, eatenBefore } from '../domain/symptoms';
 import { itemAllergens, mealAllergens } from '../domain/allergens';
@@ -37,7 +37,7 @@ export function EntryPreview({ entry, foods, all }: { entry: DayEntry; foods?: M
         {entry.items.map((it, i) => (
           <li key={i} className="px-3 py-2">
             <div className="flex items-baseline justify-between gap-2">
-              <span>{it.name} <span className="whitespace-nowrap text-muted">· {amountText(it)}{it.unit || it.recipe ? ` ≈ ${it.grams}\u00a0г` : ''}</span></span>
+              <span>{it.name} <span className="whitespace-nowrap text-muted">· {amountText(it)}{needsGrams(it) ? ` ≈ ${it.grams}\u00a0г` : ''}</span></span>
               <span className="tabular shrink-0 text-sm text-muted">{round(lineNutrients(it, foods).kcal)} {t.units.kcal}</span>
             </div>
             {it.components?.length ? (

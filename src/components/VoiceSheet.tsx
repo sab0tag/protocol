@@ -10,7 +10,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { db, inDemo } from '../data/db';
 import { listen, speechSupported, type SpeechError } from '../data/speech';
 import { atLocal, newId } from '../domain/dates';
-import { amountText, approxG } from '../domain/foodSearch';
+import { amountText, needsGrams, approxG } from '../domain/foodSearch';
 import { dishItem, setPortions } from '../domain/recipes';
 import { checkMeal } from '../domain/rules';
 import { emptyDraft, hear, ready, type DraftMed, type VoiceDraft } from '../domain/voice';
@@ -129,7 +129,7 @@ export function VoiceSheet({ date, plan, foods, recipes, today, yesterday, meds,
                     <li key={i} data-item={x.item.name} className="rounded-lg bg-bg p-2 text-sm">
                       <div className="flex items-start gap-2">
                         <span className="flex-1"><span className="font-medium">{x.item.name}</span>
-                          <span className="text-muted"> · {amountText(x.item)}{x.item.unit || x.item.recipe ? ` ≈ ${approxG(x.item.grams)} г` : ''}</span></span>
+                          <span className="text-muted"> · {amountText(x.item)}{needsGrams(x.item) ? ` ≈ ${approxG(x.item.grams)} г` : ''}</span></span>
                         <button type="button" onClick={() => setItem(i, null)} aria-label={`${t.meal.remove}: ${x.item.name}`} className="flex h-8 w-8 items-center justify-center text-muted"><X size={16} aria-hidden /></button>
                       </div>
                       {hits.length > 0 && <p className="text-xs text-warn">{[...new Set(hits.map((h) => h.message))].join(' · ')}</p>}

@@ -17,8 +17,9 @@ const r = (id: string, name: string, aliases: string[], items: MealItem[]): Reci
 
 export const RECIPES: Recipe[] = [
   r('dish-salad-veg', 'Салат овочевий з олією', ['салат', 'овочевий салат', 'салат з огірків і помідорів'], [
-    c('cucumber', 1, 'шт'), c('tomato', 1, 'шт'), c('bell-pepper', 60), c('onion', 20), c('herbs', 1, 'ст. л.'),
-    c('olive-oil', 2, 'ч. л.'), c('balsamic', 1, 'ч. л.'), c('salt', 1, 'дрібка'),
+    // D106: a side portion (≈ 170 g) — a whole cucumber, tomato and pepper (≈ 340 g) was too much to assume
+    c('cucumber', 0.5, 'шт'), c('tomato', 0.5, 'шт'), c('bell-pepper', 30), c('onion', 10), c('herbs', 0.5, 'ст. л.'),
+    c('olive-oil', 1, 'ч. л.'), c('balsamic', 0.5, 'ч. л.'), c('salt', 1, 'дрібка'),
   ]),
   r('dish-salad-cabbage', 'Салат з капусти й моркви', ['салат з капусти', 'вітамінний салат', 'салат'], [
     c('cabbage', 150), c('carrot', 40), c('sunflower-oil', 2, 'ч. л.'), c('lemon-juice', 1, 'ч. л.'), c('salt', 1, 'дрібка'),
