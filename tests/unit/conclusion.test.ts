@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { examplePlan } from '../../src/data/seed.example';
-import { applyLines, draftLines, missing, sourceOf, timesToSet, unfinished, type ConclusionResult, type DraftLine } from '../../src/domain/conclusion';
+import { applyLines, draftLines, dueIn, missing, sourceOf, timesToSet, unfinished, type ConclusionResult, type DraftLine } from '../../src/domain/conclusion';
 import type { MedIndex } from '../../src/domain/meds';
 
 let n = 0;
@@ -97,7 +97,7 @@ describe('the visit and the tests next to it stay two things; a medicine counts 
       ['checkup', ['2027-01-15', 'Повторний огляд ендокринолога']], ['prescription', ['test', 'Контроль глюкози та ліпідограми через 3 місяці']]]);
     const out = applyLines(examplePlan(new Date('2026-10-17T12:00:00')), ls);
     expect(out.nextCheckup).toEqual({ date: '2027-01-15', tests: ['Повторний огляд ендокринолога'] });
-    expect(out.prescriptions.find((p) => p.kind === 'test')?.dueDate).toBeUndefined();
+    expect(out.prescriptions.find((p) => p.kind === 'test')?.dueDate).toBe('2027-01-12'); // its own «через 3 місяці» from 12.10 (D104), never the visit’s 15.01
   });
   it('a new medicine gets the moment it was put in; one already in the plan keeps its own start', () => {
     const plan = examplePlan(new Date('2026-10-17T12:00:00'));
@@ -107,6 +107,21 @@ describe('the visit and the tests next to it stay two things; a medicine counts 
     const vitd = out.prescriptions.find((p) => p.title === 'Вітамін D')!;
     expect(vitd.since).toBe(plan.prescriptions[0]!.since);
     expect(vitd.sinceTime).toBeUndefined();
+  });
+});
+
+describe('«через 3 місяці» → a date to take the test, suggested and said so (D104)', () => {
+  it('counts from the paper’s date; months, weeks, days, «пів року», «місяць»; nothing without «через»', () => {
+    expect(dueIn('Контроль глюкози натще та ліпідограми через 3 місяці', '2026-10-16')).toBe('2027-01-16');
+    expect(dueIn('УЗД через місяць', '2026-10-16')).toBe('2026-11-16');
+    expect(dueIn('ОАК через 2 тижні', '2026-10-16')).toBe('2026-10-30');
+    expect(dueIn('HbA1c через пів року', '2026-10-16')).toBe('2027-04-16');
+    expect(dueIn('ТТГ через півтора місяці', '2026-10-16')).toBe('2026-11-30'); // 45 days
+    expect(dueIn('Глюкоза натще', '2026-10-16')).toBeUndefined();
+    expect(dueIn('через 50 років', '2026-10-16')).toBeUndefined();
+    const ls = draftLines({ ...R, prescriptions: [], constraints: [], targets: [], diet: null, unread: [], nextVisit: null,
+      tests: [{ title: 'Ліпідограма через 3 місяці', ...at() }, { title: 'HbA1c', ...at() }] }, id, { today: '2026-10-19' });
+    expect(meds(ls).map((l) => [l.prescription.dueDate, l.suggestedDate])).toEqual([['2027-01-12', true], [undefined, undefined]]); // from 12.10, the paper’s date
   });
 });
 

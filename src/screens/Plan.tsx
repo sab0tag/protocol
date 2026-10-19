@@ -55,7 +55,7 @@ export function Plan() {
         <p key={d.inn} role="status" className="rounded-2xl border border-line bg-surface p-3 text-sm">{P.duplicate(d.titles, d.inn)}</p>
       ))}
       <Block title={P.prescriptions} onAdd={() => setEditing({ what: 'prescription' })}>
-        {plan.prescriptions.map((p) => (
+        {plan.prescriptions.filter((p) => p.kind !== 'test').map((p) => ( /* D104: tests live with the next checkup */
           <Item key={p.id} onEdit={() => setEditing({ what: 'prescription', item: p })}
             title={p.title} meta={[P.kinds[p.kind], (p.kind === 'medication' || p.kind === 'supplement') ? (p.med ? p.med.inn : P.offRegistry) : undefined, p.dose, p.asNeeded ? t.conclusion.asNeeded : p.schedule?.times.join(', '),
               p.schedule?.withFood === true ? P.withFood.toLowerCase() : p.schedule?.withFood === false ? t.conclusion.empty : undefined,
@@ -116,6 +116,10 @@ export function Plan() {
       <Block title={P.checkup} onAdd={() => setEditing({ what: 'checkup' })} addLabel={plan.nextCheckup ? P.edit : P.add}>
         {plan.nextCheckup && <li className="px-3 py-2"><p className="font-medium">{dmy(plan.nextCheckup.date)}</p>
           <p className="text-sm text-muted">{plan.nextCheckup.tests.join(', ')}</p></li>}
+        {plan.prescriptions.filter((p) => p.kind === 'test').map((p) => ( /* D104: tests to take, next to the visit — not among the medicines */
+          <Item key={p.id} onEdit={() => setEditing({ what: 'prescription', item: p })} title={p.title}
+            meta={[P.kinds.test, p.dueDate ? `${P.dueDate.toLowerCase()} ${dmy(p.dueDate)}` : undefined]} note={p.notes} source={p.source} />
+        ))}
       </Block>
 
       <p className="pb-2 text-sm text-muted">{P.disclaimer}</p>

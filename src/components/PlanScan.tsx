@@ -186,6 +186,8 @@ function LineText({ line: l, plan, known }: { line: DraftLine; plan: PlanRow; kn
     const p = l.prescription;
     const exists = plan.prescriptions.some((x) => same(x.title, p.title));
     const drug = p.kind === 'medication' || p.kind === 'supplement';
+    if (p.kind === 'test') return <span><span className="font-medium">{p.title}</span>{exists && updates}
+      <span className="block text-sm text-muted">{[P.kinds.test, p.dueDate ? L.dueBy(day(p.dueDate)) + (l.suggestedDate ? ` (${L.suggestedDate})` : '') : ''].filter(Boolean).join(' · ')}</span></span>;
     const when = !drug ? '' : [p.asNeeded ? L.asNeeded : p.schedule?.times.length ? p.schedule.times.join(', ') + (l.suggested ? ` (${L.suggested})` : '') : '',
       p.schedule?.withFood === true ? L.withFood : p.schedule?.withFood === false ? L.empty : '',
       p.until ? L.until(format(parseISO(p.until), 'd.MM')) : ''].filter(Boolean).join(' · ');

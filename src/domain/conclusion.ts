@@ -4,7 +4,7 @@
 // only when the person ticks it after comparing with the paper. A medicine goes in only with its dose and time (D100);
 // a time the paper does not give is *suggested* from «2 рази на день» and said so. The diagnosis is never kept.
 // Nothing of the person's is removed: a line for a limit or a medicine already in the plan updates it.
-import { addDays, format, parseISO } from 'date-fns';
+import { addDays, addMonths, format, parseISO } from 'date-fns';
 import { findDiets } from './diets';
 import { fold, searchMeds, type MedIndex } from './meds';
 import { ALLERGENS, type Allergen, type Constraint, type ConstraintTag, type Plan, type Prescription, type Targets } from './types';
@@ -35,7 +35,7 @@ interface Common { key: string; status: Status; from?: From }
 
 export type DraftLine = Common & (
   | { kind: 'constraint'; constraint: Constraint }
-  | { kind: 'prescription'; prescription: Prescription; frequency?: string; suggested?: true }
+  | { kind: 'prescription'; prescription: Prescription; frequency?: string; suggested?: true; suggestedDate?: true }
   | { kind: 'target'; target: keyof Targets; value: Targets[keyof Targets] }
   | { kind: 'checkup'; date: string; title: string }
   | { kind: 'unread'; text: string });
@@ -46,6 +46,21 @@ const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const within = (v: number | undefined, lo: number, hi: number) => (v != null && Number.isFinite(v) && v >= lo && v <= hi ? v : undefined);
 /** D101: the times the app suggests for «N разів на день» — always marked «час запропоновано», never passed for the doctor's */
 export const SUGGESTED: Record<number, string[]> = { 1: ['08:00'], 2: ['08:00', '20:00'], 3: ['08:00', '14:00', '20:00'], 4: ['08:00', '12:00', '16:00', '20:00'] };
+
+const COUNT: Record<string, number> = { пів: 0.5, півтора: 1.5, один: 1, одну: 1, два: 2, дві: 2, три: 3, чотири: 4, 'п’ять': 5, "п'ять": 5, пять: 5, шість: 6 };
+/** D104: «через 3 місяці», «через місяць», «через пів року», «через 2 тижні» → the date from `from`; nothing for other words. */
+export function dueIn(words: string, from: string): string | undefined {
+  const m = /через\s+(?:(\d+(?:[.,]5)?|пів|півтора|один|одну|два|дві|три|чотири|п[’']?ять|шість)\s*)?(дн|день|тиж|місяц|рок|рік)/iu.exec(words);
+  if (!m) return undefined;
+  const n = m[1] ? (/^\d/.test(m[1]) ? Number(m[1].replace(',', '.')) : COUNT[m[1].toLowerCase()] ?? NaN) : 1;
+  if (!Number.isFinite(n) || n <= 0) return undefined;
+  const u = m[2]!.toLowerCase(), d = parseISO(from);
+  const months = u.startsWith('міс') ? n : u.startsWith('р') ? n * 12 : undefined;
+  const date = months !== undefined ? (Number.isInteger(months) ? addMonths(d, months) : addDays(d, Math.round(months * 30)))
+    : addDays(d, Math.round(u.startsWith('тиж') ? n * 7 : n));
+  const out = format(date, 'yyyy-MM-dd');
+  return out > from && out <= format(addMonths(d, 24), 'yyyy-MM-dd') ? out : undefined;
+}
 
 /** The part of the day the doctor named — the time to suggest for a dose once a day. */
 function partOfDay(words: string): string | undefined {
@@ -151,8 +166,12 @@ export function draftLines(r: ConclusionResult, newId: () => string, opts: Draft
   // через 3 місяці» next to «огляд 15.01.2027» are two things (they were merged into one line under the visit's date)
   const visit = r.nextVisit && DATE.test(r.nextVisit.date) ? r.nextVisit : undefined;
   if (visit) out.push({ kind: 'checkup', key: 'checkup', ...at(visit), date: visit.date, title: visit.title?.trim() ?? '' });
+  // «через 3 місяці» → a date to take the test, counted from the paper's date — suggested, marked so, so a reminder comes
+  const from = r.date && DATE.test(r.date) && r.date <= today ? r.date : today;
   for (const x of r.tests) {
-    if (x.title.trim()) out.push({ kind: 'prescription', key: key('p'), ...at(x), prescription: { id: newId(), kind: 'test', title: x.title.trim(), source } });
+    const due = x.title.trim() ? dueIn(x.title, from) : undefined;
+    if (x.title.trim()) out.push({ kind: 'prescription', key: key('p'), ...at(x), ...(due ? { suggestedDate: true as const } : {}),
+      prescription: { id: newId(), kind: 'test', title: x.title.trim(), source, ...(due ? { dueDate: due } : {}) } });
   }
 
   for (const u of r.unread) {
