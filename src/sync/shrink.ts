@@ -24,7 +24,16 @@ export async function cut(page: string, box: [number, number, number, number], m
   const scale = Math.min(1, max / w);
   const canvas = document.createElement('canvas');
   canvas.width = Math.max(1, Math.round(w * scale)); canvas.height = Math.max(1, Math.round(h * scale));
-  canvas.getContext('2d')!.drawImage(bmp, x, y, w, h, 0, 0, canvas.width, canvas.height);
+  const ctx = canvas.getContext('2d')!;
+  ctx.drawImage(bmp, x, y, w, h, 0, 0, canvas.width, canvas.height);
+  // D103: the margin shows the neighbouring lines too — fade it, so the line itself stands out
+  const bx = (box[0] * bmp.width - x) * scale, by = (box[1] * bmp.height - y) * scale;
+  const bw = box[2] * bmp.width * scale, bh = box[3] * bmp.height * scale;
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.72)';
+  ctx.fillRect(0, 0, canvas.width, Math.max(0, by));
+  ctx.fillRect(0, by + bh, canvas.width, canvas.height - by - bh);
+  ctx.fillRect(0, by, Math.max(0, bx), bh);
+  ctx.fillRect(bx + bw, by, canvas.width - bx - bw, bh);
   bmp.close();
   return canvas.toDataURL('image/jpeg', 0.8);
 }

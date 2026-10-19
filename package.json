@@ -10,7 +10,8 @@
     "test": "TZ=Europe/Kyiv vitest run",
     "typecheck": "tsc --noEmit",
     "e2e": "playwright test",
-    "eval:concierge": "VITE_API_URL=https://api.beyondthesignal.to vitest run --config vitest.eval.config.ts",
+    "eval:concierge": "VITE_API_URL=https://api.beyondthesignal.to vitest run --config vitest.eval.config.ts tests/eval/concierge.eval.ts",
+    "eval:prescriptions": "VITE_API_URL=https://api.beyondthesignal.to TZ=Europe/Kyiv vitest run --config vitest.eval.config.ts tests/eval/prescriptions.eval.ts",
     "build:e2e": "VITE_API_URL=http://localhost:8099 vite build --outDir dist-e2e"
   },
   "dependencies": {

@@ -292,7 +292,7 @@ export const t = {
     nothing: 'У висновку не знайшлося обмежень, призначень чи цілей для плану.',
     check: 'Ось що я прочитав — звірте кожен рядок з папером і відмітьте, що внести в план',
     from: (s: string) => `Джерело: ${s}`,
-    all: 'Відмітити все, крім ліків', none: 'Зняти все, крім ліків',
+    all: 'Відмітити все з ✓, крім ліків', none: 'Зняти все з ✓, крім ліків',
     groups: { meds: 'Ліки', limits: 'Дієта й обмеження', targets: 'Цілі', checks: 'Аналізи й контроль', unread: 'Не прочитано' },
     medsOneByOne: 'Кожен препарат — окремою відміткою, звірте назву й дозу з папером.',
     status: { sure: '✓ прочитано чітко', check: '? перевірте з папером', unread: '✗ не прочитано' },
@@ -598,7 +598,7 @@ export const t = {
     inMin: (m: number, time: string) => `через ${m} хв · о ${time}`,
     ago: (m: number, time: string) => `о ${time} · ${m} хв тому`,
     at: (time: string) => `о ${time}`,
-    withFood: 'під час їжі',
+    withFood: 'під час їжі', empty: 'натщесерце',
   },
   mark: { // D52
     whenTook: 'коли прийняли?', whenAte: 'коли з’їли?',
@@ -651,7 +651,7 @@ export const t = {
     withFood: 'Під час їжі', dueDate: 'Здати до', notes: 'Примітки', tag: 'Що це за обмеження',
     from: 'З', to: 'По', notesLines: 'Нотатки (кожна з нового рядка)', tests: 'Аналізи (кожен з нового рядка)', date: 'Дата',
     noTargets: 'Цілі ще не задано.',
-    finish: (title: string, noDose: boolean) => `${title} — ${noDose ? 'не вказано дозу' : 'не вказано час прийому'}. Доповніть у «Плані», інакше нагадувань і відміток не буде як слід.`,
+    finish: (title: string, noDose: boolean, noTime: boolean) => `${title} — не вказано ${noDose && noTime ? 'дозу й час прийому' : noDose ? 'дозу' : 'час прийому'}.${noTime ? ' Без часу нагадувань не буде.' : ''} Доповніть у «Плані».`,
     finishAction: 'Доповнити', // D100
     kinds: { medication: 'Ліки', supplement: 'Добавка', test: 'Аналіз', lifestyle: 'Спосіб життя' },
     tags: { oxalate: 'Оксалатні камені', gallbladder: 'Жовчний міхур', lactose: 'Лактоза', glycemic: 'Глікемія',
@@ -667,6 +667,7 @@ export const t = {
     noTime: 'Час не вказано — нагадування не буде, ліки рахуються як «раз на день».',
     // D100: a medicine is kept only with its dose and its time (or «за потреби»)
     needDose: 'Вкажіть дозу зі слів лікаря — без неї ліки не зберегти.', needTime: 'Вкажіть час прийому або позначте «За потреби».',
+    courseUntil: (d: string) => `курс до ${d}`, courseOver: (d: string) => `курс закінчився ${d}`, // D103
     asNeeded: 'За потреби (без часу й нагадувань)', until: 'Курс до (якщо лікар вказав тривалість)',
     timesPh: 'напр. 08:30, 20:00', stockPh: 'напр. 30',
     medPhoto: 'Фото упаковки', medPhotoBusy: 'Читаю упаковку…', medPhotoAllow: 'Дозволити й вибрати фото',

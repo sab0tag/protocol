@@ -17,7 +17,7 @@ import { Sheet } from '../components/Sheet';
 import { db, type PlanRow } from '../data/db';
 import { useAllEntries, usePlan } from '../data/queries';
 import { stockLeft } from '../domain/stock';
-import { atLocal, newId, todayISO } from '../domain/dates';
+import { atLocal, newId, sinceNow, todayISO } from '../domain/dates';
 import { AllergenPicker } from '../components/AllergenPicker';
 import type { Constraint, ConstraintTag, Mode, Plan as PlanT, Prescription, Targets } from '../domain/types';
 import { t } from '../i18n/uk';
@@ -57,7 +57,9 @@ export function Plan() {
       <Block title={P.prescriptions} onAdd={() => setEditing({ what: 'prescription' })}>
         {plan.prescriptions.map((p) => (
           <Item key={p.id} onEdit={() => setEditing({ what: 'prescription', item: p })}
-            title={p.title} meta={[P.kinds[p.kind], (p.kind === 'medication' || p.kind === 'supplement') ? (p.med ? p.med.inn : P.offRegistry) : undefined, p.dose, p.schedule?.times.join(', '), p.schedule?.withFood ? P.withFood.toLowerCase() : undefined,
+            title={p.title} meta={[P.kinds[p.kind], (p.kind === 'medication' || p.kind === 'supplement') ? (p.med ? p.med.inn : P.offRegistry) : undefined, p.dose, p.asNeeded ? t.conclusion.asNeeded : p.schedule?.times.join(', '),
+              p.schedule?.withFood === true ? P.withFood.toLowerCase() : p.schedule?.withFood === false ? t.conclusion.empty : undefined,
+              p.until ? (p.until < todayISO() ? P.courseOver(dmy(p.until)) : P.courseUntil(dmy(p.until))) : undefined, // D103: the course end in the list
               p.dueDate ? `${P.dueDate.toLowerCase()} ${dmy(p.dueDate)}` : undefined,
               ...(entries && stockLeft(p, entries) ? [P.stockDays(stockLeft(p, entries)!.days)] : [])]} note={p.notes} source={p.source}
             warn={timesToSet(p) ? P.setTimes(timesToSet(p)!) : undefined} />
@@ -205,7 +207,7 @@ const str = (n: number | undefined) => (n == null ? '' : String(n));
 
 // ------------------------------------------------------------------ forms
 function PrescriptionForm({ plan, item, onClose }: { plan: PlanRow; item?: Prescription; onClose: () => void }) {
-  const [p, setP] = useState<Prescription>(item ?? { id: newId(), kind: 'medication', title: '', source: '', since: todayISO() }); // D97
+  const [p, setP] = useState<Prescription>(item ?? { id: newId(), kind: 'medication', title: '', source: '', ...sinceNow() }); // D97, D103
   const [times, setTimes] = useState(item?.schedule?.times.join(', ') ?? '');
   const entries = useAllEntries();
   const now = item && entries ? stockLeft(item, entries) : undefined;

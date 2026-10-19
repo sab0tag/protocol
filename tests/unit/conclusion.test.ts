@@ -88,6 +88,28 @@ describe('a doctor’s conclusion → the plan (D80, D101)', () => {
   });
 });
 
+describe('the visit and the tests next to it stay two things; a medicine counts from the moment it is put in (D103)', () => {
+  it('the visit line keeps its own words; the tests do not take its date', () => {
+    const ls = draftLines({ ...R, prescriptions: [], constraints: [], targets: [], diet: null, unread: [],
+      tests: [{ title: 'Контроль глюкози та ліпідограми через 3 місяці', ...at() }],
+      nextVisit: { date: '2027-01-15', title: 'Повторний огляд ендокринолога', ...at('yes', 1, [0.1, 0.47, 0.5, 0.02]) } }, id);
+    expect(ls.map((l) => [l.kind, l.kind === 'checkup' ? [l.date, l.title] : l.kind === 'prescription' ? [l.prescription.kind, l.prescription.title] : null])).toEqual([
+      ['checkup', ['2027-01-15', 'Повторний огляд ендокринолога']], ['prescription', ['test', 'Контроль глюкози та ліпідограми через 3 місяці']]]);
+    const out = applyLines(examplePlan(new Date('2026-10-17T12:00:00')), ls);
+    expect(out.nextCheckup).toEqual({ date: '2027-01-15', tests: ['Повторний огляд ендокринолога'] });
+    expect(out.prescriptions.find((p) => p.kind === 'test')?.dueDate).toBeUndefined();
+  });
+  it('a new medicine gets the moment it was put in; one already in the plan keeps its own start', () => {
+    const plan = examplePlan(new Date('2026-10-17T12:00:00'));
+    const ls = meds(draftLines(R, id, { today: '2026-10-19' })).filter((l) => ['Вітамін D', 'Метформін'].includes(l.prescription.title));
+    const out = applyLines(plan, ls, { since: '2026-10-19', sinceTime: '10:10' });
+    expect(out.prescriptions.find((p) => p.title === 'Метформін')).toMatchObject({ since: '2026-10-19', sinceTime: '10:10' });
+    const vitd = out.prescriptions.find((p) => p.title === 'Вітамін D')!;
+    expect(vitd.since).toBe(plan.prescriptions[0]!.since);
+    expect(vitd.sinceTime).toBeUndefined();
+  });
+});
+
 describe('medicines older versions kept without a dose or time (D100)', () => {
   it('are asked to be finished — not «за потреби», not a course already over, not tests', () => {
     const p = (o: object) => ({ id: 'x', kind: 'medication' as const, title: 'М', source: '', ...o });

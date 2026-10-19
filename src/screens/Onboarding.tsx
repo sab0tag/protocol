@@ -9,7 +9,7 @@ import { DietPicker } from '../components/DietPicker';
 import { dietOf, fillEmptyTargets, type DietPreset } from '../domain/diets';
 import { EXAMPLE_SOURCE, withoutExample } from '../data/seed.example';
 import { usePlan } from '../data/queries';
-import { newId, todayISO } from '../domain/dates';
+import { newId, sinceNow, todayISO } from '../domain/dates';
 import type { Constraint, ConstraintTag, Prescription, Targets } from '../domain/types';
 import { t } from '../i18n/uk';
 import { useUi } from '../store/ui';
@@ -135,7 +135,7 @@ function Steps({ plan, start, onScanned }: { plan: PlanRow; start: number; onSca
               </li>
             ))}
           </ul>
-          <button type="button" onClick={() => setRx([...rx, { id: newId(), kind: 'medication', title: '', source: '', since: todayISO() }])}
+          <button type="button" onClick={() => setRx([...rx, { id: newId(), kind: 'medication', title: '', source: '', ...sinceNow() }])}
             className="flex min-h-tap items-center gap-2 rounded-xl border border-accent px-3 text-accent"><Plus size={18} />{L.addPrescription}</button>
         </>
       )}

@@ -126,3 +126,23 @@ describe('water by pace (D70)', () => {
   });
 });
 
+
+describe('one rule for a due dose: the course, «за потреби», the first day from the moment it was added (D103)', () => {
+  const vitd = plan.prescriptions[0]!; // 08:30
+  const omep = { id: 'p-om', kind: 'medication' as const, title: 'Омепразол', dose: '20 мг', source: '', since: '2026-10-08', sinceTime: '10:10', until: '2026-10-10',
+    schedule: { times: ['08:00', '20:00'], withFood: false } };
+  const p2 = { ...plan, prescriptions: [vitd, omep, { ...omep, id: 'p-par', title: 'Парацетамол', asNeeded: true as const, until: undefined, since: undefined, sinceTime: undefined }] };
+  it('no reminder after the course, none for «за потреби», none for a dose before the medicine was added', () => {
+    const r = reminders({ entries: [], plan: p2, settings: { ...OFF, meds: true }, now, days: 5 });
+    const k = keys(r);
+    expect(k).not.toContain('med:2026-10-08:08:00'); // added at 10:10 — the morning dose was not the app's to count
+    expect(k).toContain('med:2026-10-08:20:00');
+    expect(k).toContain('med:2026-10-10:08:00');
+    expect(k.filter((x) => x.startsWith('med:2026-10-11'))).toEqual(['med:2026-10-11:08:30']); // the course is over; vitamin D goes on
+  });
+  it('«Зараз» says «натщесерце» as well as «під час їжі»', () => {
+    const f = dayFocus({ entries: [], plan: p2, date: '2026-10-09', now: new Date('2026-10-09T08:05:00') });
+    const med = [...(f.now ? [f.now] : []), ...f.missed].find((x) => x.kind === 'med' && x.time === '08:00');
+    expect(med?.meds?.map((m) => [m.title, m.withFood])).toEqual([['Омепразол 20 мг', false]]);
+  });
+});

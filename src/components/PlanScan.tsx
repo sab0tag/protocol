@@ -11,7 +11,7 @@ import { useRef, useState } from 'react';
 import { db, inDemo, type PlanRow } from '../data/db';
 import { useMedIndex } from '../data/medsIndex';
 import { applyLines, draftLines, missing, sameConstraint, sourceOf, type DraftLine } from '../domain/conclusion';
-import { newId } from '../domain/dates';
+import { newId, sinceNow } from '../domain/dates';
 import { t } from '../i18n/uk';
 import { ApiError, conclusion as readConclusion } from '../sync/api';
 import { currentKeys } from '../sync/runner';
@@ -75,13 +75,13 @@ export function PlanScan({ plan, onDone }: { plan: PlanRow; onDone?: () => void 
   const save = async () => {
     const picked = lines.filter((l) => on.has(l.key));
     const before = { constraints: plan.constraints, prescriptions: plan.prescriptions, targets: plan.targets, nextCheckup: plan.nextCheckup };
-    await saved(db.plan.update('main', applyLines(plan, picked)), L.saved(picked.length), () => db.plan.update('main', before));
+    await saved(db.plan.update('main', applyLines(plan, picked, sinceNow())), L.saved(picked.length), () => db.plan.update('main', before));
     setState('none'); setLines([]); setCuts({});
     onDone?.();
   };
   const toggle = (key: string) => setOn((s) => { const n = new Set(s); if (n.has(key)) n.delete(key); else n.add(key); return n; });
-  // «all» never covers medicines: each is confirmed by its own tap
-  const bulk = lines.filter((l) => l.kind !== 'unread' && !isMed(l));
+  // «all» never covers medicines (each is confirmed by its own tap) nor a line marked «?» — that one is checked by hand (D103)
+  const bulk = lines.filter((l) => l.status === 'sure' && !isMed(l));
   const allOn = bulk.length > 0 && bulk.every((l) => on.has(l.key));
 
   return (
@@ -132,7 +132,7 @@ export function PlanScan({ plan, onDone }: { plan: PlanRow; onDone?: () => void 
                       <li key={l.key}>
                         {l.kind === 'unread' ? <div className="py-2">{body}</div> : (
                           <label className="flex min-h-tap items-start gap-3 py-2">
-                            <input type="checkbox" checked={on.has(l.key)} disabled={!!lack} onChange={() => toggle(l.key)}
+                            <input type="checkbox" checked={on.has(l.key)} disabled={!!lack} onChange={() => toggle(l.key)} aria-label={nameOf(l)}
                               className="mt-0.5 h-5 w-5 shrink-0 accent-[rgb(var(--accent))] disabled:opacity-40" />
                             {body}
                           </label>
@@ -154,6 +154,15 @@ export function PlanScan({ plan, onDone }: { plan: PlanRow; onDone?: () => void 
       {error && <p role="alert" className="text-sm text-warn">{error}</p>}
     </div>
   );
+}
+
+/** The checkbox's own name — a screen reader said only «checkbox» (D103). */
+function nameOf(l: DraftLine): string {
+  if (l.kind === 'prescription') return [l.prescription.title, l.prescription.dose].filter(Boolean).join(' ');
+  if (l.kind === 'constraint') return l.constraint.title;
+  if (l.kind === 'target') return l.target === 'carbsG' ? P.target.carbsMax : P.target[l.target as keyof typeof P.target];
+  if (l.kind === 'checkup') return [L.groups.checks, day(l.date), l.title].filter(Boolean).join(', ');
+  return l.text;
 }
 
 function Status({ line: l }: { line: DraftLine }) {
@@ -189,5 +198,5 @@ function LineText({ line: l, plan, known }: { line: DraftLine; plan: PlanRow; kn
     return <span>{label}: <span className="font-medium">{value}</span></span>;
   }
   return <span><span className="font-medium">{day(l.date)}</span>
-    {l.tests.length > 0 && <span className="block text-sm text-muted">{l.tests.join(', ')}</span>}</span>;
+    {l.title && <span className="block text-sm text-muted">{l.title}</span>}</span>;
 }

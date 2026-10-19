@@ -3,6 +3,7 @@
 // generic word; the phone's service worker reads the details (what to eat, which medicine) from its own data.
 import { addDays, differenceInMinutes, format } from 'date-fns';
 import { dateOf, timeOf } from './dates';
+import { doseDue } from './checklist';
 import type { DayEntry, Plan, Prescription } from './types';
 
 export interface ReminderSettings {
@@ -70,7 +71,8 @@ export function reminders(args: { entries: DayEntry[]; plan: Plan | undefined; s
     for (const d of dates) {
       for (const time of times) {
         const key = `med:${d}:${time}`;
-        const meds = plan.prescriptions.filter((p) => isMed(p) && p.schedule?.times.includes(time));
+        const meds = plan.prescriptions.filter((p) => isMed(p) && p.schedule?.times.includes(time) && doseDue(p, d, time)); // D103: not after a course
+        if (!meds.length) continue;
         if (meds.every((p) => ticked.has(`${d}|med:${p.id}:${time}`))) { done.push(key); continue; }
         push({ key, at: at(d, time), payload: { t: 'Ліки', b: 'Час прийняти — відкрийте, щоб відмітити', k: 'med', u: url(d), tag: key, h: time } });
       }
@@ -162,9 +164,10 @@ export function dayFocus(args: { entries: DayEntry[]; plan: Plan | undefined; da
   for (const p of plan?.prescriptions ?? []) {
     if (!isMed(p)) continue;
     for (const time of p.schedule?.times ?? []) {
+      if (!doseDue(p, date, time)) continue; // D103
       const key = `med:${p.id}:${time}`;
       if (!marked.has(key)) byTime.set(time, [...(byTime.get(time) ?? []), { key, title: [p.title, p.dose].filter(Boolean).join(' '), prescriptionId: p.id,
-        ...(p.schedule?.withFood ? { withFood: true } : {}) }]);
+        ...(p.schedule?.withFood != null ? { withFood: p.schedule.withFood } : {}) }]);
     }
   }
   for (const [time, meds] of byTime) out.push({ key: `med:${date}:${time}`, kind: 'med', time, title: 'Ліки', late: 0, meds });

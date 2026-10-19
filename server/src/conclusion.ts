@@ -21,7 +21,7 @@ export interface ConclusionResult {
   prescriptions: ({ kind: 'medication' | 'supplement'; title: string; dose: string | null; times: string[]; perDay: number | null; frequency: string | null;
     durationDays: number | null; asNeeded: boolean; withFood: boolean | null } & Where)[];
   tests: ({ title: string } & Where)[];
-  nextVisit: ({ date: string } & Where) | null;
+  nextVisit: ({ date: string; title: string } & Where) | null;
   targets: ({ key: (typeof TARGETS)[number]; value: string } & Where)[];
   unread: { text: string; page: number; box: number[] }[];
   note: string | null;
@@ -76,7 +76,7 @@ export function toResult(m: ConclusionModel): ConclusionResult {
       frequency: or(l.words), durationDays: l.durationDays > 0 ? l.durationDays : null, asNeeded: l.asNeeded,
       withFood: l.food === 'with' ? true : l.food === 'empty' ? false : null, ...at(l) })),
     tests: [...of('test'), ...of('visit').filter((l) => l !== visit)].map((l) => ({ title: l.title, ...at(l) })),
-    nextVisit: visit ? { date: visit.date, ...at(visit) } : null,
+    nextVisit: visit ? { date: visit.date, title: visit.title.trim(), ...at(visit) } : null,
     targets: of('target').filter((l) => l.target !== 'none').map((l) => ({ key: l.target as (typeof TARGETS)[number], value: l.value, ...at(l) })),
     unread: of('unread').map((l) => ({ text: l.title, page: l.page, box: l.box })),
     note: or(m.note),
@@ -87,7 +87,7 @@ export const PROMPT_CONCLUSION = 'conclusion-3';
 const SYSTEM = `На фото — висновок, виписка або рекомендації лікаря (одна чи кілька сторінок). Перепиши з них для застосунку, що допомагає людині виконувати план свого лікаря: дієту, обмеження в харчуванні, призначені препарати з дозами, як часто й як довго, числові цілі, аналізи й обстеження, дату наступного візиту.
 Лише те, що прямо написано. Нічого не додавай від себе, не радь. Діагноз не переписуй і не виводь із нього обмежень — лише те, що написано в рекомендаціях.
 Дозу пиши рівно як на папері; якщо доза не читається певно — dose порожня і sure = check. Не вигадуй час прийому: «2 рази на день» — це perDay = 2, а times порожні; «ввечері», «вранці» — теж не час.
-Кожен пункт — окремий рядок; пункт, де сказано про дві речі («сіль до 5 г, без смаженого»), розбий на два. Для кожного рядка вкажи сторінку й рамку [x, y, ширина, висота] у частках сторінки та sure: yes лише коли прочитано чітко, інакше check. Те, що стосується лікування, але не читається, поверни як unread.
+Кожен пункт — окремий рядок: аналізи («контроль глюкози через 3 місяці») — test, а огляд лікаря з датою — visit, навіть якщо вони поруч; пункт, де сказано про дві речі («сіль до 5 г, без смаженого»), розбий на два. Для кожного рядка вкажи сторінку й рамку [x, y, ширина, висота] у частках сторінки та sure: yes лише коли прочитано чітко, інакше check. Те, що стосується лікування, але не читається, поверни як unread.
 Не переписуй ім’я, прізвище, дату народження, адресу, номер картки, імена лікарів — ні в які поля. Якщо це не документ лікаря — readable = false.`;
 
 export function claudeConclusion(opts: { model: string; effort: Effort; client?: Anthropic }): ConclusionReader {

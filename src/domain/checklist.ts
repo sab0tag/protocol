@@ -2,7 +2,7 @@
 import { differenceInMinutes } from 'date-fns';
 import { timeOf } from './dates';
 import { activeMode, dayTotals, effectiveTargets } from './nutrition';
-import type { DayEntry, Food, ISODate, Plan, Workout } from './types';
+import type { DayEntry, Food, ISODate, Plan, Prescription, Workout } from './types';
 import { workoutDay } from './workouts';
 
 export const WATER_SEGMENT_ML = 250;
@@ -36,6 +36,15 @@ export interface Checklist {
   workoutNote?: string;
 }
 
+/** D97, D100, D103: one rule for «День», the report, reminders and «Зараз»: is a dose of this medicine due that day (at that
+ *  time) — not before it entered the plan (on its first day not before the moment it was added), not after its course,
+ *  never for «за потреби». */
+export function doseDue(p: Prescription, date: ISODate, time?: string): boolean {
+  if ((p.kind !== 'medication' && p.kind !== 'supplement') || p.asNeeded) return false;
+  if ((p.since && date < p.since) || (p.until && date > p.until)) return false;
+  return !(time && p.sinceTime && date === p.since && time < p.sinceTime);
+}
+
 export function buildChecklist(args: {
   plan: Plan | undefined; date: ISODate; entries: DayEntry[]; workouts: Workout[]; foods: Map<string, Food>; now: Date;
 }): Checklist {
@@ -47,17 +56,15 @@ export function buildChecklist(args: {
   const items: CheckItem[] = [];
 
   for (const p of plan?.prescriptions ?? []) {
-    if (p.kind !== 'medication' && p.kind !== 'supplement') continue;
-    if (p.since && date < p.since) continue; // D97: not in the plan yet that day
-    if (p.until && date > p.until) continue; // D100: the course is over (or cancelled)
-    if (p.asNeeded) continue; // D100: «за потреби» — no dose is due, a taken one is still a record
+    if (!doseDue(p, date)) continue;
     // D49: a medicine without a time in the plan is once a day, whenever — still on the list, not forgotten
     const times: (string | undefined)[] = p.schedule?.times.length ? p.schedule.times : [undefined];
     for (const time of times) {
+      if (!doseDue(p, date, time)) continue; // D103: the first day starts from the moment it was added
       const key = `med:${p.id}:${time ?? 'day'}`;
       const tick = ticks.get(key);
       items.push({ key, kind: 'med', title: p.title, ...(time ? { time } : {}), prescriptionId: p.id, tappable: true,
-        detail: [time ?? 'раз на день', p.dose, p.schedule?.withFood ? 'під час їжі' : undefined].filter(Boolean).join(' · '),
+        detail: [time ?? 'раз на день', p.dose, p.schedule?.withFood === true ? 'під час їжі' : p.schedule?.withFood === false ? 'натщесерце' : undefined].filter(Boolean).join(' · '),
         done: !!tick, ...(tick ? (tick.timeUnknown ? {} : { doneAt: timeOf(tick.at) }) : skips.has(key) ? { skipped: true } : {}) });
     }
   }

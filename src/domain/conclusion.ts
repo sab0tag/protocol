@@ -22,7 +22,7 @@ export interface ConclusionResult {
   prescriptions: ({ kind: string; title: string; dose: string | null; times: string[]; perDay: number | null; frequency: string | null;
     durationDays: number | null; asNeeded: boolean; withFood: boolean | null } & Where)[];
   tests: ({ title: string } & Where)[];
-  nextVisit: ({ date: string } & Where) | null;
+  nextVisit: ({ date: string; title?: string } & Where) | null;
   targets: ({ key: TargetKey; value: string } & Where)[];
   unread: { text: string; page: number; box: number[] }[];
   note: string | null;
@@ -37,7 +37,7 @@ export type DraftLine = Common & (
   | { kind: 'constraint'; constraint: Constraint }
   | { kind: 'prescription'; prescription: Prescription; frequency?: string; suggested?: true }
   | { kind: 'target'; target: keyof Targets; value: Targets[keyof Targets] }
-  | { kind: 'checkup'; date: string; tests: string[] }
+  | { kind: 'checkup'; date: string; title: string }
   | { kind: 'unread'; text: string });
 
 const TAGS: ConstraintTag[] = ['oxalate', 'gallbladder', 'lactose', 'glycemic', 'iron', 'sodium', 'allergy', 'custom'];
@@ -147,11 +147,13 @@ export function draftLines(r: ConclusionResult, newId: () => string, opts: Draft
     if (v && !out.some((l) => l.kind === 'target' && l.target === v[0])) out.push({ kind: 'target', key: key('t'), ...at(t), target: v[0], value: v[1] });
   }
 
-  const tests = r.tests.filter((x) => x.title.trim());
+  // D103: the visit is a line of its own, with its own words and piece of paper; tests are never given its date — «контроль
+  // через 3 місяці» next to «огляд 15.01.2027» are two things (they were merged into one line under the visit's date)
   const visit = r.nextVisit && DATE.test(r.nextVisit.date) ? r.nextVisit : undefined;
-  // a visit with a date takes the tests along; tests without a date are kept in «Призначення» as tests to take
-  if (visit) out.push({ kind: 'checkup', key: 'checkup', ...at(visit), date: visit.date, tests: tests.map((x) => x.title.trim()) });
-  else for (const x of tests) out.push({ kind: 'prescription', key: key('p'), ...at(x), prescription: { id: newId(), kind: 'test', title: x.title.trim(), source } });
+  if (visit) out.push({ kind: 'checkup', key: 'checkup', ...at(visit), date: visit.date, title: visit.title?.trim() ?? '' });
+  for (const x of r.tests) {
+    if (x.title.trim()) out.push({ kind: 'prescription', key: key('p'), ...at(x), prescription: { id: newId(), kind: 'test', title: x.title.trim(), source } });
+  }
 
   for (const u of r.unread) {
     if (!u.text.trim()) continue;
@@ -194,7 +196,7 @@ export const sameConstraint = (a: Constraint, b: Constraint) =>
   b.tag === 'custom' || b.tag === 'allergy' ? same(a.title, b.title) : b.tag === 'diet' ? a.tag === 'diet' && a.diet === b.diet : a.tag === b.tag;
 
 /** The ticked lines put into the plan: a limit of the same kind (or a medicine of the same name) is updated in place. */
-export function applyLines(plan: Plan, lines: DraftLine[]): Pick<Plan, 'constraints' | 'prescriptions' | 'targets'> & Partial<Pick<Plan, 'nextCheckup'>> {
+export function applyLines(plan: Plan, lines: DraftLine[], since?: { since: string; sinceTime: string }): Pick<Plan, 'constraints' | 'prescriptions' | 'targets'> & Partial<Pick<Plan, 'nextCheckup'>> {
   let constraints = [...plan.constraints], prescriptions = [...plan.prescriptions];
   const targets: Targets = { ...plan.targets };
   let nextCheckup = plan.nextCheckup;
@@ -206,14 +208,21 @@ export function applyLines(plan: Plan, lines: DraftLine[]): Pick<Plan, 'constrai
       else constraints = [...constraints, c];
     } else if (l.kind === 'prescription') {
       if (missing(l)) continue; // D100: never a medicine without its dose and time
-      const p = l.prescription;
+      // D103: a new medicine counts from the moment it is put in, not from the reading; one already there keeps its start
+      const p = since && l.prescription.kind !== 'test' ? { ...l.prescription, ...since } : l.prescription;
       const i = prescriptions.findIndex((x) => same(x.title, p.title));
-      if (i >= 0) prescriptions[i] = { ...prescriptions[i]!, ...p, id: prescriptions[i]!.id, ...(prescriptions[i]!.since ? { since: prescriptions[i]!.since } : {}) };
-      else prescriptions = [...prescriptions, p];
+      const old = prescriptions[i];
+      if (!old) prescriptions = [...prescriptions, p];
+      else {
+        const { since: _s, sinceTime: _t, ...rest } = p;
+        const start = old.since ? { since: old.since, ...(old.sinceTime ? { sinceTime: old.sinceTime } : {}) } : { ...(p.since ? { since: p.since } : {}), ...(p.sinceTime ? { sinceTime: p.sinceTime } : {}) };
+        const { since: _os, sinceTime: _ot, ...kept } = old;
+        prescriptions[i] = { ...kept, ...rest, id: old.id, ...start };
+      }
     } else if (l.kind === 'target') {
       (targets as Record<string, unknown>)[l.target] = l.value;
     } else if (l.kind === 'checkup') {
-      nextCheckup = { date: l.date, tests: l.tests };
+      nextCheckup = { date: l.date, tests: l.title ? [l.title] : [] };
     }
   }
   return { constraints, prescriptions, targets, ...(nextCheckup ? { nextCheckup } : {}) };

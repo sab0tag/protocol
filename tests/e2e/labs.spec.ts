@@ -53,12 +53,13 @@ test('a doctor’s conclusion, two pages, no account (model stubbed) → «Ос�
   await expect(form.getByRole('img', { name: 'Фрагмент висновку, звідки взято рядок' }).first()).toBeVisible();
   await expect(form.getByRole('checkbox', { name: /Каптоприл/ })).toBeDisabled(); // no dose read — not into the plan
   await expect(form.getByRole('button', { name: 'Внести в план (0)' })).toBeDisabled(); // nothing ticked for the person
-  await form.getByRole('button', { name: 'Відмітити все, крім ліків' }).click();
-  await expect(form.getByRole('checkbox', { name: /Метформін/ })).not.toBeChecked(); // medicines are confirmed one by one
-  await form.getByRole('checkbox', { name: /Метформін/ }).check();
-  await form.getByRole('checkbox', { name: /Останній прийом їжі/ }).uncheck();
-  await form.getByRole('button', { name: 'Внести в план (4)' }).click();
-  await expect(toast(page)).toContainText('Внесено в план: 4');
+  await form.getByRole('button', { name: 'Відмітити все з ✓, крім ліків' }).click();
+  await expect(form.getByRole('checkbox', { name: 'Метформін 500 мг', exact: true })).not.toBeChecked(); // medicines are confirmed one by one (D101), named for a screen reader (D103)
+  await expect(form.getByRole('checkbox', { name: /Останній прийом їжі/ })).not.toBeChecked(); // a «?» line is checked by hand (D103)
+  await expect(form.getByRole('checkbox', { name: 'HbA1c' })).toBeChecked(); // the test is a line of its own, not under the visit’s date
+  await form.getByRole('checkbox', { name: 'Метформін 500 мг', exact: true }).check();
+  await form.getByRole('button', { name: 'Внести в план (5)' }).click();
+  await expect(toast(page)).toContainText('Внесено в план: 5');
   await expect(page.getByText('Метформін')).toBeVisible();
   await expect(page.getByText(/Вкажіть час прийому/)).toHaveCount(0); // the times are in, marked suggested when they were
   await expect(page.getByText('Порушена глікемія')).toBeVisible();

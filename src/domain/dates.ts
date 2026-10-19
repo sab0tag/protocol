@@ -28,3 +28,6 @@ export function weekStep(date: ISODate, dir: 1 | -1, today: ISODate): ISODate {
   const days = Array.from({ length: 7 }, (_, i) => format(new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + i), 'yyyy-MM-dd'));
   return days.includes(today) ? today : dir > 0 ? days[0]! : days[6]!;
 }
+
+/** D103: a medicine entering the plan now — its first day and the time on it (doses before it that day are not due). */
+export const sinceNow = (): { since: ISODate; sinceTime: string } => ({ since: todayISO(), sinceTime: format(new Date(), 'HH:mm') });

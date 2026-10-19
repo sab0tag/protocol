@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 import { db } from '../data/db';
 import { todayISO } from '../domain/dates';
 import { amountText } from '../domain/foodSearch';
-import { dayFocus, type NowItem } from '../domain/reminders';
+import { dayFocus, type NowItem, type NowMed } from '../domain/reminders';
 import type { DayEntry, Plan } from '../domain/types';
 import { t } from '../i18n/uk';
 import { localSnoozed, snooze } from '../sync/push';
@@ -44,10 +44,19 @@ export function NowCard({ entries, plan, date, onConfirm }: { entries: DayEntry[
   );
 }
 
+/** «під час їжі» / «натщесерце» for the doses due now — one word when they agree, else per medicine (D103: an empty
+ *  stomach is what matters for some, and it was lost after the plan was made). */
+function foodNote(meds: NowMed[]): string | undefined {
+  const said = meds.filter((m) => m.withFood != null);
+  if (!said.length) return undefined;
+  const word = (m: NowMed) => (m.withFood ? L.withFood : L.empty);
+  return said.length === meds.length && said.every((m) => m.withFood === said[0]!.withFood) ? word(said[0]!) : said.map((m) => `${m.title} — ${word(m)}`).join('; ');
+}
+
 function Due({ item, date, onSnoozed, onConfirm }: { item: NowItem; date: string; onSnoozed: () => void; onConfirm: (e: DayEntry) => void }) {
   const Icon = item.entry ? UtensilsCrossed : Pill;
   const detail = item.entry ? item.entry.items?.map((x) => `${x.name} ${amountText(x)}`).join(', ')
-    : item.meds?.some((m) => m.withFood) ? L.withFood : undefined;
+    : foodNote(item.meds ?? []);
   const when = item.late < 0 ? L.inMin(-item.late, item.time) : item.late > 0 ? L.ago(item.late, item.time) : L.at(item.time);
   const later = () => saved(snooze(item.key, Date.now() + SNOOZE_MIN * 60_000), t.toast.later(SNOOZE_MIN)).then(onSnoozed);
   const nowHm = () => ({ time: format(new Date(), 'HH:mm') });

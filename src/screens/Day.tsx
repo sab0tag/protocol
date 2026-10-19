@@ -175,7 +175,7 @@ export function Day() {
 
       {isToday && plan && !hasExample(plan) && unfinished(plan.prescriptions, todayISO()).map((p) => ( /* D100: kept by an older version without a dose or time */
         <div key={`u-${p.id}`} role="status" className="mb-3 flex flex-wrap items-center gap-2 rounded-2xl border border-warn/30 bg-warn-bg p-3 text-sm text-warn">
-          <span className="flex-1">{t.plan.finish(p.title, !p.dose?.trim())}</span>
+          <span className="flex-1">{t.plan.finish(p.title, !p.dose?.trim(), !p.schedule?.times.length)}</span>
           <button type="button" onClick={() => navigate('/plan')} className="min-h-tap rounded-xl border border-warn px-3 font-medium">{t.plan.finishAction}</button>
         </div>
       ))}
