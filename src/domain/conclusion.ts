@@ -47,6 +47,19 @@ const within = (v: number | undefined, lo: number, hi: number) => (v != null && 
 /** D101: the times the app suggests for «N разів на день» — always marked «час запропоновано», never passed for the doctor's */
 export const SUGGESTED: Record<number, string[]> = { 1: ['08:00'], 2: ['08:00', '20:00'], 3: ['08:00', '14:00', '20:00'], 4: ['08:00', '12:00', '16:00', '20:00'] };
 
+/** The part of the day the doctor named — the time to suggest for a dose once a day. */
+function partOfDay(words: string): string | undefined {
+  const w = words.toLocaleLowerCase('uk');
+  return /на ніч|перед сном/u.test(w) ? '22:00' : /ввечері|увечері|вечор/u.test(w) ? '20:00' : /в обід|вдень|удень/u.test(w) ? '13:00'
+    : /вранці|уранці|зранку|вранц/u.test(w) ? '08:00' : undefined;
+}
+
+/** D100 for what older versions let in: a medicine of the plan, still taken, kept without its dose or time (not «за потреби»). */
+export function unfinished(prescriptions: Prescription[], today: string): Prescription[] {
+  return prescriptions.filter((p) => (p.kind === 'medication' || p.kind === 'supplement') && !p.asNeeded && !(p.until && p.until < today)
+    && (!p.dose?.trim() || !p.schedule?.times.length));
+}
+
 /** «Ендокринолог, 12.10.2026» — where the lines came from, as the plan keeps it. */
 export function sourceOf(r: Pick<ConclusionResult, 'doctor' | 'date'>): string {
   const d = r.date && DATE.test(r.date) ? r.date.split('-').reverse().join('.') : '';
@@ -92,8 +105,10 @@ export function draftLines(r: ConclusionResult, newId: () => string, opts: Draft
     if (!title) continue;
     const kind = p.kind === 'medication' ? 'medication' : 'supplement';
     const said = [...new Set(p.times.filter((x) => HHMM.test(x)))].sort();
-    const perDay = p.perDay != null && Number.isInteger(p.perDay) ? p.perDay : undefined;
-    const suggest = !said.length && !p.asNeeded && perDay ? SUGGESTED[perDay] : undefined;
+    const part = partOfDay(p.frequency ?? '');
+    const perDay = p.perDay != null && Number.isInteger(p.perDay) ? p.perDay : part ? 1 : undefined;
+    // «1 раз ввечері» → 20:00, not the morning default; still a suggestion, marked so
+    const suggest = !said.length && !p.asNeeded && perDay ? (perDay === 1 && part ? [part] : SUGGESTED[perDay]) : undefined;
     const times = said.length ? said : suggest ?? [];
     const dose = p.dose?.trim() || undefined;
     // the course runs from the day of the conclusion; doses count from the day it enters the plan (D97)

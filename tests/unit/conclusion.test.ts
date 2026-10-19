@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { examplePlan } from '../../src/data/seed.example';
-import { applyLines, draftLines, missing, sourceOf, timesToSet, type ConclusionResult, type DraftLine } from '../../src/domain/conclusion';
+import { applyLines, draftLines, missing, sourceOf, timesToSet, unfinished, type ConclusionResult, type DraftLine } from '../../src/domain/conclusion';
 import type { MedIndex } from '../../src/domain/meds';
 
 let n = 0;
@@ -59,6 +59,9 @@ describe('a doctor’s conclusion → the plan (D80, D101)', () => {
     expect(ibu!.prescription.schedule).toBeUndefined();
     expect(ibu!.prescription.med).toBeUndefined(); // not in the register — «не з реєстру»
     expect(meds(lines).slice(0, 5).map(missing)).toEqual([undefined, undefined, undefined, 'dose', 'time']);
+    const once = meds(draftLines({ ...R, prescriptions: [rx({ title: 'А', perDay: 1, frequency: 'по 1 табл. 1 раз на день ввечері' }),
+      rx({ title: 'О', perDay: null, frequency: 'вранці натщесерце — 14 днів' }), rx({ title: 'Н', perDay: 1, frequency: 'на ніч' })] }, id));
+    expect(once.slice(0, 3).map((l) => [l.prescription.schedule?.times, l.suggested])).toEqual([[['20:00'], true], [['08:00'], true], [['22:00'], true]]);
   });
 
   it('✓ only for a line read clearly with its dose; ? otherwise; ✗ for the unread, with the piece of paper it came from', () => {
@@ -82,6 +85,15 @@ describe('a doctor’s conclusion → the plan (D80, D101)', () => {
     expect(out.prescriptions.map((p) => p.title)).toEqual(['Вітамін D']);
     expect(out.prescriptions[0]).toMatchObject({ id: 'p-vitd', dose: '2000 МО' });
     expect(out.targets).toMatchObject({ waterMl: 2000, kcal: plan.targets.kcal });
+  });
+});
+
+describe('medicines older versions kept without a dose or time (D100)', () => {
+  it('are asked to be finished — not «за потреби», not a course already over, not tests', () => {
+    const p = (o: object) => ({ id: 'x', kind: 'medication' as const, title: 'М', source: '', ...o });
+    const list = [p({ title: 'без дози', schedule: { times: ['08:00'] } }), p({ title: 'без часу', dose: '1 таб.' }), p({ title: 'повний', dose: '1', schedule: { times: ['08:00'] } }),
+      p({ title: 'за потреби', dose: '1', asNeeded: true }), p({ title: 'закінчився', until: '2026-10-01' }), { ...p({ title: 'аналіз' }), kind: 'test' as const }];
+    expect(unfinished(list, '2026-10-19').map((x) => x.title)).toEqual(['без дози', 'без часу']);
   });
 });
 

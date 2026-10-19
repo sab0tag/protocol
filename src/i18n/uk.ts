@@ -651,6 +651,8 @@ export const t = {
     withFood: 'Під час їжі', dueDate: 'Здати до', notes: 'Примітки', tag: 'Що це за обмеження',
     from: 'З', to: 'По', notesLines: 'Нотатки (кожна з нового рядка)', tests: 'Аналізи (кожен з нового рядка)', date: 'Дата',
     noTargets: 'Цілі ще не задано.',
+    finish: (title: string, noDose: boolean) => `${title} — ${noDose ? 'не вказано дозу' : 'не вказано час прийому'}. Доповніть у «Плані», інакше нагадувань і відміток не буде як слід.`,
+    finishAction: 'Доповнити', // D100
     kinds: { medication: 'Ліки', supplement: 'Добавка', test: 'Аналіз', lifestyle: 'Спосіб життя' },
     tags: { oxalate: 'Оксалатні камені', gallbladder: 'Жовчний міхур', lactose: 'Лактоза', glycemic: 'Глікемія',
       iron: 'Залізо (феритин)', sodium: 'Сіль', allergy: 'Алергія', diet: 'Дієта (Наказ МОЗ №931)', custom: 'Інше' },

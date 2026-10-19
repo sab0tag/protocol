@@ -31,7 +31,9 @@ describe('AI spend and status', () => {
     expect((await (await app.request('/health')).json() as { ai: { failing: boolean } }).ai.failing).toBe(false);
     fail = true;
     await call('POST', `/v1/vaults/${VAULT}/photo`, { image: JPEG });
-    expect((await (await app.request('/health')).json() as { ai: { failing: boolean } }).ai.failing).toBe(true);
+    const h = await app.request('/health');
+    expect(h.status).toBe(200);
+    expect(await h.json()).toMatchObject({ ok: false, ai: { failing: true } });
   });
 
   it('prices by model, unknown ones as the dearest Opus', () => {

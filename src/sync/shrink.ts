@@ -18,9 +18,9 @@ export async function shrink(file: Blob, max = 1280, quality = 0.8): Promise<str
 export async function cut(page: string, box: [number, number, number, number], max = 900): Promise<string> {
   const bytes = Uint8Array.from(atob(page), (ch) => ch.charCodeAt(0));
   const bmp = await createImageBitmap(new Blob([bytes], { type: 'image/jpeg' }));
-  const pad = 0.01;
-  const x = Math.max(0, box[0] - pad) * bmp.width, y = Math.max(0, box[1] - pad) * bmp.height;
-  const w = Math.min(bmp.width - x, (box[2] + 2 * pad) * bmp.width), h = Math.min(bmp.height - y, (box[3] + 2 * pad) * bmp.height);
+  const px = 0.01, py = 0.015; // the model's box is off by about a line's height at most — the margin keeps the line whole
+  const x = Math.max(0, box[0] - px) * bmp.width, y = Math.max(0, box[1] - py) * bmp.height;
+  const w = Math.min(bmp.width - x, (box[2] + 2 * px) * bmp.width), h = Math.min(bmp.height - y, (box[3] + 2 * py) * bmp.height);
   const scale = Math.min(1, max / w);
   const canvas = document.createElement('canvas');
   canvas.width = Math.max(1, Math.round(w * scale)); canvas.height = Math.max(1, Math.round(h * scale));
