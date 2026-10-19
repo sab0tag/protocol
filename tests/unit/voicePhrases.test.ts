@@ -60,3 +60,23 @@ describe('voice corpus (D95)', () => {
     });
   }
 });
+
+describe('the stop phrase (D105)', () => {
+  it('only at the end, any case and punctuation; taken out of the text', async () => {
+    const { endsWithStop, withoutStop } = await import('../../src/domain/foodSearch');
+    for (const s of ['2 яйця, кава з молоком. Це все!', 'гречка це всё', 'чай це усе', 'борщ, это все.', 'кава все', 'салат готово', 'хліб стоп', 'суп Done'])
+      expect(endsWithStop(s), s).toBe(true);
+    expect(withoutStop('2 яйця, кава з молоком. Це все!')).toBe('2 яйця, кава з молоком.');
+    expect(withoutStop('суп Done')).toBe('суп');
+    expect(withoutStop('салат помідор огірок, це все')).toBe('салат помідор огірок');
+    for (const s of ['це все з\'їв?', 'усе', 'вівсянка на воді', 'стопка млинців']) expect(endsWithStop(s), s).toBe(false);
+  });
+});
+
+describe('the base’s order does not choose the food (D105)', () => {
+  it('«250 г вівсянки» is the porridge on water, the foods in any order', async () => {
+    const { readMeal } = await import('../../src/domain/foodSearch');
+    for (const list of [FOODS, [...FOODS].sort((a, b) => a.id.localeCompare(b.id)), [...FOODS].reverse()])
+      expect(readMeal('250 г вівсянки', { foods: list, recipes: RECIPES, dishItem }).rows[0]?.item?.name).toBe('Вівсянка на воді');
+  });
+});

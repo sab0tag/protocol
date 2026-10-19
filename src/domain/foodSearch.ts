@@ -103,7 +103,8 @@ export function fit(food: { name: string; aliases?: string[] }, text: string): [
 
 const USUAL: Record<string, string> = { хліб: 'bread-white', хліба: 'bread-white', хлібу: 'bread-white', рис: 'white-rice-boiled', риса: 'white-rice-boiled',
   гречка: 'buckwheat-boiled', гречки: 'buckwheat-boiled', гречку: 'buckwheat-boiled', сир: 'cottage-cheese', сиру: 'cottage-cheese',
-  яйце: 'egg-boiled', яйця: 'egg-boiled', яєць: 'egg-boiled' }; // what is on the plate
+  яйце: 'egg-boiled', яйця: 'egg-boiled', яєць: 'egg-boiled',
+  вівсянка: 'oatmeal-water', вівсянки: 'oatmeal-water', вівсянку: 'oatmeal-water' }; // what is on the plate (D105: the porridge, whatever the base's order)
 
 /** Foods (or dishes) whose name or aliases contain every query word (by stem); the closest first.
  *  «з цукром» never finds «без цукру», nor «без цукру» a food with sugar (D77). */
@@ -205,6 +206,34 @@ export type { Recipe };
 /** «два варених яйця, склянку кефіру і салат» → its parts. */
 const ABBR = new Set(['ст', 'ч', 'л', 'г', 'гр', 'шт', 'конс', 'тощо', 'уп', 'пак', 'мл', 'кг']);
 
+/** D105: what ends a dictation — said at the very end («…кава з молоком, це все»), it stops the microphone and is not food.
+ *  Only at the end: «це все з'їв?» in the middle is left alone. */
+const STOP = /(?:^|[\s,.;:!?…—-])(?:це\s+(?:все|всё|усе)|это\s+(?:все|всё)|все|всё|готово|стоп|done)[\s.,;:!?…]*$/iu;
+export const endsWithStop = (s: string): boolean => STOP.test(s.trim());
+export const withoutStop = (s: string): string => s.trim().replace(STOP, '').replace(/[\s,;:—–-]+$/u, '').trim();
+
+const isNumber = (w: string) => /^\d+(?:[.,]\d+)?$/.test(w) || normalize(w) in NUMBER_WORDS;
+const isMeasure = (w: string) => MEASURES.some(([re]) => re.test(normalize(w).replace(/\.$/, '')));
+/** Words after which a number belongs to what follows them, not to a new food: «з 2 ложками», «по 1 табл.». */
+const GLUE = new Set(['з', 'із', 'зі', 'без', 'по', 'на', 'до', 'в', 'у', 'для', 'і', 'й', 'та', 'або', 'чи', 'ще', 'плюс', 'десь', 'майже', 'приблизно', 'близько']);
+const foodWord = (w: string) => { const n = normalize(w); return !!n && !isNumber(w) && !isMeasure(w) && !w.includes('%') && !GLUE.has(n) && !NOT_FOOD.has(n.replace(/['’ʼ]/g, '')); };
+
+/** D105: dictation has no commas — «250 г вівсянки 2 варених яйця 1 куряче стегно». A number starts a new food when a food
+ *  came before it and a food (not only a measure) comes after: never «хліба 2 скибки», «з 2 ложками», «кефір 1 %». */
+function splitOnAmounts(part: string): string[] {
+  const ws = part.split(/\s+/).filter(Boolean);
+  const out: string[][] = [[]];
+  ws.forEach((w, i) => {
+    const cur = out.at(-1)!;
+    let j = i + 1;
+    const after: string[] = [];
+    while (j < ws.length && !isNumber(ws[j]!)) after.push(ws[j++]!);
+    const starts = i > 0 && isNumber(w) && cur.some(foodWord) && foodWord(ws[i - 1]!) && after.some(foodWord);
+    if (starts) out.push([w]); else cur.push(w);
+  });
+  return out.map((x) => x.join(' '));
+}
+
 export function splitPhrase(raw: string): string[] {
   // D84: a comma or dot inside a number («2,5 %») or inside brackets («(кріп, петрушка)») is not between two foods.
   // T3 (D85): a dot before a space (or the end) ends a part — before a capital, a digit or a small letter alike —
@@ -222,7 +251,25 @@ export function splitPhrase(raw: string): string[] {
     cur += c;
   }
   parts.push(cur);
-  return parts.flatMap((p) => p.split(/\s+(?:і|й|та|ще|плюс|а також)\s+/iu)).map((s) => s.trim()).filter(Boolean);
+  return parts.flatMap((p) => p.split(/\s+(?:і|й|та|ще|плюс|а також)\s+/iu)).flatMap(splitOnAmounts).map((s) => s.trim()).filter(Boolean);
+}
+
+const EDGE = /^(з|із|зі|без|по|на|до|в|у|для|і|й|та|або|чи)$/u;
+/** D105: a part nothing was found for, said without a comma between two foods — «2 яйця кава з молоком» — read as two
+ *  parts when both are found (the longer first part first). A half never begins or ends with «з», «без»…: «пиріжок з
+ *  капустою» stays one part (and «не знайдено», for the person or the concierge), not «пиріжок» + «капуста». */
+function twoFound(text: string, ctx: MealContext, depth = 0): string[] | undefined {
+  const ws = text.split(/\s+/).filter(Boolean);
+  if (ws.length < 2 || depth > 3) return undefined;
+  for (let i = ws.length - 1; i >= 1; i--) {
+    const l = ws.slice(0, i).join(' '), r = ws.slice(i).join(' ');
+    if (EDGE.test(normalize(ws[i - 1]!)) || EDGE.test(normalize(ws[i]!)) || !ws.slice(0, i).some(foodWord)) continue;
+    if (!candidates(l, ctx).list[0]) continue;
+    if (candidates(r, ctx).list[0]) return [l, r];
+    const rest = twoFound(r, ctx, depth + 1);
+    if (rest) return [l, ...rest];
+  }
+  return undefined;
 }
 
 export interface Recognized {
@@ -235,6 +282,16 @@ export interface Recognized {
 
 export interface MealContext { foods: Food[]; recipes: Recipe[]; dishItem: (r: Recipe, portions: number) => MealItem; prefer?: ReadonlySet<string> }
 export interface Candidate { item: MealItem; food?: Food; recipe?: Recipe }
+
+/** D105: portions of a dish from what was said — «250 г» is grams (a portion's weight decides), as is a big bare number
+ *  («гречка з куркою 300»); «2», «2 порції» — portions. It was read as 250 portions (85 kg). */
+function dishPortions(d: Recipe, q: Query, ctx: MealContext): number {
+  const qty = q.qty ?? 1;
+  const grams = q.measure === 'г' || (!q.measure && qty > 20);
+  if (!grams) return qty;
+  const one = ctx.dishItem(d, 1).grams;
+  return one > 0 ? Math.max(0.1, Math.round((qty / one) * 100) / 100) : 1;
+}
 
 /** D85: what one part of the text can be, best first — dishes and foods in one order, by how closely the words fit;
  *  on an equal fit the dish whose name starts with the word (so «салат» is the salad, «огірок» the cucumber). */
@@ -254,7 +311,7 @@ export function candidates(text: string, ctx: MealContext): { q: Query; list: Ca
   let a = 0, b = 0;
   while (a < dishes.length || b < foods.length) {
     const d = dishes[a], f = foods[b];
-    if (d && dishFirst(d, f)) { list.push({ item: ctx.dishItem(d, q.qty ?? 1), recipe: d }); a++; }
+    if (d && dishFirst(d, f)) { list.push({ item: ctx.dishItem(d, dishPortions(d, q, ctx)), recipe: d }); a++; }
     else { list.push({ item: itemFor(f!, q), food: f! }); b++; }
   }
   return { q, list };
@@ -262,7 +319,7 @@ export function candidates(text: string, ctx: MealContext): { q: Query; list: Ca
 
 /** Each part of a phrase: the best candidate, and for a word alone the other kinds it may mean (no twins). */
 export function recognizeWith(raw: string, ctx: MealContext): Recognized[] {
-  return splitPhrase(raw).map((text) => {
+  return splitPhrase(withoutStop(raw)).flatMap((x) => (candidates(x, ctx).list[0] ? [x] : twoFound(x, ctx) ?? [x])).map((text) => {
     const { q, list } = candidates(text, ctx);
     const best = list[0];
     if (!best) return { text };
@@ -276,8 +333,8 @@ export function recognizeWith(raw: string, ctx: MealContext): Recognized[] {
 /** D85: what «Записати їжу» makes of the typed text — the one function the screen and the phrase corpus both call.
  *  Several parts → «Розпізнано» rows; one part → the same row on top, and the whole list to tap. */
 export function readMeal(raw: string, ctx: MealContext): { rows: Recognized[]; list: Candidate[] | null } {
-  const parts = splitPhrase(raw);
-  return { rows: recognizeWith(raw, ctx), list: parts.length === 1 ? candidates(parts[0]!, ctx).list : null };
+  const rows = recognizeWith(raw, ctx);
+  return { rows, list: rows.length === 1 ? candidates(rows[0]!.text, ctx).list : null };
 }
 
 /** Each part of a phrase matched to a dish (when the words name one) or a food, with its amount. */

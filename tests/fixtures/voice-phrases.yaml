@@ -100,3 +100,16 @@
   status: fixed
   found: 2026-10-18
   note: "Демо: учорашній сніданок — з записів прикладу."
+
+- id: dictation-no-commas-stop-phrase
+  say: ["З'їв 250 г вівсянки 2 варених яйця 1 куряче стегно і салат помідор огірок це все"]
+  profile: clean
+  expect:
+    items:
+      - { name: "Вівсянка на воді", grams: [245, 255], sure: true }
+      - { name: "Яйце варене", qty: 2, unit: шт, sure: true }
+      - { name: "Курячі стегна запечені", qty: 1, unit: шт, sure: true }
+      - { name: "Салат овочевий з олією", sure: false }
+    ready: false
+  status: fixed
+  found: 2026-10-19

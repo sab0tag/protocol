@@ -3,7 +3,7 @@
 // medicine is matched to the plan's own prescriptions, water by its words. A quantity nobody said is shown and asked,
 // never taken for granted; nothing is written until the person taps «Записати».
 import { fold } from './meds';
-import { candidates, parseQuery, readMeal, sameWord, splitPhrase, type MealContext } from './foodSearch';
+import { candidates, parseQuery, readMeal, sameWord, splitPhrase, withoutStop, type MealContext } from './foodSearch';
 import { normalize } from './nutrition';
 import type { DayEntry, MealItem, Prescription } from './types';
 
@@ -46,7 +46,8 @@ export function medOf(clause: string, ctx: Pick<VoiceContext, 'meds'>): DraftMed
 const clean = (clause: string) => clause.replace(FILLER, '').replace(/^(?:і|й|та|ще|а)\s+/iu, '').trim();
 
 /** One utterance → what it adds to a draft. */
-export function readUtterance(text: string, ctx: VoiceContext, into: VoiceDraft = emptyDraft()): VoiceDraft {
+export function readUtterance(spoken: string, ctx: VoiceContext, into: VoiceDraft = emptyDraft()): VoiceDraft {
+  const text = withoutStop(spoken); // D105: «…це все» ends the dictation, it is not food
   const d: VoiceDraft = { ...into, items: [...into.items], notFound: [...into.notFound], meds: [...into.meds] };
   if (!d.title) d.title = TITLES.find(([re]) => re.test(text))?.[1];
   for (const raw of splitPhrase(text)) {
@@ -54,14 +55,17 @@ export function readUtterance(text: string, ctx: VoiceContext, into: VoiceDraft 
     if (water !== undefined) { d.waterMl += water; continue; }
     const med = medOf(raw, ctx);
     if (med) { if (!d.meds.some((m) => m.key === med.key)) d.meds.push(med); continue; }
-    const said = clean(raw.replace(/^(?:на\s+)?(?:сніданок|обід|вечерю|перекус)\s*/iu, ''));
-    if (!said) continue;
-    const r = readMeal(said, ctx).rows[0];
-    if (!r?.item) { d.notFound.push(said); continue; }
-    const q = parseQuery(said);
-    // said, or a natural one (a cup of coffee, an apple, a slice) — a portion or grams nobody said is asked, not assumed
-    const natural = !!r.item.unit && ['склянка', 'шт', 'скибка'].includes(r.item.unit.name);
-    d.items.push({ item: r.item, said, sure: q.qty !== undefined || !!q.measure || natural, ...(r.others ? { others: r.others } : {}) });
+    const clause = clean(raw.replace(/^(?:на\s+)?(?:сніданок|обід|вечерю|перекус)\s*/iu, ''));
+    if (!clause) continue;
+    for (const r of readMeal(clause, ctx).rows) { // D105: «2 яйця кава з молоком» — one clause, two foods
+      const said = clean(r.text);
+      if (!said) continue;
+      if (!r.item) { d.notFound.push(said); continue; }
+      const q = parseQuery(said);
+      // said, or a natural one (a cup of coffee, an apple, a slice) — a portion or grams nobody said is asked, not assumed
+      const natural = !!r.item.unit && ['склянка', 'шт', 'скибка'].includes(r.item.unit.name);
+      d.items.push({ item: r.item, said, sure: q.qty !== undefined || !!q.measure || natural, ...(r.others ? { others: r.others } : {}) });
+    }
   }
   return d;
 }
@@ -103,7 +107,7 @@ export function applyCommand(text: string, d: VoiceDraft, ctx: VoiceContext): Vo
 }
 
 /** Speak again: a command if it is one, else more of the same meal. */
-export const hear = (text: string, d: VoiceDraft, ctx: VoiceContext) => applyCommand(text, d, ctx) ?? readUtterance(text, ctx, d);
+export const hear = (text: string, d: VoiceDraft, ctx: VoiceContext) => applyCommand(withoutStop(text), d, ctx) ?? readUtterance(text, ctx, d);
 
 /** Ready to write: something in it, every quantity said or confirmed by a tap, and nothing said left unread — a line not
  *  found is either matched (the concierge) or taken out on purpose; it is never dropped silently (D97). */

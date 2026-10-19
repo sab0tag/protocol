@@ -2,6 +2,8 @@
 // draft (the same reading and plan check as everywhere), asks the quantities nobody said, takes commands on the draft
 // («прибери каву», «хліба було 40 грамів», «як учора»), and writes it all with one tap — the same records the day's
 // buttons make, with fixed ids so a second tap never doubles them. The seconds from opening to writing stay on the device.
+// D105: what was said lands in the field, where it can be corrected; the draft is read from the field as it is (nothing
+// is lost if the phone never marks the speech final), «Записати» writes what is shown. «Це все» at the end stops listening.
 import { format } from 'date-fns';
 import { Mic, Square, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -42,7 +44,7 @@ export function VoiceSheet({ date, plan, foods, recipes, today, yesterday, meds,
   const opened = useRef(Date.now());
   const ids = useRef({ meal: newId(), water: newId(), meds: new Map<string, string>() }); // fixed: a second tap writes the same rows
   const [ok, setOk] = useState(okGiven);
-  const [draft, setDraft] = useState<VoiceDraft>(emptyDraft);
+  const [base, setDraft] = useState<VoiceDraft>(emptyDraft); // what is taken in; the field's words go on top of it
   const [heard, setHeard] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<SpeechError | null>(null);
@@ -53,14 +55,18 @@ export function VoiceSheet({ date, plan, foods, recipes, today, yesterday, meds,
   const ctx = useMemo(() => ({ foods: [...foods.values()], recipes, dishItem, prescriptions: plan?.prescriptions ?? [], yesterday,
     meds: meds.filter((m) => !today.some((e) => e.checkKey === m.key && e.status === 'done')) }), [foods, recipes, plan, yesterday, meds, today]);
 
-  const take = (text: string) => { if (text.trim()) setDraft((d) => hear(text, d, ctx)); };
+  // the field is read as it is, on top of what is already in the draft; an action on the draft takes the field in first
+  const shown = useMemo(() => (typed.trim() ? hear(typed, base, ctx) : base), [typed, base, ctx]);
+  const edit = (fn: (d: VoiceDraft) => VoiceDraft) => { setDraft(fn(shown)); setTyped(''); };
   const start = () => {
+    if (typed.trim()) edit((d) => d); // the next words are more of the meal or a command on it
     setError(null); setHeard(''); setBusy(true);
-    stop.current = listen({ interim: setHeard, final: (x) => { setHeard(x); take(x); }, error: setError, end: () => setBusy(false) });
+    stop.current = listen({ interim: setHeard, final: (x) => { setHeard(''); setTyped(x); }, error: setError, end: () => setBusy(false) });
   };
   useEffect(() => { if (ok && speechSupported()) start(); return () => stop.current(); }, [ok]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const save = async () => {
+    const draft = shown;
     if (!ready(draft) || saving) return;
     setSaving(true);
     const at = atLocal(date, time), rows: DayEntry[] = [];
@@ -74,8 +80,9 @@ export function VoiceSheet({ date, plan, foods, recipes, today, yesterday, meds,
     setSaving(false);
     if (done) { remember(Math.round((Date.now() - opened.current) / 1000)); onClose(); }
   };
-  const setItem = (i: number, it: MealItem | null) => setDraft((d) => ({ ...d, items: it ? d.items.map((x, j) => (j === i ? { ...x, item: it, sure: true } : x)) : d.items.filter((_, j) => j !== i) }));
-  const danger = dangerInText(heard) || draft.notFound.some(dangerInText); // D97: one 103 card, nothing else about those words
+  const setItem = (i: number, it: MealItem | null) => edit((d) => ({ ...d, items: it ? d.items.map((x, j) => (j === i ? { ...x, item: it, sure: true } : x)) : d.items.filter((_, j) => j !== i) }));
+  const draft = shown;
+  const danger = dangerInText(heard) || dangerInText(typed) || draft.notFound.some(dangerInText); // D97: one 103 card, nothing else about those words
   const checks = plan && draft.items.length ? checkMeal({ plan, date, foods, dayEntries: today, recentEntries: [], meal: draft.items.map((x) => x.item) }) : [];
 
   if (!ok) return (
@@ -93,11 +100,11 @@ export function VoiceSheet({ date, plan, foods, recipes, today, yesterday, meds,
         <button type="button" onClick={() => (busy ? stop.current() : start())} aria-label={busy ? L.listening : empty ? L.listen : L.again}
           className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-full ${busy ? 'animate-pulse bg-warn text-surface' : 'bg-accent text-surface'}`}>
           {busy ? <Square size={22} aria-hidden /> : <Mic size={24} aria-hidden />}</button>
-        <p role="status" className="min-h-[3rem] flex-1 text-sm">{heard || (busy ? L.listening : empty ? L.hint : '')}</p>
+        <p role="status" className="min-h-[3rem] flex-1 text-sm">{busy ? heard || L.listening : empty ? L.hint : L.more}</p>
       </div>
       {error && <p role="alert" className="mt-2 text-sm text-warn">{L.errors[error]}</p>}
       {danger && <DangerCard />}
-      <form className="mt-2 flex gap-2" onSubmit={(e) => { e.preventDefault(); take(typed); setTyped(''); }}>
+      <form className="mt-2 flex gap-2" onSubmit={(e) => { e.preventDefault(); edit((d) => d); }}>
         <label className="flex-1"><span className="sr-only">{L.typed}</span>
           <input value={typed} onChange={(e) => setTyped(e.target.value)} placeholder={L.typedPh} className="block min-h-tap w-full rounded-xl border border-line bg-bg px-3" /></label>
         <button type="submit" className="min-h-tap rounded-xl border border-accent px-3 text-accent">{L.apply}</button>
@@ -109,7 +116,7 @@ export function VoiceSheet({ date, plan, foods, recipes, today, yesterday, meds,
             <div className="space-y-2 rounded-xl border border-line p-2">
               <div className="flex flex-wrap items-center gap-2">
                 {t.meal.names.map((n) => (
-                  <button key={n} type="button" aria-pressed={(draft.title ?? defaultTitle(time)) === n} onClick={() => setDraft((d) => ({ ...d, title: n }))}
+                  <button key={n} type="button" aria-pressed={(draft.title ?? defaultTitle(time)) === n} onClick={() => edit((d) => ({ ...d, title: n }))}
                     className={`min-h-[2.25rem] rounded-full border px-3 text-sm ${(draft.title ?? defaultTitle(time)) === n ? 'border-accent bg-accent/10 text-accent' : 'border-line'}`}>{n}</button>
                 ))}
                 <label className="ml-auto text-sm"><span className="sr-only">{L.time}</span>
@@ -141,10 +148,10 @@ export function VoiceSheet({ date, plan, foods, recipes, today, yesterday, meds,
               {!danger && draft.notFound.map((text) => (
                 <div key={text} className="text-sm">
                   <p className="flex items-start gap-2"><span className="flex-1 text-warn">«{text}» — {t.meal.notFound}</span>
-                    <button type="button" onClick={() => setDraft((d) => ({ ...d, notFound: d.notFound.filter((n) => n !== text) }))}
+                    <button type="button" onClick={() => edit((d) => ({ ...d, notFound: d.notFound.filter((n) => n !== text) }))}
                       className="min-h-[2rem] px-1 text-muted underline">{L.drop}</button></p>
                   <ConciergeNotFound text={text} plan={plan} foods={foods} recipes={recipes} date={date}
-                    onAdd={(s) => setDraft((d) => ({ ...d, notFound: d.notFound.filter((n) => n !== text), items: [...d.items, { item: s.item, said: text, sure: true }] }))} /></div>
+                    onAdd={(s) => edit((d) => ({ ...d, notFound: d.notFound.filter((n) => n !== text), items: [...d.items, { item: s.item, said: text, sure: true }] }))} /></div>
               ))}
             </div>
           )}
