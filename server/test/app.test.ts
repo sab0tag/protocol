@@ -351,3 +351,20 @@ describe('step 0 without sync: a device token (D101)', () => {
     expect((await get()).status).toBe(429);
   });
 });
+
+describe('a dish described in words (D110)', () => {
+  it('read for a device without sync, the base names passed on; empty text refused; its own daily limit', async () => {
+    const store = new Store(':memory:');
+    let got: { text: string; foods: string[] } | undefined;
+    const app = createApp({ store, origins: [], dish: async (x) => { got = x; return { result: { readable: true, name: 'Рол', portions: 1, items: [], note: '' } }; },
+      limits: { ...DEFAULT_LIMITS, dishesPerDay: 2 } });
+    const { token } = await (await app.request('/v1/devices', { method: 'POST', headers: { 'X-Forwarded-For': '203.0.113.9' } })).json() as { token: string };
+    const ask = (body: unknown) => app.request('/v1/device/dish', { method: 'POST', headers: { Authorization: `Device ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    expect((await ask({ text: 'лаваш рол зі свининою', foods: ['Цибуля ріпчаста', 'Йогурт грецький 2 %'] })).status).toBe(200);
+    expect(got).toEqual({ text: 'лаваш рол зі свининою', foods: ['Цибуля ріпчаста', 'Йогурт грецький 2 %'] });
+    expect((await ask({ text: ' ' })).status).toBe(400);
+    expect((await ask({ text: 'ще один рол' })).status).toBe(200);
+    expect((await ask({ text: 'третій рол' })).status).toBe(429);
+    expect((await app.request('/v1/device/dish', { method: 'POST', body: '{}' })).status).toBe(401);
+  });
+});

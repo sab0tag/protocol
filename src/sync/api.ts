@@ -46,6 +46,7 @@ export interface MenuBody {
 export const menu = (keys: Keys, body: MenuBody) => call<MenuResult>(keys, 'POST', '/menu', body);
 // D68
 import type { ConclusionResult } from '../domain/conclusion';
+import type { DishResult } from '../domain/dishBreakdown';
 export interface LabsResult { readable: boolean; date: string | null; items: { name: string; value: number; unit: string; reference: string | null }[]; note: string | null }
 export const labs = (keys: Keys, image: string, names: string[]) => call<LabsResult>(keys, 'POST', '/labs', { image, names });
 // D80, D101: up to 4 pages; with sync through the vault, without it through this device's token (the first screen of
@@ -63,22 +64,26 @@ async function deviceToken(fresh: boolean): Promise<string> {
   try { localStorage.setItem(DEVICE, data.token); } catch { /* private mode */ }
   return data.token;
 }
-export async function conclusion(keys: Keys | null, images: string[]): Promise<ConclusionResult> {
-  if (keys) return call<ConclusionResult>(keys, 'POST', '/conclusion', { images });
+/** With sync — through the vault; without it — through this device's token (asked for again once if the server lost it). */
+async function vaultOrDevice<T>(keys: Keys | null, path: string, body: unknown): Promise<T> {
+  if (keys) return call<T>(keys, 'POST', `/${path}`, body);
   for (const fresh of [false, true]) {
     const token = await deviceToken(fresh);
     let res: Response;
     try {
-      res = await fetch(`${API_URL}/v1/device/conclusion`, { method: 'POST', headers: { Authorization: `Device ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ images }) });
+      res = await fetch(`${API_URL}/v1/device/${path}`, { method: 'POST', headers: { Authorization: `Device ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body) });
     } catch { throw new ApiError(0, 'offline'); }
     const data = await res.json().catch(() => ({})) as { error?: string };
     if (res.status === 401 && !fresh) continue;
     if (!res.ok) throw new ApiError(res.status, data.error ?? 'error');
-    return data as ConclusionResult;
+    return data as T;
   }
   throw new ApiError(401, 'unauthorized');
 }
+export const conclusion = (keys: Keys | null, images: string[]) => vaultOrDevice<ConclusionResult>(keys, 'conclusion', { images });
+// D110: a dish described in words → its ingredients; the base's names go along so the model can name what is in it
+export const dishBreakdown = (keys: Keys | null, text: string, foods: string[]) => vaultOrDevice<DishResult>(keys, 'dish', { text, foods });
 export interface MedboxResult { readable: boolean; name: string | null; inn: string | null; strength: string | null; form: string | null; note: string | null }
 export const medbox = (keys: Keys, image: string) => call<MedboxResult>(keys, 'POST', '/medbox', { image }); // D89
 // D91: the concierge

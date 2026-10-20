@@ -208,7 +208,9 @@ export function AddMeal() {
           {!danger && !phrase && query.trim().length >= 2 && list.length === 0 && (
             <><p role="status" className="mt-2 text-sm text-muted">«{query.trim()}» — {t.meal.notFound}</p>
               {recipes && <ConciergeNotFound key={query.trim()} text={query.trim()} plan={plan} foods={foods} recipes={recipes} date={date}
-                onAdd={(s) => { concierge(s); setQuery(''); }} />}</>
+                onAdd={(s) => { concierge(s); setQuery(''); }} />}
+              {/* D110: a dish of one's own — described, it is broken into ingredients */}
+              <Link to={`/dishes?describe=${encodeURIComponent(query.trim())}`} className="mt-1 inline-flex min-h-tap items-center text-sm text-accent underline">{t.dishes.breakdown.fromMeal}</Link></>
           )}
           {!query && <FavoritesList onAdd={(xs) => setItems((ys) => [...ys, ...xs])} />}
           {!query && !id && items.length === 0 && all && (() => {

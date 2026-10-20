@@ -1,5 +1,7 @@
 import { Trash2 } from 'lucide-react';
+import { DishBreakdown } from '../components/DishBreakdown';
 import { LabelScan } from '../components/LabelScan';
+import { useSearchParams } from 'react-router-dom';
 import { Loading } from '../components/Recovery';
 import { saved } from '../components/Toast';
 import { useState } from 'react';
@@ -21,6 +23,7 @@ export function Dishes() {
   const recipes = useRecipes();
   const foods = useFoods();
   const plan = usePlan();
+  const [params] = useSearchParams(); // D110: «#/dishes?describe=…» from «Записати їжу» — a dish not found, described
   if (!recipes || !foods) return <Loading />;
   const diet = plan?.constraints.find((c) => c.tag === 'diet' && c.active)?.diet; // D90
   const mine = [...foods.values()].filter((f) => f.custom).sort((a, b) => a.name.localeCompare(b.name, 'uk'));
@@ -29,6 +32,7 @@ export function Dishes() {
     <section className="space-y-4 pt-4">
       <h1 className="text-2xl font-semibold">{L.title}</h1>
       <p className="text-sm text-muted">{L.hint}</p>
+      <DishBreakdown foods={foods} initial={params.get('describe') ?? ''} />
       {own.length === 0 && <p className="text-muted">{L.empty}</p>}
       <ul className="space-y-3">{own.map((r) => <Card key={r.id} recipe={r} foods={foods} />)}</ul>
       <ul className="space-y-3">{builtIn.map((r) => <Card key={r.id} recipe={r} foods={foods} />)}</ul>

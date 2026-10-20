@@ -5,6 +5,7 @@ import { Hono, type Context } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { cors } from 'hono/cors';
 import type { MenuMaker } from './menu.ts';
+import type { DishReader } from './dish.ts';
 import type { WorkoutMaker } from './workout.ts';
 import type { LabsReader } from './labs.ts';
 import type { ConclusionReader } from './conclusion.ts';
@@ -28,14 +29,16 @@ export interface Limits {
   aiPerDay: number; // D94: all text AI calls of the server together (menu, workout, concierge) — a ceiling on spend
   deviceTokensPerIpPerDay: number; // D101
   devicePhotosPerDay: number; // D101: a device without sync
+  dishesPerDay: number; // D110: dish breakdowns, a vault or a device
 }
 
-export const DEFAULT_LIMITS: Limits = { vaultsPerIpPerDay: 5, vaultBytes: 50_000_000, photosPerVaultPerDay: 30, photosPerDay: 150, menusPerVaultPerDay: 15, workoutsPerVaultPerDay: 10, conciergePerVaultPerDay: 60, aiPerDay: 800, deviceTokensPerIpPerDay: 5, devicePhotosPerDay: 10 };
+export const DEFAULT_LIMITS: Limits = { vaultsPerIpPerDay: 5, vaultBytes: 50_000_000, photosPerVaultPerDay: 30, photosPerDay: 150, menusPerVaultPerDay: 15, workoutsPerVaultPerDay: 10, conciergePerVaultPerDay: 60, aiPerDay: 800, deviceTokensPerIpPerDay: 5, devicePhotosPerDay: 10, dishesPerDay: 20 };
 
 export interface Deps {
   store: Store;
   recognize?: Recognizer; // absent = photos are off (no API key)
   menu?: MenuMaker; // the same
+  dish?: DishReader; // D110: a dish described in words → its ingredients
   workout?: WorkoutMaker; // D63: the same
   labs?: LabsReader; // D68: the same
   conclusion?: ConclusionReader; // D80: a doctor's conclusion — the same
@@ -283,6 +286,29 @@ export function createApp(deps: Deps) {
     return typeof who !== 'string' ? who : readConclusion(c, who, limits.devicePhotosPerDay);
   });
 
+  // D110: a dish described in words → its ingredients with grams; for a vault and for a device without sync
+  const readDish = async (c: Context, who: string) => {
+    if (!deps.dish) return c.json({ error: 'ai_off' }, 503);
+    const b = await c.req.json().catch(() => null) as Record<string, unknown> | null;
+    const text = str(b?.text, 2000).trim();
+    if (text.length < 3) return c.json({ error: 'bad_request' }, 400);
+    if (!store.take(`dish:${who}`, limits.dishesPerDay, now()) || !store.take('ai:all', limits.aiPerDay, now())) return c.json({ error: 'too_many' }, 429);
+    try {
+      const { result, usage } = await deps.dish({ text, foods: list(b?.foods, 600, 80) });
+      spent(who, 'dish', usage);
+      ai.lastOk = Date.now();
+      if (result === 'refused') return c.json({ error: 'refused' }, 422);
+      return c.json(result);
+    } catch (e) {
+      ai.lastError = Date.now();
+      console.error('dish failed:', (e as Error).message);
+      return c.json({ error: 'upstream' }, 502);
+    }
+  };
+  const DISH = bodyLimit({ maxSize: 60_000, onError: (c) => c.json({ error: 'too_large' }, 413) });
+  app.post('/v1/vaults/:id/dish', DISH, async (c) => { const id = authed(c); return typeof id !== 'string' ? id : readDish(c, id); });
+  app.post('/v1/device/dish', DISH, async (c) => { const who = device(c); return typeof who !== 'string' ? who : readDish(c, who); });
+
   // D89: a medicine package → its name and strength — counted with photos
   app.post('/v1/vaults/:id/medbox', bodyLimit({ maxSize: 3_500_000, onError: (c) => c.json({ error: 'too_large' }, 413) }), async (c) => {
     const id = authed(c);
@@ -381,7 +407,7 @@ export function createApp(deps: Deps) {
 
   // `ok` is false while the AI fails (D101: a schema the API refused showed as healthy); the HTTP status stays 200 — the
   // container's healthcheck asks whether the server lives, not whether the model answers
-  app.get('/health', (c) => c.json({ ok: !(ai.lastError > ai.lastOk), photo: !!recognize, menu: !!menu, workout: !!deps.workout, labs: !!deps.labs, conclusion: !!deps.conclusion, medbox: !!deps.medbox, concierge: !!deps.notFound, label: !!deps.label, push: !!deps.push,
+  app.get('/health', (c) => c.json({ ok: !(ai.lastError > ai.lastOk), photo: !!recognize, menu: !!menu, workout: !!deps.workout, labs: !!deps.labs, conclusion: !!deps.conclusion, dish: !!deps.dish, medbox: !!deps.medbox, concierge: !!deps.notFound, label: !!deps.label, push: !!deps.push,
     ai: { lastOk: ai.lastOk || null, lastError: ai.lastError || null, failing: ai.lastError > ai.lastOk },
     backupAgeH: deps.backupAgeH?.() ?? null }));
 
