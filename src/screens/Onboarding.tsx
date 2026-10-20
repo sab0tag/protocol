@@ -27,7 +27,8 @@ export function Onboarding() {
   const plan = usePlan();
   const [read, setRead] = useState(0); // D80: a conclusion put into the plan — the steps start again from it, on step 2
   if (!plan) return <Loading />;
-  return <Steps key={read} plan={plan} start={read ? 2 : 1} onScanned={() => setRead((n) => n + 1)} />;
+  // D113 (step 0, part 5): the first screen is the doctor's paper; typing the plan by hand is one tap away
+  return <Steps key={read} plan={plan} start={read ? 2 : 0} onScanned={() => setRead((n) => n + 1)} />;
 }
 
 function Steps({ plan, start, onScanned }: { plan: PlanRow; start: number; onScanned: () => void }) {
@@ -74,6 +75,27 @@ function Steps({ plan, start, onScanned }: { plan: PlanRow; start: number; onSca
   const toggle = (tag: ConstraintTag, on: boolean) => setChosen((x) => ({ ...x,
     [tag]: on ? x[tag] ?? { id: newId(), tag, title: P.tags[tag], reason: '', source: '', active: true } : undefined }));
   const setC = (tag: ConstraintTag, patch: Partial<Constraint>) => setChosen((x) => ({ ...x, [tag]: { ...x[tag]!, ...patch } }));
+
+  // D113: the paper confirmed and «Почати» pressed — the plan is made; «День» shows its first dose
+  const started = async () => {
+    await db.plan.update('main', { onboardedAt: todayISO() });
+    useUi.getState().setOnboarded();
+    navigate('/', { replace: true });
+  };
+
+  if (step === 0) return (
+    <section className="space-y-4 pt-6">
+      <h1 className="text-2xl font-semibold">{L.s0}</h1>
+      <p className="text-sm text-muted">{L.s0hint}</p>
+      <PlanScan plan={plan} onboarding onDone={() => void started()} />
+      <button type="button" onClick={() => setStep(1)} className="min-h-tap w-full rounded-xl border border-accent px-4 font-medium text-accent">{L.manual}</button>
+      <div><button type="button" onClick={enterDemo} className="min-h-tap text-accent underline">{L.example}</button>
+        <p className="text-sm text-muted">{L.exampleHint}</p></div>
+      <button type="button" onClick={() => navigate('/sync')} className="block min-h-tap text-accent underline">{t.sync.welcome}</button>
+      <button type="button" onClick={() => void done(true)} className="min-h-tap text-muted underline">{L.skip}</button>
+      <p className="text-sm text-muted">{P.disclaimer}</p>
+    </section>
+  );
 
   return (
     <section className="space-y-4 pt-6">
@@ -151,14 +173,9 @@ function Steps({ plan, start, onScanned }: { plan: PlanRow; start: number; onSca
       <div className="flex flex-wrap gap-2">
         {step < 3 ? <button type="button" onClick={() => setStep(step + 1)} className="min-h-tap flex-1 rounded-xl bg-accent px-4 font-medium text-surface">{L.next}</button>
           : <button type="button" onClick={() => void done(false)} disabled={!!rxBlocked} className="min-h-tap flex-1 rounded-xl bg-accent px-4 font-medium text-surface disabled:opacity-40">{L.finish}</button>}
-        {step > 1 && <button type="button" onClick={() => setStep(step - 1)} className="min-h-tap rounded-xl border border-line px-4">{L.back}</button>}
+        <button type="button" onClick={() => setStep(step - 1)} className="min-h-tap rounded-xl border border-line px-4">{L.back}</button>
       </div>
       <button type="button" onClick={() => void done(true)} className="min-h-tap text-muted underline">{L.skip}</button>
-      {step === 1 && (
-        <div><button type="button" onClick={enterDemo} className="min-h-tap text-accent underline">{L.example}</button>
-          <p className="text-sm text-muted">{L.exampleHint}</p></div>
-      )}
-      {step === 1 && <button type="button" onClick={() => navigate('/sync')} className="block min-h-tap text-accent underline">{t.sync.welcome}</button>}
       <p className="text-sm text-muted">{P.disclaimer}</p>
     </section>
   );

@@ -28,7 +28,7 @@ const isMed = (l: DraftLine) => groupOf(l) === 'meds';
 const CONSENT = 'protocol.conclusionConsent';
 const localConsent = () => { try { return localStorage.getItem(CONSENT) === '1'; } catch { return false; } };
 
-export function PlanScan({ plan, onDone }: { plan: PlanRow; onDone?: () => void }) {
+export function PlanScan({ plan, onDone, onboarding }: { plan: PlanRow; onDone?: () => void; onboarding?: boolean }) {
   const meta = useLiveQuery(async () => (await db.meta.get('sync')) ?? null, []);
   const input = useRef<HTMLInputElement>(null);
   const [state, setState] = useState<'none' | 'demo' | 'consent' | 'prep' | 'busy' | 'form'>('none');
@@ -37,6 +37,7 @@ export function PlanScan({ plan, onDone }: { plan: PlanRow; onDone?: () => void 
   const [lines, setLines] = useState<DraftLine[]>([]);
   const [cuts, setCuts] = useState<Record<string, string>>({});
   const [on, setOn] = useState<Set<string>>(new Set());
+  const [skip, setSkip] = useState<Set<string>>(new Set()); // D113: a medicine decided against — not ticked on purpose
   const [source, setSource] = useState('');
   const [note, setNote] = useState('');
   const index = useMedIndex(state === 'busy' || state === 'form');
@@ -68,7 +69,7 @@ export function PlanScan({ plan, onDone }: { plan: PlanRow; onDone?: () => void 
       if (!r.readable) { setError(r.note ?? L.unreadable); setState('none'); return; }
       const ls = draftLines(r, newId, { pages: pages.length, ...(indexRef.current ? { index: indexRef.current } : {}) });
       if (!ls.length) { setError(r.note ?? L.nothing); setState('none'); return; }
-      setLines(ls); setOn(new Set()); setSource(sourceOf(r)); setNote(r.note ?? ''); setCuts({}); setState('form'); // nothing ticked for the person
+      setLines(ls); setOn(new Set()); setSkip(new Set()); setSource(sourceOf(r)); setNote(r.note ?? ''); setCuts({}); setState('form'); // nothing ticked for the person
       for (const l of ls) {
         if (l.from) void cut(pages[l.from.page - 1]!, l.from.box).then((u) => setCuts((c) => ({ ...c, [l.key]: u }))).catch(() => undefined);
       }
@@ -88,6 +89,9 @@ export function PlanScan({ plan, onDone }: { plan: PlanRow; onDone?: () => void 
   // «all» never covers medicines (each is confirmed by its own tap) nor a line marked «?» — that one is checked by hand (D103)
   const bulk = lines.filter((l) => l.status === 'sure' && !isMed(l));
   const allOn = bulk.length > 0 && bulk.every((l) => on.has(l.key));
+  // D113: the plan does not start while a medicine read off the paper is neither confirmed nor put aside
+  const undecided = onboarding ? lines.filter((l) => isMed(l) && !on.has(l.key) && !skip.has(l.key)).length : 0;
+  const flip = (key: string) => setSkip((x) => { const n = new Set(x); if (n.has(key)) n.delete(key); else n.add(key); return n; });
 
   return (
     <div className="space-y-2 rounded-2xl border border-line bg-surface p-3">
@@ -143,6 +147,10 @@ export function PlanScan({ plan, onDone }: { plan: PlanRow; onDone?: () => void 
                             {body}
                           </label>
                         )}
+                        {onboarding && isMed(l) && !on.has(l.key) && (
+                          <button type="button" onClick={() => flip(l.key)} aria-pressed={skip.has(l.key)}
+                            className="mb-2 ml-8 min-h-[2rem] rounded-full border border-line px-3 text-xs">{skip.has(l.key) ? `${L.skippedMed} · ${L.unskipMed}` : L.skipMed}</button>
+                        )}
                       </li>
                     );
                   })}
@@ -150,9 +158,10 @@ export function PlanScan({ plan, onDone }: { plan: PlanRow; onDone?: () => void 
               </div>
             );
           })}
+          {undecided > 0 && <p role="status" className="text-sm text-warn">{L.undecided(undecided)}</p>}
           <div className="flex flex-wrap gap-2">
-            <button type="button" disabled={!on.size} onClick={() => void save()}
-              className="min-h-tap rounded-xl bg-accent px-3 font-medium text-surface disabled:opacity-40">{L.save(on.size)}</button>
+            <button type="button" disabled={!on.size || undecided > 0} onClick={() => void save()}
+              className="min-h-tap rounded-xl bg-accent px-3 font-medium text-surface disabled:opacity-40">{onboarding ? L.start(on.size) : L.save(on.size)}</button>
             <button type="button" onClick={() => { setState('none'); setLines([]); setCuts({}); }} className="min-h-tap rounded-xl border border-line px-3">{t.meal.cancel}</button>
           </div>
         </section>

@@ -104,3 +104,34 @@ test('before the paper leaves the phone: the header comes painted over, a finger
   expect(px.clear).toBeGreaterThan(220); // white, untouched
   expect(px.bottom).toBeGreaterThan(220);
 });
+
+test('onboarding starts from the doctor’s paper: photo → hide what is personal → each medicine confirmed or put aside → «Почати» → «День» with its doses (D113)', async ({ browser }) => {
+  const ctx = await browser.newContext();
+  const page = await ctx.newPage();
+  await page.goto('./');
+  await page.evaluate(() => navigator.serviceWorker.ready);
+  const w = (sure: string) => ({ page: 1, box: [0.1, 0.4, 0.7, 0.03], sure });
+  await page.route('**/conclusion', (r) => r.fulfill({ json: { readable: true, date: '2026-10-16', doctor: 'Ендокринолог', note: null, diagnosis: null, diet: null,
+    constraints: [], tests: [], nextVisit: null, targets: [], unread: [],
+    prescriptions: [
+      { kind: 'medication', title: 'Метформін', dose: '500 мг', times: [], perDay: 2, frequency: '2 рази на день', durationDays: null, asNeeded: false, withFood: true, ...w('yes') },
+      { kind: 'medication', title: 'Каптоприл', dose: null, times: [], perDay: 1, frequency: null, durationDays: null, asNeeded: false, withFood: null, ...w('check') }] } }));
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Сфотографуйте призначення лікаря');
+  await expect(page.getByRole('button', { name: 'Ввести вручну' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Подивитись на прикладі' })).toBeVisible();
+  await page.getByRole('button', { name: 'Фото висновку лікаря' }).click();
+  const [chooser] = await Promise.all([page.waitForEvent('filechooser'), page.getByRole('button', { name: 'Дозволити й вибрати фото' }).click()]);
+  await chooser.setFiles({ name: 'p.png', mimeType: 'image/png', buffer: PNG });
+  await page.getByRole('region', { name: 'Приховайте особисте перед надсиланням' }).getByRole('button', { name: 'Надіслати', exact: true }).click();
+  const form = page.getByRole('region', { name: /^Ось що я прочитав/ });
+  await form.getByRole('checkbox', { name: 'Метформін 500 мг' }).check();
+  await expect(form.getByRole('status')).toContainText('Ліки без рішення: 1'); // the Каптоприл without its dose
+  await expect(form.getByRole('button', { name: 'Почати (1)' })).toBeDisabled();
+  await form.getByRole('button', { name: 'Не вносити' }).click();
+  await form.getByRole('button', { name: 'Почати (1)' }).click();
+  await expect(page).toHaveURL(/#\/$/);
+  await expect(page.getByText('Метформін').first()).toBeVisible(); // «День» — its doses at the suggested times
+  await page.goto('./#/plan');
+  await expect(page.getByText('Каптоприл')).toHaveCount(0);
+  await expect(page.getByText(/08:00, 20:00/)).toBeVisible();
+});
