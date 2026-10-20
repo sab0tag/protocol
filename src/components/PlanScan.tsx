@@ -7,11 +7,11 @@ import { format, parseISO } from 'date-fns';
 import { uk } from 'date-fns/locale';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { FileScan } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { db, inDemo, type PlanRow } from '../data/db';
 import { useMedIndex } from '../data/medsIndex';
-import { applyLines, draftLines, missing, sameConstraint, sourceOf, type DraftLine } from '../domain/conclusion';
-import { newId, sinceNow } from '../domain/dates';
+import { applyLines, changes, closeFromToday, draftLines, missing, notOnPaper, sameConstraint, sourceOf, type Change, type DraftLine } from '../domain/conclusion';
+import { newId, sinceNow, todayISO } from '../domain/dates';
 import { t } from '../i18n/uk';
 import { ApiError, conclusion as readConclusion } from '../sync/api';
 import { currentKeys } from '../sync/runner';
@@ -38,6 +38,7 @@ export function PlanScan({ plan, onDone, onboarding }: { plan: PlanRow; onDone?:
   const [cuts, setCuts] = useState<Record<string, string>>({});
   const [on, setOn] = useState<Set<string>>(new Set());
   const [skip, setSkip] = useState<Set<string>>(new Set()); // D113: a medicine decided against — not ticked on purpose
+  const [close, setClose] = useState<Set<string>>(new Set()); // D115: medicines of the plan the new paper does not name, to close
   const [source, setSource] = useState('');
   const [note, setNote] = useState('');
   const index = useMedIndex(state === 'busy' || state === 'form');
@@ -69,7 +70,7 @@ export function PlanScan({ plan, onDone, onboarding }: { plan: PlanRow; onDone?:
       if (!r.readable) { setError(r.note ?? L.unreadable); setState('none'); return; }
       const ls = draftLines(r, newId, { pages: pages.length, ...(indexRef.current ? { index: indexRef.current } : {}) });
       if (!ls.length) { setError(r.note ?? L.nothing); setState('none'); return; }
-      setLines(ls); setOn(new Set()); setSkip(new Set()); setSource(sourceOf(r)); setNote(r.note ?? ''); setCuts({}); setState('form'); // nothing ticked for the person
+      setLines(ls); setOn(new Set()); setSkip(new Set()); setClose(new Set()); setSource(sourceOf(r)); setNote(r.note ?? ''); setCuts({}); setState('form'); // nothing ticked for the person
       for (const l of ls) {
         if (l.from) void cut(pages[l.from.page - 1]!, l.from.box).then((u) => setCuts((c) => ({ ...c, [l.key]: u }))).catch(() => undefined);
       }
@@ -83,9 +84,10 @@ export function PlanScan({ plan, onDone, onboarding }: { plan: PlanRow; onDone?:
     const before = { constraints: plan.constraints, prescriptions: plan.prescriptions, targets: plan.targets, nextCheckup: plan.nextCheckup };
     // D114: the pieces of paper stay with the lines they came from — on this device only
     const placed = new Map<string, string>();
-    const next = applyLines(plan, picked, sinceNow(), placed);
+    const applied = applyLines(plan, picked, sinceNow(), placed);
+    const next = { ...applied, prescriptions: closeFromToday(applied.prescriptions, close, todayISO()) }; // D115
     const pieces = picked.flatMap((l) => (cuts[l.key] && placed.get(l.key) ? [{ id: placed.get(l.key)!, url: cuts[l.key]!, at: new Date().toISOString(), source }] : []));
-    await saved(db.transaction('rw', db.plan, db.pieces, async () => { await db.plan.update('main', next); await db.pieces.bulkPut(pieces); }), L.saved(picked.length),
+    await saved(db.transaction('rw', db.plan, db.pieces, async () => { await db.plan.update('main', next); await db.pieces.bulkPut(pieces); }), L.saved(picked.length + close.size),
       () => db.transaction('rw', db.plan, db.pieces, async () => { await db.plan.update('main', before); await db.pieces.bulkDelete(pieces.map((x) => x.id)); }));
     setState('none'); setLines([]); setCuts({});
     onDone?.();
@@ -94,6 +96,9 @@ export function PlanScan({ plan, onDone, onboarding }: { plan: PlanRow; onDone?:
   // «all» never covers medicines (each is confirmed by its own tap) nor a line marked «?» — that one is checked by hand (D103)
   const bulk = lines.filter((l) => l.status === 'sure' && !isMed(l));
   const allOn = bulk.length > 0 && bulk.every((l) => on.has(l.key));
+  // D115: a later visit — each medicine against the plan, and the plan's medicines the paper does not name
+  const diff = useMemo(() => changes(plan, lines), [plan, lines]);
+  const gone = useMemo(() => (lines.length ? notOnPaper(plan, lines, todayISO()) : []), [plan, lines]);
   // D113: the plan does not start while a medicine read off the paper is neither confirmed nor put aside
   const undecided = onboarding ? lines.filter((l) => isMed(l) && !on.has(l.key) && !skip.has(l.key)).length : 0;
   const flip = (key: string) => setSkip((x) => { const n = new Set(x); if (n.has(key)) n.delete(key); else n.add(key); return n; });
@@ -137,7 +142,7 @@ export function PlanScan({ plan, onDone, onboarding }: { plan: PlanRow; onDone?:
                     const lack = missing(l);
                     const body = (
                       <span className="min-w-0 flex-1">
-                        <LineText line={l} plan={plan} known={!!index} />
+                        <LineText line={l} plan={plan} known={!!index} change={diff.get(l.key)} />
                         <Status line={l} />
                         {lack && <span className="block text-sm text-warn">{lack === 'dose' ? L.needDose : L.needTime}</span>}
                         {cuts[l.key] && <img src={cuts[l.key]} alt={L.piece} className="mt-1 max-h-24 max-w-full rounded border border-line" />}
@@ -163,10 +168,25 @@ export function PlanScan({ plan, onDone, onboarding }: { plan: PlanRow; onDone?:
               </div>
             );
           })}
+          {gone.length > 0 && ( /* D115: never closed silently — another doctor's paper does not cancel them */
+            <div>
+              <h3 className="text-sm font-semibold text-muted">{L.gone}</h3>
+              <p className="text-xs text-muted">{L.goneHint}</p>
+              <ul className="divide-y divide-line">
+                {gone.map((p) => (
+                  <li key={p.id}><label className="flex min-h-tap items-start gap-3 py-2">
+                    <input type="checkbox" checked={close.has(p.id)} aria-label={L.closeAria(p.title)} className="mt-0.5 h-5 w-5 shrink-0 accent-[rgb(var(--accent))]"
+                      onChange={() => setClose((x) => { const n = new Set(x); if (n.has(p.id)) n.delete(p.id); else n.add(p.id); return n; })} />
+                    <span><span className="font-medium">{p.title}</span>{p.dose && ` · ${p.dose}`}<span className="block text-sm text-muted">{L.close}</span></span>
+                  </label></li>
+                ))}
+              </ul>
+            </div>
+          )}
           {undecided > 0 && <p role="status" className="text-sm text-warn">{L.undecided(undecided)}</p>}
           <div className="flex flex-wrap gap-2">
-            <button type="button" disabled={!on.size || undecided > 0} onClick={() => void save()}
-              className="min-h-tap rounded-xl bg-accent px-3 font-medium text-surface disabled:opacity-40">{onboarding ? L.start(on.size) : L.save(on.size)}</button>
+            <button type="button" disabled={(!on.size && !close.size) || undecided > 0} onClick={() => void save()}
+              className="min-h-tap rounded-xl bg-accent px-3 font-medium text-surface disabled:opacity-40">{onboarding ? L.start(on.size) : L.save(on.size + close.size)}</button>
             <button type="button" onClick={() => { setState('none'); setLines([]); setCuts({}); }} className="min-h-tap rounded-xl border border-line px-3">{t.meal.cancel}</button>
           </div>
         </section>
@@ -193,7 +213,7 @@ function Status({ line: l }: { line: DraftLine }) {
 const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
 const day = (d: string) => format(parseISO(d), 'd MMMM yyyy', { locale: uk });
 
-function LineText({ line: l, plan, known }: { line: DraftLine; plan: PlanRow; known: boolean }) {
+function LineText({ line: l, plan, known, change }: { line: DraftLine; plan: PlanRow; known: boolean; change?: Change }) {
   const updates = <span className="text-xs text-muted"> · {L.updates}</span>;
   if (l.kind === 'unread') return <span><span className="font-medium">«{l.text}»</span><span className="block text-sm text-muted">{L.unreadHint}</span></span>;
   if (l.kind === 'constraint') {
@@ -211,7 +231,10 @@ function LineText({ line: l, plan, known }: { line: DraftLine; plan: PlanRow; kn
     const when = !drug ? '' : [p.asNeeded ? L.asNeeded : p.schedule?.times.length ? p.schedule.times.join(', ') + (l.suggested ? ` (${L.suggested})` : '') : '',
       p.schedule?.withFood === true ? L.withFood : p.schedule?.withFood === false ? L.empty : '',
       p.until ? L.until(format(parseISO(p.until), 'd.MM')) : ''].filter(Boolean).join(' · ');
-    return <span><span className="font-medium">{p.title}</span>{p.dose && ` · ${p.dose}`}{exists && updates}
+    const badge = change?.kind === 'new' ? <span className="text-xs text-accent"> · {L.isNew}</span> // D115
+      : change?.kind === 'changed' ? <span className="block text-xs text-warn">{L.changed(change.was)}</span>
+      : change?.kind === 'same' ? <span className="text-xs text-muted"> · {L.same}</span> : exists && updates;
+    return <span><span className="font-medium">{p.title}</span>{p.dose && ` · ${p.dose}`}{badge}
       <span className="block text-sm text-muted">{[P.kinds[p.kind], drug && known && !p.med ? L.notRegistered : '', l.frequency, when].filter(Boolean).join(' · ')}</span></span>;
   }
   if (l.kind === 'target') {

@@ -211,6 +211,39 @@ export function timesToSet(p: Prescription): number | undefined {
 }
 
 const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+
+// ------------------------------------------------------------------ D115: a later visit — what the new paper changes
+export type Change = { kind: 'new' } | { kind: 'same' } | { kind: 'changed'; was: string };
+const drug = (p: Prescription) => p.kind === 'medication' || p.kind === 'supplement';
+const how = (p: Prescription) => [p.dose?.trim(), p.asNeeded ? 'за потреби' : p.schedule?.times.join(', '), p.until ? `до ${p.until.split('-').reverse().slice(0, 2).join('.')}` : '']
+  .filter(Boolean).join(' · ');
+
+/** Each medicine of the new paper against the plan: new, the same, or changed (and what it was). Nothing for other lines. */
+export function changes(plan: Pick<Plan, 'prescriptions'>, lines: DraftLine[]): Map<string, Change> {
+  const out = new Map<string, Change>();
+  for (const l of lines) {
+    if (l.kind !== 'prescription' || !drug(l.prescription)) continue;
+    const old = plan.prescriptions.find((x) => drug(x) && same(x.title, l.prescription.title));
+    if (!old) { out.set(l.key, { kind: 'new' }); continue; }
+    const was = how(old), now = how({ ...old, ...l.prescription });
+    out.set(l.key, was === now ? { kind: 'same' } : { kind: 'changed', was: was || '—' });
+  }
+  return out;
+}
+
+/** The plan's medicines still taken that the new paper does not name — offered to close, never closed silently (another
+ *  doctor's paper does not cancel them). */
+export function notOnPaper(plan: Pick<Plan, 'prescriptions'>, lines: DraftLine[], today: string): Prescription[] {
+  const named = lines.flatMap((l) => (l.kind === 'prescription' ? [l.prescription.title] : []));
+  return plan.prescriptions.filter((p) => drug(p) && !(p.until && p.until < today) && !named.some((n) => same(n, p.title)));
+}
+
+/** Closed from today: no doses due from today on, the history of the days before stays in the report. */
+export function closeFromToday(prescriptions: Prescription[], ids: Set<string>, today: string): Prescription[] {
+  const y = format(addDays(parseISO(today), -1), 'yyyy-MM-dd');
+  return prescriptions.map((p) => (ids.has(p.id) ? { ...p, until: p.since && p.since > y ? p.since : y } : p));
+}
+
 export const sameConstraint = (a: Constraint, b: Constraint) =>
   b.tag === 'custom' || b.tag === 'allergy' ? same(a.title, b.title) : b.tag === 'diet' ? a.tag === 'diet' && a.diet === b.diet : a.tag === b.tag;
 

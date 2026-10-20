@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { examplePlan } from '../../src/data/seed.example';
-import { applyLines, draftLines, dueIn, missing, sourceOf, timesToSet, unfinished, type ConclusionResult, type DraftLine } from '../../src/domain/conclusion';
+import { applyLines, changes, closeFromToday, draftLines, dueIn, missing, notOnPaper, sourceOf, timesToSet, unfinished, type ConclusionResult, type DraftLine } from '../../src/domain/conclusion';
 import type { MedIndex } from '../../src/domain/meds';
 
 let n = 0;
@@ -133,6 +133,24 @@ describe('«через 3 місяці» → a date to take the test, suggested a
     const ls = draftLines({ ...R, prescriptions: [], constraints: [], targets: [], diet: null, unread: [], nextVisit: null,
       tests: [{ title: 'Ліпідограма через 3 місяці', ...at() }, { title: 'HbA1c', ...at() }] }, id, { today: '2026-10-19' });
     expect(meds(ls).map((l) => [l.prescription.dueDate, l.suggestedDate])).toEqual([['2027-01-12', true], [undefined, undefined]]); // from 12.10, the paper’s date
+  });
+});
+
+describe('a later visit: what the new paper changes (D115)', () => {
+  const plan = { prescriptions: [
+    { id: 'm', kind: 'medication' as const, title: 'Метформін', dose: '500 мг', schedule: { times: ['08:00', '20:00'] }, source: '', since: '2026-10-01' },
+    { id: 'a', kind: 'medication' as const, title: 'Аторвастатин', dose: '20 мг', schedule: { times: ['20:00'] }, source: '', since: '2026-10-01' },
+    { id: 'o', kind: 'medication' as const, title: 'Омепразол', dose: '20 мг', schedule: { times: ['08:00'] }, source: '', since: '2026-10-01', until: '2026-10-10' },
+    { id: 'd', kind: 'supplement' as const, title: 'Вітамін D', dose: '2000 МО', schedule: { times: ['08:30'] }, source: '' }] };
+  const paper = draftLines({ ...R, constraints: [], targets: [], diet: null, unread: [], tests: [], prescriptions: [
+    rx({ title: 'Метформін', dose: '1000 мг', perDay: 2 }), rx({ title: 'Аторвастатин', dose: '20 мг', times: ['20:00'] }), rx({ title: 'Еутирокс', dose: '50 мкг', times: ['07:00'] })] }, id, { today: '2026-10-20' });
+  it('each medicine of the paper: changed (with what it was), the same, new', () => {
+    const c = changes(plan, paper);
+    expect(paper.map((l) => c.get(l.key))).toEqual([{ kind: 'changed', was: '500 мг · 08:00, 20:00' }, { kind: 'same' }, { kind: 'new' }]);
+  });
+  it('the plan’s medicines the paper does not name are offered, a finished course is not; closing keeps the days before', () => {
+    expect(notOnPaper(plan, paper, '2026-10-20').map((p) => p.title)).toEqual(['Вітамін D']);
+    expect(closeFromToday(plan.prescriptions, new Set(['d']), '2026-10-20').find((p) => p.id === 'd')!.until).toBe('2026-10-19');
   });
 });
 

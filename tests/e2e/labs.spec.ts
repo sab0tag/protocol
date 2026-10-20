@@ -139,3 +139,28 @@ test('onboarding starts from the doctor’s paper: photo → hide what is person
   await expect(page.getByText('Каптоприл')).toHaveCount(0);
   await expect(page.getByText(/08:00, 20:00/)).toBeVisible();
 });
+
+test('a later visit: the new paper against the plan — new, and a medicine it does not name is closed only when asked (D115)', async ({ browser }) => {
+  const page = await device(browser); // the example plan: Вітамін D 2000 МО at 08:30
+  const w = { page: 1, box: [0.1, 0.4, 0.7, 0.03], sure: 'yes' };
+  await page.route('**/conclusion', (r) => r.fulfill({ json: { readable: true, date: '2026-10-19', doctor: 'Ендокринолог', note: null, diagnosis: null, diet: null,
+    constraints: [], tests: [], nextVisit: null, targets: [], unread: [], prescriptions: [
+      { kind: 'medication', title: 'Еутирокс', dose: '50 мкг', times: ['07:00'], perDay: 1, frequency: null, durationDays: null, asNeeded: false, withFood: false, ...w }] } }));
+  await page.goto('./#/plan');
+  await page.getByRole('button', { name: 'Фото висновку лікаря' }).click();
+  const [chooser] = await Promise.all([page.waitForEvent('filechooser'), page.getByRole('button', { name: 'Дозволити й вибрати фото' }).click()]);
+  await chooser.setFiles({ name: 'p.png', mimeType: 'image/png', buffer: PNG });
+  await page.getByRole('region', { name: 'Приховайте особисте перед надсиланням' }).getByRole('button', { name: 'Надіслати', exact: true }).click();
+  const form = page.getByRole('region', { name: /^Ось що я прочитав/ });
+  await expect(form.getByRole('checkbox', { name: 'Еутирокс 50 мкг' })).toBeVisible();
+  await expect(form).toContainText('Еутирокс · 50 мкг · нове');
+  await expect(form).toContainText('Немає в новому висновку');
+  const close = form.getByRole('checkbox', { name: /^Закрити з сьогодні: Вітамін D/ });
+  await expect(close).not.toBeChecked(); // never closed silently
+  await close.check();
+  await form.getByRole('checkbox', { name: 'Еутирокс 50 мкг' }).check();
+  await form.getByRole('button', { name: 'Внести в план (2)' }).click();
+  await expect(toast(page)).toContainText('Внесено в план: 2');
+  await expect(page.getByText('Еутирокс')).toBeVisible();
+  await expect(page.getByRole('listitem').filter({ hasText: 'Вітамін D' }).first()).toContainText('курс закінчився'); // closed, its history stays
+});
