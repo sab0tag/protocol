@@ -7,6 +7,7 @@ import { Loading } from '../components/Recovery';
 import { saved } from '../components/Toast';
 import { uk } from 'date-fns/locale';
 import { Pencil, Plus } from 'lucide-react';
+import { useLiveQuery } from 'dexie-react-hooks';
 import { useMemo, useState, type ReactNode } from 'react';
 import { useMedIndex } from '../data/medsIndex';
 import { MedboxScan } from '../components/MedboxScan';
@@ -42,6 +43,7 @@ export function Plan() {
   const entries = useAllEntries(); // D69: what is left of each medicine
   const plan = usePlan();
   const [editing, setEditing] = useState<Editing | null>(null);
+  const pieces = useLiveQuery(async () => new Map((await db.pieces.toArray()).map((x) => [x.id, x.url])), []); // D114
   if (!plan) return <Loading />;
   const tg = plan.targets;
 
@@ -56,7 +58,7 @@ export function Plan() {
       ))}
       <Block title={P.prescriptions} onAdd={() => setEditing({ what: 'prescription' })}>
         {plan.prescriptions.filter((p) => p.kind !== 'test').map((p) => ( /* D104: tests live with the next checkup */
-          <Item key={p.id} onEdit={() => setEditing({ what: 'prescription', item: p })}
+          <Item key={p.id} onEdit={() => setEditing({ what: 'prescription', item: p })} piece={pieces?.get(p.id)}
             title={p.title} meta={[P.kinds[p.kind], (p.kind === 'medication' || p.kind === 'supplement') ? (p.med ? p.med.inn : P.offRegistry) : undefined, p.dose, p.asNeeded ? t.conclusion.asNeeded : p.schedule?.times.join(', '),
               p.schedule?.withFood === true ? P.withFood.toLowerCase() : p.schedule?.withFood === false ? t.conclusion.empty : undefined,
               p.until ? (p.until < todayISO() ? P.courseOver(dmy(p.until)) : P.courseUntil(dmy(p.until))) : undefined, // D103: the course end in the list
@@ -78,6 +80,7 @@ export function Plan() {
               <p className="font-medium">{c.title}{c.title !== P.tags[c.tag] && <span className="text-sm font-normal text-muted"> · {P.tags[c.tag]}</span>}</p>
               {c.reason && <p className="text-sm">{c.reason}</p>}
               <p className="text-sm text-muted">{c.source}</p>
+              {pieces?.get(c.id) && <Paper url={pieces.get(c.id)!} title={c.title} />}
               {c.tag === 'diet' && dietOf(c.diet) && (() => { const d = dietOf(c.diet)!; return ( /* D90: the preset's rules, each can be switched off */
                 <div className="mt-1 space-y-1">
                   {!d.verified && <p className="text-xs text-warn">{t.diet.unverified}</p>}
@@ -115,9 +118,10 @@ export function Plan() {
 
       <Block title={P.checkup} onAdd={() => setEditing({ what: 'checkup' })} addLabel={plan.nextCheckup ? P.edit : P.add}>
         {plan.nextCheckup && <li className="px-3 py-2"><p className="font-medium">{dmy(plan.nextCheckup.date)}</p>
-          <p className="text-sm text-muted">{plan.nextCheckup.tests.join(', ')}</p></li>}
+          <p className="text-sm text-muted">{plan.nextCheckup.tests.join(', ')}</p>
+          {pieces?.get('checkup') && <Paper url={pieces.get('checkup')!} title={P.checkup} />}</li>}
         {plan.prescriptions.filter((p) => p.kind === 'test').map((p) => ( /* D104: tests to take, next to the visit — not among the medicines */
-          <Item key={p.id} onEdit={() => setEditing({ what: 'prescription', item: p })} title={p.title}
+          <Item key={p.id} onEdit={() => setEditing({ what: 'prescription', item: p })} title={p.title} piece={pieces?.get(p.id)}
             meta={[P.kinds.test, p.dueDate ? `${P.dueDate.toLowerCase()} ${dmy(p.dueDate)}` : undefined]} note={p.notes} source={p.source} />
         ))}
       </Block>
@@ -160,7 +164,18 @@ function Block({ title, onAdd, addLabel = P.add, children }: { title: string; on
   );
 }
 
-function Item({ title, meta, note, source, warn, onEdit }: { title: string; meta: (string | undefined)[]; note?: string; source?: string; warn?: string; onEdit: () => void }) {
+/** D114: the line as it was on the doctor's paper — the piece kept on this device, opened on a tap. */
+function Paper({ url, title }: { url: string; title: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div>
+      <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} className="mt-1 min-h-[2rem] text-sm text-accent underline">{open ? P.paperHide : P.paper}</button>
+      {open && <img src={url} alt={P.paperAlt(title)} className="mt-1 max-h-32 max-w-full rounded border border-line" />}
+    </div>
+  );
+}
+
+function Item({ title, meta, note, source, warn, onEdit, piece }: { title: string; meta: (string | undefined)[]; note?: string; source?: string; warn?: string; onEdit: () => void; piece?: string }) {
   return (
     <li className="flex items-start gap-2 border-t border-line px-3 py-2 first:border-t-0">
       <div className="min-w-0 flex-1 py-1">
@@ -168,6 +183,7 @@ function Item({ title, meta, note, source, warn, onEdit }: { title: string; meta
         <p className="text-sm text-muted">{meta.filter(Boolean).join(' · ')}</p>
         {note && <p className="text-sm">{note}</p>}
         {source && <p className="text-sm text-muted">{source}</p>}
+        {piece && <Paper url={piece} title={title} />}
         {warn && <p className="mt-1 text-sm font-medium text-warn">{warn}</p>}
       </div>
       <EditButton label={title} onClick={onEdit} />

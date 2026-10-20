@@ -81,7 +81,12 @@ export function PlanScan({ plan, onDone, onboarding }: { plan: PlanRow; onDone?:
   const save = async () => {
     const picked = lines.filter((l) => on.has(l.key));
     const before = { constraints: plan.constraints, prescriptions: plan.prescriptions, targets: plan.targets, nextCheckup: plan.nextCheckup };
-    await saved(db.plan.update('main', applyLines(plan, picked, sinceNow())), L.saved(picked.length), () => db.plan.update('main', before));
+    // D114: the pieces of paper stay with the lines they came from — on this device only
+    const placed = new Map<string, string>();
+    const next = applyLines(plan, picked, sinceNow(), placed);
+    const pieces = picked.flatMap((l) => (cuts[l.key] && placed.get(l.key) ? [{ id: placed.get(l.key)!, url: cuts[l.key]!, at: new Date().toISOString(), source }] : []));
+    await saved(db.transaction('rw', db.plan, db.pieces, async () => { await db.plan.update('main', next); await db.pieces.bulkPut(pieces); }), L.saved(picked.length),
+      () => db.transaction('rw', db.plan, db.pieces, async () => { await db.plan.update('main', before); await db.pieces.bulkDelete(pieces.map((x) => x.id)); }));
     setState('none'); setLines([]); setCuts({});
     onDone?.();
   };

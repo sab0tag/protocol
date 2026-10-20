@@ -99,6 +99,17 @@ describe('the visit and the tests next to it stay two things; a medicine counts 
     expect(out.nextCheckup).toEqual({ date: '2027-01-15', tests: ['Повторний огляд ендокринолога'] });
     expect(out.prescriptions.find((p) => p.kind === 'test')?.dueDate).toBe('2027-01-12'); // its own «через 3 місяці» from 12.10 (D104), never the visit’s 15.01
   });
+  it('each line put in says the id it has in the plan — the piece of paper goes with it (D114)', () => {
+    const plan = examplePlan(new Date('2026-10-17T12:00:00'));
+    const ls = draftLines(R, id, { today: '2026-10-19' }).filter((l) => (l.kind === 'prescription' && ['Вітамін D', 'Метформін'].includes(l.prescription.title))
+      || (l.kind === 'constraint' && l.constraint.tag === 'lactose'));
+    const placed = new Map<string, string>();
+    const out = applyLines(plan, ls, undefined, placed);
+    const key = (title: string) => ls.find((l) => l.kind === 'prescription' && l.prescription.title === title)!.key;
+    expect(placed.get(key('Вітамін D'))).toBe('p-vitd'); // already in the plan — its own id
+    expect(placed.get(key('Метформін'))).toBe(out.prescriptions.find((p) => p.title === 'Метформін')!.id);
+    expect(placed.get(ls.find((l) => l.kind === 'constraint')!.key)).toBe('c-lactose');
+  });
   it('a new medicine gets the moment it was put in; one already in the plan keeps its own start', () => {
     const plan = examplePlan(new Date('2026-10-17T12:00:00'));
     const ls = meds(draftLines(R, id, { today: '2026-10-19' })).filter((l) => ['Вітамін D', 'Метформін'].includes(l.prescription.title));

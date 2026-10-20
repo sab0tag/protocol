@@ -67,6 +67,10 @@ test('a doctor’s conclusion, two pages, no account (model stubbed) → «Ос�
   await expect(page.getByText(/вода 2000 мл/)).toBeVisible();
   await expect(page.getByText(/їжа до 19:00/)).toHaveCount(0); // not ticked — not in the plan
   await expect(page.getByText('Каптоприл')).toHaveCount(0);
+  // D114: the line as it was on the paper — kept on this device, opened from «План»
+  const metformin = page.getByRole('listitem').filter({ hasText: 'Метформін' }).first();
+  await metformin.getByRole('button', { name: 'Показати на папері' }).click();
+  await expect(metformin.getByRole('img', { name: '«Метформін» у висновку лікаря' })).toBeVisible();
 });
 
 test('before the paper leaves the phone: the header comes painted over, a finger paints more, the top is cut — only that is sent (D112)', async ({ browser }) => {

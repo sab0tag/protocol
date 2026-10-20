@@ -215,7 +215,8 @@ export const sameConstraint = (a: Constraint, b: Constraint) =>
   b.tag === 'custom' || b.tag === 'allergy' ? same(a.title, b.title) : b.tag === 'diet' ? a.tag === 'diet' && a.diet === b.diet : a.tag === b.tag;
 
 /** The ticked lines put into the plan: a limit of the same kind (or a medicine of the same name) is updated in place. */
-export function applyLines(plan: Plan, lines: DraftLine[], since?: { since: string; sinceTime: string }): Pick<Plan, 'constraints' | 'prescriptions' | 'targets'> & Partial<Pick<Plan, 'nextCheckup'>> {
+/** D114: `placed` gets, for each line put in, the id it has in the plan (a limit or a medicine already there keeps its own). */
+export function applyLines(plan: Plan, lines: DraftLine[], since?: { since: string; sinceTime: string }, placed?: Map<string, string>): Pick<Plan, 'constraints' | 'prescriptions' | 'targets'> & Partial<Pick<Plan, 'nextCheckup'>> {
   let constraints = [...plan.constraints], prescriptions = [...plan.prescriptions];
   const targets: Targets = { ...plan.targets };
   let nextCheckup = plan.nextCheckup;
@@ -225,12 +226,14 @@ export function applyLines(plan: Plan, lines: DraftLine[], since?: { since: stri
       const i = constraints.findIndex((x) => sameConstraint(x, c));
       if (i >= 0) constraints[i] = { ...c, id: constraints[i]!.id };
       else constraints = [...constraints, c];
+      placed?.set(l.key, i >= 0 ? constraints[i]!.id : c.id);
     } else if (l.kind === 'prescription') {
       if (missing(l)) continue; // D100: never a medicine without its dose and time
       // D103: a new medicine counts from the moment it is put in, not from the reading; one already there keeps its start
       const p = since && l.prescription.kind !== 'test' ? { ...l.prescription, ...since } : l.prescription;
       const i = prescriptions.findIndex((x) => same(x.title, p.title));
       const old = prescriptions[i];
+      placed?.set(l.key, old ? old.id : p.id);
       if (!old) prescriptions = [...prescriptions, p];
       else {
         const { since: _s, sinceTime: _t, ...rest } = p;
@@ -242,6 +245,7 @@ export function applyLines(plan: Plan, lines: DraftLine[], since?: { since: stri
       (targets as Record<string, unknown>)[l.target] = l.value;
     } else if (l.kind === 'checkup') {
       nextCheckup = { date: l.date, tests: l.title ? [l.title] : [] };
+      placed?.set(l.key, 'checkup');
     }
   }
   return { constraints, prescriptions, targets, ...(nextCheckup ? { nextCheckup } : {}) };

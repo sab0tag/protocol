@@ -43,6 +43,10 @@ export interface SyncMeta {
   codeCheckedAt?: number; // D40: «код записаний?» asked again a month later
 }
 
+/** D114: the piece of the doctor's paper a line of the plan was read from, as the person cut and painted it — kept on this
+ *  device only (not in sync, not in the backup file): `id` is the line's id in the plan (a medicine, a limit), «checkup». */
+export interface Piece { id: string; url: string; at: string; source: string }
+
 export class ProtocolDB extends Dexie {
   plan!: Table<PlanRow, string>;
   foods!: Table<Food, string>;
@@ -54,6 +58,7 @@ export class ProtocolDB extends Dexie {
   recipes!: Table<Recipe, string>;
   favorites!: Table<Favorite, string>;
   frictions!: Table<Friction, string>;
+  pieces!: Table<Piece, string>;
   sync!: Table<SyncRow, string>;
   meta!: Table<SyncMeta, string>;
 
@@ -72,6 +77,7 @@ export class ProtocolDB extends Dexie {
     this.version(3).stores({ sync: 'tid', meta: 'key' }); // D31: sync state (not in exports)
     this.version(4).stores({ favorites: 'id, title' }); // D51: «Мої звичні»
     this.version(5).stores({ frictions: 'id, at' }); // D67: «Що заважало»
+    this.version(6).stores({ pieces: 'id' }); // D114: pieces of the doctor's paper — this device only, never synced or exported
   }
 }
 
