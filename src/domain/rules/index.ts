@@ -3,7 +3,7 @@
 import { dateOf } from '../dates';
 import { itemNutrients, normalize } from '../nutrition';
 import { dietOf } from '../diets';
-import type { ConstraintTag, DayEntry, Food, ISODate, MealItem, Mode, Plan } from '../types';
+import type { ConstraintTag, DayEntry, EstTag, Food, ISODate, MealItem, Mode, Plan } from '../types';
 import * as K from './keywords.uk';
 import { allergyHits, planAllergies } from '../allergens';
 import { t } from '../../i18n/uk';
@@ -45,13 +45,15 @@ const startsWord = (name: string, stem: string) =>
   new RegExp(`(?<![\\p{L}\\p{N}])${stem.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'u').test(name);
 export const matchesAny = (name: string, stems: string[]) => stems.some((s) => startsWord(normalize(name), normalize(s)));
 
+/** D111: what the model marked an estimated ingredient as — read only for such lines (a base food has its own tags). */
+const est = (it: MealItem, tag: EstTag) => !!it.est?.tags.includes(tag);
 const active = (ctx: RuleContext, tag: ConstraintTag) => ctx.plan.constraints.some((c) => c.tag === tag && c.active);
 const carbsMin = (ctx: RuleContext) => ctx.activeMode?.targetsOverride.carbsG?.min;
 
 // ------------------------------------------------------------------ rules (SPEC §6.1)
 const oxalate: Rule = (item, _food, ctx) => {
   if (!active(ctx, 'oxalate')) return null;
-  if (matchesAny(item.name, K.OXALATE_HIGH))
+  if (matchesAny(item.name, K.OXALATE_HIGH) || est(item, 'oxalate-high'))
     return { itemName: item.name, verdict: 'replace', reason: 'oxalate', message: 'Багато оксалатів',
       suggestion: 'Броколі, капуста, огірок', swap: { kind: 'food', foodId: 'broccoli', grams: 'same' } };
   if (matchesAny(item.name, K.OXALATE_NUTS) && item.grams > K.NUTS_OXALATE_G)
@@ -61,9 +63,9 @@ const oxalate: Rule = (item, _food, ctx) => {
 };
 
 const isOxalateish = (it: MealItem) =>
-  matchesAny(it.name, K.OXALATE_HIGH) || matchesAny(it.name, K.OXALATE_MODERATE) || matchesAny(it.name, K.OXALATE_NUTS);
+  matchesAny(it.name, K.OXALATE_HIGH) || matchesAny(it.name, K.OXALATE_MODERATE) || matchesAny(it.name, K.OXALATE_NUTS) || est(it, 'oxalate-high');
 const isCalciumSource = (it: MealItem, foods: Map<string, Food>) =>
-  (it.foodId !== undefined && foods.get(it.foodId)?.tags.includes('calcium')) || matchesAny(it.name, K.CALCIUM_SOURCES);
+  (it.foodId !== undefined && foods.get(it.foodId)?.tags.includes('calcium')) || matchesAny(it.name, K.CALCIUM_SOURCES) || est(it, 'calcium');
 
 /** Said once per meal, on its first oxalate item: «Додайте кальцій у цей прийом». */
 const oxalateCalcium: Rule = (item, _food, ctx) => {
@@ -76,15 +78,15 @@ const oxalateCalcium: Rule = (item, _food, ctx) => {
 
 const gallbladder: Rule = (item, _food, ctx) => {
   if (!active(ctx, 'gallbladder')) return null;
-  if (item.cooking === 'fried' || matchesAny(item.name, K.GALLBLADDER))
-    return { itemName: item.name, verdict: 'replace', reason: 'gallbladder', message: 'Смажене навантажує жовчний',
+  if (item.cooking === 'fried' || matchesAny(item.name, K.GALLBLADDER) || est(item, 'fried') || est(item, 'fatty'))
+    return { itemName: item.name, verdict: 'replace', reason: 'gallbladder', message: est(item, 'fatty') && !est(item, 'fried') ? 'Жирне навантажує жовчний' : 'Смажене навантажує жовчний',
       suggestion: 'Аерогриль, запікання', ...(item.cooking === 'fried' ? { swap: { kind: 'cooking' as const, cooking: 'airfryer' as const } } : {}) };
   return null;
 };
 
 const lactose: Rule = (item, food, ctx) => {
-  if (!active(ctx, 'lactose') || food?.tags.includes('dairy-low-lactose') || food?.tags.includes('cheese-aged')) return null;
-  if (!matchesAny(item.name, K.LACTOSE)) return null;
+  if (!active(ctx, 'lactose') || food?.tags.includes('dairy-low-lactose') || food?.tags.includes('cheese-aged') || est(item, 'cheese-aged')) return null;
+  if (!matchesAny(item.name, K.LACTOSE) && !est(item, 'lactose')) return null;
   const milk = matchesAny(item.name, ['молоко']);
   return { itemName: item.name, verdict: 'replace', reason: 'lactose', message: 'Лактоза',
     suggestion: 'Кефір, тверді витримані сири, безлактозне',
@@ -106,8 +108,8 @@ const glycemic: Rule = (item, food, ctx) => {
       suggestion: plain ? 'Без цукру' : 'Прибрати', swap: plain ? { kind: 'food', foodId: plain, grams: 'same' } : { kind: 'drop' } };
   }
   // D81: sweets by what the food is, not only by its name («Сирок глазурований», «Курага»)
-  const sweet = !!food?.tags.includes('sweet') && !food.tags.includes('slow-carb');
-  if (matchesAny(item.name, K.GLYCEMIC_REPLACE) || (preparing && matchesAny(item.name, K.GLYCEMIC_REMOVE)))
+  const sweet = (!!food?.tags.includes('sweet') && !food.tags.includes('slow-carb')) || est(item, 'sweet');
+  if (matchesAny(item.name, K.GLYCEMIC_REPLACE) || est(item, 'fast-carb') || (preparing && matchesAny(item.name, K.GLYCEMIC_REMOVE)))
     return { itemName: item.name, verdict: 'replace', reason: 'glycemic',
       message: preparing ? 'Швидкі вуглеводи — замініть на повільні, не зменшуючи кількість' : 'Швидкі вуглеводи',
       suggestion: 'Гречка, кіноа, бурий рис', swap: toSlow };
@@ -127,8 +129,9 @@ const iron: Rule = (item, _food, ctx) => {
 };
 
 const sodium: Rule = (item, _food, ctx) => {
-  if (!active(ctx, 'sodium') || !matchesAny(item.name, K.SALTY)) return null;
-  const salty = (items: MealItem[] = []) => items.filter((it) => matchesAny(it.name, K.SALTY)).reduce((g, it) => g + it.grams, 0);
+  const isSalty = (it: MealItem) => matchesAny(it.name, K.SALTY) || est(it, 'salty');
+  if (!active(ctx, 'sodium') || !isSalty(item)) return null;
+  const salty = (items: MealItem[] = []) => items.filter(isSalty).reduce((g, it) => g + it.grams, 0);
   const day = ctx.dayEntries.filter((e) => e.kind === 'meal' && e.status !== 'skipped').reduce((g, e) => g + salty(flatItems(e.items)), 0);
   if (day + salty(ctx.meal) <= K.SODIUM_PORTION_G * K.SODIUM_MAX_PORTIONS) return null;
   return { itemName: item.name, verdict: 'adjust', reason: 'sodium', message: 'Багато солі за день' };
@@ -139,8 +142,12 @@ const sodium: Rule = (item, _food, ctx) => {
 const allergy: Rule = (item, food, ctx) => {
   const want = planAllergies(ctx.plan);
   if (!want.size) return null;
+  // D111: an estimated ingredient whose estimate names an allergy of the plan goes; one that names none is still not known
+  const said = (item.est?.allergens ?? []).filter((a) => want.has(a));
+  if (said.length) return { itemName: item.name, verdict: 'remove', reason: 'allergy', message: `Алергія: ${said.map((a) => ALLERGEN_NAME[a]).join(', ')} (за оцінкою ІІ)`,
+    suggestion: 'Прибрати', swap: { kind: 'drop' } };
   if (!food || (food.custom && !food.allergens))
-    return { itemName: item.name, verdict: 'adjust', reason: 'allergy', message: 'Склад невідомий — перевірте на алергени' };
+    return { itemName: item.name, verdict: 'adjust', reason: 'allergy', message: item.est ? 'Склад оцінено ІІ — перевірте на алергени' : 'Склад невідомий — перевірте на алергени' };
   const hit = allergyHits(food, want);
   if (!hit.length) return null;
   return { itemName: item.name, verdict: 'remove', reason: 'allergy', message: `Алергія: ${hit.map((a) => ALLERGEN_NAME[a]).join(', ')}`,
@@ -155,7 +162,7 @@ const diet: Rule = (item, food, ctx) => {
       if (!r.checkedBy || c.off?.includes(r.id)) continue;
       const m = r.match, name = normalize(item.name);
       const hit = (m.cooking?.includes(item.cooking!) ?? false) || (m.words?.some((w) => name.includes(normalize(w))) ?? false)
-        || (m.tags?.some((tg) => food?.tags.includes(tg)) ?? false);
+        || (m.tags?.some((tg) => food?.tags.includes(tg) || (item.est?.tags as string[] | undefined)?.includes(tg)) ?? false);
       if (hit) return { itemName: item.name, verdict: r.kind === 'exclude' ? 'remove' : 'adjust', reason: 'diet',
         message: `${c.diet}: ${r.title}`, ...(r.kind === 'exclude' ? { suggestion: 'Прибрати', swap: { kind: 'drop' as const } } : {}) };
     }

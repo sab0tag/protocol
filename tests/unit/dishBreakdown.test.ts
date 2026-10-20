@@ -28,3 +28,22 @@ describe('a dish described in words → its ingredients (D110)', () => {
     expect(items[0]).toMatchObject({ foodId: expect.any(String), name: 'Лаваш' });
   });
 });
+
+describe('the plan’s check sees what an estimated ingredient is (D111)', async () => {
+  const { checkMeal } = await import('../../src/domain/rules');
+  const { emptyPlan } = await import('../../src/data/seed.example');
+  const plan = (tag: string, allergens?: string[]) => ({ ...emptyPlan(), constraints: [{ id: 'c', tag, title: tag, reason: '', source: '', active: true, ...(allergens ? { allergens } : {}) }] }) as never;
+  const line = (tags: string[], allergens: string[] = []) => breakdown({ ...R, items: [{ said: 'сир сулугуні', base: '', grams: 40, amountSaid: false, kcal: 290, protein: 20, fat: 23, carbs: 0.5, tags, allergens }] }, FOODS);
+  const say = (p: never, tags: string[], allergens: string[] = []) => checkMeal({ plan: p, date: '2026-10-20', foods, dayEntries: [], recentEntries: [], meal: line(tags, allergens).map((l) => ({ name: l.said, grams: l.grams, ...(l.est ? { est: l.est } : {}) })) })[0]!.hits.map((h) => h.message);
+  it('lactose, salt, fat — by the model’s marks, unknown words dropped', () => {
+    expect(line(['lactose', 'salty', 'nonsense'])[0]!.est).toEqual({ tags: ['lactose', 'salty'], allergens: [] });
+    expect(say(plan('lactose'), ['lactose', 'salty'])).toEqual(['Лактоза']);
+    expect(say(plan('lactose'), ['cheese-aged'])).toEqual([]);
+    expect(say(plan('gallbladder'), ['fatty'])).toEqual(['Жирне навантажує жовчний']);
+    expect(say(plan('glycemic'), ['fast-carb'])).toEqual(['Швидкі вуглеводи']);
+  });
+  it('an allergen the estimate names removes the line; naming none never clears it', () => {
+    expect(say(plan('allergy', ['milk']), ['lactose'], ['milk'])).toEqual(['Алергія: молоко (за оцінкою ІІ)']);
+    expect(say(plan('allergy', ['nuts']), ['lactose'], ['milk'])).toEqual(['Склад оцінено ІІ — перевірте на алергени']);
+  });
+});

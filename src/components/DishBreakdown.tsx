@@ -5,10 +5,11 @@
 import { Sparkles, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { db, inDemo } from '../data/db';
-import { newId } from '../domain/dates';
+import { newId, todayISO } from '../domain/dates';
 import { breakdown, lineItem, recipeItems, type DishLine } from '../domain/dishBreakdown';
 import { mealNutrients, round } from '../domain/nutrition';
-import type { Food } from '../domain/types';
+import type { Food, Plan } from '../domain/types';
+import { checkMeal } from '../domain/rules';
 import { t } from '../i18n/uk';
 import { ApiError, dishBreakdown } from '../sync/api';
 import { currentKeys } from '../sync/runner';
@@ -19,7 +20,7 @@ const CONSENT = 'protocol.dishConsent';
 const consented = () => { try { return localStorage.getItem(CONSENT) === '1'; } catch { return false; } };
 const field = 'block min-h-tap w-full rounded-xl border border-line bg-bg px-3';
 
-export function DishBreakdown({ foods, initial = '' }: { foods: Map<string, Food>; initial?: string }) {
+export function DishBreakdown({ foods, plan, initial = '' }: { foods: Map<string, Food>; plan?: Plan; initial?: string }) {
   const [text, setText] = useState(initial);
   const [state, setState] = useState<'none' | 'consent' | 'busy' | 'form'>('none');
   const [error, setError] = useState('');
@@ -31,6 +32,9 @@ export function DishBreakdown({ foods, initial = '' }: { foods: Map<string, Food
   const nOf = (ls: DishLine[]) => mealNutrients(ls.map(lineItem), foods);
   const total = useMemo(() => mealNutrients(lines.map(lineItem), foods), [lines, foods]);
   const weight = lines.reduce((g, l) => g + l.grams, 0);
+  // D111: what the plan's check says of each line — the estimated ones too, by what the model marked them as
+  const hits = useMemo(() => (plan ? checkMeal({ plan, date: todayISO(), foods, dayEntries: [], recentEntries: [], meal: lines.map(lineItem) }) : [])
+    .map((c) => [...new Set(c.hits.map((h) => h.message))]), [plan, foods, lines]);
 
   const ask = async () => {
     setError('');
@@ -84,12 +88,15 @@ export function DishBreakdown({ foods, initial = '' }: { foods: Map<string, Food
           {note && <p className="text-sm text-warn">{note}</p>}
           <p className="text-xs text-muted">{L.check}</p>
           <ul className="divide-y divide-line rounded-xl border border-line">
-            {lines.map((l) => { const n = nOf([l]); return (
+            {lines.map((l, i) => { const n = nOf([l]); return (
               <li key={l.key} data-ingredient={l.food?.name ?? l.said} className="flex items-start gap-2 px-2 py-2 text-sm">
                 <span className="min-w-0 flex-1">
                   <span className="font-medium">{l.food?.name ?? l.said}</span>
                   <span className={`block text-xs ${l.food ? 'text-muted' : 'text-warn'}`}>{l.food ? L.fromBase : L.estimate}{l.amountSaid ? '' : ` · ${L.amountGuessed}`}</span>
                   <span className="tabular block text-xs text-muted">{L.line(fmt(n.kcal), fmt(n.protein), fmt(n.fat), fmt(n.carbs))}</span>
+                  {l.est && (l.est.tags.length > 0 || l.est.allergens.length > 0) && <span className="block text-xs text-muted">{[...l.est.tags.map((x) => L.tags[x]),
+                    ...(l.est.allergens.length ? [L.allergens(l.est.allergens.map((a) => t.allergen.name[a]).join(', '))] : [])].join(' · ')}</span>}
+                  {(hits[i]?.length ?? 0) > 0 && <span className="block text-xs text-warn">{hits[i]!.join(' · ')}</span>}
                 </span>
                 <label className="w-20 shrink-0"><span className="sr-only">{L.grams(l.food?.name ?? l.said)}</span>
                   <input type="number" inputMode="decimal" min={0} step={1} value={l.grams} onChange={(e) => set(l.key, Math.max(0, Number(e.target.value) || 0))}

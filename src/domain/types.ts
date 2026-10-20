@@ -147,6 +147,10 @@ export interface Favorite {
 
 export type Cooking = 'raw' | 'boiled' | 'baked' | 'airfryer' | 'steamed' | 'stewed' | 'fried';
 
+/** D111: what the model may say an estimated ingredient is — the words of the plan's own rules. */
+export const EST_TAGS = ['lactose', 'cheese-aged', 'salty', 'fried', 'fatty', 'sweet', 'fast-carb', 'oxalate-high', 'calcium'] as const;
+export type EstTag = (typeof EST_TAGS)[number];
+
 export interface MealItem {
   foodId?: string;
   name: string;
@@ -159,6 +163,9 @@ export interface MealItem {
   /** D27: a dish — the recipe and how many portions; `components` are its ingredients as eaten (a copy, so
    *  editing the recipe later does not change history); `grams` = their sum. */
   recipe?: { id: string; portions: number; byGrams?: true }; // D106: said in grams («250 г гречки з куркою») — shown in grams
+  /** D111: an ingredient the model estimated (not from the base) — what it is, marked by the model from a closed list, so the
+   *  plan's check sees it; its allergens only ever add a warning, never clear one (the make-up is still not known) */
+  est?: { tags: EstTag[]; allergens: Allergen[] };
   components?: MealItem[];
 }
 

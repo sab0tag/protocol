@@ -10,6 +10,7 @@ export function itemAllergens(item: MealItem, foods: Map<string, Food>): { aller
   const walk = (it: MealItem) => {
     if (it.components?.length) { it.components.forEach(walk); return; }
     const f = it.foodId ? foods.get(it.foodId) : undefined;
+    for (const a of it.est?.allergens ?? []) found.add(a); // D111: what an estimate names is said; it still is not «none»
     if (!f || (f.custom && !f.allergens)) { unknown = true; return; } // an own food nobody checked is not «none»
     for (const a of f.allergens ?? []) found.add(a);
   };

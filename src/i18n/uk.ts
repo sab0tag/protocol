@@ -664,6 +664,9 @@ export const t = {
       name: 'Назва страви', portions: 'Скільки порцій у цьому описі',
       check: 'Перевірте вагу кожного інгредієнта в готовій страві — особливо те, що позначено «кількість оцінено».',
       fromBase: 'з бази', estimate: 'оцінка ІІ — не з бази', amountGuessed: 'кількість оцінено',
+      tags: { lactose: 'лактоза', 'cheese-aged': 'витриманий сир', salty: 'солоне', fried: 'смажене', fatty: 'жирне', sweet: 'солодке',
+        'fast-carb': 'швидкі вуглеводи', 'oxalate-high': 'оксалати', calcium: 'кальцій' } as Record<string, string>, // D111
+      allergens: (x: string) => `алергени: ${x}`,
       grams: (x: string) => `Грами: ${x}`,
       line: (k: string, p: string, f: string, c: string) => `${k} ккал · Б ${p} · Ж ${f} · В ${c}`,
       total: (g: string, k: string, p: string, f: string, c: string) => `Уся страва: ${g} г · ${k} ккал · Б ${p} · Ж ${f} · В ${c}`,
