@@ -16,6 +16,7 @@ import { t } from '../i18n/uk';
 import { ApiError, conclusion as readConclusion } from '../sync/api';
 import { currentKeys } from '../sync/runner';
 import { cut, shrink } from '../sync/shrink';
+import { PhotoPrep } from './PhotoPrep';
 import { saved } from './Toast';
 
 const L = t.conclusion;
@@ -30,7 +31,8 @@ const localConsent = () => { try { return localStorage.getItem(CONSENT) === '1';
 export function PlanScan({ plan, onDone }: { plan: PlanRow; onDone?: () => void }) {
   const meta = useLiveQuery(async () => (await db.meta.get('sync')) ?? null, []);
   const input = useRef<HTMLInputElement>(null);
-  const [state, setState] = useState<'none' | 'demo' | 'consent' | 'busy' | 'form'>('none');
+  const [state, setState] = useState<'none' | 'demo' | 'consent' | 'prep' | 'busy' | 'form'>('none');
+  const [raw, setRaw] = useState<string[]>([]); // D112: the pages as taken, before they are cut and painted over
   const [error, setError] = useState('');
   const [lines, setLines] = useState<DraftLine[]>([]);
   const [cuts, setCuts] = useState<Record<string, string>>({});
@@ -56,9 +58,12 @@ export function PlanScan({ plan, onDone }: { plan: PlanRow; onDone?: () => void 
     if (input.current) input.current.value = '';
     if (!files.length) return;
     if (files.length > 4) { setError(L.tooManyPages); return; }
-    setState('busy');
+    try { setRaw(await Promise.all(files.map((f) => shrink(f, 2000, 0.85)))); setState('prep'); } // small print — more detail
+    catch { setError(t.meal.photoErrors.other); setState('none'); }
+  };
+  const send = async (pages: string[]) => { // D112: only what the person cut and painted over leaves the phone
+    setRaw([]); setState('busy');
     try {
-      const pages = await Promise.all(files.map((f) => shrink(f, 2000, 0.85))); // small print — more detail
       const r = await readConclusion(currentKeys() ?? null, pages);
       if (!r.readable) { setError(r.note ?? L.unreadable); setState('none'); return; }
       const ls = draftLines(r, newId, { pages: pages.length, ...(indexRef.current ? { index: indexRef.current } : {}) });
@@ -86,7 +91,8 @@ export function PlanScan({ plan, onDone }: { plan: PlanRow; onDone?: () => void 
 
   return (
     <div className="space-y-2 rounded-2xl border border-line bg-surface p-3">
-      {state !== 'form' && (
+      {state === 'prep' && <PhotoPrep pages={raw} onDone={(p) => void send(p)} onCancel={() => { setRaw([]); setState('none'); }} />}
+      {state !== 'form' && state !== 'prep' && (
         <>
           <button type="button" onClick={pick} disabled={state === 'busy'} className="flex min-h-tap items-center gap-2 font-medium text-accent disabled:opacity-40">
             <FileScan size={20} aria-hidden />{state === 'busy' ? L.busy : L.button}</button>

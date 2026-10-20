@@ -37,3 +37,25 @@ export async function cut(page: string, box: [number, number, number, number], m
   bmp.close();
   return canvas.toDataURL('image/jpeg', 0.8);
 }
+
+/** D112: a box on a page in fractions of it (x, y from the top left; w, h). */
+export interface Box { x: number; y: number; w: number; h: number }
+
+/** D112: the page as it leaves the phone — cut to `[top, bottom]` (fractions of its height) and every box painted over
+ *  in solid black; the original never leaves. Boxes are in the uncut page's fractions. */
+export async function redact(page: string, crop: { top: number; bottom: number }, boxes: Box[], quality = 0.85): Promise<string> {
+  const bytes = Uint8Array.from(atob(page), (ch) => ch.charCodeAt(0));
+  const bmp = await createImageBitmap(new Blob([bytes], { type: 'image/jpeg' }));
+  const top = Math.round(Math.max(0, Math.min(0.9, crop.top)) * bmp.height);
+  const bottom = Math.round(Math.max(0, Math.min(0.9, crop.bottom)) * bmp.height);
+  const h = Math.max(1, bmp.height - top - bottom);
+  const canvas = document.createElement('canvas');
+  canvas.width = bmp.width; canvas.height = h;
+  const ctx = canvas.getContext('2d')!;
+  ctx.drawImage(bmp, 0, top, bmp.width, h, 0, 0, bmp.width, h);
+  ctx.fillStyle = '#000';
+  for (const b of boxes) ctx.fillRect(b.x * bmp.width, b.y * bmp.height - top, b.w * bmp.width, b.h * bmp.height);
+  bmp.close();
+  const blob = await new Promise<Blob>((ok, fail) => canvas.toBlob((x) => (x ? ok(x) : fail(new Error('jpeg'))), 'image/jpeg', quality));
+  return b64(new Uint8Array(await blob.arrayBuffer()));
+}

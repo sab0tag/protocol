@@ -42,6 +42,7 @@ test('a doctor’s conclusion, two pages, no account (model stubbed) → «Ос�
   await page.getByRole('button', { name: 'Фото висновку лікаря' }).click();
   const [chooser] = await Promise.all([page.waitForEvent('filechooser'), page.getByRole('button', { name: 'Дозволити й вибрати фото' }).click()]);
   await chooser.setFiles([{ name: 'p1.png', mimeType: 'image/png', buffer: PNG }, { name: 'p2.png', mimeType: 'image/png', buffer: PNG }]);
+  await page.getByRole('region', { name: 'Приховайте особисте перед надсиланням' }).getByRole('button', { name: 'Надіслати 2 сторінки' }).click(); // D112
   const form = page.getByRole('region', { name: /^Ось що я прочитав/ });
   await expect(form).toContainText('Джерело: Ендокринолог, 12.10.2026');
   expect(auth).toMatch(/^Device [A-Za-z0-9_-]{43}$/); // no sync, no account
@@ -66,4 +67,40 @@ test('a doctor’s conclusion, two pages, no account (model stubbed) → «Ос�
   await expect(page.getByText(/вода 2000 мл/)).toBeVisible();
   await expect(page.getByText(/їжа до 19:00/)).toHaveCount(0); // not ticked — not in the plan
   await expect(page.getByText('Каптоприл')).toHaveCount(0);
+});
+
+test('before the paper leaves the phone: the header comes painted over, a finger paints more, the top is cut — only that is sent (D112)', async ({ browser }) => {
+  const page = await device(browser, 'skip');
+  // a white page 400 × 600, as a photo
+  const jpeg = Buffer.from(await page.evaluate(() => { const c = document.createElement('canvas'); c.width = 400; c.height = 600;
+    const x = c.getContext('2d')!; x.fillStyle = '#fff'; x.fillRect(0, 0, 400, 600); return c.toDataURL('image/jpeg', 0.95).split(',')[1]!; }), 'base64');
+  let sent = '';
+  await page.route('**/conclusion', async (r) => { sent = (r.request().postDataJSON() as { images: string[] }).images[0]!;
+    await r.fulfill({ json: { readable: false, date: null, doctor: null, diet: null, constraints: [], prescriptions: [], tests: [], nextVisit: null, targets: [], unread: [], note: 'Порожньо' } }); });
+  await page.goto('./#/plan');
+  await page.getByRole('button', { name: 'Фото висновку лікаря' }).click();
+  const [chooser] = await Promise.all([page.waitForEvent('filechooser'), page.getByRole('button', { name: 'Дозволити й вибрати фото' }).click()]);
+  await chooser.setFiles({ name: 'p.jpg', mimeType: 'image/jpeg', buffer: jpeg });
+  const prep = page.getByRole('region', { name: 'Приховайте особисте перед надсиланням' });
+  await expect(prep.getByText('Тут зазвичай ПІБ і дата народження')).toBeVisible(); // suggested, already painted
+  const area = prep.locator('[data-page="1"]');
+  const b = (await area.boundingBox())!;
+  await page.mouse.move(b.x + b.width * 0.5, b.y + b.height * 0.6); await page.mouse.down(); // a box over 50–80 % × 60–70 %
+  await page.mouse.move(b.x + b.width * 0.8, b.y + b.height * 0.7, { steps: 4 }); await page.mouse.up();
+  await expect(prep.locator('[data-box]')).toHaveCount(2);
+  await prep.getByLabel('Обрізати згори').fill('0.1');
+  await prep.getByRole('button', { name: 'Надіслати', exact: true }).click();
+  await expect(page.getByRole('alert')).toContainText('Порожньо');
+  const px = await page.evaluate(async (data) => { // what left the phone: its size and the colour at a few points
+    const bmp = await createImageBitmap(new Blob([Uint8Array.from(atob(data), (c) => c.charCodeAt(0))], { type: 'image/jpeg' }));
+    const c = document.createElement('canvas'); c.width = bmp.width; c.height = bmp.height; const x = c.getContext('2d')!; x.drawImage(bmp, 0, 0);
+    const at = (fx: number, fy: number) => x.getImageData(Math.round(fx * bmp.width), Math.round(fy * bmp.height), 1, 1).data[0]!;
+    // original 600 high, 60 cut off the top → 540; the header (0–120) is now 0–60, the box (360–420) is now 300–360
+    return { w: bmp.width, h: bmp.height, header: at(0.5, 30 / 540), box: at(0.65, 330 / 540), clear: at(0.2, 300 / 540), bottom: at(0.5, 500 / 540) };
+  }, sent);
+  expect([px.w, px.h]).toEqual([400, 540]);
+  expect(px.header).toBeLessThan(30); // black
+  expect(px.box).toBeLessThan(30);
+  expect(px.clear).toBeGreaterThan(220); // white, untouched
+  expect(px.bottom).toBeGreaterThan(220);
 });
