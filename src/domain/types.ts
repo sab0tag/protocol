@@ -45,6 +45,8 @@ export interface Prescription {
   until?: ISODate;
   /** D100: taken when needed, not at set times — the only way a medicine is kept without a time */
   asNeeded?: true;
+  /** D118: «не більше 4 на добу» — the doctor's daily limit for a medicine taken when needed */
+  maxPerDay?: number;
   /** D89: picked from the medicines register — its trade name, INN and ATC (never a dose); absent = typed, «не з реєстру» */
   med?: { name: string; inn?: string; atc?: string };
 }

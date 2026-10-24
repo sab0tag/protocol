@@ -33,6 +33,7 @@ import { ExampleNotice } from '../components/ExampleNotice';
 import { hasExample } from '../data/seed.example';
 import { DaySummary } from '../components/DaySummary';
 import { TopupCard } from '../components/TopupCard';
+import { PrnCard } from '../components/PrnCard';
 import { VoiceSheet } from '../components/VoiceSheet';
 import { nearLimit, topups, type DayState } from '../domain/topup';
 import { dayRhythm } from '../domain/rhythm';
@@ -228,6 +229,7 @@ export function Day() {
         </div>
       )}
 
+      {isToday && plan && entries && <PrnCard plan={plan} date={date} entries={entries} /> /* D118 */}
       {rhythm && <DayRhythm rhythm={rhythm} foods={foods} onEntry={(e) => (e.kind === 'meal' && e.status === 'planned' && e.items?.length ? setConfirming(e) : setRowFor(e))} onDose={setAskMed} onAdd={() => setAdding(true)}
         onAnytime={(i) => (i.kind === 'workout' ? navigate('/workout') : setAskMed(i))} />}
 

@@ -6,6 +6,7 @@
 // Nothing of the person's is removed: a line for a limit or a medicine already in the plan updates it.
 import { addDays, addMonths, format, parseISO } from 'date-fns';
 import { findDiets } from './diets';
+import { prnLimit } from './prn';
 import { fold, searchMeds, type MedIndex } from './meds';
 import { ALLERGENS, type Allergen, type Constraint, type ConstraintTag, type Plan, type Prescription, type Targets } from './types';
 
@@ -139,6 +140,7 @@ export function draftLines(r: ConclusionResult, newId: () => string, opts: Draft
       prescription: { id: newId(), kind, title, source, since: today, ...(dose ? { dose } : {}),
         ...(times.length || p.withFood != null ? { schedule: { times, ...(p.withFood != null ? { withFood: p.withFood } : {}) } } : {}),
         ...(p.asNeeded ? { asNeeded: true as const } : {}), ...(until ? { until } : {}),
+        ...(p.asNeeded && prnLimit({ notes: p.frequency ?? '' }) ? { maxPerDay: prnLimit({ notes: p.frequency ?? '' })! } : {}), // D118
         ...(p.frequency?.trim() ? { notes: p.frequency.trim() } : {}), ...(reg ? { med: reg } : {}) } });
   }
 

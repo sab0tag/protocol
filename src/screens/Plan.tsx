@@ -14,6 +14,7 @@ import { MedboxScan } from '../components/MedboxScan';
 import { DietNorms, DietPicker } from '../components/DietPicker';
 import { dietConflicts, dietOf, fillEmptyTargets } from '../domain/diets';
 import { duplicateInn, searchMeds } from '../domain/meds';
+import { prnLimit } from '../domain/prn';
 import { Sheet } from '../components/Sheet';
 import { db, type PlanRow } from '../data/db';
 import { useAllEntries, usePlan } from '../data/queries';
@@ -59,7 +60,7 @@ export function Plan() {
       <Block title={P.prescriptions} onAdd={() => setEditing({ what: 'prescription' })}>
         {plan.prescriptions.filter((p) => p.kind !== 'test').map((p) => ( /* D104: tests live with the next checkup */
           <Item key={p.id} onEdit={() => setEditing({ what: 'prescription', item: p })} piece={pieces?.get(p.id)}
-            title={p.title} meta={[P.kinds[p.kind], (p.kind === 'medication' || p.kind === 'supplement') ? (p.med ? p.med.inn : P.offRegistry) : undefined, p.dose, p.asNeeded ? t.conclusion.asNeeded : p.schedule?.times.join(', '),
+            title={p.title} meta={[P.kinds[p.kind], (p.kind === 'medication' || p.kind === 'supplement') ? (p.med ? p.med.inn : P.offRegistry) : undefined, p.dose, p.asNeeded ? (prnLimit(p) ? `${t.conclusion.asNeeded}, ≤ ${prnLimit(p)} на добу` : t.conclusion.asNeeded) : p.schedule?.times.join(', '),
               p.schedule?.withFood === true ? P.withFood.toLowerCase() : p.schedule?.withFood === false ? t.conclusion.empty : undefined,
               p.until ? (p.until < todayISO() ? P.courseOver(dmy(p.until)) : P.courseUntil(dmy(p.until))) : undefined, // D103: the course end in the list
               p.dueDate ? `${P.dueDate.toLowerCase()} ${dmy(p.dueDate)}` : undefined,
@@ -279,6 +280,10 @@ function PrescriptionForm({ plan, item, onClose }: { plan: PlanRow; item?: Presc
         <label className="-mt-1 flex min-h-tap items-center gap-3">
           <input type="checkbox" checked={!!p.asNeeded} onChange={(e) => { const { asNeeded: _a, ...rest } = p; setP(e.target.checked ? { ...p, asNeeded: true } : rest); }}
             className="h-5 w-5 accent-[rgb(var(--accent))]" /><span>{P.asNeeded}</span></label>
+      )}
+      {drug && p.asNeeded && ( /* D118 */
+        <Field label={P.maxPerDay}><input inputMode="numeric" value={p.maxPerDay ?? ''} className={field}
+          onChange={(e) => { const n = Number(e.target.value); const { maxPerDay: _m, ...rest } = p; setP(n >= 1 && n <= 24 ? { ...p, maxPerDay: Math.round(n) } : rest); }} /></Field>
       )}
       {drug && (
         <Field label={P.until}><input type="date" value={p.until ?? ''} min={p.since} onChange={(e) => { const { until: _u, ...rest } = p; setP(e.target.value ? { ...p, until: e.target.value } : rest); }} className={field} /></Field>

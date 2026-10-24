@@ -7,6 +7,7 @@ import { activeMode } from './nutrition';
 import { dietConflicts } from './diets';
 import { medFoodNotes } from './medFood';
 import { t } from '../i18n/uk';
+import { prnReport, type PrnLine } from './prn';
 import { checkMeal } from './rules';
 import { coincidences, coincidenceText } from './symptoms';
 import { pace, weeklyWeights, wellbeingCoincidences } from './progress';
@@ -44,6 +45,8 @@ export interface Report {
   dietQuestions: string[];
   /** D89 step 4: meals that met a medicine of the plan, by the checked table */
   medFood: number;
+  /** D118: medicines «за потреби» — how often, and the days over the doctor's daily limit */
+  prn: PrnLine[];
 }
 
 export function buildReport(args: {
@@ -126,6 +129,7 @@ export function buildReport(args: {
     ...(eatenMeals ? { deviations: { meals: devMeals, of: eatenMeals, by: [...devBy.entries()].map(([title, count]) => ({ title, count })).sort((a, b) => b.count - a.count) } } : {}),
     medFood: plan ? entries.filter((e) => e.kind === 'meal' && e.status === 'done' && e.items?.length && inside(dateOf(e.at))).filter((m) => medFoodNotes(plan.prescriptions, m.items!, foods, {
       mealAt: m.at, doses: new Map(plan.prescriptions.map((p) => [p.id, entries.filter((e) => e.kind === 'med' && e.status === 'done' && e.prescriptionId === p.id && !e.timeUnknown && dateOf(e.at) === dateOf(m.at)).map((e) => e.at)])) }).length > 0).length : 0,
+    prn: prnReport(plan, entries, from, to),
     dietQuestions: plan ? dietConflicts(plan).map((x) => t.diet.conflict(x.code, t.diet.fields[x.field], x.target, x.range[0], x.range[1])) : [],
     labs: labs.filter((l) => inside(l.date)).sort((a, b) => b.date.localeCompare(a.date) || a.name.localeCompare(b.name)),
   };
@@ -142,6 +146,7 @@ export function reportText(r: Report, dm: (d: ISODate) => string): string {
     `Звіт за ${dm(r.from)} — ${dm(r.to)} (${r.days} дн.)`,
     r.meds ? `${t.report.meds(r.meds.taken, r.meds.due)}${r.meds.missed.length ? ` — ${r.meds.missed.map((m) => t.report.missed(m.title, m.count)).join('; ')}` : ''}` : '',
     r.meds && r.meds.list.length > 1 ? r.meds.list.map((m) => `• ${t.report.medLine(m)}`).join('\n') : '',
+    ...r.prn.map((x) => `${t.prn.report(x.title, x.total, x.days)}${x.over.length ? ` — ${t.prn.over(x.max!, x.over.map((d) => d.slice(8, 10) + '.' + d.slice(5, 7)).join(', '))}` : ''}`), // D118
     r.deviations ? (r.deviations.meals ? `${t.report.deviations(r.deviations.meals, r.deviations.of)}: ${r.deviations.by.map((b) => `${b.title} — ${b.count}`).join('; ')}`
       : t.report.noDeviations(r.deviations.of)) : '',
     r.medFood ? t.medFood.report(r.medFood) : '',

@@ -57,9 +57,12 @@ export function Report() {
       </div>
       <p className="hidden print:block">{dmy(r.from)} — {dmy(r.to)} · {L.days(r.days)}</p>
 
-      {(r.meds || r.deviations || r.labs.length > 0 || r.dietQuestions.length > 0) && (
+      {(r.meds || r.prn.length > 0 || r.deviations || r.labs.length > 0 || r.dietQuestions.length > 0) && (
         <section aria-label={L.main} className="space-y-2 rounded-2xl border border-accent/40 bg-surface p-3">
           <h2 className="font-semibold">{L.main}</h2>
+          {r.prn.map((x) => ( /* D118 */
+            <p key={x.title}>{t.prn.report(x.title, x.total, x.days)}{x.over.length > 0 && <span className="block text-sm text-warn">{t.prn.over(x.max!, x.over.map((d) => d.slice(8, 10) + '.' + d.slice(5, 7)).join(', '))}</span>}</p>
+          ))}
           {r.meds && <p>{L.meds(r.meds.taken, r.meds.due)}
             {r.meds.list.length > 1 ? <span className="mt-1 block space-y-0.5 text-sm text-muted">{r.meds.list.map((m) => <span key={m.title} className="block">{L.medLine(m)}</span>)}</span>
               : r.meds.missed.length > 0 && <span className="block text-sm text-muted">{r.meds.missed.map((m) => L.missed(m.title, m.count)).join(' · ')}</span>}</p>}
