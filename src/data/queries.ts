@@ -47,7 +47,12 @@ export function useAllEntries() {
   return useLiveQuery(() => db.entries.orderBy('at').toArray(), []);
 }
 
+/** Dishes to eat — a draft «Потрібен склад» (D123) has no lines and is not in the meal search, the menu or the assistant. */
 export function useRecipes() {
+  return useLiveQuery(() => db.recipes.orderBy('name').filter((r) => !r.needsMake).toArray(), []);
+}
+/** «Мої страви»: every dish, drafts too. */
+export function useAllRecipes() {
   return useLiveQuery(() => db.recipes.orderBy('name').toArray(), []);
 }
 

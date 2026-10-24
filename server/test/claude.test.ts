@@ -14,7 +14,7 @@ const opts = { model: 'claude-opus-5-5', effort: 'low' as const, maxTokens: 1000
 describe('one structured call (review #9)', () => {
   it('asks with the fallback and the schema; returns the parsed answer and the tokens', async () => {
     const f = fake({ model: 'claude-opus-5-5', usage, stop_reason: 'end_turn', parsed_output: { a: 1 } });
-    expect(await structured(f.client, opts)).toEqual({ result: { a: 1 }, usage: { model: 'claude-opus-5-5', input: 150, output: 20 } });
+    expect(await structured(f.client, opts)).toEqual({ result: { a: 1 }, usage: { model: 'claude-opus-5-5', input: 100, output: 20, cacheRead: 50 } }); // D123: a cache read apart from input
     expect(f.sent()).toMatchObject({ model: 'claude-opus-5-5', max_tokens: 1000, fallbacks: 'default', betas: ['server-side-fallback-2026-07-01'],
       system: 'S', output_config: { effort: 'low' }, messages: [{ role: 'user', content: 'hi' }] });
   });

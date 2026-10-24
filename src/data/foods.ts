@@ -150,6 +150,8 @@ const BASE: Food[] = [
   // bread and bakery, sweets
   f('crispbread', 'Хлібці цільнозернові', 360, 11, 3, 70, 30, ['bread', 'slow-carb'], [PIECE(10)], ['хлібці']),
   f('lavash', 'Лаваш', 277, 9, 1, 57, 20, ['bread'], [PIECE(80)]),
+  // D123: for one's own dishes (сирники, млинці, оладки) — flour by the spoon; a heaped tablespoon ≈ 20 g
+  f('flour-wheat', 'Борошно пшеничне', 334, 10.3, 1.1, 70, 18, ['grain'], [['ст. л.', 20], ['склянка', 130]], ['борошно', 'мука']),
   f('croissant', 'Круасан', 406, 8, 21, 46, 37, ['sweet'], [PIECE(60)]),
   f('cookies', 'Печиво', 430, 7, 15, 68, 30, ['sweet'], [PIECE(10)]),
   f('wafers', 'Вафлі', 520, 4.5, 28, 63, 20, ['sweet'], [PIECE(15)]),

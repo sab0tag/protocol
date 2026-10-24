@@ -36,11 +36,11 @@ const SYSTEM = `Ти допомагаєш людині вести щоденни
 Не давай порад і не оцінюй, чи можна це їсти: це робить застосунок за планом лікаря.
 Якщо на фото не їжа — поверни порожній список і поясни в note.`;
 
+const sorted = (xs: string[]) => [...new Set(xs)].sort((a, b) => a.localeCompare(b, 'uk'));
+
 export function claudeRecognizer(opts: { model: string; effort: Effort; client?: Anthropic }): Recognizer {
   const client = opts.client ?? new Anthropic({ timeout: 90_000, maxRetries: 1 });
   return ({ image, foods, dishes }) => structured(client, { model: opts.model, effort: opts.effort, maxTokens: 4000, system: SYSTEM, schema: PhotoResult,
-    content: [
-      { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: image } },
-      { type: 'text', text: `Продукти людини: ${foods.join('; ') || '—'}\nСтрави людини: ${dishes.join('; ') || '—'}` },
-    ] });
+    reference: `Продукти людини: ${sorted(foods).join('; ') || '—'}\nСтрави людини: ${sorted(dishes).join('; ') || '—'}`, // D123: cached
+    content: [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: image } }] });
 }

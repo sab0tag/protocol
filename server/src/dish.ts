@@ -33,7 +33,9 @@ export type DishResult = z.infer<typeof DishResult>;
 export type DishReader = (input: { text: string; foods: string[] }) => Promise<{ result: DishResult | 'refused'; usage?: Usage }>;
 
 export const PROMPT_DISH = 'dish-2';
-const SYSTEM = `Людина описала страву, яку приготувала, — назву й склад. Розклади її на інгредієнти, як технологічна картка: кожен названий інгредієнт окремим рядком з вагою в готовій страві.
+/** D123: the base's names the same way every time — sorted, once each — so the cached block is byte for byte the same */
+export const baseList = (foods: string[]) => `Список бази (точні назви):\n${[...new Set(foods.map((f) => f.trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'uk')).join('\n')}`;
+export const SYSTEM = `Людина описала страву, яку приготувала, — назву й склад. Розклади її на інгредієнти, як технологічна картка: кожен названий інгредієнт окремим рядком з вагою в готовій страві.
 Лише названі інгредієнти — нічого не додавай від себе. Соус і маринад теж розклади на складові. Сіль, спеції — малими вагами, як звичайно кладуть.
 Кількість, якої людина не назвала, оціни як звичайну для такої страви на вказану кількість порцій і познач amountSaid = false. Вагу давай у готовому вигляді: м’ясо після тушкування важить менше, ніж сире.
 Якщо в наданому списку бази є той самий продукт у тому ж стані — впиши його назву в base точно, як у списку. Сире м’ясо в списку — не те саме, що тушковане в страві: тоді base порожньо.
@@ -42,5 +44,5 @@ const SYSTEM = `Людина описала страву, яку приготу�
 export function claudeDish(opts: { model: string; effort: Effort; client?: Anthropic }): DishReader {
   const client = opts.client ?? new Anthropic({ timeout: 90_000, maxRetries: 1 });
   return ({ text, foods }) => structured(client, { model: opts.model, effort: opts.effort, maxTokens: 4000, system: SYSTEM, schema: DishResult,
-    content: `Страва:\n${text}\n\nСписок бази (точні назви):\n${foods.join('\n')}` });
+    reference: baseList(foods), content: `Страва:\n${text}` });
 }

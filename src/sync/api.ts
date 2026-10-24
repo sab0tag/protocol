@@ -8,7 +8,8 @@ import type { Api, RemoteRecord } from './engine';
 export const API_URL: string = import.meta.env.VITE_API_URL ?? 'https://api.beyondthesignal.to';
 
 export class ApiError extends Error {
-  constructor(public status: number, public code: string) { super(code); }
+  /** `data` — the rest of the error's body (D123: how many dishes are left today) */
+  constructor(public status: number, public code: string, public data: Record<string, unknown> = {}) { super(code); }
 }
 
 export async function call<T>(keys: Keys, method: string, path: string, body?: unknown): Promise<T> {
@@ -22,7 +23,7 @@ export async function call<T>(keys: Keys, method: string, path: string, body?: u
     throw new ApiError(0, 'offline');
   }
   const data = await res.json().catch(() => ({})) as { error?: string };
-  if (!res.ok) throw new ApiError(res.status, data.error ?? 'error');
+  if (!res.ok) throw new ApiError(res.status, data.error ?? 'error', data);
   return data as T;
 }
 
@@ -76,7 +77,7 @@ async function vaultOrDevice<T>(keys: Keys | null, path: string, body: unknown):
     } catch { throw new ApiError(0, 'offline'); }
     const data = await res.json().catch(() => ({})) as { error?: string };
     if (res.status === 401 && !fresh) continue;
-    if (!res.ok) throw new ApiError(res.status, data.error ?? 'error');
+    if (!res.ok) throw new ApiError(res.status, data.error ?? 'error', data);
     return data as T;
   }
   throw new ApiError(401, 'unauthorized');
@@ -88,6 +89,9 @@ export interface ChatBody { text: string; history: { role: 'user' | 'assistant';
 export const assistantChat = (keys: Keys | null, body: ChatBody) => vaultOrDevice<ChatReply>(keys, 'concierge/chat', body);
 // D110: a dish described in words → its ingredients; the base's names go along so the model can name what is in it
 export const dishBreakdown = (keys: Keys | null, text: string, foods: string[]) => vaultOrDevice<DishResult>(keys, 'dish', { text, foods });
+/** D123: up to 15 dishes at once, each with its make-up; the base's names once */
+export const dishesBreakdown = (keys: Keys | null, dishes: { key: string; text: string }[], foods: string[]) =>
+  vaultOrDevice<{ dishes: (DishResult & { key: string })[] }>(keys, 'dishes', { dishes, foods });
 export interface MedboxResult { readable: boolean; name: string | null; inn: string | null; strength: string | null; form: string | null; note: string | null }
 export const medbox = (keys: Keys, image: string) => call<MedboxResult>(keys, 'POST', '/medbox', { image }); // D89
 // D91: the concierge
@@ -115,7 +119,7 @@ export const dropDevice = (keys: Keys, dev: string) => call<{ ok: true }>(keys, 
 export const putReminders = (keys: Keys, dev: string, body: unknown) => call<{ ok: true; count: number }>(keys, 'PUT', `/devices/${dev}/reminders`, body);
 export const testPush = (keys: Keys, dev: string) => call<{ ok: true }>(keys, 'POST', `/devices/${dev}/test`);
 
-export const usage = (keys: Keys) => call<{ month: string; kinds: Record<string, number>; usd: number }>(keys, 'GET', '/usage');
+export const usage = (keys: Keys) => call<{ month: string; kinds: Record<string, number>; usd: number; usdMicro?: number }>(keys, 'GET', '/usage');
 
 // D40: pairing
 export const putPair = (keys: Keys, pid: string, blob: string) => call<{ ok: true }>(keys, 'POST', '/pair', { pid, blob });

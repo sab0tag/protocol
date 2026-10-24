@@ -12,7 +12,8 @@
     "e2e": "playwright test",
     "eval:concierge": "VITE_API_URL=https://api.beyondthesignal.to vitest run --config vitest.eval.config.ts tests/eval/concierge.eval.ts",
     "eval:prescriptions": "VITE_API_URL=https://api.beyondthesignal.to TZ=Europe/Kyiv vitest run --config vitest.eval.config.ts tests/eval/prescriptions.eval.ts",
-    "build:e2e": "VITE_API_URL=http://localhost:8099 vite build --outDir dist-e2e"
+    "build:e2e": "VITE_API_URL=http://localhost:8099 vite build --outDir dist-e2e",
+    "eval:dishes": "VITE_API_URL=https://api.beyondthesignal.to vitest run --config vitest.eval.config.ts tests/eval/dishes.eval.ts"
   },
   "dependencies": {
     "@fontsource/golos-text": "^5.3.0",

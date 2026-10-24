@@ -129,6 +129,8 @@ export interface Recipe {
   aliases?: string[];
   items: MealItem[];
   builtIn?: boolean;
+  /** D123: a draft from a list — only the name was given, «Потрібен склад»; no lines, no numbers, not in the meal search until made */
+  needsMake?: true;
 }
 
 /** D67: «Що заважало» — a line for the week of trying the app on oneself: where a button was looked for, where a record

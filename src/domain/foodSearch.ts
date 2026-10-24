@@ -6,6 +6,7 @@ import type { Food, FoodUnit, MealItem, Recipe } from './types';
 /** Measure words in the query → the unit name stored in foods.ts ("г" = grams). */
 const MEASURES: [RegExp, string][] = [
   [/^(г|гр|грам\p{L}*)$/u, 'г'],
+  [/^(мл|мілілітр\p{L}*)$/u, 'г'], // D123: a liquid by the millilitre ≈ grams; «250 мл кефіру» was read as «Млинці 250»
   [/^(шт|штук\p{L}*|штуки)$/u, 'шт'],
   [/^(стл|ложк\p{L}*|ложок)$/u, 'ст. л.'],
   [/^(чл)$/u, 'ч. л.'],
@@ -55,7 +56,7 @@ export function parseQuery(raw: string): Query {
     }
     if (qty === undefined && /^\d+(\.\d+)?$/.test(w)) { qty = Number(w); continue; }
     if (qty === undefined && w in NUMBER_WORDS) { qty = NUMBER_WORDS[w]; continue; }
-    const m = MEASURES.find(([re]) => re.test(w));
+    const m = MEASURES.find(([re]) => re.test(w.replace(/\.$/, ''))); // «1 шт.»
     if (m && measure === undefined) { measure = m[1]; if (qty === undefined) qty = 1; continue; }
     rest.push(w);
   }
@@ -223,7 +224,8 @@ export const endsWithStop = (s: string): boolean => STOP.test(s.trim());
 export const withoutStop = (s: string): string => s.trim().replace(STOP, '').replace(/[\s,;:—–-]+$/u, '').trim();
 
 const isNumber = (w: string) => /^\d+(?:[.,]\d+)?$/.test(w) || normalize(w) in NUMBER_WORDS;
-const isMeasure = (w: string) => MEASURES.some(([re]) => re.test(normalize(w).replace(/\.$/, '')));
+// «ст.», «ч.», «л.» of «3 ст. л.» written after the food — still the measure, not a new food (D123)
+const isMeasure = (w: string) => { const n = normalize(w).replace(/\.$/, ''); return MEASURES.some(([re]) => re.test(n)) || /^(ст|ч|л)$/u.test(n); };
 /** Words after which a number belongs to what follows them, not to a new food: «з 2 ложками», «по 1 табл.». */
 const GLUE = new Set(['з', 'із', 'зі', 'без', 'по', 'на', 'до', 'в', 'у', 'для', 'і', 'й', 'та', 'або', 'чи', 'ще', 'плюс', 'десь', 'майже', 'приблизно', 'близько']);
 const foodWord = (w: string) => { const n = normalize(w); return !!n && !isNumber(w) && !isMeasure(w) && !w.includes('%') && !GLUE.has(n) && !NOT_FOOD.has(n.replace(/['’ʼ]/g, '')); };

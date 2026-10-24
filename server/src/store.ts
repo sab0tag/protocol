@@ -99,6 +99,11 @@ export class Store {
     return Number(this.db.prepare("DELETE FROM counters WHERE day < ? AND scope NOT LIKE 'stat:%' AND scope NOT LIKE 'qr:%'").run(before).changes);
   }
 
+  /** Today's count of `scope`. */
+  count(scope: string, now: Date): number {
+    return (this.db.prepare('SELECT n FROM counters WHERE day = ? AND scope = ?').get(now.toISOString().slice(0, 10), scope) as { n: number } | undefined)?.n ?? 0;
+  }
+
   /** Count one use of `scope` today; false (and nothing counted) when the limit is reached. */
   take(scope: string, limit: number, now: Date): boolean {
     const day = now.toISOString().slice(0, 10);

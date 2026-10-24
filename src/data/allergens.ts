@@ -7,7 +7,7 @@ const G: Allergen = 'gluten', M: Allergen = 'milk', E: Allergen = 'egg', F: Alle
 
 export const BASE_ALLERGENS: Record<string, Allergen[]> = {
   // gluten cereals and what is made of them
-  oats: [G], 'oatmeal-water': [G], 'oatmeal-milk': [G, M], granola: [G, 'nuts'], 'bread-rye': [G], 'bread-white': [G], 'bread-wholegrain': [G],
+  oats: [G], 'oatmeal-water': [G], 'oatmeal-milk': [G, M], granola: [G, 'nuts'], 'bread-rye': [G], 'bread-white': [G], 'bread-wholegrain': [G], 'flour-wheat': [G], // D123
   'pasta-boiled': [G], 'pasta-dry': [G], 'barley-boiled': [G], 'bulgur-boiled': [G], 'couscous-boiled': [G], crispbread: [G], lavash: [G],
   'pie-cabbage': [G, E], croissant: [G, M, E], cookies: [G, M, E], wafers: [G, M, E], pancakes: [G, M, E], cheburek: [G],
   'vareniki-potato': [G, E], 'vareniki-cheese': [G, E, M], 'vareniki-cherry': [G, E], pelmeni: [G, E], 'mac-cheese': [G, M],

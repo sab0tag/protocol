@@ -44,17 +44,18 @@ const SYSTEM = `Ти складаєш меню на один день для л�
 export function claudeMenu(opts: { model: string; effort: Effort; client?: Anthropic }): MenuMaker {
   const client = opts.client ?? new Anthropic({ timeout: 180_000, maxRetries: 1 });
   return async (input) => {
-    const names = [...new Set([...input.foods, ...input.dishes])] as [string, ...string[]];
+    const names = [...new Set([...input.foods, ...input.dishes])].sort((a, b) => a.localeCompare(b, 'uk')) as [string, ...string[]]; // D123: the same schema every time
     const lines = [
       `Дата: ${input.date}`,
       `Цілі на день: ${Object.entries(input.targets).map(([k, v]) => `${k}=${v}`).join(', ') || 'не задано'}`,
       `Обмеження лікаря:\n${input.rules.map((r) => `- ${r}`).join('\n') || '- немає'}`,
-      `Страви людини: ${input.dishes.join('; ') || '—'}`,
-      `Продукти: ${input.foods.join('; ')}`,
       `Людина часто їсть: ${input.usual.join('; ') || '—'}`,
       input.wish ? `Побажання на цей день: ${input.wish}` : '',
       input.avoid.length ? `Попередні дні вже мають: ${input.avoid.join('; ')} — склади інакше, щоб не повторювалось.` : '',
     ].filter(Boolean);
-    return structured(client, { model: opts.model, effort: opts.effort, maxTokens: 8000, system: SYSTEM, schema: menuSchema(names), content: lines.join('\n\n') });
+    const sorted = (xs: string[]) => [...new Set(xs)].sort((a, b) => a.localeCompare(b, 'uk'));
+    // D123: the person's dishes and foods — the long part, the same from day to day — as a cached block after the instructions
+    return structured(client, { model: opts.model, effort: opts.effort, maxTokens: 8000, system: SYSTEM, schema: menuSchema(names),
+      reference: `Страви людини: ${sorted(input.dishes).join('; ') || '—'}\n\nПродукти: ${sorted(input.foods).join('; ')}`, content: lines.join('\n\n') });
   };
 }

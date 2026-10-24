@@ -6,6 +6,7 @@ import { bodyLimit } from 'hono/body-limit';
 import { cors } from 'hono/cors';
 import type { MenuMaker } from './menu.ts';
 import type { DishReader } from './dish.ts';
+import { MAX_BATCH, type BatchDish, type DishesReader } from './dishes.ts';
 import { checked, PROMPT_CHAT, type ChatReader } from './chat.ts';
 import type { WorkoutMaker } from './workout.ts';
 import type { LabsReader } from './labs.ts';
@@ -32,16 +33,18 @@ export interface Limits {
   deviceTokensPerIpPerDay: number; // D101
   devicePhotosPerDay: number; // D101: a device without sync
   dishesPerDay: number; // D110: dish breakdowns, a vault or a device
+  listDishesPerDay: number; // D123: dishes of a list that went to the model, a vault or a device
   pilotJoinsPerIpPerDay: number; // D119
 }
 
-export const DEFAULT_LIMITS: Limits = { vaultsPerIpPerDay: 5, vaultBytes: 50_000_000, photosPerVaultPerDay: 30, photosPerDay: 150, menusPerVaultPerDay: 15, workoutsPerVaultPerDay: 10, conciergePerVaultPerDay: 60, aiPerDay: 800, deviceTokensPerIpPerDay: 5, devicePhotosPerDay: 10, dishesPerDay: 20, pilotJoinsPerIpPerDay: 10 };
+export const DEFAULT_LIMITS: Limits = { vaultsPerIpPerDay: 5, vaultBytes: 50_000_000, photosPerVaultPerDay: 30, photosPerDay: 150, menusPerVaultPerDay: 15, workoutsPerVaultPerDay: 10, conciergePerVaultPerDay: 60, aiPerDay: 800, deviceTokensPerIpPerDay: 5, devicePhotosPerDay: 10, dishesPerDay: 20, listDishesPerDay: 50, pilotJoinsPerIpPerDay: 10 };
 
 export interface Deps {
   store: Store;
   recognize?: Recognizer; // absent = photos are off (no API key)
   menu?: MenuMaker; // the same
   dish?: DishReader; // D110: a dish described in words → its ingredients
+  dishes?: DishesReader; // D123: a list of them, up to 15 at once
   chat?: ChatReader; // D117: the assistant's chat
   workout?: WorkoutMaker; // D63: the same
   labs?: LabsReader; // D68: the same
@@ -64,14 +67,18 @@ const B64 = /^[A-Za-z0-9+/]*={0,2}$/;
 const PAGE = 1000;
 const MAX_IMAGE = 2_000_000; // decoded bytes; the app sends ~1280 px JPEG of 150–400 KB
 
-/** $ per million tokens, input / output (D36: an estimate; the Anthropic console has the real bill). */
+/** $ per million tokens, input / output (D36: an estimate; the Anthropic console has the real bill); a cache read — 0.1× input
+ *  unless the model's own price is given (D123: $0.20 on Opus 5.5), a 5-minute cache write — 1.25× input. */
+const READ: Record<string, number> = { 'claude-opus-5-5': 0.2, 'claude-sonnet-5-5': 0.2 };
 const PRICES: Record<string, [number, number]> = {
   'claude-opus-5-5': [4, 20], 'claude-opus-5': [5, 25], 'claude-opus-4-8': [5, 25], 'claude-opus-4-7': [5, 25],
   'claude-sonnet-5-5': [2, 10], 'claude-sonnet-5': [2, 10], 'claude-sonnet-4-6': [3, 15], 'claude-haiku-4-5': [1, 5],
 };
 export const usdMicro = (u: Usage) => {
   const [i, o] = PRICES[u.model] ?? PRICES[Object.keys(PRICES).find((k) => u.model.startsWith(k)) ?? ''] ?? [5, 25];
-  return u.input * i + u.output * o; // tokens × $/M = micro-dollars
+  const key = Object.keys(READ).find((k) => u.model.startsWith(k));
+  const read = key ? READ[key]! : i * 0.1;
+  return u.input * i + (u.cacheWrite ?? 0) * i * 1.25 + (u.cacheRead ?? 0) * read + u.output * o; // tokens × $/M = micro-dollars
 };
 
 const hash = (s: string) => createHash('sha256').update(s).digest('hex');
@@ -313,6 +320,37 @@ export function createApp(deps: Deps) {
   app.post('/v1/vaults/:id/dish', DISH, async (c) => { const id = authed(c); return typeof id !== 'string' ? id : readDish(c, id); });
   app.post('/v1/device/dish', DISH, async (c) => { const who = device(c); return typeof who !== 'string' ? who : readDish(c, who); });
 
+  // D123: a list of dishes — up to 15 a request, the base's names once; only the dishes that reached the model count, and only
+  // after an answer (a failed pack is not counted); fewer left today than asked → 429 with how many are left
+  const readDishes = async (c: Context, who: string) => {
+    if (!deps.dishes) return c.json({ error: 'ai_off' }, 503);
+    const b = await c.req.json().catch(() => null) as { dishes?: unknown; foods?: unknown } | null;
+    const KEY = /^[A-Za-z0-9_-]{1,24}$/;
+    const dishes: BatchDish[] = Array.isArray(b?.dishes) ? (b.dishes as Record<string, unknown>[]).flatMap((d) =>
+      d && typeof d.key === 'string' && KEY.test(d.key) && typeof d.text === 'string' && d.text.trim().length >= 2
+        ? [{ key: d.key, text: d.text.trim().slice(0, 400) }] : []) : [];
+    if (!dishes.length || dishes.length > MAX_BATCH || dishes.length !== (b?.dishes as unknown[]).length || new Set(dishes.map((d) => d.key)).size !== dishes.length)
+      return c.json({ error: 'bad_request' }, 400);
+    const left = limits.listDishesPerDay - store.count(`dishlist:${who}`, now());
+    if (left < dishes.length) return c.json({ error: 'too_many', left: Math.max(0, left) }, 429);
+    if (!store.take('ai:all', limits.aiPerDay, now())) return c.json({ error: 'too_many', left }, 429);
+    try {
+      const { result, usage } = await deps.dishes({ dishes, foods: list(b?.foods, 600, 80) });
+      spent(who, 'dishes', usage);
+      ai.lastOk = Date.now();
+      if (result === 'refused') return c.json({ error: 'refused' }, 422);
+      store.bump(`dishlist:${who}`, dishes.length, now());
+      return c.json(result);
+    } catch (e) {
+      ai.lastError = Date.now();
+      console.error('dishes failed:', (e as Error).message);
+      return c.json({ error: 'upstream' }, 502);
+    }
+  };
+  const DISHES = bodyLimit({ maxSize: 120_000, onError: (c) => c.json({ error: 'too_large' }, 413) });
+  app.post('/v1/vaults/:id/dishes', DISHES, async (c) => { const id = authed(c); return typeof id !== 'string' ? id : readDishes(c, id); });
+  app.post('/v1/device/dishes', DISHES, async (c) => { const who = device(c); return typeof who !== 'string' ? who : readDishes(c, who); });
+
   // D89: a medicine package → its name and strength — counted with photos
   app.post('/v1/vaults/:id/medbox', bodyLimit({ maxSize: 3_500_000, onError: (c) => c.json({ error: 'too_large' }, 413) }), async (c) => {
     const id = authed(c);
@@ -450,12 +488,12 @@ export function createApp(deps: Deps) {
     const month = now().toISOString().slice(0, 7);
     const rows = store.usage(id, month);
     return c.json({ month, kinds: Object.fromEntries(rows.map((r) => [r.kind, r.calls])),
-      usd: Math.round(rows.reduce((s, r) => s + r.usd_micro, 0) / 10_000) / 100 });
+      usd: Math.round(rows.reduce((s, r) => s + r.usd_micro, 0) / 10_000) / 100, usdMicro: rows.reduce((s, r) => s + r.usd_micro, 0) }); // D123: exact, for eval:dishes
   });
 
   // `ok` is false while the AI fails (D101: a schema the API refused showed as healthy); the HTTP status stays 200 — the
   // container's healthcheck asks whether the server lives, not whether the model answers
-  app.get('/health', (c) => c.json({ ok: !(ai.lastError > ai.lastOk), photo: !!recognize, menu: !!menu, workout: !!deps.workout, labs: !!deps.labs, conclusion: !!deps.conclusion, dish: !!deps.dish, chat: !!deps.chat, medbox: !!deps.medbox, concierge: !!deps.notFound, label: !!deps.label, push: !!deps.push,
+  app.get('/health', (c) => c.json({ ok: !(ai.lastError > ai.lastOk), photo: !!recognize, menu: !!menu, workout: !!deps.workout, labs: !!deps.labs, conclusion: !!deps.conclusion, dish: !!deps.dish, dishes: !!deps.dishes, chat: !!deps.chat, medbox: !!deps.medbox, concierge: !!deps.notFound, label: !!deps.label, push: !!deps.push,
     ai: { lastOk: ai.lastOk || null, lastError: ai.lastError || null, failing: ai.lastError > ai.lastOk },
     backupAgeH: deps.backupAgeH?.() ?? null }));
 

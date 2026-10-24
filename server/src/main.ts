@@ -7,6 +7,7 @@ import { claudeWorkout } from './workout.ts';
 import { claudeLabs } from './labs.ts';
 import { claudeConclusion } from './conclusion.ts';
 import { claudeDish } from './dish.ts';
+import { claudeDishes } from './dishes.ts';
 import { claudeChat } from './chat.ts';
 import { claudeMedbox } from './medbox.ts';
 import { claudeNotFound } from './concierge.ts';
@@ -39,6 +40,8 @@ const app = createApp({
     ? claudeMenu({ model: env.MENU_MODEL ?? 'claude-opus-5-5', effort: (env.MENU_EFFORT ?? 'medium') as 'low' | 'medium' | 'high' }) : undefined,
   chat: env.ANTHROPIC_API_KEY // D117
     ? claudeChat({ model: env.CONCIERGE_MODEL ?? env.PHOTO_MODEL ?? 'claude-opus-5-5', effort: 'low' }) : undefined,
+  dishes: env.ANTHROPIC_API_KEY // D123
+    ? claudeDishes({ model: env.MENU_MODEL ?? 'claude-opus-5-5', effort: 'low' }) : undefined,
   dish: env.ANTHROPIC_API_KEY // D110
     ? claudeDish({ model: env.MENU_MODEL ?? 'claude-opus-5-5', effort: 'low' }) : undefined,
   workout: env.ANTHROPIC_API_KEY // D63
