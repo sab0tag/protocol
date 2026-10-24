@@ -11,6 +11,9 @@ import { atLocal, newId, todayISO } from '../domain/dates';
 import type { Friction } from '../domain/types';
 import { t } from '../i18n/uk';
 import { voiceSeconds } from '../components/VoiceSheet';
+import { toast } from '../components/Toast';
+import { scrubNames } from '../domain/pilot';
+import { consented, sendNote } from '../sync/pilot';
 
 const L = t.friction;
 const KINDS: Friction['kind'][] = ['search', 'fix', 'skip', 'other'];
@@ -20,6 +23,12 @@ export function Frictions() {
   const [kind, setKind] = useState<Friction['kind']>('search');
   const [text, setText] = useState('');
   const [copied, setCopied] = useState(false);
+  const pilot = useLiveQuery(() => db.pilot.get('pilot'), []);
+  const [writing, setWriting] = useState<{ id: string; text: string } | null>(null); // D121: the text that would go, as the person sees and fixes it
+  const send = async () => {
+    if (!writing) return;
+    try { await sendNote(writing.id, writing.text); toast(t.pilot.note.sent); setWriting(null); } catch { toast(t.pilot.note.failed); }
+  };
   const add = async () => {
     const f: Friction = { id: newId(), at: atLocal(todayISO(), format(new Date(), 'HH:mm')), kind, text: text.trim() };
     await saved(db.frictions.put(f), L.saved, () => db.frictions.delete(f.id));
@@ -53,14 +62,28 @@ export function Frictions() {
             <button type="button" onClick={async () => { try { await navigator.clipboard.writeText(asText(list)); setCopied(true); } catch { setCopied(false); } }}
               className="flex min-h-tap items-center gap-1 px-1 text-sm text-accent">{copied ? <Check size={16} aria-hidden /> : <Copy size={16} aria-hidden />}{L.copy}</button>
           </div>
+          {!consented(pilot) && <p className="text-xs text-muted">{t.pilot.note.onlyPilot}</p>}
           <ul className="divide-y divide-line rounded-2xl border border-line bg-surface">
             {list.map((f) => (
-              <li key={f.id} className="flex items-start gap-2 px-3 py-2">
+              <li key={f.id} className="px-3 py-2"><div className="flex items-start gap-2">
                 <span className="min-w-0 flex-1 text-sm">
                   <span className="text-muted">{format(parseISO(f.at), 'EEEEEE d.MM, HH:mm', { locale: uk })} · </span>
                   <span className="font-medium">{L.kinds[f.kind]}</span>{f.text && <span> — {f.text}</span>}</span>
                 <button type="button" aria-label={`${L.delete}: ${L.kinds[f.kind]}`} onClick={() => void saved(db.frictions.delete(f.id), t.toast.deleted(L.kinds[f.kind]), () => db.frictions.put(f))}
-                  className="flex min-h-tap min-w-tap items-center justify-center text-muted"><Trash2 size={16} aria-hidden /></button>
+                  className="flex min-h-tap min-w-tap items-center justify-center text-muted"><Trash2 size={16} aria-hidden /></button></div>
+                {consented(pilot) && (pilot?.notes?.includes(f.id) ? <p className="text-xs text-muted">{t.pilot.note.sent}</p>
+                  : writing?.id === f.id ? (
+                    <div className="mt-1 space-y-2">
+                      <label className="block"><span className="text-xs text-muted">{t.pilot.note.edit}</span>
+                        <textarea value={writing.text} onChange={(e) => setWriting({ id: f.id, text: e.target.value })} maxLength={1000} rows={3}
+                          className="mt-1 block w-full rounded-xl border border-line bg-bg p-2 text-sm" /></label>
+                      <div className="flex gap-2">
+                        <button type="button" onClick={() => void send()} disabled={!writing.text.trim()} className="min-h-tap flex-1 rounded-xl bg-accent px-3 font-medium text-surface disabled:opacity-40">{t.pilot.note.go}</button>
+                        <button type="button" onClick={() => setWriting(null)} className="min-h-tap rounded-xl border border-line px-3">{t.pilot.note.cancel}</button>
+                      </div>
+                    </div>
+                  ) : <button type="button" onClick={() => setWriting({ id: f.id, text: scrubNames(`${L.kinds[f.kind]}${f.text ? ` — ${f.text}` : ''}`) })}
+                      className="min-h-tap text-sm text-accent underline">{t.pilot.note.send}</button>)}
               </li>
             ))}
           </ul>

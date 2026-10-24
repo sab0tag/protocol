@@ -7,7 +7,7 @@ import { db, inDemo, normalizePlan, type PilotMeta } from '../data/db';
 import { tallies } from '../data/tally';
 import { appVersion } from '../domain/concierge';
 import { dateOf, todayISO } from '../domain/dates';
-import { CONSENT_VERSION, weekDays, weekOf, weeksDue, weekShift, weekSummary, type Platform, type Summary } from '../domain/pilot';
+import { CONSENT_VERSION, scrubNames, weekDays, weekOf, weeksDue, weekShift, weekSummary, type Platform, type Summary, type SurveyAnswer, type SurveyKind } from '../domain/pilot';
 import { ApiError, pilotJoin, pilotLeave, pilotSend, pilotSource } from './api';
 
 export const SRC = /^[A-Z0-9-]{4,12}$/;
@@ -54,6 +54,13 @@ export function pilotTick(now = new Date()): Promise<void> {
         await pilotSend(auth, s);
         m = { ...m, sent: { ...m.sent, [week]: s } };
         await patch({ sent: m.sent });
+      }
+      for (const kind of ['d7', 'd30'] as const) { // D121: an answer given offline goes now
+        const sv = m.surveys?.[kind];
+        if (!sv?.answer || sv.sent) continue;
+        await pilotSend(auth, { v: 1, pid: auth.pid, week: sv.week ?? weekOf(now), survey: kind, q: sv.answer });
+        m = { ...m, surveys: { ...m.surveys, [kind]: { ...sv, sent: true } } };
+        await patch({ surveys: m.surveys });
       }
     } catch (e) {
       if (e instanceof ApiError && e.status === 404) await patch({ pid: undefined, secret: undefined }); // the server forgot it — a new one next time
@@ -111,4 +118,25 @@ export function offerDue(m: PilotMeta, firstDay: string | undefined, today: stri
 export async function firstDayOfUse(): Promise<string | undefined> {
   const [first, plan] = await Promise.all([db.entries.orderBy('at').first(), db.plan.get('main')]);
   return [first ? dateOf(first.at) : undefined, plan?.onboardedAt].filter((x): x is string => !!x).sort()[0];
+}
+
+/** D121: a survey answered — kept, then sent (now, or on the next opening if offline). */
+export async function answerSurvey(kind: SurveyKind, answer: SurveyAnswer): Promise<void> {
+  const m = await pilotMeta();
+  await patch({ surveys: { ...m.surveys, [kind]: { ...m.surveys?.[kind], done: true, answer, week: weekOf(new Date()) } } });
+  await pilotTick();
+}
+/** «Не зараз»: tomorrow again; the second time it is gone. */
+export async function surveyLater(kind: SurveyKind): Promise<void> {
+  const m = await pilotMeta(), s = m.surveys?.[kind] ?? {};
+  await patch({ surveys: { ...m.surveys, [kind]: { ...s, later: [...(s.later ?? []), todayISO()] } } });
+}
+
+/** D121: «Що заважало» → «Надіслати розробникам»: the one place text goes — this line, as the person left it, names replaced. */
+export async function sendNote(id: string, text: string): Promise<void> {
+  const m = await pilotMeta();
+  if (!consented(m) || !m.pid || !m.secret) throw new ApiError(403, 'no_pilot');
+  const nid = id.replace(/[^a-z0-9]/gi, '').toLowerCase().slice(0, 16);
+  await pilotSend({ pid: m.pid, secret: m.secret }, { v: 1, pid: m.pid, week: weekOf(new Date()), nid, note: scrubNames(text.trim()).slice(0, 1000) });
+  await patch({ notes: [...(m.notes ?? []), id] });
 }

@@ -25,7 +25,7 @@ const lastWeek = () => {
   ];
 };
 
-test('without consent, and in the example, nothing goes to /v1/pilot (D119)', async ({ browser }) => {
+test('without consent, and in the example, nothing goes to /v1/pilot (D120)', async ({ browser }) => {
   const page = await device(browser, 'skip');
   const calls = pilotCalls(page);
   await page.reload();
@@ -43,7 +43,7 @@ test('without consent, and in the example, nothing goes to /v1/pilot (D119)', as
   expect(calls).toEqual([]);
 });
 
-test('a QR card’s code → the consent with last week’s own numbers; what goes is what was shown; «Видалити надіслане» leaves nothing (D119)', async ({ browser }) => {
+test('a QR card’s code → the consent with last week’s own numbers; what goes is what was shown; «Видалити надіслане» leaves nothing (D120)', async ({ browser }) => {
   source('ENDO-01');
   const page = await device(browser, 'skip');
   const calls = pilotCalls(page);
@@ -90,7 +90,7 @@ test('a QR card’s code → the consent with last week’s own numbers; what go
   expect(calls.filter((c) => c.method === 'POST').map((c) => new URL(c.url).pathname)).toEqual(['/v1/pilot/join', '/v1/pilot/week']); // no new pid without a new consent
 });
 
-test('an unknown code: said, and onboarding goes on without it (D119)', async ({ browser }) => {
+test('an unknown code: said, and onboarding goes on without it (D120)', async ({ browser }) => {
   const ctx = await browser.newContext();
   const page = await ctx.newPage();
   await page.goto('./?src=NOPE-99#/welcome');
@@ -99,7 +99,7 @@ test('an unknown code: said, and onboarding goes on without it (D119)', async ({
   await expect(page.getByRole('button', { name: 'Ввести вручну' })).toBeVisible();
 });
 
-test('«Допомогти пілоту?» on «День» from the 3rd day; «Ні» puts it away (D119)', async ({ browser }) => {
+test('«Допомогти пілоту?» on «День» from the 3rd day; «Ні» puts it away (D120)', async ({ browser }) => {
   const page = await device(browser, 'skip');
   const calls = pilotCalls(page);
   await expect(page.getByRole('region', { name: 'Допомогти пілоту' })).toHaveCount(0);
@@ -112,4 +112,58 @@ test('«Допомогти пілоту?» on «День» from the 3rd day; «�
   await page.reload(); await page.waitForTimeout(500);
   await expect(offer).toHaveCount(0);
   expect(calls).toEqual([]);
+});
+
+/** A participant who agreed `days` days ago (the day of consent is the 1st). */
+const participant = (days: number, surveys: unknown = {}) => [{ store: 'pilot', value: { key: 'pilot',
+  consent: { at: `${ymd(addDays(new Date(), -(days - 1)))}T09:00:00.000Z`, version: 1 }, surveys } }];
+
+test('the survey of the 7th day: only a participant sees it, a card on «День»; the answer goes; two «Не зараз» put it away (D121)', async ({ browser }) => {
+  const page = await device(browser, 'skip');
+  const calls = pilotCalls(page);
+  await seed(page, participant(6));
+  await expect(page.getByRole('region', { name: 'Два питання про застосунок' })).toHaveCount(0); // the 6th day
+  await seed(page, participant(7));
+  const card = page.getByRole('region', { name: 'Два питання про застосунок' });
+  await expect(card).toBeVisible();
+  const send = card.getByRole('button', { name: 'Надіслати' });
+  await expect(send).toBeDisabled();
+  await card.getByRole('group', { name: /Чи допомагає/ }).getByRole('button', { name: '4' }).click();
+  await card.getByRole('button', { name: 'забуваю відкрити' }).click();
+  await send.click();
+  await expect(card).toHaveCount(0);
+  await expect.poll(() => calls.filter((c) => c.body?.includes('"survey":"d7"')).length).toBe(1);
+  const body = JSON.parse(calls.find((c) => c.body?.includes('"survey"'))!.body!) as { pid: string; q: unknown };
+  expect(body.q).toEqual({ helps: 4, blocker: 'forget' });
+  await page.reload(); await page.waitForTimeout(500);
+  await expect(card).toHaveCount(0);
+  // another participant: «Не зараз» once yesterday — today again; the second one — gone
+  const other = await device(browser, 'skip');
+  await seed(other, participant(8, { d7: { later: [ymd(addDays(new Date(), -1))] } }));
+  const c2 = other.getByRole('region', { name: 'Два питання про застосунок' });
+  await c2.getByRole('button', { name: 'Не зараз' }).click();
+  await expect(c2).toHaveCount(0);
+  await other.reload(); await other.waitForTimeout(500);
+  await expect(c2).toHaveCount(0);
+});
+
+test('«Що заважало» → «Надіслати розробникам»: only for a participant, the text seen and fixed first, names replaced (D121)', async ({ browser }) => {
+  const page = await device(browser, 'skip');
+  const calls = pilotCalls(page);
+  await page.goto('./#/frictions');
+  await page.getByRole('button', { name: 'Шукав кнопку' }).click();
+  await page.getByLabel('Кілька слів (необов’язково)').fill('шукав воду, як казала Оксана');
+  await page.getByRole('button', { name: 'Записати' }).click();
+  await expect(page.getByText('Надсилати можна, якщо берете участь у пілоті («Ще → Пілот»).')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Надіслати розробникам' })).toHaveCount(0);
+  await seed(page, participant(2));
+  await page.goto('./#/frictions');
+  await page.getByRole('button', { name: 'Надіслати розробникам' }).click();
+  const box = page.getByLabel(/Ось що піде/);
+  await expect(box).toHaveValue('Шукав кнопку — шукав воду, як казала [ім’я]');
+  await box.fill('Шукав кнопку води ввечері');
+  await page.getByRole('button', { name: 'Надіслати', exact: true }).click();
+  await expect(page.getByText('Надіслано розробникам').first()).toBeVisible();
+  const note = calls.find((c) => c.body?.includes('"note"'));
+  expect(JSON.parse(note!.body!)).toMatchObject({ note: 'Шукав кнопку води ввечері' });
 });

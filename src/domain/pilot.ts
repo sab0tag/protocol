@@ -109,3 +109,35 @@ export function weeksDue(now: Date, consentAt: string, sent: Iterable<string>): 
   }
   return out;
 }
+
+// ------------------------------------------------------------------------------------------------ surveys (D121)
+export type SurveyKind = 'd7' | 'd30';
+export const BLOCKERS = ['slow_food', 'not_found', 'forget', 'too_many_reminders', 'unclear', 'other'] as const;
+export const REPORT_SHOWN = ['yes', 'no', 'no_visit'] as const;
+export interface SurveyState { done?: true; later?: ISODate[]; answer?: SurveyAnswer; sent?: true; week?: string }
+export interface SurveyAnswer { helps: number; blocker?: (typeof BLOCKERS)[number]; report?: (typeof REPORT_SHOWN)[number]; nps?: number }
+
+/** The survey to show on «День» today: the 7th day of taking part (the day of consent is the 1st), then the 30th; «Не зараз» —
+ *  tomorrow again, and after the second one it is gone. */
+export function surveyDue(consentAt: string | undefined, surveys: Partial<Record<SurveyKind, SurveyState>>, today: ISODate): SurveyKind | null {
+  if (!consentAt) return null;
+  const day = differenceInCalendarDays(parseISO(today), parseISO(consentAt.slice(0, 10))) + 1;
+  for (const [kind, from] of [['d7', 7], ['d30', 30]] as const) {
+    const s = surveys[kind] ?? {};
+    if (day < from || s.done || (s.later?.length ?? 0) >= 2 || s.later?.includes(today)) continue;
+    return kind;
+  }
+  return null;
+}
+
+/** A capitalised word not at the start of a sentence is taken for a name (the same rule as the concierge's log on the server). */
+export function scrubNames(text: string): string {
+  return text.split(/(?<=[.!?])\s+/u).map((sentence) => {
+    let first = true;
+    return sentence.replace(/\p{L}[\p{L}’'-]*/gu, (w) => {
+      const name = !first && /^\p{Lu}\p{Ll}/u.test(w);
+      first = false;
+      return name ? '[ім’я]' : w;
+    });
+  }).join(' ');
+}

@@ -6,7 +6,7 @@ import { emptyPlan, examplePlan } from '../../src/data/seed.example';
 import { buildChecklist } from '../../src/domain/checklist';
 import { applyLines, draftLines, type ConclusionResult } from '../../src/domain/conclusion';
 import { dietOf } from '../../src/domain/diets';
-import { weekDays, weekOf, weeksDue, weekSummary, type PilotData } from '../../src/domain/pilot';
+import { scrubNames, surveyDue, weekDays, weekOf, weeksDue, weekSummary, type PilotData } from '../../src/domain/pilot';
 import { dateOf } from '../../src/domain/dates';
 import type { DayEntry, Plan } from '../../src/domain/types';
 import { offerDue } from '../../src/sync/pilot';
@@ -127,5 +127,22 @@ describe('the pilot’s weekly summary (D119)', () => {
     expect(offerDue({ ...m, asked: [...no1.asked, { at: '2026-12-03', answer: 'no' as const }] }, '2026-11-01', '2027-06-01')).toBe(false);
     expect(offerDue({ ...m, consent: { at: '2026-11-03T10:00:00Z', version: 1 } }, '2026-11-01', '2026-11-10')).toBe(false);
     expect(offerDue(m, undefined, '2026-11-10')).toBe(false);
+  });
+
+  it('surveys: the 7th day of taking part, then the 30th; «Не зараз» — tomorrow, the second one puts it away (D121)', () => {
+    const at = '2026-11-02T10:00:00Z';
+    expect(surveyDue(undefined, {}, '2026-11-20')).toBeNull(); // not a participant
+    expect(surveyDue(at, {}, '2026-11-07')).toBeNull();
+    expect(surveyDue(at, {}, '2026-11-08')).toBe('d7');
+    expect(surveyDue(at, { d7: { later: ['2026-11-08'] } }, '2026-11-08')).toBeNull();
+    expect(surveyDue(at, { d7: { later: ['2026-11-08'] } }, '2026-11-09')).toBe('d7');
+    expect(surveyDue(at, { d7: { later: ['2026-11-08', '2026-11-09'] } }, '2026-11-10')).toBeNull();
+    expect(surveyDue(at, { d7: { done: true } }, '2026-11-30')).toBeNull();
+    expect(surveyDue(at, { d7: { done: true } }, '2026-12-01')).toBe('d30');
+    expect(surveyDue(at, {}, '2026-12-01')).toBe('d7'); // the 7th first, the 30th the day after it is done
+  });
+
+  it('a note goes with names replaced, the first word of a sentence kept', () => {
+    expect(scrubNames('Довго шукав сирники. Дружина Оксана каже — додайте.')).toBe('Довго шукав сирники. Дружина [ім’я] каже — додайте.');
   });
 });

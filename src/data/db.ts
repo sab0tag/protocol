@@ -1,6 +1,7 @@
 // IndexedDB through Dexie (SPEC.md §4). Everything stays on the device.
 import Dexie, { type Table } from 'dexie';
 import type { ReminderSettings } from '../domain/reminders';
+import type { SurveyKind, SurveyState } from '../domain/pilot';
 import type { DayEntry, Favorite, Food, Friction, LabResult, Plan, Recipe, WeightLog, Wellbeing, Workout } from '../domain/types';
 import { FOODS } from './foods';
 import { RECIPES } from './recipes';
@@ -61,7 +62,7 @@ export interface PilotMeta {
   src?: string;
   sent?: Record<string, unknown>;
   asked?: { at: string; answer: 'no' | 'yes' }[];
-  surveys?: Record<string, { done?: true; later?: string[] }>;
+  surveys?: Partial<Record<SurveyKind, SurveyState>>; // D121
   notes?: string[]; // ids of «Що заважало» lines sent
 }
 

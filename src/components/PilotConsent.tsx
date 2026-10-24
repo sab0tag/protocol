@@ -2,9 +2,11 @@
 // them; no box ticked beforehand, two buttons of equal weight. `SummaryView` shows a week as it goes — here and in «Ще → Пілот».
 import { useEffect, useState } from 'react';
 import { inDemo } from '../data/db';
-import type { Summary } from '../domain/pilot';
+import { BLOCKERS, REPORT_SHOWN, surveyDue, type Summary, type SurveyAnswer, type SurveyKind } from '../domain/pilot';
 import { todayISO } from '../domain/dates';
-import { decline, firstDayOfUse, giveConsent, lastWeek, offerDue, pilotMeta, summaryFor } from '../sync/pilot';
+import { answerSurvey, consented, decline, firstDayOfUse, giveConsent, lastWeek, offerDue, pilotMeta, summaryFor, surveyLater } from '../sync/pilot';
+import { Link } from 'react-router-dom';
+import { toast } from './Toast';
 import { t } from '../i18n/uk';
 
 const L = t.pilot;
@@ -81,4 +83,54 @@ export function PilotOffer() {
     return () => { live = false; };
   }, []);
   return due ? <PilotConsent className="mb-3" onDone={() => setDue(false)} /> : null;
+}
+
+/** D121: the pilot's two short surveys on «День» — only for a participant, a card, never a pop-up; no free text («інше» leads to
+ *  «Що заважало»). */
+export function PilotSurvey() {
+  const [kind, setKind] = useState<SurveyKind | null>(null);
+  const [a, setA] = useState<Partial<SurveyAnswer>>({});
+  useEffect(() => {
+    if (inDemo()) return;
+    let live = true;
+    void pilotMeta().then((m) => { if (live && consented(m)) setKind(surveyDue(m.consent?.at, m.surveys ?? {}, todayISO())); });
+    return () => { live = false; };
+  }, []);
+  if (!kind) return null;
+  const S = L.survey;
+  const ready = !!a.helps && (kind === 'd7' ? !!a.blocker : !!a.report && a.nps !== undefined);
+  const pill = (on: boolean) => `min-h-tap min-w-tap rounded-full border px-3 text-sm ${on ? 'border-accent bg-accent/10 font-medium text-accent' : 'border-line'}`;
+  const scale = (from: number, to: number, value: number | undefined, set: (n: number) => void, label: string, ends: readonly string[]) => (
+    <div role="group" aria-label={label}>
+      <div className="flex flex-wrap gap-1">{Array.from({ length: to - from + 1 }, (_, i) => from + i).map((n) => (
+        <button key={n} type="button" aria-pressed={value === n} onClick={() => set(n)} className={pill(value === n)}>{n}</button>))}</div>
+      <p className="flex justify-between text-xs text-muted"><span>{from} — {ends[0]}</span><span>{to} — {ends[1]}</span></p>
+    </div>
+  );
+  return (
+    <section aria-label={kind === 'd7' ? S.title : S.title30} className="mb-3 space-y-3 rounded-2xl border border-accent/40 bg-surface p-3">
+      <h2 className="font-semibold">{kind === 'd7' ? S.title : S.title30}</h2>
+      <div><p className="text-sm">{S.helps}</p>{scale(1, 5, a.helps, (helps) => setA({ ...a, helps }), S.helps, S.helpsScale)}</div>
+      {kind === 'd7' && (
+        <div><p className="text-sm">{S.blocker}</p>
+          <div role="group" aria-label={S.blocker} className="flex flex-wrap gap-1">{BLOCKERS.map((b) => (
+            <button key={b} type="button" aria-pressed={a.blocker === b} onClick={() => setA({ ...a, blocker: b })} className={pill(a.blocker === b)}>{S.blockers[b]}</button>))}</div>
+          {a.blocker === 'other' && <Link to="/frictions" className="mt-1 block min-h-tap text-sm text-accent underline">{S.otherLink}</Link>}
+        </div>
+      )}
+      {kind === 'd30' && (
+        <>
+          <div><p className="text-sm">{S.report}</p>
+            <div role="group" aria-label={S.report} className="flex flex-wrap gap-1">{REPORT_SHOWN.map((r) => (
+              <button key={r} type="button" aria-pressed={a.report === r} onClick={() => setA({ ...a, report: r })} className={pill(a.report === r)}>{S.reports[r]}</button>))}</div></div>
+          <div><p className="text-sm">{S.nps}</p>{scale(0, 10, a.nps, (nps) => setA({ ...a, nps }), S.nps, S.npsScale)}</div>
+        </>
+      )}
+      <div className="flex gap-2">
+        <button type="button" disabled={!ready} onClick={() => { void answerSurvey(kind, a as SurveyAnswer); setKind(null); toast(S.thanks); }}
+          className="min-h-tap flex-1 rounded-xl bg-accent px-3 font-medium text-surface disabled:opacity-40">{S.send}</button>
+        <button type="button" onClick={() => { void surveyLater(kind); setKind(null); }} className="min-h-tap rounded-xl border border-line px-3">{S.later}</button>
+      </div>
+    </section>
+  );
 }
