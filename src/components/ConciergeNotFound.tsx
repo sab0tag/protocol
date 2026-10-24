@@ -9,12 +9,13 @@ import { appVersion, planVersion } from '../domain/concierge';
 import { approxG, amountText, needsGrams, itemFor, parseQuery } from '../domain/foodSearch';
 import { dishItem } from '../domain/recipes';
 import { checkMeal } from '../domain/rules';
-import { dangerInText } from '../domain/symptoms';
+import { crisisInText, dangerInText } from '../domain/symptoms';
 import type { Food, MealItem, Plan, Recipe } from '../domain/types';
 import { t } from '../i18n/uk';
 import { ApiError, conciergeNotFound, conciergeOutcome } from '../sync/api';
 import { currentKeys } from '../sync/runner';
 import { DangerCard } from './DangerCard';
+import { CrisisCard } from './CrisisCard';
 import { NeedsSync } from './NeedsSync';
 
 const L = t.concierge;
@@ -34,6 +35,7 @@ export function ConciergeNotFound({ text, plan, foods, recipes, date, onAdd }: {
   // closed without a tap — «ignored»
   useEffect(() => () => { const k = currentKeys(); if (logId.current && !answered.current && k) void conciergeOutcome(k, logId.current, 'ignored').catch(() => undefined); }, []);
 
+  if (crisisInText(text)) return <CrisisCard className="mt-2" />; // D130
   if (dangerInText(text)) return <DangerCard className="mt-2" />; // boundary 4: hard code before any model
 
   const ask = async (consented = !!meta?.conciergeConsent, logNow = !!meta?.conciergeLog) => { // the consent just given, not the stale one

@@ -19,9 +19,10 @@ import type { DayEntry, Food, MealItem, Plan, Recipe } from '../domain/types';
 import { t } from '../i18n/uk';
 import { ConciergeNotFound } from './ConciergeNotFound';
 import { DangerCard } from './DangerCard';
-import { dangerInText } from '../domain/symptoms';
+import { crisisInText, dangerInText } from '../domain/symptoms';
 import { Sheet } from './Sheet';
 import { saved } from './Toast';
+import { CrisisCard } from './CrisisCard';
 import { countOnce } from '../data/tally';
 
 const L = t.voice;
@@ -99,7 +100,8 @@ export function VoiceSheet({ date, plan, foods, recipes, today, yesterday, meds,
     return () => clearTimeout(timer);
   }, [nf]);
   const partAsk = now.ask?.kind === 'part' ? now.ask : undefined;
-  const danger = dangerInText(heard) || dangerInText(typed) || draft.notFound.some(dangerInText); // D97: one 103 card, nothing else about those words
+  const crisis = crisisInText(heard) || crisisInText(typed) || draft.notFound.some(crisisInText); // D130
+  const danger = crisis || dangerInText(heard) || dangerInText(typed) || draft.notFound.some(dangerInText); // D97: one 103 card, nothing else about those words
   // R03: what is said is eaten — judged against the day's eaten food and the week before (the liver once a week too)
   const checks = plan && draft.items.length ? evaluate({ plan, date, foods, entries: recent ?? today, intent: 'recorded', meal: draft.items.map((x) => x.item) }).checks : [];
 
@@ -121,7 +123,7 @@ export function VoiceSheet({ date, plan, foods, recipes, today, yesterday, meds,
         <p role="status" className="min-h-[3rem] flex-1 text-sm">{busy ? heard || L.listening : empty ? L.hint : L.more}</p>
       </div>
       {error && <p role="alert" className="mt-2 text-sm text-warn">{L.errors[error]}</p>}
-      {danger && <DangerCard />}
+      {danger && (crisis ? <CrisisCard /> : <DangerCard />)}
       <form className="mt-2 flex gap-2" onSubmit={(e) => { e.preventDefault(); commit(); }}>
         <label className="flex-1"><span className="sr-only">{L.typed}</span>
           <input value={typed} onChange={(e) => setTyped(e.target.value)} placeholder={L.typedPh} className="block min-h-tap w-full rounded-xl border border-line bg-bg px-3" /></label>

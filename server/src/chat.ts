@@ -8,13 +8,13 @@ import Anthropic from '@anthropic-ai/sdk';
 import { z } from 'zod';
 import { structured, type Effort, type Usage } from './claude.ts';
 
-export const PROMPT_CHAT = 'concierge-chat-1';
+export const PROMPT_CHAT = 'concierge-chat-2'; // D130: the topic of the last question only
 export const TOPICS = ['food', 'medicine', 'symptoms', 'plan', 'other'] as const;
 
 // flat, no nullables (D102); the base's names are an enum — a name outside it cannot be said
 export function chatSchema(names: [string, ...string[]]) {
   return z.object({
-    topic: z.enum(TOPICS).describe('food — їжа, добір, що можна з’їсти; medicine — ліки, доза, пропуск, сумісність; symptoms — самопочуття, симптоми, аналізи; plan — змінити ціль, обмеження чи дієту; other — інше'),
+    topic: z.enum(TOPICS).describe('Тема САМЕ ОСТАННЬОГО питання людини — не попередніх реплік розмови. food — їжа, добір, що можна з’їсти; medicine — ліки, доза, пропуск, сумісність; symptoms — самопочуття, симптоми, аналізи; plan — змінити ціль, обмеження чи дієту; other — інше'),
     text: z.string().describe('2–4 короткі речення українською, звертання на «ви». БЕЗ ЖОДНИХ ЦИФР і чисел — кількості й КБЖУ покаже застосунок'),
     items: z.array(z.object({
       name: z.enum(names),

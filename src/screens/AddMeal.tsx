@@ -1,6 +1,6 @@
 import { MedFoodPanel } from '../components/MedFoodPanel';
 import { DangerCard } from '../components/DangerCard';
-import { dangerInText } from '../domain/symptoms';
+import { crisisInText, dangerInText } from '../domain/symptoms';
 import { medFoodNotes } from '../domain/medFood';
 import { ConciergeNotFound, type Suggested } from '../components/ConciergeNotFound';
 import { whyFlagged } from '../domain/concierge';
@@ -35,6 +35,7 @@ import { shrink } from '../sync/shrink';
 import { Mic } from 'lucide-react';
 import type { Cooking, DayEntry, Food, MealItem, Nutrients, Plan } from '../domain/types';
 import { t } from '../i18n/uk';
+import { CrisisCard } from '../components/CrisisCard';
 import { useUi } from '../store/ui';
 
 const COOKING: Cooking[] = ['raw', 'boiled', 'baked', 'airfryer', 'steamed', 'stewed', 'fried'];
@@ -88,7 +89,8 @@ export function AddMeal() {
   const read = useMemo(() => (foods && recipes && query.trim() ? readMeal(query, { foods: [...foods.values()], recipes, dishItem, prefer: usual }) : null),
     [foods, recipes, query, usual]);
   const phrase = read && !read.list ? read.rows : null;
-  const danger = dangerInText(query);
+  const crisis = crisisInText(query); // D130
+  const danger = crisis || dangerInText(query);
   const list = read?.list ?? [];
   const [photo, setPhoto] = useState<PhotoState>({ state: 'none' });
   const viaPhoto = useRef<DayEntry['via']>(undefined); // D119: lines from a photo of the plate went into this meal
@@ -176,7 +178,7 @@ export function AddMeal() {
           )}
           {photo.state === 'nosync' && <p className="mt-2 text-sm text-muted">{t.meal.photoNeedsSync}</p>}
           {!query && <p className="mt-1 flex items-start gap-1 text-xs text-muted"><Mic size={14} className="mt-0.5 shrink-0" aria-hidden />{t.meal.dictate}</p>}
-          {danger && <DangerCard className="mt-2" /> /* D97: one card for a danger sign, nothing else about those words */}
+          {danger && (crisis ? <CrisisCard className="mt-2" /> : <DangerCard className="mt-2" />) /* D97: one card for a danger sign, nothing else about those words */}
           {!danger && phrase && <RecognizedPanel key={query} title={t.meal.recognized} rows={phrase}
             onAdd={(picked, missing) => { setItems((xs) => [...xs, ...picked]); setQuery(''); for (const m of missing) void countOnce('nf', m); }}
             notFound={(text) => recipes && <ConciergeNotFound text={text} plan={plan} foods={foods} recipes={recipes} date={date} onAdd={concierge} />} />}

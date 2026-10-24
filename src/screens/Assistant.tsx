@@ -10,20 +10,20 @@ import { Mic, Send, Square } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { DangerCard } from '../components/DangerCard';
+import { CrisisCard } from '../components/CrisisCard';
 import { Loading } from '../components/Recovery';
 import { saved } from '../components/Toast';
 import { db, inDemo } from '../data/db';
 import { keep, kept } from '../data/kept';
 import { useAllEntries, useDayEntries, useFoods, usePlan, useRecipes } from '../data/queries';
 import { listen, speechSupported } from '../data/speech';
-import { asksTopup, brings, dayContext, fixedAnswer, lineOf, passing, withoutDropped } from '../domain/assistant';
+import { brings, dayContext, historyFor, lineOf, passing, routeQuestion, shownReply, withoutDropped } from '../domain/assistant';
 import { appVersion, planVersion } from '../domain/concierge';
 import { atLocal, newId, todayISO } from '../domain/dates';
 import { amountText } from '../domain/foodSearch';
 import { frequentItems } from '../domain/habits';
 import { dayTotals, effectiveTargets } from '../domain/nutrition';
 import { dishItem } from '../domain/recipes';
-import { dangerInText } from '../domain/symptoms';
 import { topups } from '../domain/topup';
 import type { DayEntry, MealItem } from '../domain/types';
 import { t } from '../i18n/uk';
@@ -35,7 +35,7 @@ import { currentKeys } from '../sync/runner';
 const L = t.assistant;
 const CONSENT = 'protocol.assistantConsent';
 const consented = () => { try { return localStorage.getItem(CONSENT) === '1'; } catch { return false; } };
-interface Msg { id: string; role: 'user' | 'assistant'; text: string; items?: MealItem[]; danger?: true; error?: true }
+interface Msg { id: string; role: 'user' | 'assistant'; text: string; items?: MealItem[]; card?: 'danger' | 'crisis'; danger?: true; error?: true }
 
 export function Assistant() {
   const date = todayISO();
@@ -56,6 +56,8 @@ export function Assistant() {
   const usual = useMemo(() => (all ? frequentItems(all, date, 60, 50).map((f) => f.item.foodId ?? '').filter(Boolean) : []), [all, date]);
 
   const say = (m: Omit<Msg, 'id'>) => setMsgs((xs) => [...xs, { ...m, id: newId() }]);
+  /** D130: a 103 or crisis card — the talk is cleared (its words are not kept here and never go with the next question) */
+  const card = (kind: 'danger' | 'crisis') => setMsgs([{ id: newId(), role: 'assistant', text: '', card: kind }]);
   /** Scenario 3 asked in words — the code's numbers and three things that pass the plan; no model. */
   const topupAnswer = () => {
     if (!plan || !foods || !totals || !entries) return;
@@ -79,20 +81,22 @@ export function Assistant() {
     const words = q.trim();
     if (!words || !plan || !foods || !recipes || !totals) return;
     setText('');
+    const route = routeQuestion(words, plan); // D130: by this question alone, not by the talk before it
+    if (route === 'crisis' || route === 'danger') { card(route); return; } // before any model; the talk is cleared
     if (!askConsent) say({ role: 'user', text: words });
-    if (dangerInText(words)) { say({ role: 'assistant', text: '', danger: true }); return; } // boundary 4: the 103 card, never the model
-    if (asksTopup(words)) { topupAnswer(); return; }
+    if (route === 'topup') { topupAnswer(); return; }
     if (inDemo()) { say({ role: 'assistant', text: L.demo }); return; } // D98
     if (!consent) { setAskConsent(words); return; }
     setAskConsent(null); setBusy(true);
     const names = [...[...foods.values()].map((f) => f.name), ...recipes.map((r) => r.name)];
-    const history = msgs.slice(-8).filter((m) => m.text).map((m) => ({ role: m.role, text: m.text }));
+    const history = historyFor(msgs.map((m) => ({ role: m.role, text: m.text, ...(m.card || m.danger ? { card: m.card ?? 'danger' } : {}) })));
     try {
       const r = await assistantChat(currentKeys() ?? null, { text: words, history, names, log: !!meta?.conciergeLog && !!currentKeys(),
         context: dayContext(plan, targets, totals, format(new Date(), 'HH:mm'), usual.map((id) => foods.get(id)?.name ?? '').filter(Boolean)),
         versions: { app: appVersion(), plan: planVersion(plan) } });
-      const fixed = fixedAnswer(r.topic, plan);
-      if (fixed) { say({ role: 'assistant', text: fixed }); return; }
+      const reply = shownReply(r, plan); // D130: the model said to call now — the 103 card, never a softer «запишіть у звіт»
+      if ('card' in reply) { card('danger'); return; }
+      if (reply.fixed) { say({ role: 'assistant', text: reply.text }); return; }
       const lines = r.items.flatMap((x) => { const it = lineOf(x.name, x.grams, [...foods.values()], recipes, dishItem); return it ? [it] : []; });
       const { shown, dropped } = passing(lines, plan, date, foods, all ?? []); // what fails the plan in the real day is not shown (R03)
       // R04: nor said — the words naming a food taken out go; all taken out — said plainly
@@ -132,14 +136,17 @@ export function Assistant() {
   return (
     <section className="flex min-h-[calc(100dvh-9rem)] flex-col gap-3 pt-4">
       <div>
-        <h1 className="text-2xl font-semibold">{L.title}</h1>
+        <div className="flex items-center justify-between gap-2">
+          <h1 className="text-2xl font-semibold">{L.title}</h1>
+          {msgs.length > 0 && <button type="button" onClick={() => setMsgs([])} className="min-h-tap px-1 text-sm text-accent underline">{L.newTalk}</button> /* D130 */}
+        </div>
         <p className="text-sm text-muted">{L.hint}</p>
       </div>
       <p className="rounded-2xl border border-line bg-surface p-3 text-sm">{facts.length ? `${L.today} ${facts.join(' · ')}` : L.noTargetsShort}</p>
       <ul className="flex-1 space-y-2" aria-label={L.title} aria-live="polite">
         {msgs.map((m) => (
           <li key={m.id} className={m.role === 'user' ? 'flex justify-end' : ''}>
-            {m.danger ? <DangerCard className="" /> : (
+            {m.card === 'crisis' ? <CrisisCard className="" /> : m.card === 'danger' || m.danger ? <DangerCard className="" /> : (
               <div className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm ${m.role === 'user' ? 'bg-accent text-surface' : m.error ? 'border border-warn/40 text-warn' : 'border border-line bg-surface'}`}>
                 {m.text && <p>{m.text}</p>}
                 {m.items && m.items.length > 0 && (

@@ -42,3 +42,40 @@ test('the assistant: the code answers «що добрати», the model the res
   await expect(page.getByText(/103/).first()).toBeVisible();
   expect(calls).toBe(before); // a danger sign never reaches the model
 });
+
+test('the assistant at its hardest (D130): despair gets the crisis card, a pressing chest the 103 card — no model, the talk cleared; a model saying «call now» is never softened; «Нова розмова»', async ({ browser }) => {
+  const page = await device(browser);
+  const asked: { text: string; history: { text: string }[] }[] = [];
+  await page.context().route('**/concierge/chat', async (r) => {
+    const b = r.request().postDataJSON() as { text: string; history: { text: string }[] };
+    asked.push(b);
+    await r.fulfill({ json: /погано/iu.test(b.text) ? { topic: 'symptoms', text: 'Якщо біль сильна — негайно телефонуйте 103.', items: [] }
+      : { topic: 'food', text: 'На вечерю — гречка з яйцем.', items: [] } });
+  });
+  await page.goto('./#/assistant');
+  const input = page.getByRole('textbox', { name: 'Питання помічнику' });
+  const send = async (q: string) => { await input.fill(q); await page.getByRole('button', { name: 'Надіслати' }).click(); };
+  await send('можна мені шаурму на вечерю?');
+  await page.getByRole('button', { name: 'Дозволити й запитати' }).click();
+  await expect(page.getByText('На вечерю — гречка з яйцем.')).toBeVisible();
+
+  await send('набридло все, не хочу більше жити');
+  const crisis = page.locator('[data-card="crisis"]');
+  await expect(crisis).toContainText('Lifeline Ukraine 7333');
+  await expect(crisis.getByRole('link', { name: 'Подзвонити 7333' })).toHaveAttribute('href', 'tel:7333');
+  await expect(crisis.getByRole('link', { name: 'Подзвонити 112' })).toHaveAttribute('href', 'tel:112');
+  await expect(page.getByText('набридло все, не хочу більше жити')).toHaveCount(0); // the talk cleared — the words are not kept
+  await expect(page.getByText('На вечерю — гречка з яйцем.')).toHaveCount(0);
+
+  await send("після вечері тисне в грудях і віддає в ліву руку, що з'їсти щоб минуло?");
+  await expect(page.getByRole('alert')).toContainText('103');
+  expect(asked).toHaveLength(1); // neither went to the model
+
+  await send('щось погано після обіду'); // the model says «call now» — the 103 card, not «запишіть у звіт»
+  await expect(page.getByRole('alert')).toContainText('103');
+  await expect(page.getByText(/запишіть, і це буде у звіті/)).toHaveCount(0);
+  await send('а що на вечерю?');
+  expect(asked.at(-1)!.history.map((h) => h.text).join(' ')).not.toMatch(/погано|грудях|жити/); // what came before a card never goes again
+  await page.getByRole('button', { name: 'Нова розмова' }).click();
+  await expect(page.locator('ul[aria-label="Помічник"] > li')).toHaveCount(0);
+});

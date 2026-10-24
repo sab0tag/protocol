@@ -15,10 +15,25 @@ export const DANGER = ['Набряк губ, язика чи горла', 'Ва�
 
 export const isDanger = (s: string) => (DANGER as readonly string[]).includes(s);
 
-/** D91: a danger sign written in free text — the concierge shows the 103 card instead of any answer of its own. */
-const DANGER_WORDS = [/важко\s+дихати|не\s+можу\s+дихати|задиха/iu, /набр[яе]к\S*\s+(губ|язик|горл|облич)/iu, /(губ|язик|горло)\S*\s+набряк/iu,
-  /висип\S*\s+по\s+(всьому\s+)?тілу/iu, /запаморочен|непритом|втрат\S*\s+свідом/iu, /бол\S*\s+(у|в)\s+грудях|біль\s+(у|в)\s+грудях/iu];
+/** D91: a danger sign written in free text — the concierge shows the 103 card instead of any answer of its own. D130: wider —
+ *  the chest pressing, burning or squeezing, the pain going to the arm, jaw or shoulder blade, breathlessness, a numb or drooping
+ *  face, a numb arm, fainting; Ukrainian and Russian (people write both). */
+const CHEST = '(?:груд(?:ях|ях|і|ина|ини)?|грудь|груди|грудине|серц\\S*)';
+const DANGER_WORDS = [
+  /важко\s+дихати|не\s+можу\s+дихати|задиха|задуха|трудно\s+дышать|не\s+могу\s+дышать|удушь/iu,
+  /набр[яе]к\S*\s+(губ|язик|горл|облич)/iu, /(губ|язик|горло)\S*\s+набряк/iu, /отек\S*\s+(губ|язык|горл|лиц)/iu,
+  /висип\S*\s+по\s+(всьому\s+)?тілу/iu, /сып\S*\s+по\s+(всему\s+)?телу/iu,
+  /запаморочен|непритом|втрат\S*\s+свідом|потер\S*\s+сознан|теря\S*\s+сознан|обморок/iu,
+  new RegExp(`(?:бол\\S*|біль|тисне|тиснув|тиск\\S*|давит|давило|давление|пече|печет|жме|жжет|стискає|сжимает)\\s+(?:\\S+\\s+)?(?:у|в|за)\\s+${CHEST}`, 'iu'),
+  /відда\S*\s+(?:в|у)\s+(?:ліву\s+|праву\s+)?(?:рук|щелеп|лопатк|шию)|отда\S*\s+(?:в|во)\s+(?:левую\s+|правую\s+)?(?:рук|челюст|лопатк|шею)/iu,
+  /онімі\S*\s+(?:обличч|рук|ног|половин)|німіє\s+(?:обличч|рук)|онемен\S*\s+(?:лиц|рук|ног)|немеет\s+(?:лицо|рука)/iu,
+  /перекос\S*\s+(?:обличч|лиц|рот)|обличчя\s+перекос|лицо\s+перекос/iu,
+];
 export const dangerInText = (text: string) => DANGER_WORDS.some((re) => re.test(text));
+
+/** D130: words of despair — the crisis card (Lifeline Ukraine 7333, 112), never a model's answer and never «запишіть у звіт». */
+const CRISIS_WORDS = /не\s+хоч\S*\s+(?:більше\s+|больше\s+)?(?:жити|жить)|покінчит\S*\s+(?:з|із)\s+собою|покончит\S*\s+с\s+собой|(?:немає|нема|нет)\s+сенсу\s+жити|нет\s+смысла\s+жить|хоч\S*\s+(?:померти|вмерти|умереть)|вбити\s+себе|вбʼ?ю\s+себе|убить\s+себя|суїцид|суицид|накласти\s+на\s+себе\s+руки|наложить\s+на\s+себя\s+руки/iu;
+export const crisisInText = (text: string) => CRISIS_WORDS.test(text);
 
 /** How far back «що їли перед цим» looks. */
 export const BEFORE_HOURS = 6;

@@ -5,6 +5,7 @@
 import { passes } from './evaluate';
 import { itemFor } from './foodSearch';
 import { lineNutrients, type DayTotals } from './nutrition';
+import { crisisInText, dangerInText } from './symptoms';
 import type { DayEntry, Food, MealItem, Plan, Recipe, Targets } from './types';
 
 /** «Що добрати до вечора?», «чим добрати білок», «що ще з'їсти» — a short question the code answers by itself. */
@@ -27,6 +28,37 @@ export function dayContext(plan: Plan, targets: Targets, totals: DayTotals, now:
 }
 
 export type Topic = 'food' | 'medicine' | 'symptoms' | 'plan' | 'other';
+
+/** D130: where a question goes, by the question alone (not by the talk before it): words of despair → the crisis card; a danger
+ *  sign → the 103 card — both before any model, and the talk is cleared; «що добрати?» → the code, but only when the plan has a
+ *  target to top up (with none, «що з’їсти на вечерю?» is a question for the model, with the plan's limits); the rest → the model. */
+export type Route = 'crisis' | 'danger' | 'topup' | 'model';
+export function routeQuestion(text: string, plan: Plan): Route {
+  if (crisisInText(text)) return 'crisis';
+  if (dangerInText(text)) return 'danger';
+  const t = plan.targets;
+  if (asksTopup(text) && (t.kcal !== undefined || t.proteinG !== undefined || t.calciumMg !== undefined)) return 'topup';
+  return 'model';
+}
+
+/** D130: the model said to call for help now — its answer is never replaced by the softer «запишіть у звіт»: the 103 card. */
+const URGENT = /(?<!\d)(?:103|112)(?!\d)|швидк\S*\s+(?:допомог|медичн)|негайно|терміново|скорую|немедленно/iu;
+export const urgentReply = (text: string) => URGENT.test(text);
+
+/** The model's answer as the person sees it: the 103 card when it says to call now; the app's words for a medicine, a symptom or
+ *  the plan; otherwise its own words. */
+export function shownReply(r: { topic: Topic; text: string }, plan: Plan): { card: 'danger' } | { text: string; fixed?: true } {
+  if (urgentReply(r.text) || crisisInText(r.text)) return { card: 'danger' };
+  const fixed = fixedAnswer(r.topic, plan);
+  return fixed ? { text: fixed, fixed: true } : { text: r.text };
+}
+
+/** What of the talk goes with the next question: only what came after the last 103 or crisis card (those words never go again),
+ *  the last 8 messages, text only. */
+export function historyFor(msgs: { role: 'user' | 'assistant'; text: string; card?: string }[]) {
+  const from = msgs.reduce((at, m, i) => (m.card ? i + 1 : at), 0);
+  return msgs.slice(from).filter((m) => m.text && !m.card).slice(-8).map((m) => ({ role: m.role, text: m.text }));
+}
 
 /** Boundaries 1–4: these are answered by the app's own words, never by the model's. */
 export function fixedAnswer(topic: Topic, plan: Plan): string | undefined {
