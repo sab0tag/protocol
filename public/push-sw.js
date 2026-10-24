@@ -43,6 +43,24 @@ function idbDay(date) {
   });
 }
 
+// D119: a push that came (the first, not its repeats) and a push opened — a day's count on this phone, for the pilot's week
+function tally(key) {
+  return new Promise((resolve) => {
+    const open = indexedDB.open('protocol');
+    open.onerror = () => resolve();
+    open.onsuccess = () => {
+      try {
+        const d = new Date(), day = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        const tx = open.result.transaction('tally', 'readwrite'), store = tx.objectStore('tally');
+        const req = store.get(day);
+        req.onsuccess = () => { const row = req.result || { day, n: {} }; row.n[key] = (row.n[key] || 0) + 1; store.put(row); };
+        tx.oncomplete = () => { open.result.close(); resolve(); };
+        tx.onerror = () => { open.result.close(); resolve(); };
+      } catch (e) { open.result.close(); resolve(); } // an older database without the table
+    };
+  });
+}
+
 const hm = (at) => at.slice(11, 16);
 const isMed = (p) => p.kind === 'medication' || p.kind === 'supplement';
 
@@ -142,6 +160,7 @@ self.addEventListener('push', (event) => {
       if (typeof x === 'string') body = x;
       else if (x) { body = x.body; url = x.url; }
     } catch (e) { /* the generic words stay */ }
+    if (!d.n && d.tag !== 'test') await tally('rem_sent'); // «Нагадування працюють ✓» is not a reminder
     const title = (d.n > 0 ? '⏰ Ще раз: ' : '') + (d.t || 'Протокол');
     await self.registration.showNotification(title, {
       body, tag: d.tag || undefined, renotify: true, icon: 'icon-192.png', badge: 'icon-192.png', data: { url },
@@ -155,6 +174,7 @@ self.addEventListener('notificationclick', (event) => {
   const asked = new URL((event.notification.data && event.notification.data.url) || './', self.registration.scope);
   const url = asked.origin === self.location.origin ? asked.href : self.registration.scope;
   event.waitUntil((async () => {
+    if (event.notification.tag !== 'test') await tally('rem_open');
     const all = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
     for (const c of all) {
       if ('focus' in c) { if ('navigate' in c) await c.navigate(url).catch(() => undefined); return c.focus(); }

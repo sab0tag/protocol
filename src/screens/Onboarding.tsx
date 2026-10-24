@@ -14,6 +14,10 @@ import type { Constraint, ConstraintTag, Prescription, Targets } from '../domain
 import { t } from '../i18n/uk';
 import { useUi } from '../store/ui';
 import { TargetFields } from './Plan';
+import { SourceField } from './Pilot';
+import { PilotConsent } from '../components/PilotConsent';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { consented } from '../sync/pilot';
 
 const L = t.welcome;
 const P = t.plan;
@@ -89,6 +93,7 @@ function Steps({ plan, start, onScanned }: { plan: PlanRow; start: number; onSca
       <p className="text-sm text-muted">{L.s0hint}</p>
       <PlanScan plan={plan} onboarding onDone={() => void started()} />
       <button type="button" onClick={() => setStep(1)} className="min-h-tap w-full rounded-xl border border-accent px-4 font-medium text-accent">{L.manual}</button>
+      <PilotStart />
       <div><button type="button" onClick={enterDemo} className="min-h-tap text-accent underline">{L.example}</button>
         <p className="text-sm text-muted">{L.exampleHint}</p></div>
       <button type="button" onClick={() => navigate('/sync')} className="block min-h-tap text-accent underline">{t.sync.welcome}</button>
@@ -178,5 +183,23 @@ function Steps({ plan, start, onScanned }: { plan: PlanRow; start: number; onSca
       <button type="button" onClick={() => void done(true)} className="min-h-tap text-muted underline">{L.skip}</button>
       <p className="text-sm text-muted">{P.disclaimer}</p>
     </section>
+  );
+}
+
+/** D119: «Код від лікаря» in onboarding — from the QR link or typed; a known code brings the pilot's consent, asked once. */
+function PilotStart() {
+  const link = useUi((s) => s.srcLink); // the QR link's answer comes after the first screen is drawn
+  const m = useLiveQuery(async () => (await db.pilot.get('pilot')) ?? null, []); // undefined — still loading
+  const [typed, setTyped] = useState(false);
+  const [answered, setAnswered] = useState(false);
+  if (m === undefined) return null;
+  const code = m?.src ?? (link?.state === 'known' ? link.code : undefined);
+  const asked = (m?.asked ?? []).length > 0;
+  return (
+    <div className="space-y-2">
+      {link?.state === 'unknown' && <p role="status" className="text-sm text-warn">{t.pilot.codeUnknown}</p>}
+      <SourceField key={code ?? ''} current={code} onKnown={() => setTyped(true)} />
+      {(typed || !!code) && !consented(m ?? undefined) && !asked && !answered && <PilotConsent onDone={() => setAnswered(true)} />}
+    </div>
   );
 }

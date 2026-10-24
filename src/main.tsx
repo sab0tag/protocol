@@ -4,6 +4,7 @@ import { registerSW } from 'virtual:pwa-register';
 import { App } from './app/App';
 import { ensureSeeded, inDemo, requestPersistence } from './data/db';
 import { startSync } from './sync/runner';
+import { pilotTick, sourceFromLink } from './sync/pilot';
 import { useUi } from './store/ui';
 import { Boot, ErrorBoundary, watchResume } from './components/Recovery';
 import './styles/index.css';
@@ -27,7 +28,13 @@ registerSW({
 });
 void requestPersistence();
 watchResume(); // D42
-const start = () => ensureSeeded().then(() => { if (!inDemo()) void startSync(); }); // D98: the example never syncs
+const start = () => ensureSeeded().then(() => {
+  if (inDemo()) return; // D98: the example never syncs, never counts for the pilot
+  void startSync();
+  // D119: a QR card's code (the one request without a consent — a count by day and code), then the pilot's week if consented
+  void sourceFromLink().then((r) => { if (r) useUi.setState({ srcLink: r }); }).finally(() => void pilotTick());
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') void pilotTick(); });
+});
 createRoot(document.getElementById('root')!).render(
   <StrictMode><ErrorBoundary><Boot start={start}><App /></Boot></ErrorBoundary></StrictMode>,
 );

@@ -47,6 +47,24 @@ export interface SyncMeta {
  *  device only (not in sync, not in the backup file): `id` is the line's id in the plan (a medicine, a limit), «checkup». */
 export interface Piece { id: string; url: string; at: string; source: string }
 
+/** D119: a day's counts of what the records do not show (a «не знайдено», a push that came, a report printed) — for the pilot's
+ *  weekly summary; this device only (not in sync, not in the backup file), 10 weeks. `seen` keeps what was counted once a day. */
+export interface Tally { day: string; n: Record<string, number>; seen?: Record<string, string[]> }
+
+/** D119: the pilot by consent — this device only. The consent with its text's version; `pid`/`secret` from the server at
+ *  consent; `sent` — the weeks sent, as they went (shown in «Ще → Пілот»); `asked` — offers on «День» and the answers. */
+export interface PilotMeta {
+  key: 'pilot';
+  consent?: { at: string; version: number };
+  pid?: string;
+  secret?: string;
+  src?: string;
+  sent?: Record<string, unknown>;
+  asked?: { at: string; answer: 'no' | 'yes' }[];
+  surveys?: Record<string, { done?: true; later?: string[] }>;
+  notes?: string[]; // ids of «Що заважало» lines sent
+}
+
 export class ProtocolDB extends Dexie {
   plan!: Table<PlanRow, string>;
   foods!: Table<Food, string>;
@@ -59,6 +77,8 @@ export class ProtocolDB extends Dexie {
   favorites!: Table<Favorite, string>;
   frictions!: Table<Friction, string>;
   pieces!: Table<Piece, string>;
+  tally!: Table<Tally, string>;
+  pilot!: Table<PilotMeta, string>;
   sync!: Table<SyncRow, string>;
   meta!: Table<SyncMeta, string>;
 
@@ -78,6 +98,7 @@ export class ProtocolDB extends Dexie {
     this.version(4).stores({ favorites: 'id, title' }); // D51: «Мої звичні»
     this.version(5).stores({ frictions: 'id, at' }); // D67: «Що заважало»
     this.version(6).stores({ pieces: 'id' }); // D114: pieces of the doctor's paper — this device only, never synced or exported
+    this.version(7).stores({ tally: 'day', pilot: 'key' }); // D119: the pilot — this device only, never synced or exported
   }
 }
 

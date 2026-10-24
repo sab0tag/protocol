@@ -1,9 +1,12 @@
 // D56 / D91: the danger card — the same everywhere it appears: «Мені погано» and any free text the concierge would read.
 // Hard code, never a model's words.
 import { Phone, TriangleAlert } from 'lucide-react';
+import { useEffect } from 'react';
+import { countOnce } from '../data/tally';
 import { t } from '../i18n/uk';
 
 export function DangerCard({ className = 'mt-3' }: { className?: string }) {
+  useEffect(() => { void countOnce('danger', String(Math.floor(Date.now() / 600_000))); }, []); // D119: shown — the same card again within 10 min once
   return (
     <div role="alert" className={`${className} space-y-2 rounded-xl border border-warn bg-warn-bg p-3 text-warn`}>
       <p className="flex items-start gap-2 font-medium"><TriangleAlert size={20} className="mt-0.5 shrink-0" aria-hidden />{t.symptom.dangerAlert}</p>

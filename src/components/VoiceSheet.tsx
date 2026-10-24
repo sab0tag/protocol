@@ -21,6 +21,7 @@ import { DangerCard } from './DangerCard';
 import { dangerInText } from '../domain/symptoms';
 import { Sheet } from './Sheet';
 import { saved } from './Toast';
+import { countOnce } from '../data/tally';
 
 const L = t.voice;
 const C = t.voice.cmd;
@@ -76,7 +77,7 @@ export function VoiceSheet({ date, plan, foods, recipes, today, yesterday, meds,
     if (!ready(draft) || saving) return;
     setSaving(true);
     const at = atLocal(date, time), rows: DayEntry[] = [];
-    if (draft.items.length) rows.push({ id: ids.current.meal, at, kind: 'meal', status: 'done', title: draft.title ?? defaultTitle(time), items: draft.items.map((x) => x.item) });
+    if (draft.items.length) rows.push({ id: ids.current.meal, at, kind: 'meal', status: 'done', title: draft.title ?? defaultTitle(time), items: draft.items.map((x) => x.item), via: 'voice' }); // D119
     for (const m of draft.meds) {
       const id = ids.current.meds.get(m.key) ?? newId(); ids.current.meds.set(m.key, id);
       rows.push({ id, at, kind: 'med', status: 'done', title: m.title, checkKey: m.key, ...(m.prescriptionId ? { prescriptionId: m.prescriptionId } : {}) });
@@ -88,6 +89,13 @@ export function VoiceSheet({ date, plan, foods, recipes, today, yesterday, meds,
   };
   const setItem = (i: number, it: MealItem | null) => edit((d) => ({ ...d, items: it ? d.items.map((x, j) => (j === i ? { ...x, item: it, sure: true } : x)) : d.items.filter((_, j) => j !== i) }));
   const draft = shown;
+  // D119: a part of a phrase the base does not know — counted once the draft has settled, not letter by letter
+  const nf = draft.notFound.join('\n');
+  useEffect(() => {
+    if (!nf) return undefined;
+    const timer = setTimeout(() => { for (const x of nf.split('\n')) void countOnce('nf', x); }, 1500);
+    return () => clearTimeout(timer);
+  }, [nf]);
   const partAsk = now.ask?.kind === 'part' ? now.ask : undefined;
   const danger = dangerInText(heard) || dangerInText(typed) || draft.notFound.some(dangerInText); // D97: one 103 card, nothing else about those words
   const checks = plan && draft.items.length ? checkMeal({ plan, date, foods, dayEntries: today, recentEntries: [], meal: draft.items.map((x) => x.item) }) : [];

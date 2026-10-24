@@ -1,4 +1,4 @@
-import { Eye, Info, Activity, BellRing, ChevronRight, Dumbbell, FileText, RefreshCw, Salad, ShoppingCart, Sparkles, UserRound, CalendarRange, MessageSquareWarning, Zap, MessageCircle } from 'lucide-react';
+import { Eye, Info, Activity, BellRing, ChevronRight, Dumbbell, FileText, RefreshCw, Salad, ShoppingCart, Sparkles, UserRound, CalendarRange, MessageSquareWarning, Zap, MessageCircle, HandHeart } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Backup } from '../components/Backup';
@@ -26,6 +26,7 @@ const GROUPS = [
   ] },
   { title: t.more.app, links: [
     { to: '/frictions', Icon: MessageSquareWarning, title: t.friction.title },
+    { to: '/pilot', Icon: HandHeart, title: t.pilot.title }, // D119
     { to: '/welcome', Icon: UserRound, title: t.welcome.again },
     { to: '/concierge-log', Icon: Sparkles, title: t.conciergeLog.link },
     { to: '/about', Icon: Info, title: t.about.link },

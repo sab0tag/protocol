@@ -2,7 +2,7 @@
 // numbers from the code, at most once a day for each target, with «Не сьогодні». A tap puts the choice in the evening's
 // plan as a planned snack (to tick when eaten), never into what was eaten.
 import { format } from 'date-fns';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { db } from '../data/db';
 import { keep, kept } from '../data/kept';
@@ -12,6 +12,7 @@ import type { NearLimit, Topup } from '../domain/topup';
 import type { DayEntry, Targets } from '../domain/types';
 import { t } from '../i18n/uk';
 import { saved } from './Toast';
+import { count, countOnce } from '../data/tally';
 
 const L = t.topup;
 const DAY = 86_400_000;
@@ -21,6 +22,8 @@ export function TopupCard({ date, targets, tops, near }: { date: string; targets
   const done = (key: string) => kept<string>(`topup:${date}:${key}`, DAY) !== undefined;
   const answer = (key: string, what: string) => { keep(`topup:${date}:${key}`, what); redraw((n) => n + 1); };
   const showTops = tops.filter((x) => !done(x.goal)), showNear = near && !done('carbs') ? near : null;
+  const shownGoals = showTops.map((x) => x.goal).join(',');
+  useEffect(() => { for (const g of shownGoals.split(',').filter(Boolean)) void countOnce('topup_shown', `${date}:${g}`); }, [shownGoals, date]); // D119
   if (!showTops.length && !showNear) return null;
   const when = () => { // a quarter of an hour from now, never past «останній прийом до»
     const by = targets.lastMealBy ?? '20:00', now = new Date();
@@ -30,6 +33,7 @@ export function TopupCard({ date, targets, tops, near }: { date: string; targets
   const plan = async (x: Topup, i: number) => {
     const e: DayEntry = { id: newId(), at: atLocal(date, when()), kind: 'meal', status: 'planned', title: L.snack, items: [x.items[i]!] };
     await saved(db.entries.add(e), L.planned(x.items[i]!.name), () => db.entries.delete(e.id));
+    void count('topup_taken'); // D119
     answer(x.goal, 'accepted');
   };
   return (

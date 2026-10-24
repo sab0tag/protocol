@@ -199,6 +199,8 @@ export interface DayEntry {
   timeUnknown?: true;
   markedAt?: ISODateTime;
   plannedAt?: ISODateTime;
+  /** D119: how a meal was recorded — said in the voice window, or with lines from a photo of the plate; absent = typed or tapped */
+  via?: 'voice' | 'photo';
 }
 
 export interface Wellbeing {

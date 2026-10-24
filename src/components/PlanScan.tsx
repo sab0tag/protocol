@@ -17,6 +17,7 @@ import { ApiError, conclusion as readConclusion } from '../sync/api';
 import { currentKeys } from '../sync/runner';
 import { cut, shrink } from '../sync/shrink';
 import { PhotoPrep } from './PhotoPrep';
+import { count } from '../data/tally';
 import { saved } from './Toast';
 
 const L = t.conclusion;
@@ -89,6 +90,7 @@ export function PlanScan({ plan, onDone, onboarding }: { plan: PlanRow; onDone?:
     const pieces = picked.flatMap((l) => (cuts[l.key] && placed.get(l.key) ? [{ id: placed.get(l.key)!, url: cuts[l.key]!, at: new Date().toISOString(), source }] : []));
     await saved(db.transaction('rw', db.plan, db.pieces, async () => { await db.plan.update('main', next); await db.pieces.bulkPut(pieces); }), L.saved(picked.length + close.size),
       () => db.transaction('rw', db.plan, db.pieces, async () => { await db.plan.update('main', before); await db.pieces.bulkDelete(pieces.map((x) => x.id)); }));
+    if (picked.length) void count('photo_rows', picked.length); // D119
     setState('none'); setLines([]); setCuts({});
     onDone?.();
   };

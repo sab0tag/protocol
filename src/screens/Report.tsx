@@ -9,6 +9,7 @@ import { db } from '../data/db';
 import { useAllEntries, useAllWellbeing, useFoods, useLabs, usePlan, useWeights, useWorkouts } from '../data/queries';
 import { dateOf, todayISO } from '../domain/dates';
 import { buildReport, habitLabel, reportText } from '../domain/report';
+import { count } from '../data/tally';
 import { t } from '../i18n/uk';
 
 const L = t.report;
@@ -38,6 +39,7 @@ export function Report() {
   const setQuestions = (q: string[], say: string = t.toast.saved) => saved(db.plan.update('main', { questions: q }), say);
 
   const share = async () => {
+    void count('report'); // D119
     const text = reportText(r, dmy);
     try {
       if (navigator.share) { await navigator.share({ title: L.title, text }); return; }
@@ -147,7 +149,7 @@ export function Report() {
       </section>
 
       <div className="flex flex-wrap gap-2 print:hidden">
-        <button type="button" onClick={() => window.print()} className="flex min-h-tap flex-1 items-center justify-center gap-2 rounded-xl bg-accent px-4 font-medium text-surface"><Printer size={18} />{L.print}</button>
+        <button type="button" onClick={() => { void count('report'); window.print(); }} className="flex min-h-tap flex-1 items-center justify-center gap-2 rounded-xl bg-accent px-4 font-medium text-surface"><Printer size={18} />{L.print}</button>
         <button type="button" onClick={() => void share()} className="flex min-h-tap flex-1 items-center justify-center gap-2 rounded-xl border border-accent px-4 font-medium text-accent"><Share2 size={18} />{shared || L.share}</button>
       </div>
       <div className="print:hidden">

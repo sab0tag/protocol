@@ -11,6 +11,8 @@ interface UiState {
   setOnboarded: () => void;
   /** D106: a new version is downloading — the page reloads itself when it is in */
   updating: boolean;
+  /** D119: a doctor's code from the QR link, as the server answered — shown in onboarding and «Ще → Пілот» */
+  srcLink?: { code: string; state: 'known' | 'unknown' | 'offline' };
 }
 
 export const useUi = create<UiState>((set, get) => ({

@@ -28,6 +28,7 @@ import { topups } from '../domain/topup';
 import type { DayEntry, MealItem } from '../domain/types';
 import { t } from '../i18n/uk';
 import { ApiError, assistantChat } from '../sync/api';
+import { count } from '../data/tally';
 import { currentKeys } from '../sync/runner';
 
 const L = t.assistant;
@@ -109,6 +110,7 @@ export function Assistant() {
     const by = targets.lastMealBy ?? '20:00', later = format(new Date(Date.now() + 900_000), 'HH:mm');
     const e: DayEntry = { id: newId(), at: atLocal(date, later < by ? later : by), kind: 'meal', status: 'planned', title: t.topup.snack, items: [it] };
     await saved(db.entries.add(e), t.topup.planned(it.name), () => db.entries.delete(e.id));
+    void count('topup_taken'); // D119
   };
 
   if (!plan || !foods || !recipes || !entries || !totals) return <Loading />;

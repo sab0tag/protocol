@@ -137,3 +137,21 @@ export interface LabelResult {
   per100g: { kcal: number; protein: number; fat: number; carbs: number; calciumMg: number | null };
 }
 export const label = (keys: Keys, image: string) => call<LabelResult>(keys, 'POST', '/label', { image });
+
+// D119: the pilot — its own participant (pid + secret), never the vault or the device token
+async function pilotFetch<T>(method: string, path: string, auth?: { pid: string; secret: string }, body?: unknown): Promise<T> {
+  let res: Response;
+  try {
+    res = await fetch(`${API_URL}/v1/pilot${path}`, { method,
+      headers: { ...(auth ? { Authorization: `Pilot ${auth.pid}.${auth.secret}` } : {}), ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}) },
+      ...(body !== undefined ? { body: JSON.stringify(body) } : {}) });
+  } catch { throw new ApiError(0, 'offline'); }
+  const data = await res.json().catch(() => ({})) as { error?: string };
+  if (!res.ok) throw new ApiError(res.status, data.error ?? 'error');
+  return data as T;
+}
+export const pilotJoin = () => pilotFetch<{ pid: string; secret: string }>('POST', '/join');
+export const pilotSend = (auth: { pid: string; secret: string }, body: unknown) => pilotFetch<{ ok: true }>('POST', '/week', auth, body);
+export const pilotLeave = (auth: { pid: string; secret: string }) => pilotFetch<{ ok: true }>('DELETE', '', auth);
+/** Is a doctor's code known; `visit` — the QR link was opened (counted on the server by day and code, nothing else). */
+export const pilotSource = (code: string, visit: boolean) => pilotFetch<{ known: boolean }>('GET', `/src/${encodeURIComponent(code)}${visit ? '?visit=1' : ''}`);

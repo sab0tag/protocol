@@ -34,6 +34,7 @@ import { hasExample } from '../data/seed.example';
 import { DaySummary } from '../components/DaySummary';
 import { TopupCard } from '../components/TopupCard';
 import { PrnCard } from '../components/PrnCard';
+import { PilotOffer } from '../components/PilotConsent';
 import { VoiceSheet } from '../components/VoiceSheet';
 import { nearLimit, topups, type DayState } from '../domain/topup';
 import { dayRhythm } from '../domain/rhythm';
@@ -166,6 +167,8 @@ export function Day() {
           <button type="button" onClick={() => navigate('/more')} className="min-h-tap rounded-xl bg-warn px-3 font-medium text-surface">{t.backup.remindAction}</button>
         </div>
       )}
+
+      {isToday && !codeDue && plan && !hasExample(plan) && <PilotOffer /> /* D119 */}
 
       {isToday && plan && all && runningLow(plan.prescriptions, all).map(({ p, days }) => ( /* D69: buy in time */
         <div key={p.id} role="status" className="mb-3 flex flex-wrap items-center gap-2 rounded-2xl border border-warn/30 bg-warn-bg p-3 text-sm text-warn">

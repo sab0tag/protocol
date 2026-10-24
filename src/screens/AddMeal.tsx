@@ -27,6 +27,7 @@ import { applySwaps, checkMeal, hasSwaps, mealVerdict, type ItemCheck } from '..
 import { amountText, needsGrams, approxG, measureWord, readMeal, type Recognized } from '../domain/foodSearch';
 import { fromPhoto } from '../domain/photo';
 import { ApiError, photo as recognizePhoto } from '../sync/api';
+import { count, countOnce } from '../data/tally';
 import { currentKeys } from '../sync/runner';
 import { shrink } from '../sync/shrink';
 import { Mic } from 'lucide-react';
@@ -73,7 +74,7 @@ export function AddMeal() {
     void db.entries.get(id).then((e) => {
       if (!e) return navigate('/', { replace: true });
       setDate(dateOf(e.at)); setTime(timeOf(e.at)); setTitle(e.title);
-      setEaten(e.status === 'done'); setItems(e.items ?? []); setLoaded(true);
+      setEaten(e.status === 'done'); setItems(e.items ?? []); setLoaded(true); viaPhoto.current = e.via;
     });
   }, [id, navigate]);
 
@@ -88,6 +89,7 @@ export function AddMeal() {
   const danger = dangerInText(query);
   const list = read?.list ?? [];
   const [photo, setPhoto] = useState<PhotoState>({ state: 'none' });
+  const viaPhoto = useRef<DayEntry['via']>(undefined); // D119: lines from a photo of the plate went into this meal
   const photoInput = useRef<HTMLInputElement>(null);
   const syncMeta = useLiveQuery(async () => (await db.meta.get('sync')) ?? null, []);
 
@@ -134,7 +136,7 @@ export function AddMeal() {
   const save = async (what: MealItem[] = items) => {
     if (what.length === 0) return;
     const entry: DayEntry = { id: id ?? newId(), at: atLocal(date, time), kind: 'meal', status: eaten ? 'done' : 'planned',
-      title: title.trim() || defaultMealName(time), items: what };
+      title: title.trim() || defaultMealName(time), items: what, ...(viaPhoto.current ? { via: viaPhoto.current } : {}) };
     if (!await saved(db.entries.put(entry).then(() => true), (entry.status === 'done' ? t.toast.meal : t.toast.planned)(entry.title))) return;
     const keys = currentKeys(); // D91: accepted as offered, the grams corrected, or taken out again
     for (const s of suggested.current) {
@@ -172,13 +174,13 @@ export function AddMeal() {
           {!query && <p className="mt-1 flex items-start gap-1 text-xs text-muted"><Mic size={14} className="mt-0.5 shrink-0" aria-hidden />{t.meal.dictate}</p>}
           {danger && <DangerCard className="mt-2" /> /* D97: one card for a danger sign, nothing else about those words */}
           {!danger && phrase && <RecognizedPanel key={query} title={t.meal.recognized} rows={phrase}
-            onAdd={(picked) => { setItems((xs) => [...xs, ...picked]); setQuery(''); }}
+            onAdd={(picked, missing) => { setItems((xs) => [...xs, ...picked]); setQuery(''); for (const m of missing) void countOnce('nf', m); }}
             notFound={(text) => recipes && <ConciergeNotFound text={text} plan={plan} foods={foods} recipes={recipes} date={date} onAdd={concierge} />} />}
           {photo.state === 'busy' && <p role="status" className="mt-2 text-sm text-muted">{t.meal.photoBusy}</p>}
           {photo.state === 'error' && <p role="alert" className="mt-2 text-sm text-warn">{photo.message}</p>}
           {photo.state === 'done' && (photo.rows.length > 0
             ? <RecognizedPanel title={t.meal.photoTitle} rows={photo.rows} note={photo.note}
-                onAdd={(picked) => { setItems((xs) => [...xs, ...picked]); setPhoto({ state: 'none' }); }} />
+                onAdd={(picked, missing) => { setItems((xs) => [...xs, ...picked]); setPhoto({ state: 'none' }); if (picked.length) viaPhoto.current = 'photo'; for (const m of missing) void countOnce('nf', m); }} />
             : <p role="status" className="mt-2 text-sm text-muted">{photo.note ?? t.meal.photoEmpty}</p>)}
           {!danger && !phrase && list.length > 0 && (
             <ul className="mt-2 divide-y divide-line rounded-xl border border-line">
@@ -421,7 +423,7 @@ type PhotoState = { state: 'none' | 'busy' | 'consent' | 'nosync' } | { state: '
 
 /** Lines recognized from a dictated phrase (D30) or a photo (D32), each with a tick; nothing is added until «Додати». */
 function RecognizedPanel({ title, rows: given, note, onAdd, notFound }: {
-  title: string; rows: Recognized[]; note?: string; onAdd: (items: MealItem[]) => void; notFound?: (text: string) => ReactNode;
+  title: string; rows: Recognized[]; note?: string; onAdd: (items: MealItem[], missing: string[]) => void; notFound?: (text: string) => ReactNode;
 }) {
   const [skip, setSkip] = useState<Set<number>>(new Set());
   const [chosen, setChosen] = useState<Record<number, MealItem>>({}); // D81: another kind picked in one tap
@@ -454,7 +456,7 @@ function RecognizedPanel({ title, rows: given, note, onAdd, notFound }: {
         ))}
       </ul>
       {picked.length > 0 && (
-        <button type="button" onClick={() => onAdd(picked)}
+        <button type="button" onClick={() => onAdd(picked, rows.filter((r) => !r.item).map((r) => r.text))}
           className="mt-1 min-h-tap w-full rounded-xl bg-accent px-3 font-medium text-surface">{t.meal.addRecognized(picked.length)}</button>
       )}
     </div>
@@ -529,7 +531,7 @@ function CheckPanel({ checks, anyActive, swapped, eaten, plan }: { checks: ItemC
             {hits.map((h, j) => (
               <div key={j} className="text-sm">
                 <p>{j > 0 && <Badge verdict={h.verdict} small />} {h.itemName !== item.name && <span className="font-medium">{h.itemName}: </span>}{h.message}{h.suggestion && <span className="text-muted"> → {h.suggestion}</span>}
-                  {plan && <button type="button" onClick={() => setWhy(why === `${i}:${j}` ? null : `${i}:${j}`)} aria-expanded={why === `${i}:${j}`}
+                  {plan && <button type="button" onClick={() => { if (why !== `${i}:${j}`) void count('why'); setWhy(why === `${i}:${j}` ? null : `${i}:${j}`); }} aria-expanded={why === `${i}:${j}`}
                     className="ml-2 min-h-[2rem] px-1 text-accent underline">{t.why.ask}</button>}</p>
                 {plan && why === `${i}:${j}` && (
                   <p className="mt-1 rounded-lg bg-bg p-2">{whyFlagged(h, plan).text} <Link to="/plan" className="text-accent underline">{t.why.openPlan}</Link></p>

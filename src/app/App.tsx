@@ -28,6 +28,7 @@ import { QuickAction } from '../screens/QuickAction';
 import { QuickLinks } from '../screens/QuickLinks';
 import { Frictions } from '../screens/Frictions';
 import { Week } from '../screens/Week';
+import { Pilot } from '../screens/Pilot';
 
 /** A fresh form for every meal: /meal/new after editing /meal/:id must not keep the old state. */
 function MealRoute() {
@@ -74,6 +75,7 @@ export function App() {
             <Route path="/do/:action" element={<QuickAction />} />
             <Route path="/quick" element={<QuickLinks />} />
             <Route path="/frictions" element={<Frictions />} />
+            <Route path="/pilot" element={<Pilot />} />
             <Route path="/week" element={<Week />} />
             <Route path="/plan" element={<Plan />} />
             <Route path="/welcome" element={<Onboarding />} />

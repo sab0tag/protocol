@@ -22,6 +22,7 @@ import { stockLeft } from '../domain/stock';
 import { atLocal, newId, sinceNow, todayISO } from '../domain/dates';
 import { AllergenPicker } from '../components/AllergenPicker';
 import type { Constraint, ConstraintTag, Mode, Plan as PlanT, Prescription, Targets } from '../domain/types';
+import { countOnce } from '../data/tally';
 import { t } from '../i18n/uk';
 
 const P = t.plan;
@@ -37,6 +38,11 @@ type Editing =
   | { what: 'checkup' };
 
 const save = (patch: Partial<PlanT>) => saved(db.plan.update('main', patch), t.toast.plan);
+/** D119: a line read off the doctor's paper (it has its piece, D114) corrected by the person — a measure of the reading */
+async function photoEdited(id: string, was: unknown[], now: unknown[]) {
+  if (JSON.stringify(was) === JSON.stringify(now) || !(await db.pieces.get(id).catch(() => undefined))) return;
+  await countOnce('photo_edit', id);
+}
 const dmy = (d: string) => format(parseISO(d), 'd MMMM', { locale: uk });
 
 /** «План лікаря»: what the doctor said, as the user entered it. Nothing here is decided by the app. */
@@ -245,6 +251,8 @@ function PrescriptionForm({ plan, item, onClose }: { plan: PlanRow; item?: Presc
     const { stock: _s, ...rest } = p;
     const next: Prescription = { ...rest, title: p.title.trim(), ...(ts.length ? { schedule: { times: ts, withFood: p.schedule?.withFood ?? false } } : { schedule: undefined }),
       ...(counted && n >= 0 ? { stock: counted } : {}) };
+    if (item) void photoEdited(item.id, [item.title, item.dose, item.schedule?.times, item.schedule?.withFood, item.asNeeded, item.until, item.maxPerDay],
+      [next.title, next.dose, next.schedule?.times, next.schedule?.withFood, next.asNeeded, next.until, next.maxPerDay]);
     return save({ prescriptions: upsert(plan.prescriptions, next) });
   };
   return (
@@ -311,9 +319,9 @@ function ConstraintForm({ plan, item, onClose }: { plan: PlanRow; item?: Constra
   const d = c.tag === 'diet' ? dietOf(c.diet) : undefined;
   return (
     <FormSheet title={item ? P.edit : P.constraints} onClose={onClose}
-      onSave={() => save({ constraints: upsert(plan.constraints, { ...c, title: c.title.trim()
+      onSave={() => { if (item) void photoEdited(item.id, [item.tag, item.title, item.allergens, item.diet], [c.tag, c.title.trim(), c.allergens, c.diet]); return save({ constraints: upsert(plan.constraints, { ...c, title: c.title.trim()
         || (c.tag === 'allergy' && c.allergens?.length ? P.allergyTitle(c.allergens.map((a) => t.allergen.name[a]).join(', ')) : P.tags[c.tag]) }),
-        ...(d && fill ? { targets: fillEmptyTargets(plan.targets, d) } : {}) })}
+        ...(d && fill ? { targets: fillEmptyTargets(plan.targets, d) } : {}) }); }}
       onDelete={item ? () => save({ constraints: plan.constraints.filter((x) => x.id !== item.id) }) : undefined}>
       <Field label={P.tag}>
         <select value={c.tag} onChange={(e) => setC({ ...c, tag: e.target.value as ConstraintTag })} className={field}>
