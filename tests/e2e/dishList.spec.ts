@@ -100,3 +100,17 @@ test('a .csv saved by Excel on Windows (Windows-1251) is read (D123)', async ({ 
   await expect(page.locator('[data-dish="Вареники з картоплею"]')).toBeVisible();
   await expect(page.locator('[data-dish="Олів’є"]')).toBeVisible();
 });
+
+test('a file with a negative energy or a word for a number: refused and said, never «−100 ккал ✓» (D131)', async ({ browser }) => {
+  const page = await device(browser, 'skip');
+  await openList(page);
+  const bad = { format: 'protocol-dishes', v: 1, dishes: [
+    { name: 'Мінус', items: [{ name: 'Щось', grams: 100, manual: { kcal: -100, protein: 1, fat: 1, carbs: 1 } }] },
+    { name: 'Текст', items: [{ name: 'Щось', grams: 100, manual: { kcal: 100, protein: 'багато', fat: 1, carbs: 1 } }] },
+    { name: 'Сир домашній', items: [{ name: 'Сир', grams: 100, manual: { kcal: 160, protein: 17, fat: 9, carbs: 2, calciumMg: 100 } }] }] };
+  await page.getByLabel('Вибрати файл').setInputFiles({ name: 'd.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(bad)) });
+  await expect(page.locator('[data-dish="Мінус"]')).toContainText('Не імпортовано');
+  await expect(page.locator('[data-dish="Текст"]')).toContainText('не числа');
+  await expect(page.locator('[data-dish="Сир домашній"]')).toHaveAttribute('data-status', 'ok');
+  await expect(page.getByText(/−100|NaN/)).toHaveCount(0);
+});

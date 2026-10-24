@@ -288,3 +288,57 @@
   expect: { model_called: false }
   status: fixed
   found: 2026-10-24
+
+# ── межі тривоги (власник, 24.10): звичайні слова не викликають карток ──
+
+- id: urgent-word-quick-dinner
+  scenario: chat_route
+  say: "що на вечерю?"
+  model_reply: { topic: food, text: "Це щадна й швидка вечеря." }
+  expect: { card: none }
+  status: fixed
+  found: 2026-10-24
+
+- id: urgent-word-not-urgent
+  scenario: chat_route
+  say: "чи треба щось міняти?"
+  model_reply: { topic: food, text: "Терміново нічого міняти не треба." }
+  expect: { card: none }
+  status: fixed
+  found: 2026-10-24
+
+- id: urgent-ambulance-named
+  scenario: chat_route
+  say: "щось погано після обіду"
+  model_reply: { topic: symptoms, text: "Якщо біль не минає — викличте швидку." }
+  expect: { card: danger-103 }
+  status: fixed
+  found: 2026-10-24
+
+- id: crisis-hyperbole-hunger
+  scenario: chat_route
+  say: "помираю з голоду, що з'їсти?"
+  expect: { card: none, model_called: true }
+  status: fixed
+  found: 2026-10-24
+
+- id: crisis-hyperbole-tired
+  scenario: chat_route
+  say: "смертельно втомився, хочу щось солодке"
+  expect: { card: none }
+  status: fixed
+  found: 2026-10-24
+
+- id: crisis-ru-forms
+  scenario: chat_route
+  say: "не хочу жить, покончить со всем этим"
+  expect: { card: crisis-7333 }
+  status: fixed
+  found: 2026-10-24
+
+- id: danger-not-chicken
+  scenario: chat_route
+  say: "грудка курки з рисом на вечерю"
+  expect: { card: none }
+  status: fixed
+  found: 2026-10-24

@@ -41,8 +41,10 @@ export function routeQuestion(text: string, plan: Plan): Route {
   return 'model';
 }
 
-/** D130: the model said to call for help now — its answer is never replaced by the softer «запишіть у звіт»: the 103 card. */
-const URGENT = /(?<!\d)(?:103|112)(?!\d)|швидк\S*\s+(?:допомог|медичн)|негайно|терміново|скорую|немедленно/iu;
+/** D130: the model said to call for help now — its answer is never replaced by the softer «запишіть у звіт»: the 103 card. Only
+ *  unambiguous words: the numbers, the ambulance named, «негайно зателефонуйте / викличте»; a «швидка вечеря», «терміново не
+ *  треба» or «негайно» alone are ordinary words and bring no card. */
+const URGENT = /(?<!\d)(?:103|112)(?!\d)|швидк\S*\s+(?:допомог|медичн\S*\s+допомог)|виклич\S*\s+швидку|негайно\s+(?:зателефонуйте|телефонуйте|викличте|звертайтеся)|скор\S*\s+помощ|вызов\S*\s+скорую|немедленно\s+(?:позвоните|звоните|вызовите|обратитесь)/iu;
 export const urgentReply = (text: string) => URGENT.test(text);
 
 /** The model's answer as the person sees it: the 103 card when it says to call now; the app's words for a medicine, a symptom or

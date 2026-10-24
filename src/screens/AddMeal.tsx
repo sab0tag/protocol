@@ -28,6 +28,7 @@ import { amountText, needsGrams, approxG, measureWord, readMeal, type Recognized
 import { fromPhoto } from '../domain/photo';
 import { ApiError, photo as recognizePhoto } from '../sync/api';
 import { count, countOnce } from '../data/tally';
+import { keep, kept } from '../data/kept';
 import { dietCoverage } from '../domain/diets';
 import { evaluate, safeSwaps } from '../domain/evaluate';
 import { currentKeys } from '../sync/runner';
@@ -48,6 +49,9 @@ function defaultMealName(time: string): string {
 
 /** Add or edit a meal: food base search with grams and cooking, or a free line with hand-entered nutrients.
  *  The dish check against the doctor's plan arrives in M2 — here the meal is written as is. */
+const DRAFT = 'meal:new';
+interface MealDraft { date: string; time: string; title: string; eaten: boolean; items: MealItem[] }
+
 export function AddMeal() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -60,11 +64,14 @@ export function AddMeal() {
   const [dishSaved, setDishSaved] = useState('');
 
   const [loaded, setLoaded] = useState(id === undefined);
-  const [date, setDate] = useState(uiDate);
-  const [time, setTime] = useState(uiDate === todayISO() ? format(new Date(), 'HH:mm') : '13:00');
-  const [title, setTitle] = useState(() => defaultMealName(time));
-  const [eaten, setEaten] = useState(uiDate <= todayISO());
-  const [items, setItems] = useState<MealItem[]>([]);
+  // D131: a new meal not yet written survives a reload (a locked phone, a new version) — kept on this device for a day
+  const [draft] = useState(() => (id === undefined ? kept<MealDraft>(DRAFT) : undefined));
+  const [date, setDate] = useState(draft?.date ?? uiDate);
+  const [time, setTime] = useState(draft?.time ?? (uiDate === todayISO() ? format(new Date(), 'HH:mm') : '13:00'));
+  const [title, setTitle] = useState(() => draft?.title ?? defaultMealName(time));
+  const [eaten, setEaten] = useState(draft?.eaten ?? uiDate <= todayISO());
+  const [items, setItems] = useState<MealItem[]>(draft?.items ?? []);
+  useEffect(() => { if (id === undefined) keep<MealDraft>(DRAFT, items.length ? { date, time, title, eaten, items } : undefined); }, [id, date, time, title, eaten, items]);
   const suggested = useRef<Suggested[]>([]); // D91: what the concierge offered and was tapped — its outcome is told on save
   const concierge = (s: Suggested) => { setItems((xs) => [...xs, s.item]); suggested.current.push(s); };
   const [query, setQuery] = useState('');
@@ -151,6 +158,7 @@ export function AddMeal() {
       void conciergeOutcome(keys, s.logId, !now ? 'dismissed' : now.grams === s.item.grams ? 'accepted' : 'edited',
         now && now.grams !== s.item.grams ? { field: 'grams', from: s.item.grams, to: now.grams } : undefined).catch(() => undefined);
     }
+    if (id === undefined) keep(DRAFT, undefined); // written — the draft goes
     useUi.getState().setDate(date);
     navigate('/');
   };
@@ -417,7 +425,7 @@ export function AddMeal() {
             <button type="submit" disabled={items.length === 0}
               className="min-h-tap flex-1 rounded-xl bg-accent px-4 font-medium text-surface disabled:opacity-40">{t.meal.save}</button>
           )}
-          <button type="button" onClick={() => navigate(-1)} className="min-h-tap rounded-xl border border-line px-4">{t.meal.cancel}</button>
+          <button type="button" onClick={() => { if (id === undefined) keep(DRAFT, undefined); navigate(-1); }} className="min-h-tap rounded-xl border border-line px-4">{t.meal.cancel}</button>
         </div>
       </form>
     </section>

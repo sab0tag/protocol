@@ -10,10 +10,10 @@ import { harchDishes } from '../data/harchDishes';
 import { keep, kept } from '../data/kept';
 import { newId } from '../domain/dates';
 import { breakdown, lineItem, recipeItems, type DishLine } from '../domain/dishBreakdown';
-import { decode, fromFile, MAX_BYTES, packs, parseCsv, parseText, tally, wayOf, type ListContext, type ListRow, type Way } from '../domain/dishList';
+import { decode, fileLine, fromFile, MAX_BYTES, packs, parseCsv, parseText, tally, wayOf, type ListContext, type ListRow, type Way } from '../domain/dishList';
 import { mealNutrients } from '../domain/nutrition';
 import { dishItem } from '../domain/recipes';
-import type { Food, MealItem, Plan, Recipe } from '../domain/types';
+import type { Food, Plan, Recipe } from '../domain/types';
 import { t } from '../i18n/uk';
 import { ApiError, dishesBreakdown } from '../sync/api';
 import { currentKeys } from '../sync/runner';
@@ -27,26 +27,19 @@ const WEEK = 7 * 86_400_000;
 
 type Status = 'exists' | 'ready' | 'waiting' | 'draft' | 'failed' | 'notDish' | 'later' | 'skipped' | 'saved';
 export interface Card {
-  key: string; name: string; text: string; make?: string; portions: number; status: Status;
+  key: string; name: string; text: string; make?: string; portions: number; status: Status; sameName?: true;
   where?: 'own' | 'builtin' | 'harch' | 'base'; local?: { lines: DishLine[]; portions: number }; // «вже є» with a make-up of its own
-  lines: DishLine[]; note?: string; ai?: boolean; fromFile?: boolean; reason?: string; open?: boolean;
+  lines: DishLine[]; note?: string; ai?: boolean; fromFile?: boolean; reason?: string; open?: boolean; invalid?: true;
 }
 interface State { cards: Card[]; merged: number; over: number; cut: number; imported: number }
 
 /** ✓ — every ingredient of the base with the amount said, nothing proposed; or a dish of one's own export. */
 export const sure = (c: Card) => c.status === 'ready' && (c.fromFile || c.lines.every((l) => !!l.food && l.amountSaid));
 
-/** A saved dish's line back as a breakdown line (an own export): a base food by its id, anything else by its numbers. */
-function lineOf(it: MealItem, i: number, foods: Map<string, Food>): DishLine {
-  const food = it.foodId ? foods.get(it.foodId) : undefined;
-  if (food && !food.custom) return { key: `i${i}`, said: food.name, food, grams: it.grams, amountSaid: true };
-  const n = mealNutrients([it], foods), k = 100 / Math.max(0.5, it.grams);
-  return { key: `i${i}`, said: it.name, grams: it.grams, amountSaid: true, per100: { kcal: n.kcal * k, protein: n.protein * k, fat: n.fat * k, carbs: n.carbs * k },
-    ...(it.est ? { est: it.est } : {}) };
-}
 
 function cardOf(row: ListRow, way: Way): Card {
-  const base = { key: row.key, name: row.name, text: row.text, ...(row.make ? { make: row.make } : {}), portions: row.portions ?? 1, lines: [] as DishLine[] };
+  const base = { key: row.key, name: row.name, text: row.text, ...(row.make ? { make: row.make } : {}), ...(row.sameName ? { sameName: true as const } : {}),
+    portions: row.portions ?? 1, lines: [] as DishLine[] };
   switch (way.kind) {
     case 'exists': return { ...base, status: 'exists', where: way.where, ...(way.local ? { local: way.local } : {}) };
     case 'local': return { ...base, status: 'ready', lines: way.lines, portions: way.portions };
@@ -71,17 +64,20 @@ export function DishList({ foods, recipes, plan, onClose }: { foods: Map<string,
 
   const take = (body: string, csv: boolean) => {
     setError('');
-    const fromExport = fromFile(body, foods);
-    if (fromExport) {
+    const file = fromFile(body, foods);
+    if (file) {
+      const fromExport = file.dishes;
       const cards = fromExport.map((d, i): Card => {
-        const lines = d.items.map((it, j) => lineOf(it, j, foods));
+        const lines = d.items.map((it, j) => fileLine(it, j, foods));
         const way = wayOf({ key: `f${i}`, name: d.name, text: d.name }, ctx);
         const local = { lines, portions: 1 };
         const card = { key: `f${i}`, name: d.name, text: d.name, portions: 1, fromFile: true };
         if (way.kind === 'exists') return { ...card, status: 'exists', where: way.where, ...(lines.length ? { local } : {}), lines: [] };
         return lines.length ? { ...card, status: 'ready', lines } : { ...card, status: 'draft', lines: [] };
       });
-      setState({ cards, merged: 0, over: 0, cut: 0, imported: cards.length });
+      // D131: a dish with an invalid line is not lost silently — a card that says why
+      const bad = file.bad.map((b, i): Card => ({ key: `b${i}`, name: b.name, text: b.name, portions: 1, status: 'failed', reason: L.invalid(b.why), lines: [], invalid: true }));
+      setState({ cards: [...cards, ...bad], merged: 0, over: 0, cut: 0, imported: cards.length });
       return;
     }
     const parsed = csv ? parseCsv(body) : parseText(body);
@@ -251,7 +247,8 @@ function CardView({ c, foods, plan, patch, onSave, onRemove, onMake }: { c: Card
         className="flex min-h-tap w-full items-start gap-2 text-left">
         <span className={`w-5 shrink-0 font-semibold ${badge === '?' ? 'text-warn' : 'text-accent'}`} aria-hidden>{badge}</span>
         <span className="min-w-0 flex-1" aria-hidden><span className="font-medium">{c.name}</span>
-          <span className={`block text-xs ${c.status === 'failed' || c.status === 'later' || c.status === 'draft' ? 'text-warn' : 'text-muted'}`}>{flags.join(' · ')}</span></span>
+          <span className={`block text-xs ${c.status === 'failed' || c.status === 'later' || c.status === 'draft' ? 'text-warn' : 'text-muted'}`}>{flags.join(' · ')}</span>
+          {c.sameName && <span className="block text-xs text-warn">{L.sameName}</span>}</span>
         {c.status === 'ready' && (c.open ? <ChevronUp size={18} aria-hidden /> : <ChevronDown size={18} aria-hidden />)}
       </button>
       {c.status === 'exists' && c.local && (
@@ -276,7 +273,7 @@ function CardView({ c, foods, plan, patch, onSave, onRemove, onMake }: { c: Card
       )}
       {(c.status === 'failed' || c.status === 'later') && (
         <div className="mt-1 flex gap-2 pl-7">
-          <button type="button" onClick={() => patch({ status: 'waiting' })} className="min-h-tap rounded-xl border border-accent px-3 text-sm text-accent">{c.status === 'later' ? L.continue : L.retry}</button>
+          {!c.invalid && <button type="button" onClick={() => patch({ status: 'waiting' })} className="min-h-tap rounded-xl border border-accent px-3 text-sm text-accent">{c.status === 'later' ? L.continue : L.retry}</button>}
           <button type="button" onClick={onRemove} className="min-h-tap rounded-xl border border-line px-3 text-sm">{L.remove}</button>
         </div>
       )}

@@ -23,7 +23,7 @@ interface Row { id: string; scenario: string; phrase?: string; input?: string; s
   day?: { kcal?: number; protein?: number; calcium?: number; carbs?: number }
   expect: { mentions?: string[]; links_plan?: boolean; no_digits_beyond_plan?: boolean; danger_card?: boolean
     asks?: boolean; goals?: string[]; numbers?: Record<string, number>; items_pass_plan?: boolean; items_exclude_tags?: string[]; items_ready_minutes_max?: number
-    card?: 'danger-103' | 'crisis-7333'; model_called?: boolean; history_cleared?: boolean; history_without?: string[] } }
+    card?: 'danger-103' | 'crisis-7333' | 'none'; model_called?: boolean; history_cleared?: boolean; history_without?: string[] } }
 const rows = parse(corpus) as Row[];
 const foods = new Map(FOODS.map((f) => [f.id, f]));
 const plan = examplePlan(new Date('2026-10-18T12:00:00'));
@@ -73,7 +73,7 @@ function check(row: Row): string[] {
     const route = routeQuestion(row.say!, p);
     const shown = route === 'model' && row.model_reply ? shownReply(row.model_reply, p) : null;
     const card = route === 'crisis' ? 'crisis-7333' : route === 'danger' || (shown && 'card' in shown) ? 'danger-103' : undefined;
-    if (w.card !== card) out.push(`картка: ${card ?? 'немає'}`);
+    if (w.card !== undefined && (w.card === 'none' ? card !== undefined : w.card !== card)) out.push(`картка: ${card ?? 'немає'}`);
     if (w.model_called !== undefined && (route === 'model') !== w.model_called) out.push(`модель: ${route === 'model' ? 'так' : 'ні'} (${route})`);
     const after: Line[] = route === 'crisis' || route === 'danger' ? [{ role: 'assistant', text: '', card: route }] : [...talk, { role: 'user', text: row.say! }];
     if (w.history_cleared && historyFor(after).length) out.push('історію не очищено');

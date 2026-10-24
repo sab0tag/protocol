@@ -7,7 +7,7 @@ import exportSample from '../fixtures/dishes-export-sample.csv?raw';
 import { FOODS } from '../../src/data/foods';
 import { RECIPES } from '../../src/data/recipes';
 import { breakdown, recipeItems } from '../../src/domain/dishBreakdown';
-import { decode, fromFile, packs, parseCsv, parseText, tally, toCsv, toFile, wayOf, type ListContext } from '../../src/domain/dishList';
+import { decode, fileLine, fromFile, packs, parseCsv, parseText, tally, toCsv, toFile, wayOf, type ListContext } from '../../src/domain/dishList';
 import { mealNutrients } from '../../src/domain/nutrition';
 import { dishItem } from '../../src/domain/recipes';
 import type { Recipe } from '../../src/domain/types';
@@ -103,7 +103,7 @@ describe('«Мої страви — додати списком» (D123)', () =>
     const withMine = new Map([...foods, ['my-1', mine]]);
     const file = toFile(own, withMine);
     expect(file.dishes.map((d) => d.name)).toEqual(['Сирники домашні', 'Голубці']); // built-in ones stay out
-    const back = fromFile(JSON.stringify(file), foods)!; // another phone: no «Мій хліб» there
+    const back = fromFile(JSON.stringify(file), foods)!.dishes; // another phone: no «Мій хліб» there
     expect(back.map((d) => d.name)).toEqual(['Сирники домашні', 'Голубці']);
     for (const [i, d] of back.slice(0, 1).entries()) {
       const was = mealNutrients(own[i]!.items, withMine), now = mealNutrients(d.items, foods);
@@ -114,4 +114,28 @@ describe('«Мої страви — додати списком» (D123)', () =>
     expect(toCsv(own)).toContain('Сирники домашні;Сир кисломолочний 5 % 100 г');
   });
 
+
+  it('D131: a file is checked line by line — negative or text numbers refused and said, extra fields dropped, a known calcium kept', () => {
+    const file = { format: 'protocol-dishes', v: 1, dishes: [
+      { name: 'Мінус', items: [{ name: 'Щось', grams: 100, manual: { kcal: -100, protein: 1, fat: 1, carbs: 1 } }] },
+      { name: 'Текст', items: [{ name: 'Щось', grams: 100, manual: { kcal: 100, protein: 'багато', fat: 1, carbs: 1 } }] },
+      { name: 'Сир домашній', items: [{ name: 'Сир', grams: 100, manual: { kcal: 160, protein: 17, fat: 9, carbs: 2, calciumMg: 100 }, recipe: { id: 'x', portions: 9 }, hack: '<script>' }] },
+      { name: 'Без кальцію', items: [{ name: 'Щось', grams: 50, manual: { kcal: 50, protein: 1, fat: 1, carbs: 10 } }] },
+    ] };
+    const r = fromFile(JSON.stringify(file), foods)!;
+    expect(r.bad.map((b) => b.name)).toEqual(['Мінус', 'Текст']);
+    expect(r.bad[1]!.why).toContain('не числа');
+    expect(r.dishes.map((d) => d.name)).toEqual(['Сир домашній', 'Без кальцію']);
+    expect(r.dishes[0]!.items[0]).toEqual({ name: 'Сир', grams: 100, manual: { kcal: 160, protein: 17, fat: 9, carbs: 2, calciumMg: 100 } }); // rebuilt, nothing passed through
+    const cheese = recipeItems(r.dishes[0]!.items.map((it, i) => fileLine(it, i, foods)), 1);
+    expect(mealNutrients(cheese, foods).calciumMg).toBeCloseTo(100, 6); // was 0 — the calcium lost on the way
+    expect(fileLine(r.dishes[1]!.items[0]!, 0, foods).per100?.calciumMg).toBeUndefined(); // unknown stays unknown
+  });
+
+  it('D131: the same name with another make-up is another recipe — both kept, the later marked; a full repeat merged', () => {
+    const p = parseText('Сирники — сир 400 г, 2 яйця\nСирники — сир 400 г, 2 яйця\nсирники — сир 500 г, борошно 2 ст. л.');
+    expect(p.merged).toBe(1);
+    expect(p.rows.map((r) => [r.make, !!r.sameName])).toEqual([['сир 400 г, 2 яйця', false], ['сир 500 г, борошно 2 ст. л.', true]]);
+  });
 });
+

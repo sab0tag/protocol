@@ -43,7 +43,8 @@ export function breakdown(r: DishResult, foods: Food[]): DishLine[] {
 export function lineItem(l: DishLine): MealItem {
   if (l.food) return { foodId: l.food.id, name: l.food.name, grams: l.grams };
   const k = l.grams / 100, p = l.per100!;
-  return { name: l.said, grams: l.grams, manual: { kcal: p.kcal * k, protein: p.protein * k, fat: p.fat * k, carbs: p.carbs * k }, ...(l.est ? { est: l.est } : {}) };
+  return { name: l.said, grams: l.grams, manual: { kcal: p.kcal * k, protein: p.protein * k, fat: p.fat * k, carbs: p.carbs * k,
+    ...(p.calciumMg !== undefined ? { calciumMg: p.calciumMg * k } : {}) }, ...(l.est ? { est: l.est } : {}) }; // D131: a known calcium kept, an unknown one not made 0
 }
 
 /** The dish for one portion — what «Мої страви» keeps (D27). */

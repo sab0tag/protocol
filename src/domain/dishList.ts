@@ -4,12 +4,15 @@
 // not found or not counted — to the model, as D110; (4) only a name — a draft «Потрібен склад», no numbers (ТЗ v1.0, R08).
 // The export is the same format back: .json keeps every number (the round trip asks nothing of the model), .csv is to read.
 import type { DishLine } from './dishBreakdown';
+import { mealNutrients } from './nutrition';
 import { readMeal } from './foodSearch';
-import type { Food, MealItem, Recipe } from './types';
+import { ALLERGENS, EST_TAGS, type Allergen, type EstTag, type Food, type MealItem, type Recipe } from './types';
 
 export const MAX_ROWS = 100, MAX_BYTES = 100_000, MAX_LINE = 400, PACK = 15;
 
-export interface ListRow { key: string; name: string; text: string; make?: string; portions?: number; cut?: true }
+export interface ListRow { key: string; name: string; text: string; make?: string; portions?: number; cut?: true
+  /** D131: the same name as a line above with another make-up — kept, never merged; the person sees it and may rename it */
+  sameName?: true }
 export type Way =
   | { kind: 'exists'; where: 'own' | 'builtin' | 'harch' | 'base'; local?: Local }
   | { kind: 'local'; lines: DishLine[]; portions: number }
@@ -33,10 +36,17 @@ function rowOf(raw: string, key: string): ListRow | null {
   return name ? { key, name: cap(name), text: line, ...(make ? { make } : {}), ...(cut ? { cut: true } : {}) } : null;
 }
 
-/** Repeats of a name (case and spaces aside) become one line — before anything else. */
+/** A repeat — the same name and the same make-up (case and spaces aside) — becomes one line, before anything else. The same name
+ *  with another make-up is another recipe (ТЗ v1.0, R08): both stay, the later one marked «та сама назва, інший склад». */
 function merged(rows: ListRow[]): { rows: ListRow[]; merged: number } {
-  const seen = new Set<string>(), out: ListRow[] = [];
-  for (const r of rows) { const k = nameKey(r.name); if (!seen.has(k)) { seen.add(k); out.push(r); } }
+  const seen = new Set<string>(), names = new Set<string>(), out: ListRow[] = [];
+  for (const r of rows) {
+    const k = `${nameKey(r.name)}|${nameKey(r.make ?? '')}`;
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(names.has(nameKey(r.name)) ? { ...r, sameName: true } : r);
+    names.add(nameKey(r.name));
+  }
   return { rows: out, merged: rows.length - out.length };
 }
 
@@ -157,16 +167,71 @@ export function toFile(recipes: Recipe[], foods: Map<string, Food>): DishFile {
     ...(r.needsMake ? { needsMake: true as const } : {}) })) };
 }
 
-/** A file of our own export: every dish as it was — no model, the same numbers. */
-export function fromFile(text: string, foods: Map<string, Food>): DishFile['dishes'] | null {
-  try {
-    const f = JSON.parse(text) as DishFile;
-    if (f.format !== 'protocol-dishes' || f.v !== 1 || !Array.isArray(f.dishes)) return null;
-    const ok = (it: MealItem): boolean => typeof it.name === 'string' && it.grams > 0 && (!it.foodId || foods.has(it.foodId) || !!it.manual)
-      && (!it.components || it.components.every(ok));
-    return f.dishes.filter((d) => typeof d.name === 'string' && d.name.trim() && Array.isArray(d.items) && (d.items.length ? d.items.every(ok) : d.needsMake === true))
-      .slice(0, MAX_ROWS);
-  } catch { return null; }
+const num = (x: unknown, max: number): number | undefined => (typeof x === 'number' && Number.isFinite(x) && x >= 0 && x <= max ? x : undefined);
+const COOKING_WAYS: readonly string[] = ['raw', 'boiled', 'baked', 'airfryer', 'steamed', 'stewed', 'fried'];
+
+/** D131: one line of a file, rebuilt from what is valid — never passed through. A number that is not a number, negative or out of
+ *  all proportion makes the line invalid (said, not dropped); an unknown calcium stays unknown, never a zero. */
+function cleanItem(x: unknown, foods: Map<string, Food>): MealItem | string {
+  const o = x as Record<string, unknown> | null;
+  if (!o || typeof o !== 'object') return 'не рядок';
+  const name = typeof o.name === 'string' ? o.name.trim().slice(0, 120) : '';
+  const grams = num(o.grams, 5000);
+  if (!name) return 'без назви';
+  if (!grams) return `${name}: вага не число або поза межами`;
+  const food = typeof o.foodId === 'string' ? foods.get(o.foodId) : undefined;
+  const cooking = typeof o.cooking === 'string' && COOKING_WAYS.includes(o.cooking) ? { cooking: o.cooking as MealItem['cooking'] } : {};
+  if (Array.isArray(o.components)) {
+    const parts = o.components.map((c) => cleanItem(c, foods));
+    const bad = parts.find((p): p is string => typeof p === 'string');
+    return bad ?? { name, grams, components: parts as MealItem[] };
+  }
+  if (food && !food.custom) return { foodId: food.id, name: food.name, grams, ...cooking };
+  const m = o.manual as Record<string, unknown> | undefined;
+  if (!m || typeof m !== 'object') return `${name}: немає ні продукту бази, ні чисел`;
+  const cap = grams; // nutrients of the whole line: none can weigh more than the line; energy at most 9 kcal a gram
+  const kcal = num(m.kcal, cap * 9.5), protein = num(m.protein, cap), fat = num(m.fat, cap), carbs = num(m.carbs, cap);
+  if (kcal === undefined || protein === undefined || fat === undefined || carbs === undefined) return `${name}: калорії чи БЖВ не числа, від’ємні або завеликі`;
+  const calcium = m.calciumMg === undefined ? undefined : num(m.calciumMg, cap * 20);
+  if (m.calciumMg !== undefined && calcium === undefined) return `${name}: кальцій не число`;
+  const e = o.est as { tags?: unknown; allergens?: unknown } | undefined;
+  const est = e && typeof e === 'object' ? { tags: (Array.isArray(e.tags) ? e.tags : []).filter((t): t is EstTag => (EST_TAGS as readonly unknown[]).includes(t)),
+    allergens: (Array.isArray(e.allergens) ? e.allergens : []).filter((a): a is Allergen => (ALLERGENS as readonly unknown[]).includes(a)) } : undefined;
+  return { name, grams, manual: { kcal, protein, fat, carbs, ...(calcium !== undefined ? { calciumMg: calcium } : {}) }, ...(est ? { est } : {}), ...cooking };
+}
+
+/** A saved dish's line back as a breakdown line (an own export): a base food by its id, anything else by its numbers. */
+export function fileLine(it: MealItem, i: number, foods: Map<string, Food>): DishLine {
+  const food = it.foodId ? foods.get(it.foodId) : undefined;
+  if (food && !food.custom) return { key: `i${i}`, said: food.name, food, grams: it.grams, amountSaid: true };
+  const n = mealNutrients([it], foods), k = 100 / Math.max(0.5, it.grams);
+  const calcium = it.manual ? it.manual.calciumMg : food ? n.calciumMg : undefined; // D131: unknown stays unknown, not 0
+  return { key: `i${i}`, said: it.name, grams: it.grams, amountSaid: true, per100: { kcal: n.kcal * k, protein: n.protein * k, fat: n.fat * k, carbs: n.carbs * k,
+    ...(calcium !== undefined ? { calciumMg: calcium * k } : {}) },
+    ...(it.est ? { est: it.est } : {}) };
+}
+
+export interface FileImport { dishes: DishFile['dishes']; bad: { name: string; why: string }[] }
+
+/** A file of our own export: every dish as it was — no model, the same numbers. D131: each line checked and rebuilt; a dish with
+ *  an invalid line is not imported and is listed with the reason (never a silent loss, never «−100 ккал ✓»). */
+export function fromFile(text: string, foods: Map<string, Food>): FileImport | null {
+  let f: DishFile;
+  try { f = JSON.parse(text) as DishFile; } catch { return null; }
+  if (!f || f.format !== 'protocol-dishes' || f.v !== 1 || !Array.isArray(f.dishes)) return null;
+  const out: FileImport = { dishes: [], bad: [] };
+  for (const d of f.dishes.slice(0, MAX_ROWS) as unknown[]) {
+    const o = d as Record<string, unknown> | null;
+    const name = o && typeof o.name === 'string' ? o.name.trim().slice(0, 120) : '';
+    if (!name) { out.bad.push({ name: '—', why: 'без назви' }); continue; }
+    const items = Array.isArray(o!.items) ? o!.items.map((x) => cleanItem(x, foods)) : null;
+    if (!items) { out.bad.push({ name, why: 'немає складу' }); continue; }
+    const why = items.find((x): x is string => typeof x === 'string');
+    if (why) { out.bad.push({ name, why }); continue; }
+    if (!items.length && o!.needsMake !== true) { out.bad.push({ name, why: 'порожній склад' }); continue; }
+    out.dishes.push({ name, items: items as MealItem[], ...(o!.needsMake === true && !items.length ? { needsMake: true as const } : {}) });
+  }
+  return out;
 }
 
 const grams = (g: number) => String(Math.round(g * 10) / 10).replace('.', ',');

@@ -53,3 +53,16 @@ test('a confirmed allergy entered in «План»: marked in search, «Приб�
   await page.getByRole('checkbox', { name: 'Уже з’їдено' }).uncheck(); // a planned meal — now the swap is offered
   await expect(page.getByRole('button', { name: 'Записати заміну' })).toBeVisible(); // the swap drops the line
 });
+
+test('a new meal not yet written survives a reload; once written, the next form is empty (D131)', async ({ browser }) => {
+  const page = await device(browser, 'skip');
+  await page.goto('./#/meal/new');
+  await page.getByRole('searchbox', { name: /^Що з’їли/ }).fill('кефір');
+  await page.getByRole('button', { name: /^Кефір 2,5 %/ }).first().click();
+  await page.reload();
+  await expect(page.getByText('Кефір 2,5 %').first()).toBeVisible();
+  await page.getByRole('button', { name: 'Записати', exact: true }).click();
+  await expect(page.getByRole('heading', { level: 1, name: 'Сьогодні' })).toBeVisible();
+  await page.goto('./#/meal/new');
+  await expect(page.getByRole('button', { name: 'Записати', exact: true })).toBeDisabled();
+});
