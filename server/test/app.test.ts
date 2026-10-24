@@ -384,3 +384,22 @@ describe('the assistant’s chat (D117)', () => {
     expect((await ask({ text: '', names: ['Омлет з 2 яєць'] })).status).toBe(400);
   });
 });
+
+
+describe('batch dish endpoint', () => {
+  it('authenticates, refuses oversized text without truncation, calls the reader once, and shares the daily quota', async () => {
+    const store = new Store(':memory:');
+    let calls = 0, received = '';
+    const app = createApp({ store, origins: [], dishList: async (x) => { calls++; received = x.text; return { result: { dishes: [], note: 'Додайте склад' } }; },
+      dish: async () => ({ result: { readable: true, name: 'Омлет', portions: 1, items: [], note: '' } }), limits: { ...DEFAULT_LIMITS, dishesPerDay: 1 } });
+    const { token } = await (await app.request('/v1/devices', { method: 'POST', headers: { 'X-Forwarded-For': '203.0.113.8' } })).json() as { token: string };
+    const ask = (text: string) => app.request('/v1/device/dish-list', { method: 'POST', headers: { Authorization: `Device ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ text, foods: ['Кабачок'] }) });
+    expect((await app.request('/v1/device/dish-list', { method: 'POST', body: '{}' })).status).toBe(401);
+    expect((await ask('x'.repeat(12001))).status).toBe(400); expect(calls).toBe(0);
+    const text = 'Омлет: яйце 50 г\n\nКабачок: кабачок 150 г';
+    expect((await ask(text)).status).toBe(200); expect(calls).toBe(1); expect(received).toBe(text);
+    expect((await ask(text)).status).toBe(429);
+    expect((await app.request('/v1/device/dish', { method: 'POST', headers: { Authorization: `Device ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ text: 'Омлет: яйце 50 г' }) })).status).toBe(429);
+    store.close();
+  });
+});

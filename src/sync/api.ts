@@ -137,3 +137,6 @@ export interface LabelResult {
   per100g: { kcal: number; protein: number; fat: number; carbs: number; calciumMg: number | null };
 }
 export const label = (keys: Keys, image: string) => call<LabelResult>(keys, 'POST', '/label', { image });
+
+
+export const dishListBreakdown = (keys: Keys | null, text: string, foods: string[]) => vaultOrDevice<{ dishes: DishResult[]; note: string }>(keys, 'dish-list', { text, foods });

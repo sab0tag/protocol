@@ -1,4 +1,5 @@
 import { Trash2 } from 'lucide-react';
+import { DishTransfer } from '../components/DishTransfer';
 import { DishBreakdown } from '../components/DishBreakdown';
 import { LabelScan } from '../components/LabelScan';
 import { useSearchParams } from 'react-router-dom';
@@ -32,6 +33,7 @@ export function Dishes() {
     <section className="space-y-4 pt-4">
       <h1 className="text-2xl font-semibold">{L.title}</h1>
       <p className="text-sm text-muted">{L.hint}</p>
+      <DishTransfer recipes={recipes} foods={foods} {...(plan ? { plan } : {})} />
       <DishBreakdown foods={foods} {...(plan ? { plan } : {})} initial={params.get('describe') ?? ''} />
       {own.length === 0 && <p className="text-muted">{L.empty}</p>}
       <ul className="space-y-3">{own.map((r) => <Card key={r.id} recipe={r} foods={foods} />)}</ul>
@@ -131,3 +133,4 @@ function Card({ recipe, foods }: { recipe: Recipe; foods: Parameters<typeof meal
     </li>
   );
 }
+

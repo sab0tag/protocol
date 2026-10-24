@@ -12,7 +12,7 @@ export interface DishResult {
   name: string;
   portions: number;
   items: { said: string; base: string; grams: number; amountSaid: boolean; kcal: number; protein: number; fat: number; carbs: number;
-    tags?: string[]; allergens?: string[] }[];
+    calciumMg?: number; tags?: string[]; allergens?: string[] }[];
   note: string;
 }
 
@@ -31,7 +31,7 @@ export function breakdown(r: DishResult, foods: Food[]): DishLine[] {
     if (!said || !(grams > 0)) return [];
     const food = x.base.trim() ? byName.get(normalize(x.base)) : undefined;
     // an estimate that does not add up (protein + fat + carbs over 100 g, energy far from 4/9/4) is still shown — marked
-    const per100 = food ? undefined : { kcal: within(x.kcal, 0, 900), protein: within(x.protein, 0, 100), fat: within(x.fat, 0, 100), carbs: within(x.carbs, 0, 100) };
+    const per100 = food ? undefined : { kcal: within(x.kcal, 0, 900), protein: within(x.protein, 0, 100), fat: within(x.fat, 0, 100), carbs: within(x.carbs, 0, 100), ...(x.calciumMg !== undefined ? { calciumMg: within(x.calciumMg, 0, 10000) } : {}) };
     // D111: what the estimate is, from a closed list — the plan's check reads it; unknown words are dropped
     const est = food ? undefined : { tags: (x.tags ?? []).filter((t): t is EstTag => (EST_TAGS as readonly string[]).includes(t)),
       allergens: (x.allergens ?? []).filter((a): a is Allergen => (ALLERGENS as readonly string[]).includes(a)) };
@@ -43,10 +43,11 @@ export function breakdown(r: DishResult, foods: Food[]): DishLine[] {
 export function lineItem(l: DishLine): MealItem {
   if (l.food) return { foodId: l.food.id, name: l.food.name, grams: l.grams };
   const k = l.grams / 100, p = l.per100!;
-  return { name: l.said, grams: l.grams, manual: { kcal: p.kcal * k, protein: p.protein * k, fat: p.fat * k, carbs: p.carbs * k }, ...(l.est ? { est: l.est } : {}) };
+  return { name: l.said, grams: l.grams, manual: { kcal: p.kcal * k, protein: p.protein * k, fat: p.fat * k, carbs: p.carbs * k, ...(p.calciumMg !== undefined ? { calciumMg: p.calciumMg * k } : {}) }, ...(l.est ? { est: l.est } : {}) };
 }
 
 /** The dish for one portion — what «Мої страви» keeps (D27). */
 export function recipeItems(lines: DishLine[], portions: number): MealItem[] {
   return scaleItems(lines.map(lineItem), 1 / Math.max(1, portions)).map((it) => ({ ...it, grams: Math.max(0.5, it.grams) }));
 }
+

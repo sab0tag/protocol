@@ -6,7 +6,7 @@ import { claudeMenu } from './menu.ts';
 import { claudeWorkout } from './workout.ts';
 import { claudeLabs } from './labs.ts';
 import { claudeConclusion } from './conclusion.ts';
-import { claudeDish } from './dish.ts';
+import { claudeDish, claudeDishList } from './dish.ts';
 import { claudeChat } from './chat.ts';
 import { claudeMedbox } from './medbox.ts';
 import { claudeNotFound } from './concierge.ts';
@@ -38,6 +38,7 @@ const app = createApp({
     ? claudeMenu({ model: env.MENU_MODEL ?? 'claude-opus-5-5', effort: (env.MENU_EFFORT ?? 'medium') as 'low' | 'medium' | 'high' }) : undefined,
   chat: env.ANTHROPIC_API_KEY // D117
     ? claudeChat({ model: env.CONCIERGE_MODEL ?? env.PHOTO_MODEL ?? 'claude-opus-5-5', effort: 'low' }) : undefined,
+  dishList: env.ANTHROPIC_API_KEY ? claudeDishList({ model: env.MENU_MODEL ?? 'claude-opus-5-5', effort: 'low' }) : undefined,
   dish: env.ANTHROPIC_API_KEY // D110
     ? claudeDish({ model: env.MENU_MODEL ?? 'claude-opus-5-5', effort: 'low' }) : undefined,
   workout: env.ANTHROPIC_API_KEY // D63
@@ -69,3 +70,4 @@ const backupTimer = setInterval(() => {
 }, 3600_000);
 setTimeout(() => backupOnce(store, backups, new Date()).catch((e) => console.error('backup failed:', (e as Error).message)), 60_000);
 for (const sig of ['SIGINT', 'SIGTERM'] as const) process.on(sig, () => { clearInterval(timer); clearInterval(backupTimer); server.close(); store.close(); process.exit(0); });
+

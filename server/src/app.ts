@@ -5,7 +5,7 @@ import { Hono, type Context } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { cors } from 'hono/cors';
 import type { MenuMaker } from './menu.ts';
-import type { DishReader } from './dish.ts';
+import type { DishReader, DishListReader } from './dish.ts';
 import { checked, PROMPT_CHAT, type ChatReader } from './chat.ts';
 import type { WorkoutMaker } from './workout.ts';
 import type { LabsReader } from './labs.ts';
@@ -39,6 +39,7 @@ export interface Deps {
   store: Store;
   recognize?: Recognizer; // absent = photos are off (no API key)
   menu?: MenuMaker; // the same
+  dishList?: DishListReader;
   dish?: DishReader; // D110: a dish described in words → its ingredients
   chat?: ChatReader; // D117: the assistant's chat
   workout?: WorkoutMaker; // D63: the same
@@ -310,6 +311,28 @@ export function createApp(deps: Deps) {
   const DISH = bodyLimit({ maxSize: 60_000, onError: (c) => c.json({ error: 'too_large' }, 413) });
   app.post('/v1/vaults/:id/dish', DISH, async (c) => { const id = authed(c); return typeof id !== 'string' ? id : readDish(c, id); });
   app.post('/v1/device/dish', DISH, async (c) => { const who = device(c); return typeof who !== 'string' ? who : readDish(c, who); });
+
+  const readDishList = async (c: Context, who: string) => {
+    if (!deps.dishList) return c.json({ error: 'ai_off' }, 503);
+    const b = await c.req.json().catch(() => null) as Record<string, unknown> | null;
+    if (typeof b?.text !== 'string' || b.text.trim().length < 3 || b.text.length > 12000) return c.json({ error: 'bad_request' }, 400);
+    if (!store.take(`dish:${who}`, limits.dishesPerDay, now()) || !store.take('ai:all', limits.aiPerDay, now())) return c.json({ error: 'too_many' }, 429);
+    try {
+      const { result, usage } = await deps.dishList({ text: b.text.trim(), foods: list(b.foods, 600, 80) });
+      spent(who, 'dish', usage);
+      if (result === 'refused') return c.json({ error: 'refused' }, 422);
+      if (result.dishes.length > 20) return c.json({ error: 'upstream' }, 502);
+      ai.lastOk = Date.now();
+      return c.json(result);
+    } catch (e) {
+      ai.lastError = Date.now();
+      console.error('dish list failed:', (e as Error).message);
+      return c.json({ error: 'upstream' }, 502);
+    }
+  };
+  const DISH_LIST = bodyLimit({ maxSize: 100_000, onError: (c) => c.json({ error: 'too_large' }, 413) });
+  app.post('/v1/vaults/:id/dish-list', DISH_LIST, async (c) => { const id = authed(c); return typeof id !== 'string' ? id : readDishList(c, id); });
+  app.post('/v1/device/dish-list', DISH_LIST, async (c) => { const who = device(c); return typeof who !== 'string' ? who : readDishList(c, who); });
 
   // D89: a medicine package → its name and strength — counted with photos
   app.post('/v1/vaults/:id/medbox', bodyLimit({ maxSize: 3_500_000, onError: (c) => c.json({ error: 'too_large' }, 413) }), async (c) => {
@@ -604,3 +627,4 @@ export function createApp(deps: Deps) {
 
   return app;
 }
+
