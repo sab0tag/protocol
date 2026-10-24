@@ -1,7 +1,8 @@
 // D90: picking a diet of Наказ МОЗ №931 — by its code, its name or an old table number («стіл №5» → ЩД, to confirm).
 // Its norms are shown for reference; they fill a target only if the person ticks it, and only an empty one.
 import { useState } from 'react';
-import { DIET_SOURCE, findDiets, type DietPreset } from '../domain/diets';
+import { DIET_SOURCE, findDiets, fillEmptyTargets, runnable, type DietPreset } from '../domain/diets';
+import type { Targets } from '../domain/types';
 import { t } from '../i18n/uk';
 
 const L = t.diet;
@@ -13,8 +14,8 @@ export function DietNorms({ d }: { d: DietPreset }) {
   );
 }
 
-export function DietPicker({ value, onPick, fill, onFill }: {
-  value?: string; onPick: (d: DietPreset) => void; fill: boolean; onFill: (v: boolean) => void;
+export function DietPicker({ value, onPick, fill, onFill, targets }: {
+  value?: string; onPick: (d: DietPreset) => void; fill: boolean; onFill: (v: boolean) => void; targets?: Partial<Targets>;
 }) {
   const [q, setQ] = useState('');
   const found = findDiets(q);
@@ -40,12 +41,19 @@ export function DietPicker({ value, onPick, fill, onFill }: {
       {picked && (
         <div className="space-y-1 rounded-xl border border-line p-2">
           <DietNorms d={picked} />
-          {!picked.rules.some((r) => r.checkedBy) && <p className="text-xs text-warn">{L.noRules}</p>}
+          <p className={`text-xs ${picked.rules.some(runnable) ? 'text-muted' : 'text-warn'}`}>{picked.rules.some(runnable)
+            ? L.coverage(picked.rules.filter(runnable).length, 0, picked.rules.filter((r) => !r.checkedBy).length) : L.noRules}</p>
           {(picked.norms.kcal || picked.norms.proteinG) && (
             <label className="flex min-h-tap items-center gap-3 text-sm">
               <input type="checkbox" checked={fill} onChange={(e) => onFill(e.target.checked)} className="h-5 w-5 accent-[rgb(var(--accent))]" />
               <span>{L.fill}</span></label>
           )}
+          {fill && (() => { // R02: what would be written, before it is — a preview, not a default
+            const was = (targets ?? {}) as Targets, now = fillEmptyTargets(was, picked);
+            const added = [now.kcal !== was.kcal && `${now.kcal} ккал`, now.proteinG !== was.proteinG && `білок ${now.proteinG} г`,
+              now.fatG !== was.fatG && `жири ${now.fatG} г`, now.carbsG?.max !== was.carbsG?.max && `вуглеводи до ${now.carbsG?.max} г`].filter(Boolean).join(', ');
+            return <p role="status" className="text-xs text-warn">{added ? L.fillPreview(added) : L.fillNothing}</p>;
+          })()}
           <p className="text-xs text-muted">{DIET_SOURCE}</p>
         </div>
       )}

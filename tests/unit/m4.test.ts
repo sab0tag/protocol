@@ -122,10 +122,11 @@ describe('report — how the plan went (D40)', () => {
       entries: [meal('a', '2026-09-02', 450, 'done'), meal('b', '2026-09-03', 450, 'skipped'), meal('c', '2026-09-04', 450, 'planned'), meal('d', '2026-09-05', 200, 'done', false)],
       weights: [{ date: '2026-09-01', kg: 100 }, { date: '2026-09-15', kg: 98.6 }] });
     expect(r.weightPace).toBe(-0.7);
-    expect(r.habits).toContainEqual({ key: 'protein', met: 1, of: 4 }); // the skipped day counts as a day with entries
+    // R06: a day only skipped or only planned has no food eaten — no result; 200 g in a day not marked full — unknown
+    expect(r.habits).toContainEqual({ key: 'protein', met: 1, of: 1 });
     expect(r.menu).toEqual({ done: 1, skipped: 1, open: 1 });
     const text = reportText(r, (d) => d);
     expect(text).toContain('Темп за період, за тижневими середніми: −0,7 кг на тиждень (межа — не швидше 0,5)');
-    expect(text).toContain('Білок ≥ 90 % цілі: 1 з 4');
+    expect(text).toContain('Білок ≥ 90 % цілі: 1 з 1');
   });
 });

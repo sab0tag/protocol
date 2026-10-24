@@ -6,7 +6,7 @@
 // Nothing of the person's is removed: a line for a limit or a medicine already in the plan updates it.
 import { addDays, addMonths, format, parseISO } from 'date-fns';
 import { findDiets } from './diets';
-import { prnLimit } from './prn';
+import { parseLimit } from './prn';
 import { fold, searchMeds, type MedIndex } from './meds';
 import { ALLERGENS, type Allergen, type Constraint, type ConstraintTag, type Plan, type Prescription, type Targets } from './types';
 
@@ -37,7 +37,7 @@ interface Common { key: string; status: Status; from?: From }
 export type DraftLine = Common & (
   | { kind: 'constraint'; constraint: Constraint }
   | { kind: 'prescription'; prescription: Prescription; frequency?: string; suggested?: true; suggestedDate?: true }
-  | { kind: 'target'; target: keyof Targets; value: Targets[keyof Targets] }
+  | { kind: 'target'; target: Exclude<keyof Targets, 'fromDiet'>; value: Targets[Exclude<keyof Targets, 'fromDiet'>] }
   | { kind: 'checkup'; date: string; title: string }
   | { kind: 'unread'; text: string });
 
@@ -90,7 +90,7 @@ function fromOf(w: { page: number; box: number[] }, pages: number): From | undef
 }
 
 /** «2 л» → 2000 мл, «19.00» → «19:00», «1 800» → 1800: the doctor's figure as the target holds it. */
-function targetValue(key: TargetKey, raw: string): [keyof Targets, Targets[keyof Targets]] | undefined {
+function targetValue(key: TargetKey, raw: string): [Exclude<keyof Targets, 'fromDiet'>, Targets[Exclude<keyof Targets, 'fromDiet'>]] | undefined {
   const s = raw.trim();
   if (key === 'lastMealBy') {
     const m = /^(\d{1,2})[:.](\d{2})$/.exec(s);
@@ -140,7 +140,7 @@ export function draftLines(r: ConclusionResult, newId: () => string, opts: Draft
       prescription: { id: newId(), kind, title, source, since: today, ...(dose ? { dose } : {}),
         ...(times.length || p.withFood != null ? { schedule: { times, ...(p.withFood != null ? { withFood: p.withFood } : {}) } } : {}),
         ...(p.asNeeded ? { asNeeded: true as const } : {}), ...(until ? { until } : {}),
-        ...(p.asNeeded && prnLimit({ notes: p.frequency ?? '' }) ? { maxPerDay: prnLimit({ notes: p.frequency ?? '' })! } : {}), // D118
+        ...(p.asNeeded && parseLimit(p.frequency ?? '') ? { limit: parseLimit(p.frequency ?? '')! } : {}), // D118, R01: with its unit
         ...(p.frequency?.trim() ? { notes: p.frequency.trim() } : {}), ...(reg ? { med: reg } : {}) } });
   }
 

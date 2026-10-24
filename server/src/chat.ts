@@ -40,10 +40,14 @@ export function claudeChat(opts: { model: string; effort: Effort; client?: Anthr
 }
 
 /** The code's check on the way out: no sentence with a number (boundary 6), only the base's names, sane grams. */
+// R04: a number said in words is a number — «двісті грамів», «півтори порції», «дві тисячі калорій» go like «200 г»; so do the
+// words of an amount («грам», «ккал», «відсот») with no number. Whole words only (Cyrillic — no \b in JavaScript).
+const NUMBER_WORDS = /(?<!\p{L})(нуль|один|одна|одне|одного|одну|два|дві|двох|три|трьох|чотири|чотирьох|п[’']ять|шість|сім|вісім|дев[’']ять|десять|\p{L}+надцять|двадцять|тридцять|сорок|п[’']ятдесят|шістдесят|сімдесят|вісімдесят|дев[’']яносто|сто|двісті|триста|чотириста|п[’']ятсот|\p{L}+сот|тисяч\p{L}*|пів|півтор\p{L}*|половин\p{L}*|чверт\p{L}*|грам\p{L}*|кілограм\p{L}*|калорі\p{L}*|ккал|кілокалорі\p{L}*|відсот\p{L}*|мілілітр\p{L}*|літр\p{L}*)(?![\p{L}’'])/iu;
+
 export function checked(r: ChatResult, names: string[]): { result: ChatResult; numbersDropped: number } {
   const known = new Set(names);
   const sentences = r.text.split(/(?<=[.!?…])\s+/u).filter(Boolean);
-  const kept = sentences.filter((x) => !/\d/u.test(x));
+  const kept = sentences.filter((x) => !/\d/u.test(x) && !NUMBER_WORDS.test(x));
   const items = r.items.filter((x) => known.has(x.name)).slice(0, 3)
     .map((x) => ({ name: x.name, grams: Math.round(Math.min(600, Math.max(5, Number.isFinite(x.grams) ? x.grams : 100))) }));
   return { result: { topic: r.topic, text: kept.join(' '), items: r.topic === 'food' ? items : [] }, numbersDropped: sentences.length - kept.length };

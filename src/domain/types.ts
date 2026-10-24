@@ -45,11 +45,20 @@ export interface Prescription {
   until?: ISODate;
   /** D100: taken when needed, not at set times — the only way a medicine is kept without a time */
   asNeeded?: true;
-  /** D118: «не більше 4 на добу» — the doctor's daily limit for a medicine taken when needed */
+  /** D118: «не більше 4 на добу» — the old limit, a number with no unit; read as a limit whose unit is not known (R01) */
   maxPerDay?: number;
+  /** R01: the doctor's daily limit with its unit — «не більше 4 табл. на добу» is 4 tablets, «3 рази» is 3 intakes; `sourceText` —
+   *  the words it was read from; a unit never guessed from a number alone */
+  limit?: DailyLimit;
   /** D89: picked from the medicines register — its trade name, INN and ATC (never a dose); absent = typed, «не з реєстру» */
   med?: { name: string; inn?: string; atc?: string };
 }
+
+/** R01: the units a daily limit and a taken amount are in; mg is never turned into tablets without a confirmed strength */
+export const LIMIT_UNITS = ['intake', 'tablet', 'capsule', 'ml', 'mg'] as const;
+export type LimitUnit = (typeof LIMIT_UNITS)[number];
+export type AmountUnit = Exclude<LimitUnit, 'intake'>;
+export interface DailyLimit { value: number; unit: LimitUnit | 'unknown'; sourceText: string; source: 'paper' | 'plan' | 'legacy' }
 
 export interface Targets {
   kcal?: number;
@@ -61,6 +70,9 @@ export interface Targets {
   lastMealBy?: string; // "20:00"
   weightGoalKg?: number;
   maxWeightLossKgPerWeek?: number;
+  /** R02: targets written from a diet's reference norms on the person's explicit command — the diet's code per field; a field
+   *  edited later is the person's own again. Never a doctor's number. */
+  fromDiet?: Partial<Record<'kcal' | 'proteinG' | 'fatG' | 'carbsG', string>>;
 }
 
 /** A temporary mode that overrides targets (e.g. preparing for an OGTT). */
@@ -188,6 +200,8 @@ export interface DayEntry {
   symptoms?: string[]; // symptom (D56): «Мені погано» — what was felt, at `at`
   severity?: 1 | 2 | 3; // symptom: легко / помірно / сильно
   prescriptionId?: string; // med
+  /** R01: how much of the medicine was taken at once — «2 табл.», «0,5 табл.», «10 мл»; absent on older records */
+  amount?: { qty: number; unit: AmountUnit };
   /** D18: which «Мій день» item this entry ticks (e.g. "med:p-vitd:08:30", "dinner", "mode:0"). */
   checkKey?: string;
   /** D79: a record of the example week — taken out with the example plan («Почати свій план»). */

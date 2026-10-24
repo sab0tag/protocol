@@ -47,7 +47,7 @@ test('the example comes with two invented weeks: «Прогрес» and the repo
   const page = await device(browser, 'demo');
   await page.goto('./#/report');
   const main = page.getByRole('region', { name: 'Головне' });
-  await expect(main).toContainText(/Ліки: прийнято 11 з 14 доз/);
+  await expect(main).toContainText(/Ліки: відмічено прийнятими 11 з 14 доз у дні з записами/);
   await expect(main).toContainText(/Непереносимість лактози — 4/);
   await expect(main).toContainText('Глюкоза натще');
   await expect(page.getByText(/«Здуття» — 4 з 4/)).toBeVisible();

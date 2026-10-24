@@ -12,7 +12,8 @@ import { listen, speechSupported, type SpeechError } from '../data/speech';
 import { atLocal, newId } from '../domain/dates';
 import { amountText, needsGrams, approxG } from '../domain/foodSearch';
 import { dishItem, setPortions } from '../domain/recipes';
-import { checkMeal } from '../domain/rules';
+import { evaluate } from '../domain/evaluate';
+import { useRecentEntries } from '../data/queries';
 import { answerSame, change, emptyDraft, newSession, ready, step, type DraftMed, type VoiceDraft, type VoiceSession } from '../domain/voice';
 import type { DayEntry, Food, MealItem, Plan, Recipe } from '../domain/types';
 import { t } from '../i18n/uk';
@@ -43,6 +44,7 @@ export function VoiceSheet({ date, plan, foods, recipes, today, yesterday, meds,
   date: string; plan: Plan | undefined; foods: Map<string, Food>; recipes: Recipe[]; today: DayEntry[]; yesterday: DayEntry[];
   meds: DraftMed[]; onClose: () => void;
 }) {
+  const recent = useRecentEntries(date, 8); // R03: the day and the week before it
   const opened = useRef(Date.now());
   const ids = useRef({ meal: newId(), water: newId(), meds: new Map<string, string>() }); // fixed: a second tap writes the same rows
   const [ok, setOk] = useState(okGiven);
@@ -98,7 +100,8 @@ export function VoiceSheet({ date, plan, foods, recipes, today, yesterday, meds,
   }, [nf]);
   const partAsk = now.ask?.kind === 'part' ? now.ask : undefined;
   const danger = dangerInText(heard) || dangerInText(typed) || draft.notFound.some(dangerInText); // D97: one 103 card, nothing else about those words
-  const checks = plan && draft.items.length ? checkMeal({ plan, date, foods, dayEntries: today, recentEntries: [], meal: draft.items.map((x) => x.item) }) : [];
+  // R03: what is said is eaten — judged against the day's eaten food and the week before (the liver once a week too)
+  const checks = plan && draft.items.length ? evaluate({ plan, date, foods, entries: recent ?? today, intent: 'recorded', meal: draft.items.map((x) => x.item) }).checks : [];
 
   if (!ok) return (
     <Sheet title={L.title} onClose={onClose}>

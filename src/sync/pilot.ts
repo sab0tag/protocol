@@ -49,9 +49,12 @@ export function pilotTick(now = new Date()): Promise<void> {
     try {
       if (!m.pid || !m.secret) { const j = await pilotJoin(); m = { ...m, ...j }; await patch(j); }
       const auth = { pid: m.pid!, secret: m.secret! };
-      for (const week of weeksDue(now, since, Object.keys(m.sent ?? {}))) {
+      for (const week of weeksDue(now, since, [...Object.keys(m.sent ?? {}), ...(m.refused ?? [])])) {
         const s = await summaryFor(week, auth.pid, m.src);
-        await pilotSend(auth, s);
+        try { await pilotSend(auth, s); } catch (e) { // a summary the server refuses is not tried again and again
+          if (e instanceof ApiError && e.status === 400) { m = { ...m, refused: [...(m.refused ?? []), week] }; await patch({ refused: m.refused }); continue; }
+          throw e;
+        }
         m = { ...m, sent: { ...m.sent, [week]: s } };
         await patch({ sent: m.sent });
       }

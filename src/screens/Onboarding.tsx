@@ -122,7 +122,7 @@ function Steps({ plan, start, onScanned }: { plan: PlanRow; start: number; onSca
           <PlanScan plan={plan} onDone={onScanned} />
           <details className="rounded-2xl border border-line bg-surface p-3" open={!!chosen.diet}>
             <summary className="min-h-tap cursor-pointer font-medium">{chosen.diet ? chosen.diet.title : L.diet}</summary>
-            <div className="mt-2"><DietPicker value={chosen.diet?.diet} onPick={pickDiet} fill={!!fill} onFill={fillDiet} /></div>
+            <div className="mt-2"><DietPicker value={chosen.diet?.diet} onPick={pickDiet} fill={!!fill} onFill={fillDiet} targets={fill ?? targets} /></div>
           </details>
           <p className="text-sm text-muted">{L.constraintsHint}</p>
           <ul className="divide-y divide-line rounded-2xl border border-line bg-surface">

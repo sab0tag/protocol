@@ -16,7 +16,7 @@ import { db, inDemo } from '../data/db';
 import { keep, kept } from '../data/kept';
 import { useAllEntries, useDayEntries, useFoods, usePlan, useRecipes } from '../data/queries';
 import { listen, speechSupported } from '../data/speech';
-import { asksTopup, brings, dayContext, fixedAnswer, lineOf, passing } from '../domain/assistant';
+import { asksTopup, brings, dayContext, fixedAnswer, lineOf, passing, withoutDropped } from '../domain/assistant';
 import { appVersion, planVersion } from '../domain/concierge';
 import { atLocal, newId, todayISO } from '../domain/dates';
 import { amountText } from '../domain/foodSearch';
@@ -29,6 +29,7 @@ import type { DayEntry, MealItem } from '../domain/types';
 import { t } from '../i18n/uk';
 import { ApiError, assistantChat } from '../sync/api';
 import { count } from '../data/tally';
+import { passes } from '../domain/evaluate';
 import { currentKeys } from '../sync/runner';
 
 const L = t.assistant;
@@ -58,7 +59,7 @@ export function Assistant() {
   /** Scenario 3 asked in words — the code's numbers and three things that pass the plan; no model. */
   const topupAnswer = () => {
     if (!plan || !foods || !totals || !entries) return;
-    const tops = topups({ plan, targets, date, now: format(new Date(), 'HH:mm'), foods, usual,
+    const tops = topups({ plan, targets, date, now: format(new Date(), 'HH:mm'), foods, usual, ...(all ? { entries: all } : {}),
       mealsDone: entries.filter((e) => e.kind === 'meal' && e.status === 'done').length,
       have: { kcal: totals.kcal, protein: totals.protein, calciumMg: totals.calciumMg, carbs: totals.carbs } }, true);
     if (!tops.length) {
@@ -93,8 +94,11 @@ export function Assistant() {
       const fixed = fixedAnswer(r.topic, plan);
       if (fixed) { say({ role: 'assistant', text: fixed }); return; }
       const lines = r.items.flatMap((x) => { const it = lineOf(x.name, x.grams, [...foods.values()], recipes, dishItem); return it ? [it] : []; });
-      const { shown } = passing(lines, plan, date, foods); // what fails the plan is not shown
-      say({ role: 'assistant', text: r.text || L.empty, ...(shown.length ? { items: shown } : {}) });
+      const { shown, dropped } = passing(lines, plan, date, foods, all ?? []); // what fails the plan in the real day is not shown (R03)
+      // R04: nor said — the words naming a food taken out go; all taken out — said plainly
+      const said = withoutDropped(r.text, dropped, shown.map((x) => x.name));
+      const text = lines.length && !shown.length ? `${said ? `${said} ` : ''}${L.allDropped(dropped.join(', '))}` : said || L.empty;
+      say({ role: 'assistant', text, ...(shown.length ? { items: shown } : {}) });
     } catch (e) {
       const code = e instanceof ApiError ? (e.status === 0 ? 'offline' : e.code) : 'other';
       say({ role: 'assistant', text: (L.errors as Record<string, string>)[code] ?? L.errors.other ?? '', error: true });
@@ -106,7 +110,12 @@ export function Assistant() {
     setListening(true);
     stop.current = listen({ interim: setText, final: (x) => { setText(''); void ask(x); }, error: () => setListening(false), end: () => setListening(false) });
   };
-  const toEvening = async (it: MealItem) => { // a planned snack for the evening — never what was eaten (boundary 5)
+  const [added, setAdded] = useState<Set<string>>(new Set()); // R04: one tap, one planned snack — a second tap adds nothing
+  const toEvening = async (it: MealItem, key: string) => { // a planned snack for the evening — never what was eaten (boundary 5)
+    if (added.has(key)) return;
+    setAdded((s) => new Set(s).add(key));
+    // R03: checked again now — the day may have changed since the answer
+    if (plan && foods && !passes({ plan, date, foods, entries: all ?? [] }, it)) { say({ role: 'assistant', text: L.changed(it.name) }); return; }
     const by = targets.lastMealBy ?? '20:00', later = format(new Date(Date.now() + 900_000), 'HH:mm');
     const e: DayEntry = { id: newId(), at: atLocal(date, later < by ? later : by), kind: 'meal', status: 'planned', title: t.topup.snack, items: [it] };
     await saved(db.entries.add(e), t.topup.planned(it.name), () => db.entries.delete(e.id));
@@ -137,9 +146,10 @@ export function Assistant() {
                   <ul className="mt-2 space-y-2">
                     {m.items.map((it) => { const b = brings(it, foods); return (
                       <li key={it.name} data-suggestion={it.name} className="rounded-xl bg-bg p-2">
-                        <p className="font-medium">{it.name} <span className="font-normal text-muted">· {amountText(it)}</span></p>
+                        <p className="font-medium">{it.name} <span className="font-normal text-muted">· {amountText(it)} {L.portionGuess}</span></p>
                         <p className="text-xs text-muted">{L.brings(b.kcal, b.protein)}</p>
-                        <button type="button" onClick={() => void toEvening(it)} className="mt-1 min-h-[2.25rem] rounded-full border border-accent px-3 text-xs text-accent">{L.toEvening}</button>
+                        <button type="button" disabled={added.has(`${m.id}:${it.name}`)} onClick={() => void toEvening(it, `${m.id}:${it.name}`)}
+                          className="mt-1 min-h-[2.25rem] rounded-full border border-accent px-3 text-xs text-accent disabled:opacity-40">{added.has(`${m.id}:${it.name}`) ? L.added : L.toEvening}</button>
                       </li>); })}
                   </ul>
                 )}

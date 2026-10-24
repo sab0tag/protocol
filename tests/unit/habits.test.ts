@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { FOODS } from '../../src/data/foods';
 import { examplePlan } from '../../src/data/seed.example';
 import { earlierMeals, frequentItems, mealsOf, weekSummary } from '../../src/domain/habits';
+import { FOOD_COMPLETE } from '../../src/domain/habits';
 import type { DayEntry, MealItem } from '../../src/domain/types';
 
 const foods = new Map(FOODS.map((f) => [f.id, f]));
@@ -41,16 +42,20 @@ describe('week summary (D29)', () => {
     const water = (date: string, ml: number): DayEntry => ({ id: date + 'w', at: `${date}T10:00:00+03:00`, kind: 'water', status: 'done', title: 'Вода', waterMl: ml });
     const entries = [
       meal('2026-10-02', '13:00', 'Обід', [protein]), water('2026-10-02', 2500),
+      // R06: under the carbs limit counts only for a day the person said is fully written
+      { id: 'c2', at: '2026-10-02T23:59:00+03:00', kind: 'note' as const, status: 'done' as const, title: 'Усе записано', checkKey: FOOD_COMPLETE },
       meal('2026-10-03', '13:00', 'Обід', [big]), water('2026-10-03', 1000),
     ];
     const s = weekSummary({ plan, entries, foods, today: '2026-10-04',
       workouts: [{ id: 'w', date: '2026-10-03', durationMin: 30, equipment: '', exercises: [] }] });
     expect(s).toMatchObject({ from: '2026-09-28', days: 2, carbsOk: 1, proteinOk: 1, waterOk: 1, workouts: 1 });
+    // without the mark the same day proves no keeping of the limit (the rest may be unwritten); going over is proven
+    expect(weekSummary({ plan, entries: entries.filter((e) => e.id !== 'c2'), foods, today: '2026-10-04', workouts: [] })).toMatchObject({ carbsOk: 0 });
   });
 });
 
 describe('good habits (D38)', () => {
-  it('a run up to today, an unfinished today breaks nothing, days without entries are skipped', async () => {
+  it('a run of calendar days up to today, an unfinished today breaks nothing, a day without records breaks the run (R06)', async () => {
     const { habits } = await import('../../src/domain/habits');
     const { FOODS } = await import('../../src/data/foods');
     const foods = new Map(FOODS.map((f) => [f.id, f]));
@@ -60,6 +65,31 @@ describe('good habits (D38)', () => {
     // 23 g protein per 100 g: 450 g ≈ 103 g ✓, 200 g ✗
     const entries = [day('2026-10-01', 450), day('2026-10-02', 200), day('2026-10-03', 450), day('2026-10-05', 450), day('2026-10-06', 450), day('2026-10-07', 200)];
     const [h] = habits({ plan, entries, workouts: [], foods, today: '2026-10-07' });
-    expect(h).toMatchObject({ key: 'protein', streak: 3, best: 3, last7: 4, days7: 6 }); // 3, 5, 6 in a row (4 has no entries); 7 is today, not over
+    // R06: 4 has no records — the run is 5, 6 (calendar days); 2 and 7 are under the target in a day not marked as fully written —
+    // unknown, neither met nor missed; 7 is today, not over
+    expect(h).toMatchObject({ key: 'protein', streak: 2, best: 2, last7: 4, days7: 4 });
   });
 });
+
+describe('how complete a day’s food is (R06)', () => {
+  it('water without food proves no carbs limit kept; one meal is not a full day; the person’s mark makes it one', async () => {
+    const { dayFlags, foodState } = await import('../../src/domain/habits');
+    const { FOODS } = await import('../../src/data/foods');
+    const foods = new Map(FOODS.map((f) => [f.id, f]));
+    const plan = { constraints: [], prescriptions: [], modes: [], targets: { carbsG: { max: 150 }, proteinG: 100 } };
+    const d = '2026-10-10';
+    const water: DayEntry = { id: 'w', at: `${d}T09:00:00+03:00`, kind: 'water', status: 'done', title: 'Вода', waterMl: 1500 };
+    const lunch: DayEntry = { id: 'l', at: `${d}T13:00:00+03:00`, kind: 'meal', status: 'done', title: 'Обід', items: [{ foodId: 'buckwheat-boiled', name: 'Гречка варена', grams: 200 }] };
+    const full: DayEntry = { id: 'c', at: `${d}T23:59:00+03:00`, kind: 'note', status: 'done', title: 'Усе записано', checkKey: FOOD_COMPLETE };
+    expect(foodState([water])).toBe('none');
+    const food = (f: Record<string, boolean>) => ({ carbs: f.carbs, protein: f.protein }); // the food habits only
+    expect(food(dayFlags(plan, [water], d, [], foods))).toEqual({ carbs: undefined, protein: undefined }); // a sum of zero is no success
+    expect(foodState([water, lunch])).toBe('partial');
+    expect(food(dayFlags(plan, [water, lunch], d, [], foods))).toEqual({ carbs: undefined, protein: undefined }); // under the limit and under the protein target — unknown either way
+    expect(foodState([water, lunch, full])).toBe('complete');
+    expect(food(dayFlags(plan, [water, lunch, full], d, [], foods))).toEqual({ carbs: true, protein: false });
+    const lots: DayEntry = { ...lunch, id: 'x', items: [{ foodId: 'buckwheat-boiled', name: 'Гречка варена', grams: 900 }, { foodId: 'chicken-breast', name: 'Куряче філе (сире)', grams: 450 }] };
+    expect(food(dayFlags(plan, [lots], d, [], foods))).toEqual({ carbs: false, protein: true }); // over the limit, and the target reached — proven by any records
+  });
+});
+

@@ -19,7 +19,7 @@ import type { LabelReader } from './label.ts';
 import type { Recognizer } from './photo.ts';
 import type { Sender } from './push.ts';
 import type { Store } from './store.ts';
-import { parsePilot, PID, SECRET, SRC, weekAdd, weekKey } from './pilot.ts';
+import { latestWeek, parsePilot, PID, SECRET, SRC, weekAdd, weekKey } from './pilot.ts';
 
 export interface Limits {
   vaultsPerIpPerDay: number;
@@ -676,8 +676,8 @@ export function createApp(deps: Deps) {
     if (typeof pid !== 'string') return pid;
     const rec = parsePilot(await c.req.json().catch(() => null));
     if (!rec || rec.body.pid !== pid) return c.json({ error: 'bad_request' }, 400);
-    const week = weekKey(now());
-    if (rec.body.week > week || rec.body.week < weekAdd(week, -5)) return c.json({ error: 'bad_week' }, 400); // the phone sends up to 4 weeks back
+    const week = latestWeek(now()); // R17: a phone's week by its own time zone, never refused for being ahead of UTC
+    if (rec.body.week > week || rec.body.week < weekAdd(weekKey(now()), -5)) return c.json({ error: 'bad_week' }, 400); // the phone sends up to 4 weeks back
     if (!store.take(`pilotweek:${pid}`, 40, now())) return c.json({ error: 'too_many' }, 429);
     const body = rec.kind.startsWith('note:') ? { ...rec.body, note: scrubNames((rec.body as { note: string }).note) } : rec.body;
     store.putPilotWeek(pid, rec.body.week, rec.kind, rec.kind === 'week' ? (rec.body as { src?: string }).src ?? null : null, JSON.stringify(body));

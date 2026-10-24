@@ -26,6 +26,10 @@ export function weekMonday(key: string): number {
   return jan4 - ((new Date(jan4).getUTCDay() + 6) % 7) * DAY + (w - 1) * 7 * DAY;
 }
 export const weekAdd = (key: string, n: number) => weekKey(new Date(weekMonday(key) + n * 7 * DAY));
+/** R17: «2026-W53» exists, «2027-W53» does not — the week's Monday must give the same key back. */
+export const isoWeekExists = (key: string) => WEEK.test(key) && Number(key.slice(6)) >= 1 && weekKey(new Date(weekMonday(key))) === key;
+/** The latest week a phone may be in: its local Monday comes up to 14 hours before the server's (UTC+14) — R17. */
+export const latestWeek = (now: Date) => weekKey(new Date(now.getTime() + 14 * 3600_000));
 export const weeksBetween = (from: string, to: string) => Math.round((weekMonday(to) - weekMonday(from)) / (7 * DAY));
 
 const n = (max: number) => z.number().int().min(0).max(max);
@@ -44,6 +48,14 @@ const summary = z.strictObject({
   rem: z.strictObject({ sent: n(2000), opened: n(2000) }).optional(), // opened from the notification — not a dose confirmed
   other: z.strictObject({ water_days: n(7), workouts: n(50), wellbeing_days: n(7), report_made: n(50) }),
   app: z.strictObject({ build: z.string().regex(BUILD), platform: z.enum(PLATFORMS) }),
+}).superRefine((s, ctx) => { // R17: the counts must hang together — a summary that does not is refused whole, nothing written
+  const bad = (why: string) => ctx.addIssue({ code: 'custom', message: why });
+  if (!isoWeekExists(s.week)) bad('no such ISO week');
+  if (s.meds.done + s.meds.skipped > s.meds.due) bad('done + skipped > due');
+  if (s.meds.late_30 > s.meds.done) bad('late > done');
+  if (s.food.by_voice + s.food.by_text + s.food.by_photo !== s.food.entries) bad('voice + text + photo ≠ entries');
+  if (s.food.days_logged > s.active_days) bad('food days > active days');
+  if (s.plan.photo_rows_unchecked > s.plan.photo_rows) bad('unchecked > rows read');
 });
 const survey = z.strictObject({
   v: z.literal(1),

@@ -26,6 +26,11 @@ export async function device(browser: Browser, start: 'example' | 'demo' | 'skip
       await new Promise((r) => { get.onsuccess = r; });
       store.put({ ...get.result, ...plan, id: 'main' });
       await new Promise((r) => { tx.oncomplete = r; });
+      // D120: the plan is weeks old — «Допомогти пілоту?» would come up on «День» a moment later and move what a test taps;
+      // a fixture says «Ні» twice for it (the offer has its own tests in pilot.spec)
+      const p = req.result.transaction('pilot', 'readwrite');
+      p.objectStore('pilot').put({ key: 'pilot', asked: [{ at: '2026-01-01', answer: 'no' }, { at: '2026-02-01', answer: 'no' }] });
+      await new Promise((r) => { p.oncomplete = r; });
       req.result.close();
     }, examplePlan());
     await page.reload();

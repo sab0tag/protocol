@@ -2,10 +2,10 @@
 // ready-made; «що добрати?» is answered by the code alone (scenario 3, D92/D116); a question on medicines, symptoms or
 // changing the plan gets the app's own words (boundaries 2–4, 1); a food the model names becomes a meal line only through the
 // base and the plan's check — what does not pass is not shown (it goes to the log as a finding). Pure.
-import { checkMeal } from './rules';
+import { passes } from './evaluate';
 import { itemFor } from './foodSearch';
 import { lineNutrients, type DayTotals } from './nutrition';
-import type { Food, MealItem, Plan, Recipe, Targets } from './types';
+import type { DayEntry, Food, MealItem, Plan, Recipe, Targets } from './types';
 
 /** «Що добрати до вечора?», «чим добрати білок», «що ще з'їсти» — a short question the code answers by itself. */
 const ASKS = /добрат|недобира|не\s+вистача|чим\s+добрати|що\s+(?:б\s+)?(?:ще\s+)?(?:з[’'ʼ]?їсти|поїсти|перекусити)/iu;
@@ -52,10 +52,21 @@ export function lineOf(name: string, grams: number, foods: Food[], recipes: Reci
 }
 
 /** Only what passes the whole plan check is shown (the rest is a finding for the log, never a suggestion). */
-export function passing(items: MealItem[], plan: Plan, date: string, foods: Map<string, Food>): { shown: MealItem[]; dropped: string[] } {
+/** R04: the model's words without the foods the check took out — a sentence naming one is dropped (by the words of its name that
+ *  no food still shown has), so the text never recommends what the cards do not show. */
+export function withoutDropped(text: string, dropped: string[], shown: string[]): string {
+  if (!dropped.length) return text;
+  const words = (s: string) => s.toLocaleLowerCase('uk').split(/[^\p{L}’']+/u).filter((w) => w.length >= 4);
+  const keep = new Set(shown.flatMap(words).map((w) => w.slice(0, 5)));
+  const stems = [...new Set(dropped.flatMap(words).map((w) => w.slice(0, 5)))].filter((s) => !keep.has(s));
+  return text.split(/(?<=[.!?…])\s+/u).filter((x) => !stems.some((s) => words(x).some((w) => w.startsWith(s)))).join(' ');
+}
+
+/** R03: each food the model named, checked against the plan in the real day (`entries` — the day and the week before). */
+export function passing(items: MealItem[], plan: Plan, date: string, foods: Map<string, Food>, entries: DayEntry[] = []): { shown: MealItem[]; dropped: string[] } {
   const shown: MealItem[] = [], dropped: string[] = [];
   for (const it of items) {
-    if (checkMeal({ plan, date, foods, dayEntries: [], recentEntries: [], meal: [it] })[0]!.hits.length) dropped.push(it.name);
+    if (!passes({ plan, date, foods, entries }, it)) dropped.push(it.name);
     else shown.push(it);
   }
   return { shown, dropped };

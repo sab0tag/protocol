@@ -184,10 +184,10 @@ describe('stats:pilot', () => {
     expect(hidden).toBe(1);
     expect(new Set(rows.map((r) => r.group))).toEqual(new Set(['всього', 'ENDO-01 · Ендокринолог, клініка 1']));
     const total = rows.find((r) => r.group === 'всього' && r.week === 'всього')!;
-    expect(total).toMatchObject({ consents: 20, plan_entered: 20, qr: 30, d7: 75, adherence: 86, on_time: 92, not_found: 10, voice: 60, photo_edited: 11, photo_unchecked: 22 });
+    expect(total).toMatchObject({ consents: 20, plan_entered: 20, qr: 30, ret_w2: 75, marked: 86, on_time: 92, nf_per_entry: 10, voice: 60, photo_edited: 11, photo_unchecked: 22 });
     expect(total.helps_d7).toBe(4);
     expect(total.blockers).toBe('forget 10, slow_food 10');
-    expect(rows.find((r) => r.group === 'всього' && r.week === '2026-W45')).toMatchObject({ consents: 10, d7: 80 }) // the W44 ones in their 2nd week: 3 and 7 dropped out;
+    expect(rows.find((r) => r.group === 'всього' && r.week === '2026-W45')).toMatchObject({ consents: 10, ret_w2: 80 }) // the W44 ones in their 2nd week: 3 and 7 dropped out;
     const md = table(rows, 'md'), csv = table(rows, 'csv');
     expect(md).not.toMatch(/p_[a-z]{10}|CARD-02/);
     expect(csv.split('\n')[0]).toMatch(/^group,week,participants,qr,consents/);
@@ -214,5 +214,26 @@ describe('stats:ops', () => {
     expect(weeks[0]).toMatchObject({ new_vaults: 3, active: 3, back_w1: 33, back_w4: null });
     expect(weeks[1]).toMatchObject({ active: 1, active_30: 3, rem_sent: 1, rem_acked: 1, rem_acked_pct: 100, rem_ack_min: 30 });
     expect(JSON.stringify(weeks)).not.toContain('a'.repeat(32));
+  });
+});
+
+describe('the counts hang together (R17)', () => {
+  it('a summary that contradicts itself is refused whole; a phone ahead of UTC is not refused', async () => {
+    const { store, call, join, setNow } = setup();
+    const p = await join();
+    const bad = [
+      summary(p.pid, '2026-W44', { meds: { due: 10, done: 9, skipped: 2, late_30: 0, prn_taken: 0 } }), // done + skipped > due
+      summary(p.pid, '2026-W44', { meds: { due: 10, done: 3, skipped: 0, late_30: 4, prn_taken: 0 } }), // late > done
+      summary(p.pid, '2026-W44', { food: { days_logged: 6, entries: 14, by_voice: 9, by_text: 4, by_photo: 0, not_found: 2 } }), // 13 ≠ 14
+      summary(p.pid, '2026-W44', { active_days: 3 }), // food on 6 days of 3 active
+      summary(p.pid, '2026-W44', { plan: { meds: 1, constraints: 1, from_photo: true, photo_rows: 2, photo_rows_edited: 0, photo_rows_unchecked: 3 } }),
+      summary(p.pid, '2027-W53'), // no such week
+    ];
+    for (const b of bad) expect((await call('POST', '/v1/pilot/week', p.auth, b)).status).toBe(400);
+    expect(rows(store)).toBe(0);
+    // Monday 01:30 in Kyiv is still Sunday in UTC — the phone's finished week W45 is the server's current one; W46's Monday
+    // in Auckland (UTC+13) is Sunday 11:00 UTC — a phone there sends W45 only on its Monday, never refused
+    setNow(new Date('2026-11-08T23:30:00Z'));
+    expect((await call('POST', '/v1/pilot/week', p.auth, summary(p.pid, '2026-W45'))).status).toBe(200);
   });
 });

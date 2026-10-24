@@ -3,10 +3,10 @@
 // come from what the person usually eats first. Silent without a target in the plan (a doctor may limit protein), without
 // a meal recorded at midday, after the last meal of the day, or once answered today. A tap puts it in the evening's plan,
 // never in what was eaten.
-import { checkMeal } from './rules';
+import { passes } from './evaluate';
 import { itemFor } from './foodSearch';
 import { itemNutrients } from './nutrition';
-import type { Food, MealItem, Plan, Targets } from './types';
+import type { DayEntry, Food, MealItem, Plan, Targets } from './types';
 
 export type TopGoal = 'kcal' | 'proteinG' | 'calciumMg'; // D116: calories too
 export interface Topup { kind: 'topup'; goal: TopGoal; have: number; target: number; gap: number; items: MealItem[] }
@@ -19,6 +19,8 @@ export interface DayState {
   mealsDone: number; // meals recorded today (eaten)
   foods: Map<string, Food>;
   usual: string[]; // food ids this person eats often, the most frequent first
+  /** R03: the person's entries (the day and the week before) — a tip is checked against them, not against an empty day */
+  entries?: DayEntry[];
 }
 
 const PORTION_CARBS = 40; // one usual side portion — «less than one portion left» (scenario 4)
@@ -61,7 +63,7 @@ export function topups(s: DayState, asked = false): Topup[] {
       if (!ready(f)) return false;
       const it = itemFor(f, {}), n = itemNutrients(it, f);
       if (n[NEED[goal].key] < NEED[goal].per || n.kcal > most) return false; // an addition, not a second dinner
-      return checkMeal({ plan: s.plan, date: s.date, foods: s.foods, dayEntries: [], recentEntries: [], meal: [it] }).every((c) => c.hits.length === 0);
+      return passes({ plan: s.plan, date: s.date, foods: s.foods, entries: s.entries ?? [] }, it); // R03: the real day, the planned meals too
     };
     const usual = s.usual.map((id) => s.foods.get(id)).filter((f): f is Food => !!f && ok(f));
     const rest = [...s.foods.values()].filter((f) => !s.usual.includes(f.id) && ok(f))

@@ -2,6 +2,7 @@
 // so a day without records is never empty. Water is not on the line (it is the ring in «Уже сьогодні»). Pure.
 import type { CheckItem } from './checklist';
 import { shownTime, timeOf } from './dates';
+import { FOOD_COMPLETE } from './habits';
 import type { DayEntry } from './types';
 
 export type RhythmNode =
@@ -18,7 +19,8 @@ export interface Rhythm {
 
 export function dayRhythm(args: { entries: DayEntry[]; checklist?: { items: CheckItem[] }; lastMealBy?: string }): Rhythm {
   const nodes: RhythmNode[] = [];
-  for (const e of args.entries) if (e.kind !== 'water') nodes.push({ kind: 'entry', at: shownTime(e) ?? timeOf(e.at), entry: e });
+  // R06: the «all written» mark is no row
+  for (const e of args.entries) if (e.kind !== 'water' && e.checkKey !== FOOD_COMPLETE) nodes.push({ kind: 'entry', at: shownTime(e) ?? timeOf(e.at), entry: e });
   const anytime: CheckItem[] = [];
   for (const i of args.checklist?.items ?? []) {
     if (i.kind === 'med' && !i.done && !i.skipped) { if (i.time) nodes.push({ kind: 'dose', at: i.time, item: i }); else anytime.push(i); }

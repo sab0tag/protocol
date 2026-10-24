@@ -72,14 +72,14 @@ test('scenarios 3–4 on «День»: the numbers of the day, options that pass
     items: [{ foodId: 'buckwheat-boiled', name: 'Гречка варена', grams }] } });
   await seed(page, [meal('m1', '08:00', 200), meal('m2', '13:00', 300)]);
   const card = page.getByRole('region', { name: 'Підказки на вечір' });
-  await expect(card).toContainText(/Калорій \d+ з 2100 ккал\. Добрати до вечора\?/); // D116: calories too
-  await expect(card).toContainText(/Білка \d+ з 140 г\. Добрати до вечора\?/);
-  await expect(card).toContainText(/Кальцію \d+ з 1000 мг/);
+  await expect(card).toContainText(/У записах поки: калорій \d+ з 2100 ккал\..*Добрати до вечора\?/); // D116: calories too
+  await expect(card).toContainText(/У записах поки: білка \d+ з 140 г\..*Добрати до вечора\?/);
+  await expect(card).toContainText(/У записах поки: кальцію \d+ з 1000 мг/);
   await card.locator('[data-item]').first().click();
   await expect(toast(page)).toContainText('у плані на вечір');
-  await expect(card).not.toContainText('Калорій');
+  await expect(card).not.toContainText('калорій');
   await card.getByRole('button', { name: 'Не сьогодні' }).first().click();
-  await expect(card).not.toContainText('Білка');
+  await expect(card).not.toContainText('білка');
   await card.getByRole('button', { name: 'Не сьогодні' }).first().click();
   await expect(card).toHaveCount(0);
   expect(await page.evaluate(async () => {

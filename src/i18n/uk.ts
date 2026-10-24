@@ -38,15 +38,29 @@ export const t = {
       clear: 'Очистити чернетку?', clearYes: 'Так, очистити', clearNo: 'Ні',
     },
   },
-  prn: { // D118: «за потреби» with the doctor's daily limit
+  prn: { // D118, R01: «за потреби» with the doctor's daily limit, in its unit
     title: 'За потреби', takeNow: 'Прийняв зараз', taken: (x: string) => `${x} — прийнято`,
-    count: (n: number) => `сьогодні: ${n}`, countOf: (n: number, max: number) => `сьогодні ${n} з ${max}`,
-    limit: (max: number, n: number) => `Лікар указав: не більше ${max} на добу. Сьогодні вже ${n}. Якщо ви прийняли — запис збереже, як було; питання про дозу — до лікаря або фармацевта.`,
+    count: (n: number) => `сьогодні прийомів: ${n}`,
+    countOf: (n: string, max: string) => `сьогодні ${n} з ${max}`,
+    unmatched: 'Не вдалося зіставити одиниці з межею лікаря — залишок не рахується',
+    limitText: (v: string, unit: string) => `не більше ${v}${unit ? ` ${unit}` : ''} на добу`,
+    limit: (limit: string, used: string) => `Лікар указав: ${limit}. Сьогодні вже ${used}. Якщо ви прийняли — запис збереже, як було; питання про дозу — до лікаря або фармацевта.`,
     recordAnyway: 'Все одно записати прийом', dontRecord: 'Не записувати',
+    how: 'Скільки прийняли', qty: 'Кількість', unit: 'Одиниця', record: 'Записати', cancel: 'Скасувати', busy: 'Записую…',
+    units: { intake: 'раз(и)', tablet: 'табл.', capsule: 'капс.', ml: 'мл', mg: 'мг', unknown: '' } as Record<string, string>,
+    unitNames: { intake: 'прийоми (рази)', tablet: 'таблетки', capsule: 'капсули', ml: 'мл', mg: 'мг', unknown: 'не визначено' } as Record<string, string>,
+    noAmount: 'кількість не записано', fixOk: 'Зберегти', fix: (x: string) => `Виправити кількість: ${x}`, remove: (x: string) => `Видалити запис: ${x}`,
     report: (x: string, total: number, days: number) => `${x} — за потреби: ${total} раз(и) за ${days} дн.`,
-    over: (max: number, days: string) => `понад «не більше ${max} на добу»: ${days}`,
+    over: (limit: string, days: string) => `понад «${limit}»: ${days}`,
+    reportUnmatched: (n: number) => `днів, де одиниці не зіставлено з межею: ${n}`,
+    planLimit: 'Межа на добу (якщо лікар указав)', planUnit: 'В чому межа',
+    planUnitHint: 'Одиницю беріть зі слів лікаря: «4 табл.» — таблетки, «3 рази» — прийоми. Без одиниці залишок не рахується.',
+    legacy: 'Межу внесено без одиниці — вкажіть, у чому вона (таблетки, прийоми…)',
   },
   assistant: { // D117
+    allDropped: (x: string) => `Я назвав ${x}, але за сьогоднішнім днем це не проходить ваш план — тож не пропоную. Можна запитати інакше або записати самому.`, // R04
+    added: 'Додано в план на вечір', portionGuess: '(порція — оцінка, змініть при записі)',
+    changed: (x: string) => `${x} — з того часу, як я це запропонував, день змінився: тепер це не проходить ваш план. Не додаю.`, // R03
     title: 'Помічник', link: 'Помічник — запитати, що з’їсти',
     hint: 'Питайте словами чи голосом: що добрати до вечора, що приготувати з того, що є, чи підходить продукт під план. Про ліки й самопочуття — до лікаря.',
     today: 'Сьогодні:', fact: (what: string, have: string, target: number, unit: string) => `${what.toLowerCase()} ${have} з ${target} ${unit}`,
@@ -68,7 +82,7 @@ export const t = {
   topup: { // D92: scenarios 3–4 — the numbers are the code's
     title: 'Підказки на вечір', snack: 'Перекус', protein: 'Білка', calcium: 'Кальцію',
     goals: { kcal: 'Калорій', proteinG: 'Білка', calciumMg: 'Кальцію' }, units: { kcal: 'ккал', proteinG: 'г', calciumMg: 'мг' }, // D116
-    ask: (what: string, have: number, target: number, unit: string) => `${what} ${have} з ${target} ${unit}. Добрати до вечора?`,
+    ask: (what: string, have: number, target: number, unit: string) => `У записах поки: ${what.toLocaleLowerCase('uk')} ${have} з ${target} ${unit}. Якщо щось не записано — спершу допишіть. Добрати до вечора?`, // R06
     near: (have: number, max: number) => `Вуглеводів ${have} з ${max} г — на вечерю краще без гарніру.`,
     planned: (name: string) => `${name} — у плані на вечір`, notToday: 'Не сьогодні', ok: 'Зрозуміло',
     other: 'Вдома інше? Запитати помічника', // D117
@@ -97,8 +111,14 @@ export const t = {
     byTable: (n: string, code: string) => `Стіл №${n} тепер — ${code}. Підтвердіть, що лікар призначив саме це.`,
     none: 'Нічого не знайдено — оберіть зі списку або опишіть своїми словами як «Інше».',
     norms: (kcal: string, p: string, f: string, c: string) => `Норми (довідково): ${kcal} ккал · білок ${p} г · жири ${f} г · вуглеводи ${c} г — уточніть у лікаря`,
-    noRules: 'Правила цієї дієти ще не перевірені дієтологом — їжа за нею поки не перевіряється, лише ваші окремі обмеження.',
+    noRules: 'Дієту збережено; автоматичну перевірку її правил ще не налаштовано — їжа перевіряється лише за вашими окремими обмеженнями.',
+    coverage: (active: number, off: number, unchecked: number) => `Правил перевіряється: ${active}${off ? `, вимкнено вами: ${off}` : ''}${unchecked ? `, не перевірено фахівцем: ${unchecked}` : ''}`,
+    checkNote: (code: string) => `${code}: дієту збережено; автоматичну перевірку її правил ще не налаштовано — перевірено лише окремі обмеження плану.`,
+    partialFits: 'Зауважень немає — за налаштованими правилами',
     fill: 'Заповнити порожні цілі нормами дієти (цілі лікаря не змінюються)',
+    fillPreview: (x: string) => `Буде вписано — середина довідкового діапазону, з позначкою «з довідника»: ${x}. Уточніть у лікаря.`,
+    fromRef: (code: string) => `з довідника ${code}, не від лікаря`,
+    fillNothing: 'Порожніх цілей, які дієта могла б заповнити, немає — нічого не зміниться.',
     unverified: 'не перевірено дієтологом',
     conflict: (code: string, what: string, target: number, from: number, to: number) => `${what} у цілях — ${target}, а норма ${code} — ${from}–${to}. Питання до лікаря.`,
     fields: { kcal: 'Калорії', proteinG: 'Білок', fatG: 'Жири', carbsG: 'Вуглеводи' },
@@ -168,6 +188,9 @@ export const t = {
     atLeast: (n: number) => `мінімум ${n} г`,
     limit: (n: number) => `межа з плану: ${n} г`,
     limitNote: 'Межу не потрібно заповнювати.',
+    foodNone: 'Їжі за день ще не записано — показники їжі поки ні про що не кажуть.', // R06
+    foodPartial: 'Показники — за записами.', foodComplete: 'Їжу за день записано повністю ✓',
+    markComplete: 'Усе з’їдене записано', undoComplete: 'Зняти позначку',
     over: (g: number) => `Понад межу на ${g} г.`,
     toGo: (g: number) => `Добрати ще ${g} г.`,
     reached: 'Мінімум набрано.',
@@ -267,6 +290,7 @@ export const t = {
     yes: 'Так',
     verdict: { ok: 'Так', replace: 'Замінити', remove: 'Прибрати', adjust: 'Доповнити' },
     swapTo: 'Заміна',
+    noSwap: 'заміни, що підходить під увесь план, немає', // R03
     dropped: 'буде прибрано',
     saveAsIs: 'Записати як є',
     saveSwap: 'Записати заміну',
@@ -306,7 +330,7 @@ export const t = {
     title: 'Тиждень', went: 'Що вдалося', goal: 'Ціль на тиждень', pick: 'Обрати ціль', change: 'Змінити', clear: 'Без цілі', save: 'Зберегти',
     own: 'Або своїми словами', since: (d: string) => `з ${d}`, goalSaved: 'Ціль збережено', dayLine: 'Ціль тижня',
     nothingYet: 'Ще мало записів, щоб було що підсумувати. Наступний тиждень покаже більше.',
-    habitLine: (name: string, n: number, of: number) => `${name} — ${n} з ${of} дн.`,
+    habitLine: (name: string, n: number, of: number) => `${name} — ${n} з ${of} дн. із записами`,
     goals: { protein: 'Білок ≥ 90 % цілі щодня', carbs: 'Вуглеводи в межах щодня', water: 'Вода — норма щодня', meds: 'Ліки — всі вчасно', plan: 'План дня ≥ 80 %' },
     goalWorkouts: 'Тренування — 3 на тиждень',
   },
@@ -531,7 +555,7 @@ export const t = {
     report: 'Звіт для лікаря',
     habits: 'Добрі звички', habitsHint: 'Рахуються лише дні з записами. Пропущений день нічого не обнуляє — просто продовжуйте.',
     habit: { protein: 'Білок у нормі', carbs: 'Вуглеводи в межах', water: 'Вода — норма', meds: 'Ліки — всі вчасно', plan: 'План дня ≥ 80 %' },
-    streak: (n: number) => `${n} дн. поспіль`, ofWeek: (n: number, d: number) => `${n} з ${d} дн. за тиждень`, best: (n: number) => `найкраще за місяць — ${n}`,
+    streak: (n: number) => `${n} дн. поспіль`, ofWeek: (n: number, d: number) => `${n} з ${d} дн. із записами за тиждень`, best: (n: number) => `найкраще за місяць — ${n}`,
     pace: (v: string) => `Темп за останні 2 тижні, за тижневими середніми: ${v} кг на тиждень`, paceLimit: (m: string) => ` (межа — не швидше ${m})`,
   },
   report: {
@@ -545,7 +569,7 @@ export const t = {
     howPlan: 'Як виконувався план',
     // D79: what a doctor reads in two minutes — first
     main: 'Головне', mainHint: 'Рахуються дні, коли були записи.',
-    meds: (taken: number, due: number) => `Ліки: прийнято ${taken} з ${due} доз (${Math.round((taken / due) * 100)} %)`,
+    meds: (taken: number, due: number) => `Ліки: відмічено прийнятими ${taken} з ${due} доз у дні з записами (${Math.round((taken / due) * 100)} %)`, // R06
     missed: (title: string, n: number) => `${title} — пропущено ${n}`,
     medLine: (m: { title: string; inn?: string; dose?: string; taken: number; due: number }) =>
       `${m.title}${m.inn ? ` (${m.inn})` : ''}${m.dose ? `, ${m.dose}` : ''} — ${m.taken} з ${m.due} (${Math.round((m.taken / m.due) * 100)} %)`, // D89
@@ -827,7 +851,6 @@ export const t = {
     needDose: 'Вкажіть дозу зі слів лікаря — без неї ліки не зберегти.', needTime: 'Вкажіть час прийому або позначте «За потреби».',
     paper: 'Показати на папері', paperHide: 'Сховати папір', paperAlt: (x: string) => `«${x}» у висновку лікаря`, // D114
     courseUntil: (d: string) => `курс до ${d}`, courseOver: (d: string) => `курс закінчився ${d}`, // D103
-    maxPerDay: 'Не більше разів на добу (якщо лікар указав)', // D118
     asNeeded: 'За потреби (без часу й нагадувань)', until: 'Курс до (якщо лікар вказав тривалість)',
     timesPh: 'напр. 08:30, 20:00', stockPh: 'напр. 30',
     medPhoto: 'Фото упаковки', medPhotoBusy: 'Читаю упаковку…', medPhotoAllow: 'Дозволити й вибрати фото',

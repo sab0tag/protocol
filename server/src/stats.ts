@@ -75,8 +75,8 @@ export function opsStats(store: Store, now: Date, count = 12): { weeks: OpsWeek[
 // ------------------------------------------------------------------------------------------------ the pilot
 export interface PilotRow {
   group: string; week: string; participants: number; qr: number; consents: number; plan_entered: number;
-  d7: number | null; d30: number | null; adherence: number | null; adherence_w1: number | null; adherence_w4: number | null;
-  on_time: number | null; food_days: number | null; voice: number | null; not_found: number | null; photo_edited: number | null; photo_unchecked: number | null;
+  ret_w2: number | null; ret_w5: number | null; marked: number | null; marked_w1: number | null; marked_w4plus: number | null; partial_weeks: number;
+  on_time: number | null; food_days: number | null; voice: number | null; nf_per_entry: number | null; photo_edited: number | null; photo_unchecked: number | null;
   helps_d7: number | null; helps_d30: number | null; nps: number | null; blockers: string;
 }
 export const MIN_GROUP = 5;
@@ -107,11 +107,14 @@ function pilotRow(group: string, week: string, [from, to]: [string, string], mem
     group, week, participants: new Set(sums.map((x) => x.m.pid)).size, qr,
     consents: members.filter((m) => inWeek(m.joined)).length,
     plan_entered: members.filter((m) => inWeek(m.joined) && [...m.weeks.values()].some((s) => s.plan.meds + s.plan.constraints > 0)).length,
-    d7: share(2), d30: share(5),
-    adherence: ratioPct(ratio(sums)), adherence_w1: ratioPct(ratio(sums.filter((x) => x.idx === 1))), adherence_w4: ratioPct(ratio(sums.filter((x) => x.idx >= 4))),
+    // R17: weekly retention — active 3+ days in the 2nd and the 5th calendar week after joining (not exact D7 / D30)
+    ret_w2: share(2), ret_w5: share(5),
+    // the share of due doses marked taken in the app (a mark, not a proof of taking), the median over participants
+    marked: ratioPct(ratio(sums)), marked_w1: ratioPct(ratio(sums.filter((x) => x.idx === 1))), marked_w4plus: ratioPct(ratio(sums.filter((x) => x.idx >= 4))),
+    partial_weeks: sums.filter((x) => x.s.days_in < 7).length, // a first week joined midway — fewer days than a full one
     on_time: pct(sum((s) => Math.max(0, s.meds.done - s.meds.late_30)), sum((s) => s.meds.done)),
     food_days: median(sums.map((x) => x.s.food.days_logged)), voice: pct(sum((s) => s.food.by_voice), sum((s) => s.food.entries)),
-    not_found: pct(sum((s) => s.food.not_found), sum((s) => s.food.entries)),
+    nf_per_entry: pct(sum((s) => s.food.not_found), sum((s) => s.food.entries)), // parts not found per 100 meal records — not a share of searches
     // D122: of the rows read off the paper — corrected later in «План», and not put in at all (a bad reading must not look good)
     photo_edited: pct(sum((s) => s.plan.photo_rows_edited), sum((s) => s.plan.photo_rows)),
     photo_unchecked: pct(sum((s) => s.plan.photo_rows_unchecked), sum((s) => s.plan.photo_rows)),

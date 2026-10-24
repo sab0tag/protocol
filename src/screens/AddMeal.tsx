@@ -22,12 +22,14 @@ import { earlierMeals, frequentItems } from '../domain/habits';
 import { Amount } from '../components/Amount';
 import { dishItem, foodFromLine, recipeFrom, setPortions, withComponents } from '../domain/recipes';
 import { atLocal, dateOf, newId, timeOf, todayISO } from '../domain/dates';
-import { activeMode, dayTotals, effectiveTargets, lineNutrients, mealNutrients, round } from '../domain/nutrition';
-import { applySwaps, checkMeal, hasSwaps, mealVerdict, type ItemCheck } from '../domain/rules';
+import { dayTotals, effectiveTargets, lineNutrients, mealNutrients, round } from '../domain/nutrition';
+import { hasSwaps, mealVerdict, type ItemCheck } from '../domain/rules';
 import { amountText, needsGrams, approxG, measureWord, readMeal, type Recognized } from '../domain/foodSearch';
 import { fromPhoto } from '../domain/photo';
 import { ApiError, photo as recognizePhoto } from '../sync/api';
 import { count, countOnce } from '../data/tally';
+import { dietCoverage } from '../domain/diets';
+import { evaluate, safeSwaps } from '../domain/evaluate';
 import { currentKeys } from '../sync/runner';
 import { shrink } from '../sync/shrink';
 import { Mic } from 'lucide-react';
@@ -79,7 +81,7 @@ export function AddMeal() {
   }, [id, navigate]);
 
   const others = useDayEntries(date)?.filter((e) => e.id !== id);
-  const recent = useRecentEntries(date)?.filter((e) => e.id !== id);
+  const recent = useRecentEntries(date, 8)?.filter((e) => e.id !== id); // R03: the day and the week before it
   // D30: what this person usually eats wins among similar foods («кефір» = their kefir)
   const usual = useMemo(() => usualIds(all), [all]);
   // D85: one reading of the text for the screen and for the phrase corpus (tests/fixtures/meal-phrases.yaml)
@@ -123,11 +125,13 @@ export function AddMeal() {
   const after = before && (eaten ? { ...before, carbs: before.carbs + meal.carbs, protein: before.protein + meal.protein,
     calciumMg: before.calciumMg + meal.calciumMg, kcal: before.kcal + meal.kcal } : before);
 
-  const checks: ItemCheck[] = plan && others && recent
-    ? checkMeal({ plan, activeMode: activeMode(plan, date)?.mode, dayEntries: others, date, meal: items, recentEntries: recent, foods })
-    : [];
-  // D77: what was eaten is recorded as it was — a swap is for a planned meal; for an eaten one it is a hint for next time
-  const swapped = !eaten && hasSwaps(checks) ? applySwaps(checks, foods) : null;
+  // R03: one evaluation — what was eaten against what else was eaten; a planned meal as a forecast with the day's plans too
+  const ectx = plan && foods && recent ? { plan, date, foods, entries: recent, ...(id ? { exclude: id } : {}) } : null;
+  const raw: ItemCheck[] = ectx ? evaluate({ ...ectx, intent: eaten ? 'recorded' : 'proposed', meal: items }).checks : [];
+  // a swap only if the meal with it passes as a whole; D77: for an eaten meal it is a hint for next time, never applied
+  const safe = ectx && hasSwaps(raw) ? safeSwaps({ ...ectx, intent: 'proposed' }, raw) : null;
+  const checks = safe?.checks ?? raw;
+  const swapped = !eaten && safe && hasSwaps(checks) ? safe.swapped : null;
   const anyActive = plan?.constraints.some((c) => c.active) ?? false;
   const allergies = planAllergies(plan); // D58
 
@@ -517,10 +521,14 @@ function CheckPanel({ checks, anyActive, swapped, eaten, plan }: { checks: ItemC
   const [why, setWhy] = useState<string | null>(null); // D91: «Чому?» — open for one flag at a time
   if (!anyActive) return <p className="rounded-2xl border border-line bg-surface p-3 text-muted">{t.check.noPlan}</p>;
   const v = mealVerdict(checks);
+  // R02: a diet chosen but none of its rules set up — no green «Підходить» as if it were checked
+  const unset = dietCoverage(plan).filter((c) => !c.configured);
+  const full = v.fits && !unset.length;
   return (
-    <section aria-live="polite" className={`rounded-2xl border p-3 ${v.fits ? 'border-accent/40 bg-accent/5' : 'border-warn/30 bg-warn-bg'}`}>
+    <section aria-live="polite" className={`rounded-2xl border p-3 ${full ? 'border-accent/40 bg-accent/5' : v.fits ? 'border-line bg-surface' : 'border-warn/30 bg-warn-bg'}`}>
       <h2 className="font-semibold">{t.check.title}</h2>
-      <p className={`mb-2 font-medium ${v.fits ? 'text-accent' : 'text-warn'}`}>{v.fits ? t.check.fits : attentionText(checks)}</p>
+      <p className={`mb-2 font-medium ${full ? 'text-accent' : v.fits ? '' : 'text-warn'}`}>{full ? t.check.fits : v.fits ? t.diet.partialFits : attentionText(checks)}</p>
+      {unset.map((c) => <p key={c.code} className="mb-2 text-sm text-muted">{t.diet.checkNote(c.code)}</p>)}
       <ul className="space-y-2">
         {checks.map(({ item, hits }, i) => (
           <li key={i} className="rounded-xl bg-surface p-2">
@@ -530,7 +538,7 @@ function CheckPanel({ checks, anyActive, swapped, eaten, plan }: { checks: ItemC
             </div>
             {hits.map((h, j) => (
               <div key={j} className="text-sm">
-                <p>{j > 0 && <Badge verdict={h.verdict} small />} {h.itemName !== item.name && <span className="font-medium">{h.itemName}: </span>}{h.message}{h.suggestion && <span className="text-muted"> → {h.suggestion}</span>}
+                <p>{j > 0 && <Badge verdict={h.verdict} small />} {h.itemName !== item.name && <span className="font-medium">{h.itemName}: </span>}{h.message}{h.suggestion && <span className="text-muted"> → {h.suggestion}</span>}{h.noSwap && <span className="text-muted"> · {t.check.noSwap}</span>}
                   {plan && <button type="button" onClick={() => { if (why !== `${i}:${j}`) void count('why'); setWhy(why === `${i}:${j}` ? null : `${i}:${j}`); }} aria-expanded={why === `${i}:${j}`}
                     className="ml-2 min-h-[2rem] px-1 text-accent underline">{t.why.ask}</button>}</p>
                 {plan && why === `${i}:${j}` && (

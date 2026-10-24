@@ -8,7 +8,7 @@ import { useState } from 'react';
 import { db } from '../data/db';
 import { useAllEntries, useAllWellbeing, useFoods, useLabs, usePlan, useWeights, useWorkouts } from '../data/queries';
 import { dateOf, todayISO } from '../domain/dates';
-import { buildReport, habitLabel, reportText } from '../domain/report';
+import { buildReport, habitLabel, prnLimitText, reportText } from '../domain/report';
 import { count } from '../data/tally';
 import { t } from '../i18n/uk';
 
@@ -63,7 +63,8 @@ export function Report() {
         <section aria-label={L.main} className="space-y-2 rounded-2xl border border-accent/40 bg-surface p-3">
           <h2 className="font-semibold">{L.main}</h2>
           {r.prn.map((x) => ( /* D118 */
-            <p key={x.title}>{t.prn.report(x.title, x.total, x.days)}{x.over.length > 0 && <span className="block text-sm text-warn">{t.prn.over(x.max!, x.over.map((d) => d.slice(8, 10) + '.' + d.slice(5, 7)).join(', '))}</span>}</p>
+            <p key={x.title}>{t.prn.report(x.title, x.total, x.days)}{x.over.length > 0 && <span className="block text-sm text-warn">{t.prn.over(prnLimitText(x.limit!), x.over.map((d) => d.slice(8, 10) + '.' + d.slice(5, 7)).join(', '))}</span>}
+              {x.unmatched > 0 && <span className="block text-sm text-muted">{t.prn.reportUnmatched(x.unmatched)}</span>}</p>
           ))}
           {r.meds && <p>{L.meds(r.meds.taken, r.meds.due)}
             {r.meds.list.length > 1 ? <span className="mt-1 block space-y-0.5 text-sm text-muted">{r.meds.list.map((m) => <span key={m.title} className="block">{L.medLine(m)}</span>)}</span>

@@ -2,7 +2,7 @@
 // its constraint is active in the plan; it speaks only the words of the SPEC rule table.
 import { dateOf } from '../dates';
 import { itemNutrients, normalize } from '../nutrition';
-import { dietOf } from '../diets';
+import { dietOf, runnable, type DietRule } from '../diets';
 import type { ConstraintTag, DayEntry, EstTag, Food, ISODate, MealItem, Mode, Plan } from '../types';
 import * as K from './keywords.uk';
 import { allergyHits, planAllergies } from '../allergens';
@@ -25,6 +25,11 @@ export interface RuleHit {
   reason: ConstraintTag;
   suggestion?: string;
   swap?: Swap;
+  /** R02, R03: the rule that said it — its id and version, where it comes from */
+  ruleId?: string;
+  source?: string;
+  /** R03: a swap was considered and dropped — it broke the plan elsewhere: «заміни, що підходить, немає» */
+  noSwap?: true;
 }
 
 export interface RuleContext {
@@ -38,7 +43,7 @@ export interface RuleContext {
   foods: Map<string, Food>;
 }
 
-export type Rule = (item: MealItem, food: Food | undefined, ctx: RuleContext) => RuleHit | null;
+export type Rule = (item: MealItem, food: Food | undefined, ctx: RuleContext) => RuleHit | RuleHit[] | null;
 
 // ------------------------------------------------------------------ matching
 const startsWord = (name: string, stem: string) =>
@@ -155,19 +160,34 @@ const allergy: Rule = (item, food, ctx) => {
 };
 
 /** D90: a diet of Наказ №931 — its rules that a dietitian checked and the person did not switch off. Unchecked — silent. */
+const dietMatch = (r: DietRule, item: MealItem, food: Food | undefined) => {
+  const m = r.match, name = normalize(item.name);
+  return (m.cooking?.includes(item.cooking!) ?? false) || (m.words?.some((w) => name.includes(normalize(w))) ?? false)
+    || (m.tags?.some((tg) => food?.tags.includes(tg) || (item.est?.tags as string[] | undefined)?.includes(tg)) ?? false);
+};
+/** R02: every rule that matches, of every active diet (not the first one) — the same rule of two diets is one reason naming both;
+ *  a limit counts the grams of its foods over the day (this meal and the day's other eaten ones). */
 const diet: Rule = (item, food, ctx) => {
+  const found = new Map<string, { rule: DietRule; codes: string[]; over?: number }>();
   for (const c of ctx.plan.constraints) {
     if (c.tag !== 'diet' || !c.active) continue;
     for (const r of dietOf(c.diet)?.rules ?? []) {
-      if (!r.checkedBy || c.off?.includes(r.id)) continue;
-      const m = r.match, name = normalize(item.name);
-      const hit = (m.cooking?.includes(item.cooking!) ?? false) || (m.words?.some((w) => name.includes(normalize(w))) ?? false)
-        || (m.tags?.some((tg) => food?.tags.includes(tg) || (item.est?.tags as string[] | undefined)?.includes(tg)) ?? false);
-      if (hit) return { itemName: item.name, verdict: r.kind === 'exclude' ? 'remove' : 'adjust', reason: 'diet',
-        message: `${c.diet}: ${r.title}`, ...(r.kind === 'exclude' ? { suggestion: 'Прибрати', swap: { kind: 'drop' as const } } : {}) };
+      if (!runnable(r) || c.off?.includes(r.id) || !dietMatch(r, item, food)) continue;
+      let over: number | undefined;
+      if (r.kind === 'limit') {
+        const eaten = [...ctx.dayEntries.filter((e) => e.kind === 'meal' && e.status === 'done').flatMap((e) => flatItems(e.items ?? [])), ...ctx.meal];
+        const grams = eaten.filter((x) => dietMatch(r, x, x.foodId ? ctx.foods.get(x.foodId) : undefined)).reduce((s, x) => s + x.grams, 0);
+        if (grams <= r.limit!.value) continue;
+        over = Math.round(grams);
+      }
+      const key = `${r.kind}:${r.title}`, was = found.get(key);
+      found.set(key, { rule: r, codes: [...(was?.codes ?? []), c.diet ?? ''], ...(over !== undefined ? { over } : {}) });
     }
   }
-  return null;
+  return [...found.values()].map(({ rule: r, codes, over }) => ({ itemName: item.name, verdict: r.kind === 'exclude' ? 'remove' as const : 'adjust' as const,
+    reason: 'diet' as const, ruleId: `${r.id}@${r.version}`, ...(r.source ? { source: r.source } : {}),
+    message: `${codes.join(', ')}: ${r.title}${over !== undefined ? ` — за день ${over} з ${r.limit!.value} г` : ''}`,
+    ...(r.kind === 'exclude' ? { suggestion: 'Прибрати', swap: { kind: 'drop' as const } } : {}) }));
 };
 
 export const RULES: Rule[] = [allergy, oxalate, oxalateCalcium, gallbladder, lactose, glycemic, iron, sodium, diet];
@@ -187,7 +207,7 @@ export function checkMeal(ctx: RuleContext): ItemCheck[] {
   const fctx = { ...ctx, meal: flatItems(ctx.meal) };
   const one = (item: MealItem): ItemCheck => {
     const food = item.foodId ? ctx.foods.get(item.foodId) : undefined;
-    return { item, hits: RULES.map((r) => r(item, food, fctx)).filter((h): h is RuleHit => h !== null) };
+    return { item, hits: RULES.flatMap((r) => r(item, food, fctx) ?? []) };
   };
   return ctx.meal.map((item) => {
     if (!item.components?.length) return one(item);

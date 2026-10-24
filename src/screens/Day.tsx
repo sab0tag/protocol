@@ -13,7 +13,7 @@ import { db } from '../data/db';
 import { useAllEntries, useDayEntries, useFoods, usePlan, useRecipes, useWorkouts } from '../data/queries';
 import { buildChecklist, type CheckItem } from '../domain/checklist';
 import { NOW_AFTER_MIN } from '../domain/reminders';
-import { habits, mealsOf, frequentItems } from '../domain/habits';
+import { FOOD_COMPLETE, foodState, habits, mealsOf, frequentItems } from '../domain/habits';
 import { addDays, parseISO as parseDay } from 'date-fns';
 import { amountText } from '../domain/foodSearch';
 import { exportDue } from '../data/backup';
@@ -88,6 +88,12 @@ export function Day() {
   const targets = effectiveTargets(plan, date);
   const totals = entries && foods ? dayTotals(entries, foods) : undefined;
   const isToday = date === todayISO();
+  // R06: «Усе з’їдене записано» — a mark of the day, made and taken back by the person
+  const markComplete = async (on: boolean) => {
+    const id = `food-complete-${date}`;
+    if (on) await saved(db.entries.put({ id, at: atLocal(date, '23:59'), kind: 'note', status: 'done', title: t.summary.foodComplete, checkKey: FOOD_COMPLETE }), t.summary.foodComplete, () => db.entries.delete(id));
+    else { const was = await db.entries.get(id); await saved(db.entries.delete(id), t.toast.deleted(t.summary.foodComplete), () => (was ? db.entries.put(was) : undefined)); }
+  };
   const checklist = entries && foods && workouts ? buildChecklist({ plan, date, entries, workouts, foods, now: new Date() }) : undefined;
 
   const setStatus = async (e: DayEntry, status: DayEntry['status']) => {
@@ -244,7 +250,7 @@ export function Day() {
       )}
 
       {isToday && plan && totals && foods && all && entries && (() => { // D92: top-up and «close to the limit», code only
-        const s: DayState = { plan, targets, date, now: format(new Date(), 'HH:mm'), foods,
+        const s: DayState = { plan, targets, date, now: format(new Date(), 'HH:mm'), foods, entries: all, // R03: tips checked against the real day
           mealsDone: entries.filter((e) => e.kind === 'meal' && e.status === 'done').length,
           usual: frequentItems(all, date, 60, 50).map((f) => f.item.foodId ?? '').filter(Boolean),
           have: { kcal: totals.kcal, protein: totals.protein, calciumMg: totals.calciumMg, carbs: totals.carbs } };
@@ -252,7 +258,8 @@ export function Day() {
       })()}
 
       {totals && <DaySummary totals={totals} targets={targets} meds={{ done: meds.filter((i) => i.done).length, total: meds.length }}
-        {...(isToday && best ? { streak: t.day.streak(t.progress.habit[best.key], best.streak) } : {})} />}
+        {...(isToday && best ? { streak: t.day.streak(t.progress.habit[best.key], best.streak) } : {})}
+        {...(entries ? { food: foodState(entries), onComplete: (on: boolean) => void markComplete(on) } : {})} />}
 
       {voice && foods && all && (() => { const c = checklist ?? buildChecklist({ plan, date, entries: entries ?? [], workouts: workouts ?? [], foods, now: new Date() }); return (
         <VoiceSheet date={date} plan={plan} foods={foods} recipes={recipes ?? []} today={entries ?? []}

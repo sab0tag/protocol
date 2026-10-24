@@ -3,6 +3,7 @@ import { FOODS } from '../../src/data/foods';
 import { RECIPES } from '../../src/data/recipes';
 import { examplePlan } from '../../src/data/seed.example';
 import { asksTopup, brings, dayContext, fixedAnswer, lineOf, passing } from '../../src/domain/assistant';
+import { withoutDropped } from '../../src/domain/assistant';
 import { dishItem } from '../../src/domain/recipes';
 
 const plan = examplePlan(new Date('2026-10-24T12:00:00')); // lactose, glycemia, oxalate; Вітамін D
@@ -34,5 +35,11 @@ describe('the assistant around the model (D117)', () => {
     expect(c.targets).toMatchObject({ kcal: 2100, proteinG: 140 });
     expect(JSON.stringify(c)).not.toContain('Вітамін D');
     expect(c.rules.join(' ')).toContain('лактози');
+  });
+
+  it('R04: the words never recommend a food the check took out; one still shown keeps its sentence', () => {
+    const text = 'Підійде печінка куряча — багато заліза. Гречка з яйцем — швидко. Або кефір на ніч.';
+    expect(withoutDropped(text, ['Печінка куряча'], ['Гречка варена', 'Кефір 2,5 %'])).toBe('Гречка з яйцем — швидко. Або кефір на ніч.');
+    expect(withoutDropped(text, ['Гречка з куркою'], ['Гречка варена'])).toBe(text); // «гречка» is still shown — nothing to take out
   });
 });

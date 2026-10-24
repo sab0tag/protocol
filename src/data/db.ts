@@ -61,6 +61,7 @@ export interface PilotMeta {
   secret?: string;
   src?: string;
   sent?: Record<string, unknown>;
+  refused?: string[]; // R17, R19: weeks the server refused (400) — not sent again on every opening
   asked?: { at: string; answer: 'no' | 'yes' }[];
   surveys?: Partial<Record<SurveyKind, SurveyState>>; // D121
   notes?: string[]; // ids of «Що заважало» lines sent

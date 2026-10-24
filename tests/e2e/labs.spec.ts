@@ -112,6 +112,9 @@ test('before the paper leaves the phone: the header comes painted over, a finger
 test('onboarding starts from the doctor’s paper: photo → hide what is personal → each medicine confirmed or put aside → «Почати» → «День» with its doses (D113)', async ({ browser }) => {
   const ctx = await browser.newContext();
   const page = await ctx.newPage();
+  // the morning: a medicine comes in «from now» (D103) — run in the evening, today's 08:00 and 20:00 would both be behind it
+  const now = new Date();
+  await page.clock.setFixedTime(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 4, 0)));
   await page.goto('./');
   await page.evaluate(() => navigator.serviceWorker.ready);
   const w = (sure: string) => ({ page: 1, box: [0.1, 0.4, 0.7, 0.03], sure });

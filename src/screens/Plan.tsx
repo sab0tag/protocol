@@ -12,16 +12,17 @@ import { useMemo, useState, type ReactNode } from 'react';
 import { useMedIndex } from '../data/medsIndex';
 import { MedboxScan } from '../components/MedboxScan';
 import { DietNorms, DietPicker } from '../components/DietPicker';
-import { dietConflicts, dietOf, fillEmptyTargets } from '../domain/diets';
+import { DIET_SOURCE, dietConflicts, dietCoverage, dietOf, fillEmptyTargets, ownTargets } from '../domain/diets';
 import { duplicateInn, searchMeds } from '../domain/meds';
 import { prnLimit } from '../domain/prn';
+import { prnLimitText } from '../domain/report';
 import { Sheet } from '../components/Sheet';
 import { db, type PlanRow } from '../data/db';
 import { useAllEntries, usePlan } from '../data/queries';
 import { stockLeft } from '../domain/stock';
 import { atLocal, newId, sinceNow, todayISO } from '../domain/dates';
 import { AllergenPicker } from '../components/AllergenPicker';
-import type { Constraint, ConstraintTag, Mode, Plan as PlanT, Prescription, Targets } from '../domain/types';
+import { LIMIT_UNITS, type Constraint, type ConstraintTag, type DailyLimit, type Mode, type Plan as PlanT, type Prescription, type Targets } from '../domain/types';
 import { countOnce } from '../data/tally';
 import { t } from '../i18n/uk';
 
@@ -66,7 +67,7 @@ export function Plan() {
       <Block title={P.prescriptions} onAdd={() => setEditing({ what: 'prescription' })}>
         {plan.prescriptions.filter((p) => p.kind !== 'test').map((p) => ( /* D104: tests live with the next checkup */
           <Item key={p.id} onEdit={() => setEditing({ what: 'prescription', item: p })} piece={pieces?.get(p.id)}
-            title={p.title} meta={[P.kinds[p.kind], (p.kind === 'medication' || p.kind === 'supplement') ? (p.med ? p.med.inn : P.offRegistry) : undefined, p.dose, p.asNeeded ? (prnLimit(p) ? `${t.conclusion.asNeeded}, ≤ ${prnLimit(p)} на добу` : t.conclusion.asNeeded) : p.schedule?.times.join(', '),
+            title={p.title} meta={[P.kinds[p.kind], (p.kind === 'medication' || p.kind === 'supplement') ? (p.med ? p.med.inn : P.offRegistry) : undefined, p.dose, p.asNeeded ? (prnLimit(p) ? `${t.conclusion.asNeeded}, ${prnLimitText(prnLimit(p)!)}` : t.conclusion.asNeeded) : p.schedule?.times.join(', '),
               p.schedule?.withFood === true ? P.withFood.toLowerCase() : p.schedule?.withFood === false ? t.conclusion.empty : undefined,
               p.until ? (p.until < todayISO() ? P.courseOver(dmy(p.until)) : P.courseUntil(dmy(p.until))) : undefined, // D103: the course end in the list
               p.dueDate ? `${P.dueDate.toLowerCase()} ${dmy(p.dueDate)}` : undefined,
@@ -99,7 +100,9 @@ export function Plan() {
                           ? { ...x, off: e.target.checked ? (x.off ?? []).filter((o) => o !== r.id) : [...(x.off ?? []), r.id] } : x)) })} />
                       <span>{r.title}</span></label>
                   ))}
-                  {!d.rules.some((r) => r.checkedBy) && <p className="text-xs text-muted">{t.diet.noRules}</p>}
+                  {(() => { const cov = dietCoverage({ constraints: [c] })[0]; return cov && ( /* R02: what the check really runs of this diet */
+                    <p className={`text-xs ${cov.configured ? 'text-muted' : 'text-warn'}`}>{cov.configured ? t.diet.coverage(cov.active, cov.off, cov.unchecked) : t.diet.noRules}</p>); })()}
+                  <p className="text-xs text-muted">{DIET_SOURCE}</p>
                 </div>
               ); })()}
             </div>
@@ -146,10 +149,11 @@ export function Plan() {
 }
 
 function targetSummary(tg: Partial<Targets>): string {
+  const ref = (f: keyof NonNullable<Targets['fromDiet']>) => (tg.fromDiet?.[f] ? ` (${t.diet.fromRef(tg.fromDiet[f]!)})` : ''); // R02
   const parts = [
-    tg.kcal != null && `${tg.kcal} ккал`, tg.proteinG != null && `білок ${tg.proteinG} г`,
-    tg.carbsG?.min != null && `вуглеводи не менше ${tg.carbsG.min} г`, tg.carbsG?.max != null && `вуглеводи до ${tg.carbsG.max} г`,
-    tg.fatG != null && `жири ${tg.fatG} г`, tg.calciumMg != null && `кальцій ${tg.calciumMg} мг`, tg.waterMl != null && `вода ${tg.waterMl} мл`,
+    tg.kcal != null && `${tg.kcal} ккал${ref('kcal')}`, tg.proteinG != null && `білок ${tg.proteinG} г${ref('proteinG')}`,
+    tg.carbsG?.min != null && `вуглеводи не менше ${tg.carbsG.min} г`, tg.carbsG?.max != null && `вуглеводи до ${tg.carbsG.max} г${ref('carbsG')}`,
+    tg.fatG != null && `жири ${tg.fatG} г${ref('fatG')}`, tg.calciumMg != null && `кальцій ${tg.calciumMg} мг`, tg.waterMl != null && `вода ${tg.waterMl} мл`,
     tg.lastMealBy && `їжа до ${tg.lastMealBy}`, tg.weightGoalKg != null && `вага ${tg.weightGoalKg} кг`,
     tg.maxWeightLossKgPerWeek != null && `не швидше ${tg.maxWeightLossKgPerWeek} кг/тиждень`,
   ];
@@ -251,8 +255,8 @@ function PrescriptionForm({ plan, item, onClose }: { plan: PlanRow; item?: Presc
     const { stock: _s, ...rest } = p;
     const next: Prescription = { ...rest, title: p.title.trim(), ...(ts.length ? { schedule: { times: ts, withFood: p.schedule?.withFood ?? false } } : { schedule: undefined }),
       ...(counted && n >= 0 ? { stock: counted } : {}) };
-    if (item) void photoEdited(item.id, [item.title, item.dose, item.schedule?.times, item.schedule?.withFood, item.asNeeded, item.until, item.maxPerDay],
-      [next.title, next.dose, next.schedule?.times, next.schedule?.withFood, next.asNeeded, next.until, next.maxPerDay]);
+    if (item) void photoEdited(item.id, [item.title, item.dose, item.schedule?.times, item.schedule?.withFood, item.asNeeded, item.until, prnLimit(item)],
+      [next.title, next.dose, next.schedule?.times, next.schedule?.withFood, next.asNeeded, next.until, prnLimit(next)]);
     return save({ prescriptions: upsert(plan.prescriptions, next) });
   };
   return (
@@ -289,10 +293,7 @@ function PrescriptionForm({ plan, item, onClose }: { plan: PlanRow; item?: Presc
           <input type="checkbox" checked={!!p.asNeeded} onChange={(e) => { const { asNeeded: _a, ...rest } = p; setP(e.target.checked ? { ...p, asNeeded: true } : rest); }}
             className="h-5 w-5 accent-[rgb(var(--accent))]" /><span>{P.asNeeded}</span></label>
       )}
-      {drug && p.asNeeded && ( /* D118 */
-        <Field label={P.maxPerDay}><input inputMode="numeric" value={p.maxPerDay ?? ''} className={field}
-          onChange={(e) => { const n = Number(e.target.value); const { maxPerDay: _m, ...rest } = p; setP(n >= 1 && n <= 24 ? { ...p, maxPerDay: Math.round(n) } : rest); }} /></Field>
-      )}
+      {drug && p.asNeeded && <LimitFields p={p} setP={setP} /> /* D118, R01 */}
       {drug && (
         <Field label={P.until}><input type="date" value={p.until ?? ''} min={p.since} onChange={(e) => { const { until: _u, ...rest } = p; setP(e.target.value ? { ...p, until: e.target.value } : rest); }} className={field} /></Field>
       )}
@@ -313,6 +314,27 @@ function PrescriptionForm({ plan, item, onClose }: { plan: PlanRow; item?: Presc
   );
 }
 
+/** R01: the doctor's daily limit — a number and its unit; an old number-only limit shows as «unit not known» until one is set. */
+function LimitFields({ p, setP }: { p: Prescription; setP: (p: Prescription) => void }) {
+  const l = prnLimit(p);
+  const set = (value: number, unit: DailyLimit['unit']) => {
+    const { maxPerDay: _m, limit: _l, ...rest } = p;
+    setP(value > 0 ? { ...rest, limit: { value, unit, sourceText: l?.sourceText ?? '', source: l && l.source !== 'legacy' && l.value === value && l.unit === unit ? l.source : 'plan' } } : rest);
+  };
+  return (
+    <div className="space-y-1">
+      <div className="flex gap-2">
+        <Field label={t.prn.planLimit}><input inputMode="decimal" value={l ? String(l.value).replace('.', ',') : ''} className={field}
+          onChange={(e) => set(Number(e.target.value.replace(',', '.')), l?.unit ?? 'unknown')} /></Field>
+        <Field label={t.prn.planUnit}><select value={l?.unit ?? 'unknown'} disabled={!l} onChange={(e) => l && set(l.value, e.target.value as DailyLimit['unit'])} className={field}>
+          {[...LIMIT_UNITS, 'unknown' as const].map((u) => <option key={u} value={u}>{t.prn.unitNames[u]}</option>)}</select></Field>
+      </div>
+      {l?.sourceText && <p className="text-xs text-muted">«{l.sourceText}»</p>}
+      <p className={`text-xs ${l?.unit === 'unknown' ? 'text-warn' : 'text-muted'}`}>{l?.unit === 'unknown' ? t.prn.legacy : t.prn.planUnitHint}</p>
+    </div>
+  );
+}
+
 function ConstraintForm({ plan, item, onClose }: { plan: PlanRow; item?: Constraint; onClose: () => void }) {
   const [c, setC] = useState<Constraint>(item ?? { id: newId(), tag: 'custom', title: '', reason: '', source: '', active: true });
   const [fill, setFill] = useState(false); // D90: the diet's norms into empty targets — only when asked
@@ -327,7 +349,7 @@ function ConstraintForm({ plan, item, onClose }: { plan: PlanRow; item?: Constra
         <select value={c.tag} onChange={(e) => setC({ ...c, tag: e.target.value as ConstraintTag })} className={field}>
           {TAGS.map((tag) => <option key={tag} value={tag}>{P.tags[tag]}</option>)}</select></Field>
       {c.tag === 'allergy' && <AllergenPicker legend={P.allergyPick} value={c.allergens ?? []} onChange={(v) => setC({ ...c, allergens: v })} />}
-      {c.tag === 'diet' && <DietPicker value={c.diet} fill={fill} onFill={setFill}
+      {c.tag === 'diet' && <DietPicker value={c.diet} fill={fill} onFill={setFill} targets={plan.targets}
         onPick={(x) => setC({ ...c, diet: x.code, title: `${x.code} — ${x.name}`, source: c.source || 'Наказ МОЗ №931' })} />}
       <Field label={P.title_}><input value={c.title} onChange={(e) => setC({ ...c, title: e.target.value })} placeholder={P.tags[c.tag]} className={field} /></Field>
       <Field label={P.reason}><textarea value={c.reason} onChange={(e) => setC({ ...c, reason: e.target.value })} rows={2} className={`${field} py-2`} /></Field>
@@ -365,7 +387,7 @@ const clean = <T extends object>(o: T): T => Object.fromEntries(Object.entries(o
 function TargetsForm({ plan, onClose }: { plan: PlanRow; onClose: () => void }) {
   const [tg, setTg] = useState<Partial<Targets>>(plan.targets);
   return (
-    <FormSheet title={P.targets} onClose={onClose} onSave={() => save({ targets: clean(tg) })}>
+    <FormSheet title={P.targets} onClose={onClose} onSave={() => save({ targets: ownTargets(plan.targets, clean(tg)) })}>
       <TargetFields value={tg} onChange={setTg} />
     </FormSheet>
   );

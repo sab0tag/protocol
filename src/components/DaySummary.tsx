@@ -7,6 +7,7 @@ import { useState, type ReactNode } from 'react';
 import type { DayTotals } from '../domain/nutrition';
 import { round } from '../domain/nutrition';
 import type { Targets } from '../domain/types';
+import type { FoodState } from '../domain/habits';
 import { t } from '../i18n/uk';
 
 const L = t.summary;
@@ -50,7 +51,8 @@ function metric(key: MetricKey, totals: DayTotals, targets: Targets, meds: { don
   }
 }
 
-export function DaySummary({ totals, targets, meds, streak }: { totals: DayTotals; targets: Targets; meds: { done: number; total: number }; streak?: string }) {
+export function DaySummary({ totals, targets, meds, streak, food, onComplete }: { totals: DayTotals; targets: Targets; meds: { done: number; total: number }; streak?: string;
+  food?: FoodState; onComplete?: (on: boolean) => void }) {
   const [main, setMain] = useState<MetricKey[]>(loadMain);
   const [all, setAll] = useState(false);
   const [setup, setSetup] = useState(false);
@@ -85,6 +87,15 @@ export function DaySummary({ totals, targets, meds, streak }: { totals: DayTotal
           {all && <div className="mt-3 border-t border-line pt-3"><Metrics list={shown(rest)} /></div>}
           <button type="button" onClick={() => setAll((v) => !v)} aria-expanded={all} className="mt-2 min-h-tap text-sm text-accent">{all ? L.less : L.all}</button>
         </>
+      )}
+      {food && ( /* R06: the numbers are «за записами»; only the person can say the day's food is all written */
+        <div className="mt-2 flex flex-wrap items-center gap-x-2 text-sm" data-food={food}>
+          <span className="text-muted">{food === 'none' ? L.foodNone : food === 'partial' ? L.foodPartial : L.foodComplete}</span>
+          {onComplete && food !== 'none' && (
+            <button type="button" aria-pressed={food === 'complete'} onClick={() => onComplete(food !== 'complete')} className="min-h-tap px-1 text-accent underline">
+              {food === 'complete' ? L.undoComplete : L.markComplete}</button>
+          )}
+        </div>
       )}
       {streak && <p className="mt-1 text-sm text-accent">{streak}</p>}
       <Link to="/assistant" className="mt-1 inline-flex min-h-tap items-center gap-2 text-sm text-accent underline"> {/* D117 */}

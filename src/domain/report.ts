@@ -3,15 +3,14 @@ import { addDays, differenceInCalendarDays, format, parseISO } from 'date-fns';
 import { buildChecklist } from './checklist';
 import { dateOf, isPast } from './dates';
 import { dayFlags, type HabitKey } from './habits';
-import { activeMode } from './nutrition';
 import { dietConflicts } from './diets';
 import { medFoodNotes } from './medFood';
 import { t } from '../i18n/uk';
 import { prnReport, type PrnLine } from './prn';
-import { checkMeal } from './rules';
+import { evaluate } from './evaluate';
 import { coincidences, coincidenceText } from './symptoms';
 import { pace, weeklyWeights, wellbeingCoincidences } from './progress';
-import type { DayEntry, Food, ISODate, LabResult, Plan, WeightLog, Wellbeing, Workout } from './types';
+import type { DailyLimit, DayEntry, Food, ISODate, LabResult, Plan, WeightLog, Wellbeing, Workout } from './types';
 
 export interface Report {
   from: ISODate;
@@ -81,8 +80,8 @@ export function buildReport(args: {
     }
     if (plan) for (const m of day.filter((e) => e.kind === 'meal' && e.status === 'done' && e.items?.length)) {
       eatenMeals += 1;
-      const checks = checkMeal({ plan, ...(activeMode(plan, d) ? { activeMode: activeMode(plan, d)!.mode } : {}), date: d, foods,
-        dayEntries: day.filter((e) => e.id !== m.id), meal: m.items!, recentEntries: entries.filter((e) => { const x = dateOf(e.at); return x < d && x >= format(addDays(parseISO(d), -7), 'yyyy-MM-dd'); }) });
+      // R03: an eaten meal against what else was eaten that day (not what was only planned) and the week before
+      const { checks } = evaluate({ plan, date: d, foods, entries, exclude: m.id, intent: 'recorded', meal: m.items! });
       const tags = new Set(checks.flatMap((c) => c.hits).filter((h) => h.verdict === 'replace' || h.verdict === 'remove').map((h) => h.reason));
       if (!tags.size) continue;
       devMeals += 1;
@@ -136,6 +135,9 @@ export function buildReport(args: {
 }
 
 const dec = (n: number) => String(n).replace('.', ',');
+/** R01: «не більше 4 табл. на добу» — a limit in its own unit; one of unknown unit is said without one */
+export const prnLimitText = (l: DailyLimit) => t.prn.limitText(dec(l.value), t.prn.units[l.unit] ?? '');
+export const prnAmountText = (qty: number, unit: string) => `${dec(qty)} ${t.prn.units[unit] ?? ''}`.trim();
 const HABIT: Record<HabitKey, string> = { protein: 'Білок ≥ 90 % цілі', carbs: 'Вуглеводи в межах', water: 'Вода — норма', meds: 'Ліки — всі вчасно', plan: 'План дня ≥ 80 %' };
 export const habitLabel = (k: HabitKey) => HABIT[k];
 const signedKg = (n: number) => `${n > 0 ? '+' : n < 0 ? '−' : ''}${dec(Math.abs(n))}`;
@@ -146,7 +148,7 @@ export function reportText(r: Report, dm: (d: ISODate) => string): string {
     `Звіт за ${dm(r.from)} — ${dm(r.to)} (${r.days} дн.)`,
     r.meds ? `${t.report.meds(r.meds.taken, r.meds.due)}${r.meds.missed.length ? ` — ${r.meds.missed.map((m) => t.report.missed(m.title, m.count)).join('; ')}` : ''}` : '',
     r.meds && r.meds.list.length > 1 ? r.meds.list.map((m) => `• ${t.report.medLine(m)}`).join('\n') : '',
-    ...r.prn.map((x) => `${t.prn.report(x.title, x.total, x.days)}${x.over.length ? ` — ${t.prn.over(x.max!, x.over.map((d) => d.slice(8, 10) + '.' + d.slice(5, 7)).join(', '))}` : ''}`), // D118
+    ...r.prn.map((x) => `${t.prn.report(x.title, x.total, x.days)}${x.over.length ? ` — ${t.prn.over(prnLimitText(x.limit!), x.over.map((d) => d.slice(8, 10) + '.' + d.slice(5, 7)).join(', '))}` : ''}${x.unmatched ? ` — ${t.prn.reportUnmatched(x.unmatched)}` : ''}`), // D118, R01
     r.deviations ? (r.deviations.meals ? `${t.report.deviations(r.deviations.meals, r.deviations.of)}: ${r.deviations.by.map((b) => `${b.title} — ${b.count}`).join('; ')}`
       : t.report.noDeviations(r.deviations.of)) : '',
     r.medFood ? t.medFood.report(r.medFood) : '',
