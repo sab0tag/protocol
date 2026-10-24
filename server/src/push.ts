@@ -45,7 +45,10 @@ export async function tick(store: Store, send: Sender, now: number): Promise<num
     const payload = JSON.stringify({ ...JSON.parse(r.payload) as object, n: r.sent });
     const res = await send(r.sub, payload);
     if (res === 'gone') { store.dropDevice(r.vault, r.device); continue; }
-    if (res === 'ok') sent += 1;
+    if (res === 'ok') {
+      sent += 1;
+      if (store.pushedFirst(r.vault, r.rid, r.at)) store.bump('stat:rem_sent', 1, new Date(now)); // D119: a reminder that came — not its repeats, not per device
+    }
     store.afterSend(r.vault, r.device, r.rid, r.repeats_left > 0 ? now + r.repeat_every * 60_000 : null);
   }
   return sent;

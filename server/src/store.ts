@@ -32,6 +32,12 @@ export class Store {
       CREATE TABLE IF NOT EXISTS concierge_log (id TEXT PRIMARY KEY, vault TEXT NOT NULL, ts INTEGER NOT NULL, scenario TEXT NOT NULL,
         record TEXT NOT NULL, outcome TEXT, edit TEXT);
       CREATE INDEX IF NOT EXISTS concierge_log_vault ON concierge_log (vault, ts);
+      CREATE TABLE IF NOT EXISTS pushed (vault TEXT NOT NULL, rid TEXT NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (vault, rid));
+      CREATE TABLE IF NOT EXISTS vault_weeks (vault TEXT NOT NULL, week TEXT NOT NULL, PRIMARY KEY (vault, week));
+      CREATE TABLE IF NOT EXISTS pilot_members (pid TEXT PRIMARY KEY, secret_hash TEXT NOT NULL, joined TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS pilot_weeks (pid TEXT NOT NULL, week TEXT NOT NULL, kind TEXT NOT NULL, src TEXT, body TEXT NOT NULL,
+        PRIMARY KEY (pid, week, kind));
+      CREATE TABLE IF NOT EXISTS pilot_sources (code TEXT PRIMARY KEY, label TEXT NOT NULL, issued TEXT NOT NULL);
     `);
   }
 
@@ -80,6 +86,12 @@ export class Store {
       throw e;
     }
     return seq;
+  }
+
+  /** Add `by` to a day's counter with no limit (D119: the ops numbers — `stat:*` scopes, never an id or an address). */
+  bump(scope: string, by: number, now: Date) {
+    this.db.prepare('INSERT INTO counters (day, scope, n) VALUES (?, ?, ?) ON CONFLICT (day, scope) DO UPDATE SET n = n + excluded.n')
+      .run(now.toISOString().slice(0, 10), scope, Math.round(by));
   }
 
   /** Count one use of `scope` today; false (and nothing counted) when the limit is reached. */
@@ -143,8 +155,16 @@ export class Store {
         ins.run(vault, device, i.rid, i.at, i.payload, i.at, n, repeatEvery);
       }
       const ack = this.db.prepare('INSERT OR IGNORE INTO acks (vault, rid, at) VALUES (?, ?, ?)');
-      for (const rid of done) ack.run(vault, rid, now);
+      const sentAt = this.db.prepare('SELECT at FROM pushed WHERE vault = ? AND rid = ?');
+      for (const rid of done) {
+        const was = (sentAt.get(vault, rid) as { at: number } | undefined)?.at ?? null;
+        if (ack.run(vault, rid, now).changes === 1 && was !== null) { // D119: a reaction to a push that came, and how late
+          this.bump('stat:rem_acked', 1, new Date(now));
+          this.bump('stat:rem_ack_min', Math.min(24 * 60, Math.max(0, (now - was) / 60_000)), new Date(now));
+        }
+      }
       this.db.prepare('DELETE FROM acks WHERE at < ?').run(now - 7 * 86_400_000);
+      this.db.prepare('DELETE FROM pushed WHERE at < ?').run(now - 7 * 86_400_000);
       this.db.exec('COMMIT');
     } catch (e) { this.db.exec('ROLLBACK'); throw e; }
   }
@@ -154,6 +174,11 @@ export class Store {
         EXISTS (SELECT 1 FROM acks a WHERE a.vault = r.vault AND a.rid = r.rid) AS acked
       FROM reminders r LEFT JOIN push_subs s ON s.vault = r.vault AND s.device = r.device WHERE r.next_at <= ? ORDER BY r.next_at LIMIT 200`)
       .all(now) as never;
+  }
+
+  /** D119: the first push of a reminder (its planned time), to count a reaction to it; once per vault, whatever the devices. */
+  pushedFirst(vault: string, rid: string, at: number): boolean {
+    return this.db.prepare('INSERT OR IGNORE INTO pushed (vault, rid, at) VALUES (?, ?, ?)').run(vault, rid, at).changes === 1;
   }
 
   afterSend(vault: string, device: string, rid: string, nextAt: number | null) {
@@ -207,6 +232,49 @@ export class Store {
   purgeConcierge(before: number): number { return Number(this.db.prepare('DELETE FROM concierge_log WHERE ts < ?').run(before).changes); }
   conciergeBetween(from: number, to: number): { id: string; vault: string; ts: number; scenario: string; record: string; outcome: string | null; edit: string | null }[] {
     return this.db.prepare('SELECT id, vault, ts, scenario, record, outcome, edit FROM concierge_log WHERE ts >= ? AND ts < ? ORDER BY ts').all(from, to) as never;
+  }
+
+  // ---------------------------------------------------------------- D119: what the server can count without content
+  /** The ISO weeks a vault came online in — a week, not a day or a time. */
+  seen(vault: string, week: string) { this.db.prepare('INSERT OR IGNORE INTO vault_weeks (vault, week) VALUES (?, ?)').run(vault, week); }
+  purgeSeen(before: string): number { return Number(this.db.prepare('DELETE FROM vault_weeks WHERE week < ?').run(before).changes); }
+  /** Read-only queries of `stats:ops` and `stats:pilot`. */
+  all<T>(sql: string, ...args: (string | number)[]): T[] { return this.db.prepare(sql).all(...args) as T[]; }
+
+  // ---------------------------------------------------------------- the pilot (D119): by consent, not linked to vaults
+  joinPilot(pid: string, secretHash: string, week: string) {
+    this.db.prepare('INSERT INTO pilot_members (pid, secret_hash, joined) VALUES (?, ?, ?)').run(pid, secretHash, week);
+  }
+  pilotSecret(pid: string): string | undefined {
+    return (this.db.prepare('SELECT secret_hash FROM pilot_members WHERE pid = ?').get(pid) as { secret_hash: string } | undefined)?.secret_hash;
+  }
+  /** A repeat of the same week and kind replaces the record. */
+  putPilotWeek(pid: string, week: string, kind: string, src: string | null, body: string) {
+    this.db.prepare(`INSERT INTO pilot_weeks (pid, week, kind, src, body) VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT (pid, week, kind) DO UPDATE SET src = excluded.src, body = excluded.body`).run(pid, week, kind, src, body);
+  }
+  /** Everything of the participant and the participant: rows removed. */
+  leavePilot(pid: string): number {
+    this.db.exec('BEGIN');
+    try {
+      const n = Number(this.db.prepare('DELETE FROM pilot_weeks WHERE pid = ?').run(pid).changes);
+      this.db.prepare('DELETE FROM pilot_members WHERE pid = ?').run(pid);
+      this.db.exec('COMMIT');
+      return n;
+    } catch (e) { this.db.exec('ROLLBACK'); throw e; }
+  }
+  /** 12 months: older weeks go, and a member with nothing left who joined before then. */
+  purgePilot(before: string): number {
+    const n = Number(this.db.prepare('DELETE FROM pilot_weeks WHERE week < ?').run(before).changes);
+    this.db.prepare('DELETE FROM pilot_members WHERE joined < ? AND pid NOT IN (SELECT pid FROM pilot_weeks)').run(before);
+    return n;
+  }
+  pilotSource(code: string): string | undefined {
+    return (this.db.prepare('SELECT label FROM pilot_sources WHERE code = ?').get(code) as { label: string } | undefined)?.label;
+  }
+  putPilotSource(code: string, label: string, issued: string) {
+    this.db.prepare('INSERT INTO pilot_sources (code, label, issued) VALUES (?, ?, ?) ON CONFLICT (code) DO UPDATE SET label = excluded.label')
+      .run(code, label, issued);
   }
 
   /** A consistent copy of the live database (D36: nightly backups). */

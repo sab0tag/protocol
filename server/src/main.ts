@@ -11,6 +11,7 @@ import { claudeChat } from './chat.ts';
 import { claudeMedbox } from './medbox.ts';
 import { claudeNotFound } from './concierge.ts';
 import { conciergeHousekeeping } from './conciergeLog.ts';
+import { pilotHousekeeping } from './pilot.ts';
 import { claudeRecognizer } from './photo.ts';
 import { tick, vapidKeys, webPushSender } from './push.ts';
 import { Store } from './store.ts';
@@ -51,6 +52,7 @@ const app = createApp({
     ...(env.VAULTS_PER_IP_PER_DAY ? { vaultsPerIpPerDay: Number(env.VAULTS_PER_IP_PER_DAY) } : {}), // e2e only
     ...(env.DEVICE_TOKENS_PER_IP_PER_DAY ? { deviceTokensPerIpPerDay: Number(env.DEVICE_TOKENS_PER_IP_PER_DAY) } : {}), // e2e only: every test is a new device
     ...(env.AI_PER_DAY ? { aiPerDay: Number(env.AI_PER_DAY) } : {}),
+    ...(env.PILOT_JOINS_PER_IP_PER_DAY ? { pilotJoinsPerIpPerDay: Number(env.PILOT_JOINS_PER_IP_PER_DAY) } : {}), // e2e only
   },
 });
 
@@ -66,6 +68,7 @@ const timer = setInterval(() => {
 const backupTimer = setInterval(() => {
   backupOnce(store, backups, new Date()).catch((e) => console.error('backup failed:', (e as Error).message));
   try { conciergeHousekeeping(store, `${backups}/concierge`, new Date()); } catch (e) { console.error('concierge log housekeeping failed:', (e as Error).message); } // D91
+  try { pilotHousekeeping(store, new Date()); } catch (e) { console.error('pilot housekeeping failed:', (e as Error).message); } // D119
 }, 3600_000);
 setTimeout(() => backupOnce(store, backups, new Date()).catch((e) => console.error('backup failed:', (e as Error).message)), 60_000);
 for (const sig of ['SIGINT', 'SIGTERM'] as const) process.on(sig, () => { clearInterval(timer); clearInterval(backupTimer); server.close(); store.close(); process.exit(0); });

@@ -11,13 +11,14 @@ import type { WorkoutMaker } from './workout.ts';
 import type { LabsReader } from './labs.ts';
 import type { ConclusionReader } from './conclusion.ts';
 import type { MedboxReader } from './medbox.ts';
-import { PROMPT_NOT_FOUND, userLabel, type NotFoundReader } from './concierge.ts';
+import { PROMPT_NOT_FOUND, scrubNames, userLabel, type NotFoundReader } from './concierge.ts';
 import { randomBytes } from 'node:crypto';
 import type { Usage } from './photo.ts';
 import type { LabelReader } from './label.ts';
 import type { Recognizer } from './photo.ts';
 import type { Sender } from './push.ts';
 import type { Store } from './store.ts';
+import { parsePilot, PID, SECRET, SRC, weekAdd, weekKey } from './pilot.ts';
 
 export interface Limits {
   vaultsPerIpPerDay: number;
@@ -31,9 +32,10 @@ export interface Limits {
   deviceTokensPerIpPerDay: number; // D101
   devicePhotosPerDay: number; // D101: a device without sync
   dishesPerDay: number; // D110: dish breakdowns, a vault or a device
+  pilotJoinsPerIpPerDay: number; // D119
 }
 
-export const DEFAULT_LIMITS: Limits = { vaultsPerIpPerDay: 5, vaultBytes: 50_000_000, photosPerVaultPerDay: 30, photosPerDay: 150, menusPerVaultPerDay: 15, workoutsPerVaultPerDay: 10, conciergePerVaultPerDay: 60, aiPerDay: 800, deviceTokensPerIpPerDay: 5, devicePhotosPerDay: 10, dishesPerDay: 20 };
+export const DEFAULT_LIMITS: Limits = { vaultsPerIpPerDay: 5, vaultBytes: 50_000_000, photosPerVaultPerDay: 30, photosPerDay: 150, menusPerVaultPerDay: 15, workoutsPerVaultPerDay: 10, conciergePerVaultPerDay: 60, aiPerDay: 800, deviceTokensPerIpPerDay: 5, devicePhotosPerDay: 10, dishesPerDay: 20, pilotJoinsPerIpPerDay: 10 };
 
 export interface Deps {
   store: Store;
@@ -470,7 +472,9 @@ export function createApp(deps: Deps) {
     if (!stored) return c.json({ error: 'not_found' }, 404);
     const a = Buffer.from(stored, 'hex'), b = Buffer.from(hash(t), 'hex');
     const ok = a.length === b.length && timingSafeEqual(a, b);
-    return ok ? id : c.json({ error: 'unauthorized' }, 401);
+    if (!ok) return c.json({ error: 'unauthorized' }, 401);
+    store.seen(id, weekKey(now())); // D119: the week it came online, for stats:ops
+    return id;
   };
 
   app.put('/v1/vaults/:id', (c) => {
@@ -600,6 +604,62 @@ export function createApp(deps: Deps) {
       console.error('workout failed:', (e as Error).message);
       return c.json({ error: 'upstream' }, 502);
     }
+  });
+
+  // ---------------------------------------------------------------- the pilot by consent (D119): not linked to a vault
+  /** An address only as a keyed hash, for a day's limit: the pilot's routes keep no address anywhere. */
+  const ipKey = (c: Context) => {
+    let salt = store.setting('ip_salt');
+    if (!salt) { salt = randomBytes(16).toString('hex'); store.setSetting('ip_salt', salt); }
+    return hash(`${salt}:${ip(c)}`).slice(0, 20);
+  };
+  const member = (c: Context): string | Response => {
+    const [, pid = '', secret = ''] = /^Pilot (p_[a-z2-7]{10})\.([A-Za-z0-9_-]{43})$/.exec(c.req.header('Authorization') ?? '') ?? [];
+    if (!PID.test(pid) || !SECRET.test(secret)) return c.json({ error: 'unauthorized' }, 401);
+    const stored = store.pilotSecret(pid);
+    if (!stored) return c.json({ error: 'not_found' }, 404);
+    const a = Buffer.from(stored, 'hex'), b = Buffer.from(hash(secret), 'hex');
+    return a.length === b.length && timingSafeEqual(a, b) ? pid : c.json({ error: 'unauthorized' }, 401);
+  };
+
+  app.post('/v1/pilot/join', (c) => {
+    if (!store.take(`pilotjoin:${ipKey(c)}`, limits.pilotJoinsPerIpPerDay, now())) return c.json({ error: 'too_many' }, 429);
+    const alphabet = 'abcdefghijklmnopqrstuvwxyz234567';
+    const pid = `p_${[...randomBytes(10)].map((x) => alphabet[x & 31]).join('')}`;
+    const secret = randomBytes(32).toString('base64url');
+    store.joinPilot(pid, hash(secret), weekKey(now())); // joined = the week only, not the date
+    return c.json({ pid, secret }, 201);
+  });
+
+  /** A week's summary, a survey's answers or a «Що заважало» note; the same week and kind again replaces it. */
+  app.post('/v1/pilot/week', bodyLimit({ maxSize: 4_000, onError: (c) => c.json({ error: 'too_large' }, 413) }), async (c) => {
+    const pid = member(c);
+    if (typeof pid !== 'string') return pid;
+    const rec = parsePilot(await c.req.json().catch(() => null));
+    if (!rec || rec.body.pid !== pid) return c.json({ error: 'bad_request' }, 400);
+    const week = weekKey(now());
+    if (rec.body.week > week || rec.body.week < weekAdd(week, -5)) return c.json({ error: 'bad_week' }, 400); // the phone sends up to 4 weeks back
+    if (!store.take(`pilotweek:${pid}`, 40, now())) return c.json({ error: 'too_many' }, 429);
+    const body = rec.kind.startsWith('note:') ? { ...rec.body, note: scrubNames((rec.body as { note: string }).note) } : rec.body;
+    store.putPilotWeek(pid, rec.body.week, rec.kind, rec.kind === 'week' ? (rec.body as { src?: string }).src ?? null : null, JSON.stringify(body));
+    return c.json({ ok: true });
+  });
+
+  app.delete('/v1/pilot', (c) => {
+    const pid = member(c);
+    if (typeof pid !== 'string') return pid;
+    store.leavePilot(pid);
+    return c.json({ ok: true });
+  });
+
+  /** Is the code known; `?visit=1` — the QR link was opened: a count of (day, code), nothing else. */
+  app.get('/v1/pilot/src/:code', (c) => {
+    const code = c.req.param('code').toUpperCase();
+    if (!SRC.test(code)) return c.json({ known: false });
+    if (!store.take(`pilotsrc:${ipKey(c)}`, 60, now())) return c.json({ error: 'too_many' }, 429);
+    const known = !!store.pilotSource(code);
+    if (known && c.req.query('visit') === '1') store.bump(`qr:${code}`, 1, now());
+    return c.json({ known });
   });
 
   return app;
