@@ -90,7 +90,10 @@ export function PlanScan({ plan, onDone, onboarding }: { plan: PlanRow; onDone?:
     const pieces = picked.flatMap((l) => (cuts[l.key] && placed.get(l.key) ? [{ id: placed.get(l.key)!, url: cuts[l.key]!, at: new Date().toISOString(), source }] : []));
     await saved(db.transaction('rw', db.plan, db.pieces, async () => { await db.plan.update('main', next); await db.pieces.bulkPut(pieces); }), L.saved(picked.length + close.size),
       () => db.transaction('rw', db.plan, db.pieces, async () => { await db.plan.update('main', before); await db.pieces.bulkDelete(pieces.map((x) => x.id)); }));
-    if (picked.length) void count('photo_rows', picked.length); // D119
+    // D120, D122: rows read off the paper and, of them, not put in (unticked, put aside, unreadable) — a bad reading must not look
+    // good; a later visit's medicine «без змін» is already in the plan and counts in neither
+    const read = lines.filter((l) => diff.get(l.key)?.kind !== 'same');
+    if (read.length) { void count('photo_rows', read.length); void count('photo_unchecked', read.filter((l) => !on.has(l.key)).length); }
     setState('none'); setLines([]); setCuts({});
     onDone?.();
   };

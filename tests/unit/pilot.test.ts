@@ -50,7 +50,7 @@ describe('the pilot’s weekly summary (D119)', () => {
     for (const [plan, entries] of cases) {
       const week = weekOf('2026-10-26');
       const s = weekSummary(base({ plan, entries, workouts: d.workouts, wellbeing: d.wellbeing, weights: d.weights, src: 'ENDO-01', fromPhoto: true, remindersOn: true,
-        tallies: { nf: 2, why: 1, topup_shown: 1, topup_taken: 1, danger: 0, report: 1, photo_rows: 9, photo_edit: 1, rem_sent: 14, rem_open: 11 } }), week);
+        tallies: { nf: 2, why: 1, topup_shown: 1, topup_taken: 1, danger: 0, report: 1, photo_rows: 9, photo_unchecked: 2, photo_edit: 1, rem_sent: 14, rem_open: 11 } }), week);
       expect(s.food.entries).toBeGreaterThan(0); // the example's week has records — the test is not of an empty summary
       for (const { path, v } of leaves(s)) {
         if (typeof v === 'string') expect(STRINGS.has(path), `a string at ${path}: ${v}`).toBe(true);
@@ -106,7 +106,7 @@ describe('the pilot’s weekly summary (D119)', () => {
     expect(s.active_days).toBe(2);
     expect(s.days_in).toBe(13); // 20 Oct … 1 Nov
     expect(s.rem).toBeUndefined();
-    expect(weekSummary(base({ remindersOn: true, tallies: { rem_sent: 5, rem_open: 2 } }), '2026-W44').rem).toEqual({ sent: 5, acked: 2 });
+    expect(weekSummary(base({ remindersOn: true, tallies: { rem_sent: 5, rem_open: 2 } }), '2026-W44').rem).toEqual({ sent: 5, opened: 2 });
   });
 
   it('the weeks to send: finished, from the week before consent, at most 4 back, none twice', () => {

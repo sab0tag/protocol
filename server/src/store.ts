@@ -94,6 +94,11 @@ export class Store {
       .run(now.toISOString().slice(0, 10), scope, Math.round(by));
   }
 
+  /** D122: the day limits' counters older than `before` (a day) go; the ops numbers (`stat:*`) and the QR counts (`qr:*`) stay. */
+  purgeCounters(before: string): number {
+    return Number(this.db.prepare("DELETE FROM counters WHERE day < ? AND scope NOT LIKE 'stat:%' AND scope NOT LIKE 'qr:%'").run(before).changes);
+  }
+
   /** Count one use of `scope` today; false (and nothing counted) when the limit is reached. */
   take(scope: string, limit: number, now: Date): boolean {
     const day = now.toISOString().slice(0, 10);

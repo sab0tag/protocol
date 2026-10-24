@@ -6,6 +6,7 @@ import { buildChecklist } from './checklist';
 import { dateOf } from './dates';
 import { prnMeds, prnTaken } from './prn';
 import type { DayEntry, Food, ISODate, Plan, Wellbeing, WeightLog, Workout } from './types';
+import type { TallyKey } from '../data/tally';
 
 /** The text of the consent screen; a new version with new fields asks for consent again. */
 export const CONSENT_VERSION = 1;
@@ -16,9 +17,9 @@ export interface Summary {
   v: 1; pid: string; week: string; src?: string; days_in: number; active_days: number;
   meds: { due: number; done: number; skipped: number; late_30: number; prn_taken: number };
   food: { days_logged: number; entries: number; by_voice: number; by_text: number; by_photo: number; not_found: number };
-  plan: { meds: number; constraints: number; from_photo: boolean; photo_rows: number; photo_rows_edited: number };
+  plan: { meds: number; constraints: number; from_photo: boolean; photo_rows: number; photo_rows_edited: number; photo_rows_unchecked: number };
   help: { why_opened: number; topup_shown: number; topup_taken: number; danger_card: number };
-  rem?: { sent: number; acked: number };
+  rem?: { sent: number; opened: number }; // D122: opened from the notification — not a dose confirmed
   other: { water_days: number; workouts: number; wellbeing_days: number; report_made: number };
   app: { build: string; platform: Platform };
 }
@@ -26,7 +27,7 @@ export interface Summary {
 export interface PilotData {
   plan: Plan | undefined; entries: DayEntry[]; workouts: Workout[]; wellbeing: Wellbeing[]; weights: WeightLog[]; foods: Map<string, Food>;
   /** the week's counts from data/tally.ts */
-  tallies: Partial<Record<'nf' | 'why' | 'topup_shown' | 'topup_taken' | 'danger' | 'report' | 'photo_rows' | 'photo_edit' | 'rem_sent' | 'rem_open', number>>;
+  tallies: Partial<Record<TallyKey, number>>;
   fromPhoto: boolean; // a line of the plan came off a doctor's paper (D114 pieces)
   remindersOn: boolean;
   pid: string; src?: string; build: string; platform: Platform;
@@ -85,10 +86,10 @@ export function weekSummary(data: PilotData, week: string): Summary {
     plan: {
       meds: (plan?.prescriptions ?? []).filter((p) => isMed(p.kind) && !(p.since && p.since > last) && !(p.until && p.until < first)).length,
       constraints: (plan?.constraints ?? []).filter((c) => c.active).length,
-      from_photo: data.fromPhoto, photo_rows: n.photo_rows ?? 0, photo_rows_edited: n.photo_edit ?? 0,
+      from_photo: data.fromPhoto, photo_rows: n.photo_rows ?? 0, photo_rows_edited: n.photo_edit ?? 0, photo_rows_unchecked: n.photo_unchecked ?? 0,
     },
     help: { why_opened: n.why ?? 0, topup_shown: n.topup_shown ?? 0, topup_taken: n.topup_taken ?? 0, danger_card: n.danger ?? 0 },
-    ...(data.remindersOn ? { rem: { sent: n.rem_sent ?? 0, acked: n.rem_open ?? 0 } } : {}),
+    ...(data.remindersOn ? { rem: { sent: n.rem_sent ?? 0, opened: n.rem_open ?? 0 } } : {}),
     other: {
       water_days: new Set(inWeek.filter((e) => e.kind === 'water' && e.status === 'done').map((e) => dateOf(e.at))).size,
       workouts: workouts.filter((w) => w.date >= first && w.date <= last).length,

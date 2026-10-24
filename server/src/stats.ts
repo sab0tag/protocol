@@ -76,7 +76,7 @@ export function opsStats(store: Store, now: Date, count = 12): { weeks: OpsWeek[
 export interface PilotRow {
   group: string; week: string; participants: number; qr: number; consents: number; plan_entered: number;
   d7: number | null; d30: number | null; adherence: number | null; adherence_w1: number | null; adherence_w4: number | null;
-  on_time: number | null; food_days: number | null; voice: number | null; not_found: number | null; photo_edited: number | null;
+  on_time: number | null; food_days: number | null; voice: number | null; not_found: number | null; photo_edited: number | null; photo_unchecked: number | null;
   helps_d7: number | null; helps_d30: number | null; nps: number | null; blockers: string;
 }
 export const MIN_GROUP = 5;
@@ -112,7 +112,9 @@ function pilotRow(group: string, week: string, [from, to]: [string, string], mem
     on_time: pct(sum((s) => Math.max(0, s.meds.done - s.meds.late_30)), sum((s) => s.meds.done)),
     food_days: median(sums.map((x) => x.s.food.days_logged)), voice: pct(sum((s) => s.food.by_voice), sum((s) => s.food.entries)),
     not_found: pct(sum((s) => s.food.not_found), sum((s) => s.food.entries)),
+    // D122: of the rows read off the paper — corrected later in «План», and not put in at all (a bad reading must not look good)
     photo_edited: pct(sum((s) => s.plan.photo_rows_edited), sum((s) => s.plan.photo_rows)),
+    photo_unchecked: pct(sum((s) => s.plan.photo_rows_unchecked), sum((s) => s.plan.photo_rows)),
     helps_d7: mean(d7.map((s) => s.helps)), helps_d30: mean(d30.map((s) => s.helps)),
     nps: nps.length ? Math.round(((nps.filter((x) => x >= 9).length - nps.filter((x) => x <= 6).length) / nps.length) * 100) : null,
     blockers: [...blockers].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 3).map(([k, n]) => `${k} ${n}`).join(', '),

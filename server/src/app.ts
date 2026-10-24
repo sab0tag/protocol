@@ -171,7 +171,7 @@ export function createApp(deps: Deps) {
   app.get('/v1/pair/:pid', (c) => {
     const pid = c.req.param('pid');
     if (!DEVICE.test(pid)) return c.json({ error: 'bad_request' }, 400);
-    if (!store.take(`pairget:${ip(c)}`, 30, now())) return c.json({ error: 'too_many' }, 429);
+    if (!store.take(`pairget:${ipKey(c)}`, 30, now())) return c.json({ error: 'too_many' }, 429);
     const blob = store.takePair(pid, now().getTime());
     return blob ? c.json({ blob }) : c.json({ error: 'not_found' }, 404);
   });
@@ -274,7 +274,7 @@ export function createApp(deps: Deps) {
 
   // D101: a device without sync — a random token (the server keeps its hash), a few a day per address, its own photo limit
   app.post('/v1/devices', (c) => {
-    if (!store.take(`devtoken:${ip(c)}`, limits.deviceTokensPerIpPerDay, now())) return c.json({ error: 'too_many' }, 429);
+    if (!store.take(`devtoken:${ipKey(c)}`, limits.deviceTokensPerIpPerDay, now())) return c.json({ error: 'too_many' }, 429);
     const token = randomBytes(32).toString('base64url');
     store.addDeviceToken(hash(token), now().getTime());
     return c.json({ token }, 201);
@@ -485,7 +485,7 @@ export function createApp(deps: Deps) {
       const r = authed(c);
       return typeof r === 'string' ? c.json({ created: false }) : r;
     }
-    if (!store.take(`vault:${ip(c)}`, limits.vaultsPerIpPerDay, now())) return c.json({ error: 'too_many' }, 429);
+    if (!store.take(`vault:${ipKey(c)}`, limits.vaultsPerIpPerDay, now())) return c.json({ error: 'too_many' }, 429);
     store.createVault(id, hash(t), now());
     return c.json({ created: true }, 201);
   });
@@ -607,12 +607,13 @@ export function createApp(deps: Deps) {
   });
 
   // ---------------------------------------------------------------- the pilot by consent (D119): not linked to a vault
-  /** An address only as a keyed hash, for a day's limit: the pilot's routes keep no address anywhere. */
-  const ipKey = (c: Context) => {
+  /** D122: an address only as a hash with the server's salt and the day — a day's limit, never the address, and not the same
+   *  key on two days; the counters of limits go after 2 days (store.purgeCounters). */
+  function ipKey(c: Context) {
     let salt = store.setting('ip_salt');
     if (!salt) { salt = randomBytes(16).toString('hex'); store.setSetting('ip_salt', salt); }
-    return hash(`${salt}:${ip(c)}`).slice(0, 20);
-  };
+    return hash(`${salt}:${now().toISOString().slice(0, 10)}:${ip(c)}`).slice(0, 20);
+  }
   const member = (c: Context): string | Response => {
     const [, pid = '', secret = ''] = /^Pilot (p_[a-z2-7]{10})\.([A-Za-z0-9_-]{43})$/.exec(c.req.header('Authorization') ?? '') ?? [];
     if (!PID.test(pid) || !SECRET.test(secret)) return c.json({ error: 'unauthorized' }, 401);

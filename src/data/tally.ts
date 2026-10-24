@@ -4,7 +4,7 @@
 import { format, subDays } from 'date-fns';
 import { db, type Tally } from './db';
 
-export type TallyKey = 'nf' | 'why' | 'topup_shown' | 'topup_taken' | 'danger' | 'report' | 'photo_rows' | 'photo_edit' | 'rem_sent' | 'rem_open';
+export type TallyKey = 'nf' | 'why' | 'topup_shown' | 'topup_taken' | 'danger' | 'report' | 'photo_rows' | 'photo_unchecked' | 'photo_edit' | 'rem_sent' | 'rem_open';
 const KEEP_DAYS = 70;
 
 async function add(key: TallyKey, by: number, token?: string): Promise<void> {

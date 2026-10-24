@@ -39,9 +39,9 @@ const summary = z.strictObject({
   active_days: n(7),
   meds: z.strictObject({ due: n(500), done: n(500), skipped: n(500), late_30: n(500), prn_taken: n(500) }),
   food: z.strictObject({ days_logged: n(7), entries: n(1000), by_voice: n(1000), by_text: n(1000), by_photo: n(1000), not_found: n(1000) }),
-  plan: z.strictObject({ meds: n(100), constraints: n(100), from_photo: z.boolean(), photo_rows: n(200), photo_rows_edited: n(200) }),
+  plan: z.strictObject({ meds: n(100), constraints: n(100), from_photo: z.boolean(), photo_rows: n(200), photo_rows_edited: n(200), photo_rows_unchecked: n(200) }),
   help: z.strictObject({ why_opened: n(1000), topup_shown: n(1000), topup_taken: n(1000), danger_card: n(1000) }),
-  rem: z.strictObject({ sent: n(2000), acked: n(2000) }).optional(),
+  rem: z.strictObject({ sent: n(2000), opened: n(2000) }).optional(), // opened from the notification — not a dose confirmed
   other: z.strictObject({ water_days: n(7), workouts: n(50), wellbeing_days: n(7), report_made: n(50) }),
   app: z.strictObject({ build: z.string().regex(BUILD), platform: z.enum(PLATFORMS) }),
 });
@@ -79,8 +79,10 @@ export function parsePilot(x: unknown): PilotRecord | null {
   return r.success ? { kind: 'week', body: r.data } : null;
 }
 
-/** The nightly purge: pilot records after 12 months (52 weeks), the vaults' online weeks after 56. */
-export function pilotHousekeeping(store: { purgePilot(before: string): number; purgeSeen(before: string): number }, now: Date) {
+/** The hourly purge: pilot records after 12 months (52 weeks), the vaults' online weeks after 56, the day limits' counters
+ *  after 2 days (D122: they held addresses). */
+export function pilotHousekeeping(store: { purgePilot(before: string): number; purgeSeen(before: string): number; purgeCounters(before: string): number }, now: Date) {
   const week = weekKey(now);
-  return { pilot: store.purgePilot(weekAdd(week, -52)), seen: store.purgeSeen(weekAdd(week, -56)) };
+  return { pilot: store.purgePilot(weekAdd(week, -52)), seen: store.purgeSeen(weekAdd(week, -56)),
+    counters: store.purgeCounters(new Date(now.getTime() - 2 * 86_400_000).toISOString().slice(0, 10)) };
 }

@@ -21,16 +21,16 @@ function setup(now = NOW) {
     const j = await r.json() as { pid: string; secret: string };
     return { ...j, auth: `Pilot ${j.pid}.${j.secret}` };
   };
-  return { store, call, join, setNow: (d: Date) => { at = d; } };
+  return { store, app, call, join, setNow: (d: Date) => { at = d; } };
 }
 
 const summary = (pid: string, week: string, extra: Record<string, unknown> = {}) => ({
   v: 1, pid, week, src: 'ENDO-01', days_in: 23, active_days: 6,
   meds: { due: 14, done: 12, skipped: 1, late_30: 2, prn_taken: 3 },
   food: { days_logged: 6, entries: 14, by_voice: 9, by_text: 4, by_photo: 1, not_found: 2 },
-  plan: { meds: 4, constraints: 3, from_photo: true, photo_rows: 9, photo_rows_edited: 1 },
+  plan: { meds: 4, constraints: 3, from_photo: true, photo_rows: 9, photo_rows_edited: 1, photo_rows_unchecked: 2 },
   help: { why_opened: 3, topup_shown: 2, topup_taken: 1, danger_card: 0 },
-  rem: { sent: 14, acked: 11 },
+  rem: { sent: 14, opened: 11 },
   other: { water_days: 5, workouts: 2, wellbeing_days: 4, report_made: 0 },
   app: { build: 'index-DvpmBBM0', platform: 'ios-pwa' },
   ...extra,
@@ -114,7 +114,7 @@ describe('pilot (D119)', () => {
   });
 
   it('a source code: known or not; the QR visit counts (day, code), a typed code does not; the address is not kept', async () => {
-    const { store, call } = setup();
+    const { store, app, call } = setup();
     store.putPilotSource('ENDO-01', 'Ендокринолог, клініка 1', '2026-10-24');
     expect(await (await call('GET', '/v1/pilot/src/ENDO-01?visit=1')).json()).toEqual({ known: true });
     expect(await (await call('GET', '/v1/pilot/src/endo-01')).json()).toEqual({ known: true });
@@ -122,7 +122,12 @@ describe('pilot (D119)', () => {
     expect(store.all('SELECT day, n FROM counters WHERE scope = ?', 'qr:ENDO-01')).toEqual([{ day: '2026-11-04', n: 1 }]);
     expect(store.all('SELECT 1 FROM counters WHERE scope LIKE ?', 'qr:NOPE%')).toEqual([]);
     await call('POST', '/v1/pilot/join');
-    expect(store.all<{ scope: string }>('SELECT scope FROM counters').some((r) => r.scope.includes(IP))).toBe(false);
+    await call('POST', '/v1/devices');
+    await call('GET', '/v1/pair/abcdefabcdefabcdefabcdefabcdefab');
+    await app.request(`/v1/vaults/${'c'.repeat(32)}`, { method: 'PUT', headers: { Authorization: `Bearer ${'k'.repeat(43)}`, 'X-Forwarded-For': IP } });
+    const scopes = store.all<{ scope: string }>('SELECT scope FROM counters').map((r) => r.scope);
+    expect(scopes.filter((s) => /^(vault|devtoken|pairget|pilotjoin):/.test(s))).toHaveLength(4); // D122: every limit by address — a hash
+    expect(scopes.some((r) => r.includes(IP) || r.includes('203.0.113'))).toBe(false);
   });
 
   it('10 joins a day from one address', async () => {
@@ -138,7 +143,12 @@ describe('pilot (D119)', () => {
     store.joinPilot('p_bbbbbbbbbb', 'h', '2026-W40');
     store.putPilotWeek('p_bbbbbbbbbb', '2026-W41', 'week', null, '{}');
     store.seen('a'.repeat(32), '2025-W01');
-    expect(pilotHousekeeping(store, NOW)).toEqual({ pilot: 1, seen: 1 });
+    store.take('vault:abc', 5, new Date('2026-11-01T10:00:00Z'));
+    store.take('vault:def', 5, new Date('2026-11-03T10:00:00Z'));
+    store.bump('stat:rem_sent', 1, new Date('2026-01-01T10:00:00Z'));
+    store.bump('qr:ENDO-01', 1, new Date('2026-01-01T10:00:00Z'));
+    expect(pilotHousekeeping(store, NOW)).toEqual({ pilot: 1, seen: 1, counters: 1 });
+    expect(store.all<{ scope: string }>('SELECT scope FROM counters ORDER BY scope').map((r) => r.scope)).toEqual(['qr:ENDO-01', 'stat:rem_sent', 'vault:def']);
     expect(store.all<{ pid: string }>('SELECT pid FROM pilot_members').map((r) => r.pid)).toEqual(['p_bbbbbbbbbb']);
   });
 });
@@ -174,7 +184,7 @@ describe('stats:pilot', () => {
     expect(hidden).toBe(1);
     expect(new Set(rows.map((r) => r.group))).toEqual(new Set(['всього', 'ENDO-01 · Ендокринолог, клініка 1']));
     const total = rows.find((r) => r.group === 'всього' && r.week === 'всього')!;
-    expect(total).toMatchObject({ consents: 20, plan_entered: 20, qr: 30, d7: 75, adherence: 86, on_time: 92, not_found: 10, voice: 60, photo_edited: 11 });
+    expect(total).toMatchObject({ consents: 20, plan_entered: 20, qr: 30, d7: 75, adherence: 86, on_time: 92, not_found: 10, voice: 60, photo_edited: 11, photo_unchecked: 22 });
     expect(total.helps_d7).toBe(4);
     expect(total.blockers).toBe('forget 10, slow_food 10');
     expect(rows.find((r) => r.group === 'всього' && r.week === '2026-W45')).toMatchObject({ consents: 10, d7: 80 }) // the W44 ones in their 2nd week: 3 and 7 dropped out;
