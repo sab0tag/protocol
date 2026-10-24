@@ -6,6 +6,7 @@ import { bodyLimit } from 'hono/body-limit';
 import { cors } from 'hono/cors';
 import type { MenuMaker } from './menu.ts';
 import type { DishReader } from './dish.ts';
+import { checked, PROMPT_CHAT, type ChatReader } from './chat.ts';
 import type { WorkoutMaker } from './workout.ts';
 import type { LabsReader } from './labs.ts';
 import type { ConclusionReader } from './conclusion.ts';
@@ -39,6 +40,7 @@ export interface Deps {
   recognize?: Recognizer; // absent = photos are off (no API key)
   menu?: MenuMaker; // the same
   dish?: DishReader; // D110: a dish described in words → its ingredients
+  chat?: ChatReader; // D117: the assistant's chat
   workout?: WorkoutMaker; // D63: the same
   labs?: LabsReader; // D68: the same
   conclusion?: ConclusionReader; // D80: a doctor's conclusion — the same
@@ -376,6 +378,50 @@ export function createApp(deps: Deps) {
       return c.json({ error: 'upstream' }, 502);
     }
   });
+  // D117: the assistant's chat — for a vault (logged only with its own consent) and for a device without sync (never logged)
+  const chat = async (c: Context, who: string, vault: string | null) => {
+    if (!deps.chat) return c.json({ error: 'ai_off' }, 503);
+    const body = await c.req.json().catch(() => null) as { text?: unknown; history?: unknown; names?: unknown; context?: unknown; log?: unknown; versions?: unknown } | null;
+    const text = str(body?.text, 600).trim();
+    const names = list(body?.names, 700, 80);
+    if (!text || !names.length) return c.json({ error: 'bad_request' }, 400);
+    const history = (Array.isArray(body?.history) ? body.history : []).slice(-8).flatMap((m) => {
+      const x = m as { role?: unknown; text?: unknown };
+      return (x.role === 'user' || x.role === 'assistant') && typeof x.text === 'string' ? [{ role: x.role as 'user' | 'assistant', text: x.text.slice(0, 600) }] : [];
+    });
+    const context = typeof body?.context === 'object' && body.context && JSON.stringify(body.context).length < 8000 ? body.context : {};
+    const at = now();
+    if (!store.take(`concierge:${who}`, limits.conciergePerVaultPerDay, at) || !store.take('ai:all', limits.aiPerDay, at)) return c.json({ error: 'too_many' }, 429);
+    const started = Date.now();
+    try {
+      const { result, usage } = await deps.chat({ text, history, names, context });
+      spent(who, 'concierge', usage);
+      ai.lastOk = Date.now();
+      if (result === 'refused') return c.json({ error: 'refused' }, 422);
+      const { result: out, numbersDropped } = checked(result, names); // the code's check on the way out
+      let logId: string | undefined;
+      if (vault && body?.log === true) {
+        logId = `c-${at.toISOString().slice(0, 10)}-${randomBytes(3).toString('hex')}`;
+        const v = (body.versions ?? {}) as Record<string, unknown>;
+        store.logConcierge(logId, vault, at.getTime(), 'chat', {
+          id: logId, ts: at.toISOString(), user: userLabel(vault), scenario: 'chat',
+          versions: { app: String(v.app ?? '').slice(0, 40), model: deps.conciergeModel ?? '', prompt: PROMPT_CHAT, plan: String(v.plan ?? '').slice(0, 40) },
+          context, input: text, output: { topic: out.topic, text: out.text, items: out.items },
+          checker: { numbers_match: numbersDropped === 0, numbers_dropped: numbersDropped, names_dropped: result.items.length - out.items.length },
+          latency_ms: Date.now() - started,
+        });
+      }
+      return c.json({ ...out, ...(logId ? { id: logId } : {}) });
+    } catch (e) {
+      ai.lastError = Date.now();
+      console.error('chat failed:', (e as Error).message);
+      return c.json({ error: 'upstream' }, 502);
+    }
+  };
+  const CHAT = bodyLimit({ maxSize: 80_000, onError: (c) => c.json({ error: 'too_large' }, 413) });
+  app.post('/v1/vaults/:id/concierge/chat', CHAT, async (c) => { const id = authed(c); return typeof id !== 'string' ? id : chat(c, id, id); });
+  app.post('/v1/device/concierge/chat', CHAT, async (c) => { const who = device(c); return typeof who !== 'string' ? who : chat(c, who, null); });
+
   app.post('/v1/vaults/:id/concierge/outcome', bodyLimit({ maxSize: 4_000 }), async (c) => {
     const id = authed(c);
     if (typeof id !== 'string') return id;
@@ -407,7 +453,7 @@ export function createApp(deps: Deps) {
 
   // `ok` is false while the AI fails (D101: a schema the API refused showed as healthy); the HTTP status stays 200 — the
   // container's healthcheck asks whether the server lives, not whether the model answers
-  app.get('/health', (c) => c.json({ ok: !(ai.lastError > ai.lastOk), photo: !!recognize, menu: !!menu, workout: !!deps.workout, labs: !!deps.labs, conclusion: !!deps.conclusion, dish: !!deps.dish, medbox: !!deps.medbox, concierge: !!deps.notFound, label: !!deps.label, push: !!deps.push,
+  app.get('/health', (c) => c.json({ ok: !(ai.lastError > ai.lastOk), photo: !!recognize, menu: !!menu, workout: !!deps.workout, labs: !!deps.labs, conclusion: !!deps.conclusion, dish: !!deps.dish, chat: !!deps.chat, medbox: !!deps.medbox, concierge: !!deps.notFound, label: !!deps.label, push: !!deps.push,
     ai: { lastOk: ai.lastOk || null, lastError: ai.lastError || null, failing: ai.lastError > ai.lastOk },
     backupAgeH: deps.backupAgeH?.() ?? null }));
 

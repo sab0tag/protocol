@@ -11,6 +11,7 @@ export interface ReminderSettings {
   meds: boolean;
   waterEveryH: 0 | 2 | 3;
   waterIfBehind?: boolean; // D70: today's water reminder only when behind the day's even pace (default on)
+  topup?: boolean; // D116: an evening nudge when the day is short of a target of the plan (default on)
   repeatMin: 0 | 10 | 15 | 30; // 0 = no repeat; otherwise up to 2 more times
   morning: string; // D35: '' = off, else "HH:MM" — the day's plan in one message
   evening: string; // D35: '' = off — tomorrow's prep tips, or «скласти меню?»
@@ -22,7 +23,7 @@ export interface ReminderSettings {
 export const DEFAULT_REMINDERS: ReminderSettings = { meals: true, meds: true, waterEveryH: 0, repeatMin: 15, morning: '07:30', evening: '20:30', visits: true,
   weekly: true, weightDay: 1 };
 
-export type ReminderKind = 'meal' | 'med' | 'water' | 'morning' | 'evening' | 'test' | 'visit' | 'week' | 'weight';
+export type ReminderKind = 'meal' | 'med' | 'water' | 'morning' | 'evening' | 'test' | 'visit' | 'week' | 'weight' | 'topup';
 
 export interface Reminder {
   key: string;
@@ -36,7 +37,7 @@ const PACE_FROM = 8, GLASS_ML = 250; // D70
 const isMed = (p: Prescription) => p.kind === 'medication' || p.kind === 'supplement';
 
 export function reminders(args: { entries: DayEntry[]; plan: Plan | undefined; settings: ReminderSettings; now: Date;
-  days?: number; snoozed?: Record<string, number> }) {
+  days?: number; snoozed?: Record<string, number>; topupAt?: string }) {
   const { entries, plan, settings, now } = args;
   const days = args.days ?? 30; // D35: daily ones a month ahead — they keep coming even if the app is not opened
   const snoozed = args.snoozed ?? {};
@@ -111,6 +112,14 @@ export function reminders(args: { entries: DayEntry[]; plan: Plan | undefined; s
       push({ key: `evening:${d}`, at: at(d, settings.evening), once: true,
         payload: { t: 'На завтра', b: 'Відкрийте, щоб підготуватися', k: 'evening', u: url(next), tag: `evening:${d}`, d: next } });
     }
+  }
+
+  // D116: today the day is short of a target of the plan — a nudge in the evening; every record sends the schedule again,
+  // so one that closes the gap takes it back. Generic words only: the server never sees a food or a number of the person's.
+  if (args.topupAt && settings.topup !== false) {
+    const today = format(now, 'yyyy-MM-dd');
+    push({ key: `topup:${today}`, at: at(today, args.topupAt), once: true,
+      payload: { t: 'Підказка на вечір', b: 'День недобирає за планом лікаря — відкрийте, щоб вибрати, чим добрати', k: 'topup', u: './#/assistant?ask=topup', tag: `topup:${today}`, d: today } });
   }
 
   if (settings.visits && plan) {

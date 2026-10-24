@@ -82,6 +82,10 @@ async function vaultOrDevice<T>(keys: Keys | null, path: string, body: unknown):
   throw new ApiError(401, 'unauthorized');
 }
 export const conclusion = (keys: Keys | null, images: string[]) => vaultOrDevice<ConclusionResult>(keys, 'conclusion', { images });
+// D117: the assistant's chat — vault or device; the reply is checked by the server on the way out
+export interface ChatReply { topic: 'food' | 'medicine' | 'symptoms' | 'plan' | 'other'; text: string; items: { name: string; grams: number }[]; id?: string }
+export interface ChatBody { text: string; history: { role: 'user' | 'assistant'; text: string }[]; names: string[]; context: unknown; log: boolean; versions: { app: string; plan: string } }
+export const assistantChat = (keys: Keys | null, body: ChatBody) => vaultOrDevice<ChatReply>(keys, 'concierge/chat', body);
 // D110: a dish described in words → its ingredients; the base's names go along so the model can name what is in it
 export const dishBreakdown = (keys: Keys | null, text: string, foods: string[]) => vaultOrDevice<DishResult>(keys, 'dish', { text, foods });
 export interface MedboxResult { readable: boolean; name: string | null; inn: string | null; strength: string | null; form: string | null; note: string | null }

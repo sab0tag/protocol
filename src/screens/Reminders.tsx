@@ -103,6 +103,9 @@ export function Reminders() {
                   className="h-5 w-5 accent-[rgb(var(--accent))]" aria-label={L.waterIfBehind} />
                 <span>{L.waterIfBehind}</span></span>
             )}</label>
+          <label className="flex min-h-tap items-center gap-3 text-sm"> {/* D116 */}
+            <input type="checkbox" checked={s.topup !== false} onChange={(e) => void change({ topup: e.target.checked })} className="h-5 w-5 accent-[rgb(var(--accent))]" />
+            <span>{L.topup}</span></label>
           <label className="block"><span className="text-sm text-muted">{L.repeat}</span>
             <select value={s.repeatMin} onChange={(e) => void change({ repeatMin: Number(e.target.value) as ReminderSettings['repeatMin'] })} className={select}>
               <option value={0}>{L.repeatOff}</option>

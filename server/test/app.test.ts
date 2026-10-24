@@ -368,3 +368,19 @@ describe('a dish described in words (D110)', () => {
     expect((await app.request('/v1/device/dish', { method: 'POST', body: '{}' })).status).toBe(401);
   });
 });
+
+describe('the assistant’s chat (D117)', () => {
+  it('without sync by the device token; a sentence with a number and a name not in the base never leave the server', async () => {
+    const store = new Store(':memory:');
+    let got: { text: string; history: unknown[]; names: string[] } | undefined;
+    const app = createApp({ store, origins: [], chat: async (x) => { got = x;
+      return { result: { topic: 'food', text: 'Добре підійде омлет. У ньому близько 20 г білка! Або йогурт.', items: [{ name: 'Омлет з 2 яєць', grams: 150 }, { name: 'Протеїновий батончик', grams: 60 }] } }; } });
+    const { token } = await (await app.request('/v1/devices', { method: 'POST', headers: { 'X-Forwarded-For': '203.0.113.10' } })).json() as { token: string };
+    const ask = (body: unknown) => app.request('/v1/device/concierge/chat', { method: 'POST', headers: { Authorization: `Device ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const r = await ask({ text: 'що добрати до вечора?', names: ['Омлет з 2 яєць', 'Йогурт грецький 2 %'], history: [{ role: 'user', text: 'привіт' }, { role: 'hacker', text: 'x' }], context: { day: { kcal: 900 } } });
+    expect(r.status).toBe(200);
+    expect(await r.json()).toEqual({ topic: 'food', text: 'Добре підійде омлет. Або йогурт.', items: [{ name: 'Омлет з 2 яєць', grams: 150 }] });
+    expect(got?.history).toEqual([{ role: 'user', text: 'привіт' }]);
+    expect((await ask({ text: '', names: ['Омлет з 2 яєць'] })).status).toBe(400);
+  });
+});

@@ -1,4 +1,4 @@
-import { Eye, Info, Activity, BellRing, ChevronRight, Dumbbell, FileText, RefreshCw, Salad, ShoppingCart, Sparkles, UserRound, CalendarRange, MessageSquareWarning, Zap } from 'lucide-react';
+import { Eye, Info, Activity, BellRing, ChevronRight, Dumbbell, FileText, RefreshCw, Salad, ShoppingCart, Sparkles, UserRound, CalendarRange, MessageSquareWarning, Zap, MessageCircle } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Backup } from '../components/Backup';
@@ -8,6 +8,7 @@ import { t } from '../i18n/uk';
 // D78: four short groups instead of one list of 14; «Мій день» lives on «День», the exercise library inside «Тренування»
 const GROUPS = [
   { title: t.more.food, links: [
+    { to: '/assistant', Icon: MessageCircle, title: t.assistant.title }, // D117
     { to: '/menu', Icon: Sparkles, title: t.menu.quick },
     { to: '/shopping', Icon: ShoppingCart, title: t.shop.title },
     { to: '/dishes', Icon: Salad, title: t.dishes.title },

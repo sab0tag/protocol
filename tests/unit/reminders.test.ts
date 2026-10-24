@@ -146,3 +146,25 @@ describe('one rule for a due dose: the course, «за потреби», the firs
     expect(med?.meds?.map((m) => [m.title, m.withFood])).toEqual([['Омепразол 20 мг', false]]);
   });
 });
+
+describe('the evening nudge when the day is short of the plan (D116)', async () => {
+  const { shortGoals } = await import('../../src/domain/topup');
+  const { FOODS } = await import('../../src/data/foods');
+  const { emptyPlan } = await import('../../src/data/seed.example');
+  const foods = new Map(FOODS.map((f) => [f.id, f]));
+  const day = (kcal: number, protein: number, mealsDone = 2, p = plan) =>
+    shortGoals({ plan: p, targets: p.targets, date: '2026-10-08', foods, usual: [], mealsDone, have: { kcal, protein, calciumMg: 1000, carbs: 100 } });
+  it('short of calories or protein by more than a quarter — said; reached, nothing recorded, or no target — silent', () => {
+    expect(day(900, 60).map((g) => g.goal)).toEqual(['kcal', 'proteinG']); // the example: 2100 kcal, 140 g
+    expect(day(1800, 120)).toEqual([]);
+    expect(day(900, 60, 0)).toEqual([]); // a day not recorded — the app cannot know
+    expect(day(900, 60, 2, emptyPlan())).toEqual([]); // boundary 7: no target, no advice
+  });
+  it('one push in the evening, generic words only — no food, no number of the person’s', () => {
+    const r = reminders({ entries: [], plan, settings: { ...OFF }, now, days: 1, topupAt: '18:00' });
+    expect(keys(r)).toEqual(['topup:2026-10-08']);
+    expect(r.items[0]!.payload).toMatchObject({ t: 'Підказка на вечір', k: 'topup', u: './#/assistant?ask=topup' });
+    expect(JSON.stringify(r.items[0]!.payload)).not.toMatch(/\d{2,}\s*(ккал|г)/);
+    expect(keys(reminders({ entries: [], plan, settings: { ...OFF, topup: false }, now, days: 1, topupAt: '18:00' }))).toEqual([]);
+  });
+});

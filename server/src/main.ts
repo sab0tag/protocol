@@ -7,6 +7,7 @@ import { claudeWorkout } from './workout.ts';
 import { claudeLabs } from './labs.ts';
 import { claudeConclusion } from './conclusion.ts';
 import { claudeDish } from './dish.ts';
+import { claudeChat } from './chat.ts';
 import { claudeMedbox } from './medbox.ts';
 import { claudeNotFound } from './concierge.ts';
 import { conciergeHousekeeping } from './conciergeLog.ts';
@@ -35,6 +36,8 @@ const app = createApp({
   conciergeModel: env.CONCIERGE_MODEL ?? env.PHOTO_MODEL ?? 'claude-opus-5-5',
   menu: env.ANTHROPIC_API_KEY
     ? claudeMenu({ model: env.MENU_MODEL ?? 'claude-opus-5-5', effort: (env.MENU_EFFORT ?? 'medium') as 'low' | 'medium' | 'high' }) : undefined,
+  chat: env.ANTHROPIC_API_KEY // D117
+    ? claudeChat({ model: env.CONCIERGE_MODEL ?? env.PHOTO_MODEL ?? 'claude-opus-5-5', effort: 'low' }) : undefined,
   dish: env.ANTHROPIC_API_KEY // D110
     ? claudeDish({ model: env.MENU_MODEL ?? 'claude-opus-5-5', effort: 'low' }) : undefined,
   workout: env.ANTHROPIC_API_KEY // D63
@@ -46,6 +49,7 @@ const app = createApp({
     ...(env.MENUS_PER_VAULT_PER_DAY ? { menusPerVaultPerDay: Number(env.MENUS_PER_VAULT_PER_DAY) } : {}),
     ...(env.WORKOUTS_PER_VAULT_PER_DAY ? { workoutsPerVaultPerDay: Number(env.WORKOUTS_PER_VAULT_PER_DAY) } : {}),
     ...(env.VAULTS_PER_IP_PER_DAY ? { vaultsPerIpPerDay: Number(env.VAULTS_PER_IP_PER_DAY) } : {}), // e2e only
+    ...(env.DEVICE_TOKENS_PER_IP_PER_DAY ? { deviceTokensPerIpPerDay: Number(env.DEVICE_TOKENS_PER_IP_PER_DAY) } : {}), // e2e only: every test is a new device
     ...(env.AI_PER_DAY ? { aiPerDay: Number(env.AI_PER_DAY) } : {}),
   },
 });

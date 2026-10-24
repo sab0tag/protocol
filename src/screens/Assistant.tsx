@@ -1,0 +1,177 @@
+// D117: «Помічник» — ask in words or by voice, the answer comes at once. «Що добрати до вечора?» is answered by the code
+// (the day against the plan, three things that pass it); anything else goes to the model with the day's numbers and the
+// plan's rules — its words come back without numbers, every food it names is turned into a line of the base, checked
+// against the plan (what fails is not shown) and counted here. Medicines, symptoms, changing the plan — the app's own words;
+// a danger sign — the 103 card, no model at all. Nothing is written for the person: a tap puts a suggestion in the evening's
+// plan as a planned snack, to tick when eaten. Works without sync (the device token, D101).
+import { format } from 'date-fns';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { Mic, Send, Square } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { DangerCard } from '../components/DangerCard';
+import { Loading } from '../components/Recovery';
+import { saved } from '../components/Toast';
+import { db, inDemo } from '../data/db';
+import { keep, kept } from '../data/kept';
+import { useAllEntries, useDayEntries, useFoods, usePlan, useRecipes } from '../data/queries';
+import { listen, speechSupported } from '../data/speech';
+import { asksTopup, brings, dayContext, fixedAnswer, lineOf, passing } from '../domain/assistant';
+import { appVersion, planVersion } from '../domain/concierge';
+import { atLocal, newId, todayISO } from '../domain/dates';
+import { amountText } from '../domain/foodSearch';
+import { frequentItems } from '../domain/habits';
+import { dayTotals, effectiveTargets } from '../domain/nutrition';
+import { dishItem } from '../domain/recipes';
+import { dangerInText } from '../domain/symptoms';
+import { topups } from '../domain/topup';
+import type { DayEntry, MealItem } from '../domain/types';
+import { t } from '../i18n/uk';
+import { ApiError, assistantChat } from '../sync/api';
+import { currentKeys } from '../sync/runner';
+
+const L = t.assistant;
+const CONSENT = 'protocol.assistantConsent';
+const consented = () => { try { return localStorage.getItem(CONSENT) === '1'; } catch { return false; } };
+interface Msg { id: string; role: 'user' | 'assistant'; text: string; items?: MealItem[]; danger?: true; error?: true }
+
+export function Assistant() {
+  const date = todayISO();
+  const plan = usePlan(), foods = useFoods(), recipes = useRecipes(), entries = useDayEntries(date), all = useAllEntries();
+  const meta = useLiveQuery(async () => (await db.meta.get('sync')) ?? null, []);
+  const [params, setParams] = useSearchParams();
+  const [msgs, setMsgs] = useState<Msg[]>(() => kept<Msg[]>(`assistant:${date}`) ?? []);
+  const [text, setText] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [listening, setListening] = useState(false);
+  const [askConsent, setAskConsent] = useState<string | null>(null);
+  const stop = useRef<() => void>(() => undefined);
+  const end = useRef<HTMLDivElement>(null);
+  useEffect(() => { keep(`assistant:${date}`, msgs); end.current?.scrollIntoView({ block: 'end' }); }, [msgs, date]);
+
+  const targets = useMemo(() => (plan ? effectiveTargets(plan, date) : {}), [plan, date]);
+  const totals = useMemo(() => (entries && foods ? dayTotals(entries, foods) : null), [entries, foods]);
+  const usual = useMemo(() => (all ? frequentItems(all, date, 60, 50).map((f) => f.item.foodId ?? '').filter(Boolean) : []), [all, date]);
+
+  const say = (m: Omit<Msg, 'id'>) => setMsgs((xs) => [...xs, { ...m, id: newId() }]);
+  /** Scenario 3 asked in words — the code's numbers and three things that pass the plan; no model. */
+  const topupAnswer = () => {
+    if (!plan || !foods || !totals || !entries) return;
+    const tops = topups({ plan, targets, date, now: format(new Date(), 'HH:mm'), foods, usual,
+      mealsDone: entries.filter((e) => e.kind === 'meal' && e.status === 'done').length,
+      have: { kcal: totals.kcal, protein: totals.protein, calciumMg: totals.calciumMg, carbs: totals.carbs } }, true);
+    if (!tops.length) {
+      const any = targets.kcal !== undefined || targets.proteinG !== undefined || targets.calciumMg !== undefined;
+      say({ role: 'assistant', text: !any ? L.noTargets : !entries.some((e) => e.kind === 'meal' && e.status === 'done') ? L.nothingRecorded : L.allReached });
+      return;
+    }
+    const lines = tops.map((x) => t.topup.ask(t.topup.goals[x.goal], x.have, x.target, t.topup.units[x.goal]).replace(' Добрати до вечора?', ''));
+    const items = [...new Map(tops.flatMap((x) => x.items).map((it) => [it.name, it])).values()].slice(0, 3);
+    say({ role: 'assistant', text: `${lines.join(' ')} ${L.canAdd}`, items });
+  };
+  useEffect(() => { // D116: the evening push opens the assistant on this question
+    if (params.get('ask') === 'topup' && plan && foods && totals && entries) { setParams({}, { replace: true }); say({ role: 'user', text: L.chips[0]! }); topupAnswer(); }
+  }, [params, plan, foods, totals, entries]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const ask = async (q: string, consent = consented() || !!meta?.conciergeConsent) => {
+    const words = q.trim();
+    if (!words || !plan || !foods || !recipes || !totals) return;
+    setText('');
+    if (!askConsent) say({ role: 'user', text: words });
+    if (dangerInText(words)) { say({ role: 'assistant', text: '', danger: true }); return; } // boundary 4: the 103 card, never the model
+    if (asksTopup(words)) { topupAnswer(); return; }
+    if (inDemo()) { say({ role: 'assistant', text: L.demo }); return; } // D98
+    if (!consent) { setAskConsent(words); return; }
+    setAskConsent(null); setBusy(true);
+    const names = [...[...foods.values()].map((f) => f.name), ...recipes.map((r) => r.name)];
+    const history = msgs.slice(-8).filter((m) => m.text).map((m) => ({ role: m.role, text: m.text }));
+    try {
+      const r = await assistantChat(currentKeys() ?? null, { text: words, history, names, log: !!meta?.conciergeLog && !!currentKeys(),
+        context: dayContext(plan, targets, totals, format(new Date(), 'HH:mm'), usual.map((id) => foods.get(id)?.name ?? '').filter(Boolean)),
+        versions: { app: appVersion(), plan: planVersion(plan) } });
+      const fixed = fixedAnswer(r.topic, plan);
+      if (fixed) { say({ role: 'assistant', text: fixed }); return; }
+      const lines = r.items.flatMap((x) => { const it = lineOf(x.name, x.grams, [...foods.values()], recipes, dishItem); return it ? [it] : []; });
+      const { shown } = passing(lines, plan, date, foods); // what fails the plan is not shown
+      say({ role: 'assistant', text: r.text || L.empty, ...(shown.length ? { items: shown } : {}) });
+    } catch (e) {
+      const code = e instanceof ApiError ? (e.status === 0 ? 'offline' : e.code) : 'other';
+      say({ role: 'assistant', text: (L.errors as Record<string, string>)[code] ?? L.errors.other ?? '', error: true });
+    } finally { setBusy(false); }
+  };
+
+  const mic = () => {
+    if (listening) { stop.current(); return; }
+    setListening(true);
+    stop.current = listen({ interim: setText, final: (x) => { setText(''); void ask(x); }, error: () => setListening(false), end: () => setListening(false) });
+  };
+  const toEvening = async (it: MealItem) => { // a planned snack for the evening — never what was eaten (boundary 5)
+    const by = targets.lastMealBy ?? '20:00', later = format(new Date(Date.now() + 900_000), 'HH:mm');
+    const e: DayEntry = { id: newId(), at: atLocal(date, later < by ? later : by), kind: 'meal', status: 'planned', title: t.topup.snack, items: [it] };
+    await saved(db.entries.add(e), t.topup.planned(it.name), () => db.entries.delete(e.id));
+  };
+
+  if (!plan || !foods || !recipes || !entries || !totals) return <Loading />;
+  const fmt = (n: number) => String(Math.round(n));
+  const facts = [targets.kcal !== undefined ? L.fact(t.topup.goals.kcal, fmt(totals.kcal), targets.kcal, 'ккал') : '',
+    targets.proteinG !== undefined ? L.fact(t.topup.goals.proteinG, fmt(totals.protein), targets.proteinG, 'г') : '',
+    targets.calciumMg !== undefined ? L.fact(t.topup.goals.calciumMg, fmt(totals.calciumMg), targets.calciumMg, 'мг') : '',
+    targets.carbsG?.max !== undefined ? L.carbs(fmt(totals.carbs), targets.carbsG.max) : ''].filter(Boolean);
+
+  return (
+    <section className="flex min-h-[calc(100dvh-9rem)] flex-col gap-3 pt-4">
+      <div>
+        <h1 className="text-2xl font-semibold">{L.title}</h1>
+        <p className="text-sm text-muted">{L.hint}</p>
+      </div>
+      <p className="rounded-2xl border border-line bg-surface p-3 text-sm">{facts.length ? `${L.today} ${facts.join(' · ')}` : L.noTargetsShort}</p>
+      <ul className="flex-1 space-y-2" aria-label={L.title} aria-live="polite">
+        {msgs.map((m) => (
+          <li key={m.id} className={m.role === 'user' ? 'flex justify-end' : ''}>
+            {m.danger ? <DangerCard className="" /> : (
+              <div className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm ${m.role === 'user' ? 'bg-accent text-surface' : m.error ? 'border border-warn/40 text-warn' : 'border border-line bg-surface'}`}>
+                {m.text && <p>{m.text}</p>}
+                {m.items && m.items.length > 0 && (
+                  <ul className="mt-2 space-y-2">
+                    {m.items.map((it) => { const b = brings(it, foods); return (
+                      <li key={it.name} data-suggestion={it.name} className="rounded-xl bg-bg p-2">
+                        <p className="font-medium">{it.name} <span className="font-normal text-muted">· {amountText(it)}</span></p>
+                        <p className="text-xs text-muted">{L.brings(b.kcal, b.protein)}</p>
+                        <button type="button" onClick={() => void toEvening(it)} className="mt-1 min-h-[2.25rem] rounded-full border border-accent px-3 text-xs text-accent">{L.toEvening}</button>
+                      </li>); })}
+                  </ul>
+                )}
+              </div>
+            )}
+          </li>
+        ))}
+        {busy && <li className="text-sm text-muted" role="status">{L.thinking}</li>}
+      </ul>
+      <div ref={end} />
+      {askConsent && (
+        <div className="space-y-2 rounded-xl border border-accent/40 p-3 text-sm">
+          <p>{L.consent}</p>
+          <button type="button" onClick={() => { try { localStorage.setItem(CONSENT, '1'); } catch { /* private mode */ } void ask(askConsent, true); }}
+            className="min-h-tap rounded-xl bg-accent px-3 font-medium text-surface">{L.allow}</button>
+        </div>
+      )}
+      {msgs.length === 0 && (
+        <div className="flex flex-wrap gap-2">
+          {L.chips.map((c, i) => (
+            <button key={c} type="button" onClick={() => (i === 1 ? setText(c) : void ask(c))} className="min-h-[2.25rem] rounded-full border border-line px-3 text-sm">{c}</button>
+          ))}
+        </div>
+      )}
+      <form className="sticky bottom-[calc(4.5rem+env(safe-area-inset-bottom))] flex gap-2 bg-bg py-2 md:bottom-0" onSubmit={(e) => { e.preventDefault(); void ask(text); }}>
+        {speechSupported() && (
+          <button type="button" onClick={mic} aria-label={listening ? L.stop : L.speak}
+            className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full ${listening ? 'animate-pulse bg-warn' : 'bg-accent'} text-surface`}>
+            {listening ? <Square size={20} aria-hidden /> : <Mic size={22} aria-hidden />}</button>
+        )}
+        <label className="flex-1"><span className="sr-only">{L.input}</span>
+          <input value={text} onChange={(e) => setText(e.target.value)} placeholder={L.placeholder} className="block min-h-12 w-full rounded-xl border border-line bg-surface px-3" /></label>
+        <button type="submit" disabled={!text.trim() || busy} aria-label={L.send} className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-accent text-accent disabled:opacity-40"><Send size={20} aria-hidden /></button>
+      </form>
+    </section>
+  );
+}

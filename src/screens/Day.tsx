@@ -242,7 +242,7 @@ export function Day() {
         const s: DayState = { plan, targets, date, now: format(new Date(), 'HH:mm'), foods,
           mealsDone: entries.filter((e) => e.kind === 'meal' && e.status === 'done').length,
           usual: frequentItems(all, date, 60, 50).map((f) => f.item.foodId ?? '').filter(Boolean),
-          have: { protein: totals.protein, calciumMg: totals.calciumMg, carbs: totals.carbs } };
+          have: { kcal: totals.kcal, protein: totals.protein, calciumMg: totals.calciumMg, carbs: totals.carbs } };
         return <TopupCard date={date} targets={targets} tops={topups(s)} near={nearLimit(s)} />;
       })()}
 

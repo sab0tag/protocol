@@ -13,6 +13,7 @@ import { MyDay } from '../screens/MyDay';
 import { Onboarding } from '../screens/Onboarding';
 import { About } from '../screens/About';
 import { ConciergeLog } from '../screens/ConciergeLog';
+import { Assistant } from '../screens/Assistant';
 import { Plan } from '../screens/Plan';
 import { Progress } from '../screens/Progress';
 import { Report } from '../screens/Report';
@@ -82,6 +83,7 @@ export function App() {
             <Route path="/more" element={<More />} />
             <Route path="/about" element={<About />} />
             <Route path="/concierge-log" element={<ConciergeLog />} />
+            <Route path="/assistant" element={<Assistant />} />
             <Route path="/sync" element={<Sync />} />
             <Route path="/menu" element={<Menu />} />
             <Route path="/reminders" element={<Reminders />} />

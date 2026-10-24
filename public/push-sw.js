@@ -105,6 +105,24 @@ async function detail(d) {
       return `Останнє — ${String(w.kg).replace('.', ',')} кг${ago > 0 ? `, ${ago} дн. тому` : ''}. Зранку, до сніданку.`;
     }
   }
+  if (d.k === 'topup' && d.d) { // D116: what the day has against the plan's targets — counted here, never sent anywhere
+    const [entries, plan, foods] = await Promise.all([idbDay(d.d), idbGet('plan', 'main'), idbAll('foods')]);
+    const byId = new Map(foods.map((f) => [f.id, f]));
+    const sum = { kcal: 0, protein: 0, calciumMg: 0 };
+    const add = (it, k = 1) => {
+      if (it.components && it.components.length) { it.components.forEach((c) => add(c, k)); return; }
+      if (it.manual) { sum.kcal += (it.manual.kcal || 0) * k; sum.protein += (it.manual.protein || 0) * k; sum.calciumMg += (it.manual.calciumMg || 0) * k; return; }
+      const f = it.foodId && byId.get(it.foodId);
+      if (!f) return;
+      const g = (it.grams || 0) / 100 * k;
+      sum.kcal += f.per100g.kcal * g; sum.protein += f.per100g.protein * g; sum.calciumMg += (f.per100g.calciumMg || 0) * g;
+    };
+    entries.filter((e) => e.kind === 'meal' && e.status === 'done').forEach((e) => (e.items || []).forEach((it) => add(it)));
+    const t = (plan && plan.targets) || {};
+    const parts = [t.kcal ? `калорій ${Math.round(sum.kcal)} з ${t.kcal}` : '', t.proteinG ? `білка ${Math.round(sum.protein)} з ${t.proteinG} г` : '',
+      t.calciumMg ? `кальцію ${Math.round(sum.calciumMg)} з ${t.calciumMg} мг` : ''].filter(Boolean);
+    if (parts.length) return `Сьогодні: ${parts.join(', ')}. Відкрийте — підкажу, чим добрати.`;
+  }
   if (d.k === 'visit') {
     const plan = await idbGet('plan', 'main');
     const q = (plan && plan.questions) || [];

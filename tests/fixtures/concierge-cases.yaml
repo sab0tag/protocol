@@ -130,6 +130,16 @@
   status: fixed
   found: 2026-10-18
 
+- id: topup-kcal-evening
+  scenario: goal_topup
+  profile: demo
+  time: "18:30"
+  day: { kcal: 900, protein: 130, calcium: 900, carbs: 100 }
+  expect: { asks: true, goals: [kcal], items_pass_plan: true, items_exclude_tags: [milk] }
+  status: fixed
+  found: 2026-10-24
+  note: "D116: калорії теж — день недобирає, варіанти не більше за нестачу й проходять план (лактоза в демо)."
+
 - id: topup-no-goal
   scenario: goal_topup
   profile: clean_no_protein_goal

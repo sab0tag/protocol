@@ -3,6 +3,10 @@
 import { addDays, format } from 'date-fns';
 import { db, normalizePlan } from '../data/db';
 import { DEFAULT_REMINDERS, reminders, type ReminderSettings } from '../domain/reminders';
+import { dateOf } from '../domain/dates';
+import { dayTotals, effectiveTargets } from '../domain/nutrition';
+import { shortGoals } from '../domain/topup';
+import type { DayEntry, Plan } from '../domain/types';
 import { ApiError, dropDevice, pushKey, putDevice, putReminders, testPush } from './api';
 import { recordKey, type Keys } from './crypto';
 
@@ -49,6 +53,23 @@ export async function sendTest(keys: Keys) {
 
 let last = '';
 
+/** D116: today's day is short of a target of the plan — the time for the evening nudge (two hours before the last meal, not
+ *  before 16:00), or nothing. Sent again after every record, so a meal that closes the gap takes the nudge back. */
+async function eveningTopup(plan: Plan, entries: DayEntry[], now: Date): Promise<string | undefined> {
+  const today = format(now, 'yyyy-MM-dd');
+  const day = entries.filter((e) => dateOf(e.at) === today);
+  const foods = new Map((await db.foods.toArray()).map((f) => [f.id, f]));
+  const totals = dayTotals(day, foods);
+  const short = shortGoals({ plan, targets: effectiveTargets(plan, today), date: today, foods, usual: [],
+    mealsDone: day.filter((e) => e.kind === 'meal' && e.status === 'done').length,
+    have: { kcal: totals.kcal, protein: totals.protein, calciumMg: totals.calciumMg, carbs: totals.carbs } });
+  if (!short.length) return undefined;
+  const by = effectiveTargets(plan, today).lastMealBy ?? '20:00';
+  const m = Math.max(16 * 60, Number(by.slice(0, 2)) * 60 + Number(by.slice(3, 5)) - 120);
+  const at = `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+  return at > format(now, 'HH:mm') ? at : undefined;
+}
+
 /** Send this device's schedule if it changed (or `force`). On app start the subscription is renewed too. */
 export async function pushSchedule(keys: Keys, force = false) {
   const meta = await db.meta.get('sync');
@@ -56,7 +77,9 @@ export async function pushSchedule(keys: Keys, force = false) {
   if (!meta || !s?.on || !meta.device || !pushSupported() || Notification.permission !== 'granted') return;
   const now = new Date();
   const entries = await db.entries.where('at').between(format(addDays(now, -2), 'yyyy-MM-dd'), format(addDays(now, 33), 'yyyy-MM-dd')).toArray();
-  const { items, done } = reminders({ entries, plan: normalizePlan(await db.plan.get('main')), settings: { ...DEFAULT_REMINDERS, ...s }, now, snoozed: meta.snoozed });
+  const plan = normalizePlan(await db.plan.get('main'));
+  const topupAt = plan ? await eveningTopup(plan, entries, now) : undefined; // D116
+  const { items, done } = reminders({ entries, plan, settings: { ...DEFAULT_REMINDERS, ...s }, now, snoozed: meta.snoozed, ...(topupAt ? { topupAt } : {}) });
   const rid = (k: string) => recordKey(keys, `rem:${k}`);
   const body = {
     items: await Promise.all(items.map(async (i) => ({ rid: await rid(i.key), at: i.at, ...(i.once ? { once: true } : {}),

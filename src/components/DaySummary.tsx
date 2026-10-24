@@ -1,7 +1,8 @@
 // «Уже сьогодні» (SPEC.md §14.1, D53): two or three main numbers chosen by the person (R5: water, medicines, carbs),
 // each with its target or limit from the plan, units and progress; the rest behind «Усі показники». A ring is
 // something to reach; a bar with «межа» is a limit — «межу не потрібно заповнювати». No overall score of the day.
-import { Beef, Check, Droplet, Flame, Milk, Pill, Wheat } from 'lucide-react';
+import { Beef, Check, Droplet, Flame, MessageCircle, Milk, Pill, Wheat } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { useState, type ReactNode } from 'react';
 import type { DayTotals } from '../domain/nutrition';
 import { round } from '../domain/nutrition';
@@ -86,6 +87,8 @@ export function DaySummary({ totals, targets, meds, streak }: { totals: DayTotal
         </>
       )}
       {streak && <p className="mt-1 text-sm text-accent">{streak}</p>}
+      <Link to="/assistant" className="mt-1 inline-flex min-h-tap items-center gap-2 text-sm text-accent underline"> {/* D117 */}
+        <MessageCircle size={16} aria-hidden />{t.assistant.link}</Link>
     </section>
   );
 }

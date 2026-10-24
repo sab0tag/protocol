@@ -3,6 +3,7 @@
 // plan as a planned snack (to tick when eaten), never into what was eaten.
 import { format } from 'date-fns';
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { db } from '../data/db';
 import { keep, kept } from '../data/kept';
 import { atLocal, newId } from '../domain/dates';
@@ -35,7 +36,7 @@ export function TopupCard({ date, targets, tops, near }: { date: string; targets
     <section aria-label={L.title} className="mb-4 space-y-3 rounded-2xl border border-accent/30 bg-surface p-3">
       {showTops.map((x) => (
         <div key={x.goal}>
-          <p className="font-medium">{L.ask(x.goal === 'proteinG' ? L.protein : L.calcium, x.have, x.target, x.goal === 'proteinG' ? 'г' : 'мг')}</p>
+          <p className="font-medium">{L.ask(L.goals[x.goal], x.have, x.target, L.units[x.goal])}</p>
           <div className="mt-1 space-y-1">
             {x.items.map((it, i) => (
               <button key={it.name} type="button" onClick={() => void plan(x, i)} data-item={it.name}
@@ -46,6 +47,7 @@ export function TopupCard({ date, targets, tops, near }: { date: string; targets
           <button type="button" onClick={() => answer(x.goal, 'snoozed')} className="min-h-tap px-1 text-sm text-muted underline">{L.notToday}</button>
         </div>
       ))}
+      {showTops.length > 0 && <Link to="/assistant" className="block min-h-tap text-sm text-accent underline">{L.other}</Link> /* D117 */}
       {showNear && (
         <div>
           <p className="font-medium">{L.near(showNear.have, showNear.max)}</p>
