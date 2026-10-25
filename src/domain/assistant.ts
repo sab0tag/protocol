@@ -2,7 +2,7 @@
 // ready-made; «що добрати?» is answered by the code alone (scenario 3, D92/D116); a question on medicines, symptoms or
 // changing the plan gets the app's own words (boundaries 2–4, 1); a food the model names becomes a meal line only through the
 // base and the plan's check — what does not pass is not shown (it goes to the log as a finding). Pure.
-import { passes } from './evaluate';
+import { evaluate } from './evaluate';
 import { itemFor } from './foodSearch';
 import { lineNutrients, type DayTotals } from './nutrition';
 import { crisisInText, dangerInText } from './symptoms';
@@ -59,8 +59,15 @@ export function shownReply(r: { topic: Topic; text: string }, plan: Plan): { car
  *  the last 8 messages, text only. */
 export function historyFor(msgs: { role: 'user' | 'assistant'; text: string; card?: string }[]) {
   const from = msgs.reduce((at, m, i) => (m.card ? i + 1 : at), 0);
-  return msgs.slice(from).filter((m) => m.text && !m.card).slice(-8).map((m) => ({ role: m.role, text: m.text }));
+  // D132: every message is checked on the way out, not only when it was typed — a talk kept from before D130 (or a model's
+  // words about it) never carries a danger or a crisis again
+  return msgs.slice(from).filter((m) => m.text && !m.card && !unsafe(m.text)).slice(-8).map((m) => ({ role: m.role, text: m.text }));
 }
+
+/** D132: words of danger or despair, or a model's «call now» — such a message is not kept and never sent again. */
+export const unsafe = (text: string) => crisisInText(text) || dangerInText(text) || urgentReply(text);
+/** A talk kept on the phone: what is unsafe goes (once, on loading — the talks kept before D130 included). */
+export const scrubTalk = <M extends { text: string; card?: string; danger?: true }>(msgs: M[]): M[] => msgs.filter((m) => !m.card && !m.danger && !unsafe(m.text));
 
 /** Boundaries 1–4: these are answered by the app's own words, never by the model's. */
 export function fixedAnswer(topic: Topic, plan: Plan): string | undefined {
@@ -90,20 +97,25 @@ export function lineOf(name: string, grams: number, foods: Food[], recipes: Reci
  *  no food still shown has), so the text never recommends what the cards do not show. */
 export function withoutDropped(text: string, dropped: string[], shown: string[]): string {
   if (!dropped.length) return text;
-  const words = (s: string) => s.toLocaleLowerCase('uk').split(/[^\p{L}’']+/u).filter((w) => w.length >= 4);
-  const keep = new Set(shown.flatMap(words).map((w) => w.slice(0, 5)));
-  const stems = [...new Set(dropped.flatMap(words).map((w) => w.slice(0, 5)))].filter((s) => !keep.has(s));
+  // D132: by the head word of a food's name («Рис білий варений» → «рис», «Печінка куряча» → «печі»): short words count too —
+  // «рис» was missed for being three letters, and «зваріть до неї рис» stayed under cards without the rice
+  const words = (s: string) => s.toLocaleLowerCase('uk').split(/[^\p{L}’']+/u).filter((w) => w.length >= 3);
+  const stem = (w: string) => (w.length <= 4 ? w : w.slice(0, 4));
+  const keep = new Set(shown.map((n) => words(n)[0]).filter((w): w is string => !!w).map(stem));
+  const stems = [...new Set(dropped.map((n) => words(n)[0]).filter((w): w is string => !!w).map(stem))].filter((s) => !keep.has(s));
   return text.split(/(?<=[.!?…])\s+/u).filter((x) => !stems.some((s) => words(x).some((w) => w.startsWith(s)))).join(' ');
 }
 
 /** R03: each food the model named, checked against the plan in the real day (`entries` — the day and the week before). */
-export function passing(items: MealItem[], plan: Plan, date: string, foods: Map<string, Food>, entries: DayEntry[] = []): { shown: MealItem[]; dropped: string[] } {
-  const shown: MealItem[] = [], dropped: string[] = [];
+export function passing(items: MealItem[], plan: Plan, date: string, foods: Map<string, Food>, entries: DayEntry[] = []): { shown: MealItem[]; dropped: string[]; why: { name: string; reason: string; instead?: string }[] } {
+  const shown: MealItem[] = [], dropped: string[] = [], why: { name: string; reason: string; instead?: string }[] = [];
   for (const it of items) {
-    if (!passes({ plan, date, foods, entries }, it)) dropped.push(it.name);
+    // D132: the reason a food is not offered is said with it — and the plan's own swap, when it has one
+    const hit = evaluate({ plan, date, foods, entries, intent: 'proposed', meal: [it] }).checks[0]?.hits[0];
+    if (hit) { dropped.push(it.name); why.push({ name: it.name, reason: hit.message, ...(hit.suggestion && hit.suggestion !== 'Прибрати' ? { instead: hit.suggestion } : {}) }); }
     else shown.push(it);
   }
-  return { shown, dropped };
+  return { shown, dropped, why };
 }
 
 /** The numbers of a suggestion — the code's: what it brings, and where the day would be after it. */

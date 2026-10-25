@@ -17,7 +17,7 @@ import { db, inDemo } from '../data/db';
 import { keep, kept } from '../data/kept';
 import { useAllEntries, useDayEntries, useFoods, usePlan, useRecipes } from '../data/queries';
 import { listen, speechSupported } from '../data/speech';
-import { brings, dayContext, historyFor, lineOf, passing, routeQuestion, shownReply, withoutDropped } from '../domain/assistant';
+import { brings, dayContext, historyFor, lineOf, passing, routeQuestion, scrubTalk, shownReply, withoutDropped } from '../domain/assistant';
 import { appVersion, planVersion } from '../domain/concierge';
 import { atLocal, newId, todayISO } from '../domain/dates';
 import { amountText } from '../domain/foodSearch';
@@ -35,14 +35,16 @@ import { currentKeys } from '../sync/runner';
 const L = t.assistant;
 const CONSENT = 'protocol.assistantConsent';
 const consented = () => { try { return localStorage.getItem(CONSENT) === '1'; } catch { return false; } };
-interface Msg { id: string; role: 'user' | 'assistant'; text: string; items?: MealItem[]; card?: 'danger' | 'crisis'; danger?: true; error?: true }
+interface Msg { id: string; role: 'user' | 'assistant'; text: string; items?: MealItem[]; card?: 'danger' | 'crisis'; danger?: true; error?: true
+  notOffered?: { name: string; reason: string; instead?: string }[] }
 
 export function Assistant() {
   const date = todayISO();
   const plan = usePlan(), foods = useFoods(), recipes = useRecipes(), entries = useDayEntries(date), all = useAllEntries();
   const meta = useLiveQuery(async () => (await db.meta.get('sync')) ?? null, []);
   const [params, setParams] = useSearchParams();
-  const [msgs, setMsgs] = useState<Msg[]>(() => kept<Msg[]>(`assistant:${date}`) ?? []);
+  // D132: a talk kept on the phone is cleaned on loading — what held danger or despair (kept before D130 too) is gone
+  const [msgs, setMsgs] = useState<Msg[]>(() => scrubTalk(kept<Msg[]>(`assistant:${date}`) ?? []));
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const [listening, setListening] = useState(false);
@@ -98,11 +100,11 @@ export function Assistant() {
       if ('card' in reply) { card('danger'); return; }
       if (reply.fixed) { say({ role: 'assistant', text: reply.text }); return; }
       const lines = r.items.flatMap((x) => { const it = lineOf(x.name, x.grams, [...foods.values()], recipes, dishItem); return it ? [it] : []; });
-      const { shown, dropped } = passing(lines, plan, date, foods, all ?? []); // what fails the plan in the real day is not shown (R03)
+      const { shown, dropped, why } = passing(lines, plan, date, foods, all ?? []); // what fails the plan in the real day is not shown (R03)
       // R04: nor said — the words naming a food taken out go; all taken out — said plainly
       const said = withoutDropped(r.text, dropped, shown.map((x) => x.name));
       const text = lines.length && !shown.length ? `${said ? `${said} ` : ''}${L.allDropped(dropped.join(', '))}` : said || L.empty;
-      say({ role: 'assistant', text, ...(shown.length ? { items: shown } : {}) });
+      say({ role: 'assistant', text, ...(shown.length ? { items: shown } : {}), ...(shown.length && why.length ? { notOffered: why } : {}) });
     } catch (e) {
       const code = e instanceof ApiError ? (e.status === 0 ? 'offline' : e.code) : 'other';
       say({ role: 'assistant', text: (L.errors as Record<string, string>)[code] ?? L.errors.other ?? '', error: true });
@@ -149,6 +151,7 @@ export function Assistant() {
             {m.card === 'crisis' ? <CrisisCard className="" /> : m.card === 'danger' || m.danger ? <DangerCard className="" /> : (
               <div className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm ${m.role === 'user' ? 'bg-accent text-surface' : m.error ? 'border border-warn/40 text-warn' : 'border border-line bg-surface'}`}>
                 {m.text && <p>{m.text}</p>}
+                {m.notOffered?.map((x) => <p key={x.name} className="mt-1 text-xs text-muted">{L.notOffered(x.name, x.reason, x.instead)}</p>) /* D132 */}
                 {m.items && m.items.length > 0 && (
                   <ul className="mt-2 space-y-2">
                     {m.items.map((it) => { const b = brings(it, foods); return (

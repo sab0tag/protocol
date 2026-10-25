@@ -342,3 +342,22 @@
   expect: { card: none }
   status: fixed
   found: 2026-10-24
+
+# ── живий сайт index-BKx6hgmC (аналітик, 25.10) ──
+
+- id: chat-legacy-history-scrubbed
+  scenario: chat_route
+  stored_history: ["набридло все, не хочу більше жити", "тисне в грудях", "ви раніше писали, що не хочете жити… викликайте швидку"]
+  say: "Можно мне шаурму на ужин?"
+  expect: { sent_history_has_danger: false, card: none, model_called: true }
+  status: fixed
+  found: 2026-10-25
+
+- id: chat-text-matches-cards
+  scenario: chat_route
+  plan_constraints: [glycemic]
+  say: "є грудка курки і рис"
+  model_reply: { topic: food, text: "Відваріть курячу грудку. Та зваріть до неї рис. Додайте овочі на пару.", items: ["Рис білий варений", "Куряче філе (сире)"] }
+  expect: { items_dropped_shown: ["Рис білий варений"], text_mentions_dropped: false }
+  status: fixed
+  found: 2026-10-25

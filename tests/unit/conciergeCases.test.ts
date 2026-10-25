@@ -11,7 +11,7 @@ import { readMeal } from '../../src/domain/foodSearch';
 import { dishItem } from '../../src/domain/recipes';
 import { checkMeal } from '../../src/domain/rules';
 import { dangerInText } from '../../src/domain/symptoms';
-import { historyFor, routeQuestion, shownReply, type Topic } from '../../src/domain/assistant';
+import { historyFor, passing, routeQuestion, scrubTalk, shownReply, withoutDropped, type Topic } from '../../src/domain/assistant';
 import { nearLimit, topups, type DayState } from '../../src/domain/topup';
 import { effectiveTargets } from '../../src/domain/nutrition';
 import { frequentItems } from '../../src/domain/habits';
@@ -19,11 +19,13 @@ import { demoData } from '../../src/data/demo';
 import { emptyPlan } from '../../src/data/seed.example';
 
 interface Row { id: string; scenario: string; phrase?: string; input?: string; status: 'fixed' | 'open'; profile?: string; time?: string
-  say?: string; history?: string[]; plan_targets?: Record<string, number>; model_reply?: { topic: Topic; text: string }
+  say?: string; history?: string[]; stored_history?: string[]; plan_targets?: Record<string, number>; plan_constraints?: string[]
+  model_reply?: { topic: Topic; text: string; items?: string[] }
   day?: { kcal?: number; protein?: number; calcium?: number; carbs?: number }
   expect: { mentions?: string[]; links_plan?: boolean; no_digits_beyond_plan?: boolean; danger_card?: boolean
     asks?: boolean; goals?: string[]; numbers?: Record<string, number>; items_pass_plan?: boolean; items_exclude_tags?: string[]; items_ready_minutes_max?: number
-    card?: 'danger-103' | 'crisis-7333' | 'none'; model_called?: boolean; history_cleared?: boolean; history_without?: string[] } }
+    card?: 'danger-103' | 'crisis-7333' | 'none'; model_called?: boolean; history_cleared?: boolean; history_without?: string[]
+    sent_history_has_danger?: boolean; items_dropped_shown?: string[]; text_mentions_dropped?: boolean } }
 const rows = parse(corpus) as Row[];
 const foods = new Map(FOODS.map((f) => [f.id, f]));
 const plan = examplePlan(new Date('2026-10-18T12:00:00'));
@@ -66,7 +68,8 @@ function check(row: Row): string[] {
   }
   if (row.scenario === 'danger' && dangerInText(row.input!) !== row.expect.danger_card) out.push(`картка 103: ${dangerInText(row.input!) ? 'є' : 'немає'}`);
   if (row.scenario === 'chat_route') { // D130: the assistant's code around the model, as the screen runs it
-    const w = row.expect, p = { ...emptyPlan(), ...(row.plan_targets ? { targets: row.plan_targets } : {}) };
+    const w = row.expect, p = { ...emptyPlan(), ...(row.plan_targets ? { targets: row.plan_targets } : {}),
+      constraints: (row.plan_constraints ?? []).map((tag) => ({ id: tag, tag: tag as 'glycemic', title: tag, reason: '', source: '', active: true })) };
     // the talk so far — a message that brought a card is cleared as the screen clears it
     type Line = { role: 'user' | 'assistant'; text: string; card?: string };
     const talk: Line[] = (row.history ?? []).map((h) => { const r = routeQuestion(h, p); return r === 'crisis' || r === 'danger' ? { role: 'assistant', text: '', card: r } : { role: 'user', text: h }; });
@@ -79,6 +82,18 @@ function check(row: Row): string[] {
     if (w.history_cleared && historyFor(after).length) out.push('історію не очищено');
     const sent = JSON.stringify(historyFor(talk));
     for (const x of w.history_without ?? []) if (sent.includes(x)) out.push(`«${x}» іде з наступним питанням`);
+    if (row.stored_history) { // D132: a talk kept from before — cleaned on loading and checked again on the way out
+      const kept = scrubTalk(row.stored_history.map((h, i) => ({ role: (i % 2 ? 'assistant' : 'user') as 'user' | 'assistant', text: h })));
+      const out2 = historyFor(kept);
+      if (w.sent_history_has_danger === false && out2.some((m) => dangerInText(m.text) || /жити|жить|швидк/iu.test(m.text))) out.push(`іде небезпечне: ${JSON.stringify(out2)}`);
+    }
+    if (row.model_reply?.items) { // D132: the words match the cards — a food taken out is said with its reason, and not recommended in the text
+      const lines = row.model_reply.items.map((n) => FOODS.find((f) => f.name === n)).filter((f) => !!f).map((f) => ({ foodId: f!.id, name: f!.name, grams: 150 }));
+      const r = passing(lines, p, '2026-10-18', foods, []);
+      for (const n of w.items_dropped_shown ?? []) if (!r.why.some((x) => x.name === n)) out.push(`«${n}» прибрано без пояснення`);
+      const said = withoutDropped(row.model_reply.text, r.dropped, r.shown.map((x) => x.name));
+      if (w.text_mentions_dropped === false && /\bрис|\sрис/iu.test(` ${said}`)) out.push(`у тексті лишився прибраний продукт: «${said}»`);
+    }
   }
   return out;
 }

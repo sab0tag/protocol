@@ -79,3 +79,23 @@ test('the assistant at its hardest (D130): despair gets the crisis card, a press
   await page.getByRole('button', { name: 'Нова розмова' }).click();
   await expect(page.locator('ul[aria-label="Помічник"] > li')).toHaveCount(0);
 });
+
+test('a talk kept from before D130 is cleaned on opening: its words of danger or despair are not shown and never sent (D132)', async ({ browser }) => {
+  const page = await device(browser);
+  const today = await page.evaluate(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; });
+  await page.evaluate((key) => localStorage.setItem(key, JSON.stringify({ at: Date.now(), v: [
+    { id: '1', role: 'user', text: 'набридло все, не хочу більше жити' },
+    { id: '2', role: 'assistant', text: 'Що означають самопочуття, симптоми чи аналізи, скаже лікар.' },
+    { id: '3', role: 'user', text: 'тисне в грудях' },
+    { id: '4', role: 'user', text: 'що на вечерю краще?' }] })), `protocol.kept.assistant:${today}`);
+  let sent: { history: { text: string }[] } | undefined;
+  await page.context().route('**/concierge/chat', async (r) => { sent = r.request().postDataJSON(); await r.fulfill({ json: { topic: 'food', text: 'Гречка з яйцем.', items: [] } }); });
+  await page.goto('./#/assistant');
+  await expect(page.getByText('що на вечерю краще?')).toBeVisible();
+  await expect(page.getByText(/не хочу більше жити|тисне в грудях/)).toHaveCount(0);
+  await page.getByRole('textbox', { name: 'Питання помічнику' }).fill('Можно мне шаурму на ужин?');
+  await page.getByRole('button', { name: 'Надіслати' }).click();
+  await page.getByRole('button', { name: 'Дозволити й запитати' }).click();
+  await expect(page.getByText('Гречка з яйцем.')).toBeVisible();
+  expect(JSON.stringify(sent!.history)).not.toMatch(/жити|грудях/);
+});
