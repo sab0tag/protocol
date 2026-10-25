@@ -19,6 +19,7 @@ import type { LabelReader } from './label.ts';
 import type { Recognizer } from './photo.ts';
 import type { Sender } from './push.ts';
 import type { Store } from './store.ts';
+import { parseReminderPolicy } from './reminderPolicy.ts';
 import { latestWeek, parsePilot, PID, SECRET, SRC, weekAdd, weekKey } from './pilot.ts';
 
 export interface Limits {
@@ -129,18 +130,33 @@ export function createApp(deps: Deps) {
     return c.json({ ok: true });
   });
 
+  /** D136: available even on a device without push, to suppress the vault's other schedules. */
+  app.put('/v1/vaults/:id/reminder-policy', bodyLimit({ maxSize: 30_000 }), async (c) => {
+    const id = authed(c);
+    if (typeof id !== 'string') return id;
+    const policy = parseReminderPolicy(await c.req.json().catch(() => null));
+    if (!policy) return c.json({ error: 'bad_request' }, 400);
+    if (policy.days.some((d) => d.from > now().getTime() + 33 * 86_400_000)) return c.json({ error: 'bad_request' }, 400);
+    store.setReminderPolicy(id, policy, now().getTime());
+    return c.json({ ok: true, v: 1 });
+  });
+
   /** The device's schedule for the coming days; `done` — reminders ticked anywhere (no more repeats). */
   app.put('/v1/vaults/:id/devices/:dev/reminders', bodyLimit({ maxSize: 300_000 }), async (c) => {
     const id = authed(c);
     if (typeof id !== 'string') return id;
     const dev = c.req.param('dev');
     if (!store.hasDevice(id, dev)) return c.json({ error: 'not_found' }, 404);
-    const b = await c.req.json().catch(() => null) as { items?: unknown; done?: unknown; repeatEvery?: unknown; repeats?: unknown } | null;
+    const b = await c.req.json().catch(() => null) as { items?: unknown; done?: unknown; repeatEvery?: unknown; repeats?: unknown; policyVersion?: unknown } | null;
     if (!Array.isArray(b?.items) || b.items.length > 500) return c.json({ error: 'bad_request' }, 400);
+    if (b.policyVersion !== undefined && b.policyVersion !== 1) return c.json({ error: 'bad_request' }, 400);
     const items: { rid: string; at: number; payload: string; once?: boolean }[] = [];
     for (const x of b.items as Record<string, unknown>[]) {
+      if (!x || typeof x !== 'object' || Array.isArray(x)) return c.json({ error: 'bad_request' }, 400);
       const p = x.payload as Record<string, unknown> | undefined;
-      if (typeof x.rid !== 'string' || !RID.test(x.rid) || typeof x.at !== 'number' || !p || typeof p !== 'object') return c.json({ error: 'bad_request' }, 400);
+      if (typeof x.rid !== 'string' || !RID.test(x.rid) || typeof x.at !== 'number' || !Number.isSafeInteger(x.at) || x.at < 0
+        || !p || typeof p !== 'object' || Array.isArray(p)) return c.json({ error: 'bad_request' }, 400);
+      if (b.policyVersion === 1 && !['meal', 'med', 'water', 'morning', 'evening', 'test', 'visit', 'week', 'weight', 'topup'].includes(String(p.k))) return c.json({ error: 'bad_request' }, 400);
       const payload = JSON.stringify(p);
       if (payload.length > 600) return c.json({ error: 'bad_request' }, 400);
       items.push({ rid: x.rid, at: Math.round(x.at), payload, ...(x.once === true ? { once: true } : {}) });
@@ -148,7 +164,7 @@ export function createApp(deps: Deps) {
     const done = Array.isArray(b.done) ? (b.done as unknown[]).filter((r): r is string => typeof r === 'string' && RID.test(r)).slice(0, 1000) : [];
     const every = Math.min(60, Math.max(5, Number(b.repeatEvery) || 15));
     const repeats = Math.min(3, Math.max(0, Math.round(Number(b.repeats) || 0)));
-    store.setReminders(id, dev, items, every, repeats, done, now().getTime());
+    store.setReminders(id, dev, items, every, repeats, done, now().getTime(), b.policyVersion === 1);
     return c.json({ ok: true, count: items.length });
   });
 

@@ -4,6 +4,7 @@ import type { AiWorkout, WorkoutBody } from '../domain/aiWorkout';
 import type { PhotoResult } from '../domain/photo';
 import type { Keys } from './crypto';
 import type { Api, RemoteRecord } from './engine';
+import type { ReminderPolicy } from '../../server/src/reminderPolicy';
 
 export const API_URL: string = import.meta.env.VITE_API_URL ?? 'https://api.beyondthesignal.to';
 
@@ -117,6 +118,7 @@ export const putDevice = (keys: Keys, dev: string, subscription: PushSubscriptio
   call<{ ok: true }>(keys, 'PUT', `/devices/${dev}`, { subscription });
 export const dropDevice = (keys: Keys, dev: string) => call<{ ok: true }>(keys, 'DELETE', `/devices/${dev}`);
 export const putReminders = (keys: Keys, dev: string, body: unknown) => call<{ ok: true; count: number }>(keys, 'PUT', `/devices/${dev}/reminders`, body);
+export const putReminderPolicy = (keys: Keys, body: ReminderPolicy) => call<{ ok: true; v: 1 }>(keys, 'PUT', '/reminder-policy', body);
 export const testPush = (keys: Keys, dev: string) => call<{ ok: true }>(keys, 'POST', `/devices/${dev}/test`);
 
 export const usage = (keys: Keys) => call<{ month: string; kinds: Record<string, number>; usd: number; usdMicro?: number }>(keys, 'GET', '/usage');

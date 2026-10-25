@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createApp } from '../src/app.ts';
 import { tick, vapidKeys, type Sender } from '../src/push.ts';
 import { Store } from '../src/store.ts';
+import { emptyPolicy, type ReminderPolicy } from '../src/reminderPolicy.ts';
 
 const VAULT = 'a'.repeat(32), AUTH = 'k'.repeat(43), DEV = 'd'.repeat(32), DEV2 = 'e'.repeat(32);
 const SUB = { endpoint: 'https://fcm.googleapis.com/fcm/send/abc', keys: { p256dh: 'BPk', auth: 'xyz' } };
@@ -94,5 +95,127 @@ describe('push', () => {
     const a = vapidKeys(store, {}), b = vapidKeys(store, {});
     expect(a).toEqual(b);
     expect(a.publicKey.length).toBeGreaterThan(80);
+  });
+});
+
+describe('vault reminder reconciliation (D136)', () => {
+  const choice = (enabled: boolean, at = T0 - 60_000, priority: 0 | 1 = 1) => ({ id: `choice-${at}`, at, priority, enabled });
+  const waterOff = (): ReminderPolicy => ({ ...emptyPolicy(), modules: { water: choice(false) } });
+  const path = (dev: string) => `/v1/vaults/${VAULT}/devices/${dev}/reminders`;
+  const policyPath = `/v1/vaults/${VAULT}/reminder-policy`;
+  const items = (at = T0) => ({ items: ['med', 'water'].map((k) => ({ rid: rid(k), at, payload: { k, t: k } })), repeatEvery: 15, repeats: 2, policyVersion: 1 });
+  async function devices() {
+    const s = setup();
+    await s.call('PUT', `/v1/vaults/${VAULT}`);
+    for (const d of [DEV, DEV2]) await s.call('PUT', `/v1/vaults/${VAULT}/devices/${d}`, { subscription: SUB });
+    return s;
+  }
+
+  it('accepts policy without a subscription and prevents a stale legacy device from restoring water', async () => {
+    const { store, call, send, sent } = setup();
+    await call('PUT', `/v1/vaults/${VAULT}`);
+    expect((await call('PUT', policyPath, waterOff())).status).toBe(200); // originating device has no push
+    await call('PUT', `/v1/vaults/${VAULT}/devices/${DEV2}`, { subscription: SUB });
+    const { policyVersion: _, ...legacy } = items(); void _;
+    await call('PUT', path(DEV2), legacy);
+    await tick(store, send, T0);
+    expect(sent.map((s) => s.payload.k)).toEqual(['med']);
+  });
+
+  it('cancels pending water, repeats and snooze across devices while preserving the medicine repeat count', async () => {
+    const { store, call, send, sent } = await devices();
+    for (const d of [DEV, DEV2]) await call('PUT', path(d), items());
+    expect(await tick(store, send, T0)).toBe(4);
+    const snooze = { rid: rid('snoozed-water'), at: T0 + 900_000, payload: { k: 'water' } };
+    await call('PUT', path(DEV2), { ...items(), items: [...items().items, snooze] });
+    await call('PUT', policyPath, waterOff());
+    expect(store.all<{ payload: string }>('SELECT payload FROM reminders').every((r) => JSON.parse(r.payload).k === 'med')).toBe(true);
+    // A stale schedule and even a newer migration cannot re-enable an explicit off.
+    await call('PUT', policyPath, { ...emptyPolicy(), modules: { water: choice(true, T0 + 1, 0) } });
+    await call('PUT', path(DEV2), { ...items(), items: [...items().items, snooze] });
+    expect(await tick(store, send, T0 + 900_000)).toBe(2);
+    expect(sent.slice(4).map((s) => [s.payload.k, s.payload.n])).toEqual([['med', 1], ['med', 1]]);
+    expect(store.all('SELECT * FROM acks')).toHaveLength(0); // suppression is not taking a medicine or completing water
+  });
+
+  it('does not send old water in a burst after re-enabling, but resumes future slots', async () => {
+    const { store, call, send, sent, at } = await devices();
+    await call('PUT', path(DEV), items());
+    await call('PUT', policyPath, waterOff());
+    at(T0 + 600_000);
+    await call('PUT', policyPath, { ...emptyPolicy(), modules: { water: choice(true, T0 + 600_000) } });
+    await call('PUT', path(DEV2), { ...items(), items: [...items().items, { rid: rid('future-water'), at: T0 + 1200_000, payload: { k: 'water' } }] });
+    await tick(store, send, T0 + 600_000);
+    expect(sent.some((s) => s.payload.k === 'water')).toBe(false);
+    await tick(store, send, T0 + 1200_000);
+    expect(sent.filter((s) => s.payload.k === 'water')).toHaveLength(1);
+  });
+
+  it('keeps tomorrow in a preloaded schedule and expires a light window at midnight without a client request', async () => {
+    const { store, call, send, sent } = await devices();
+    const from = Date.parse('2026-10-08T00:00:00Z'), until = from + 86_400_000;
+    const day = { ...choice(true), date: '2026-10-08', from, until };
+    await call('PUT', path(DEV), { ...items(), items: [...items().items,
+      { rid: rid('tomorrow-snoozed'), at: until + 60_000, payload: { k: 'water', o: T0 } },
+      { rid: rid('tomorrow-water'), at: until + 60_000, payload: { k: 'water' } }] });
+    expect((await call('PUT', policyPath, { ...emptyPolicy(), days: [day] })).status).toBe(200);
+    await tick(store, send, T0);
+    expect(sent.map((s) => s.payload.k)).toEqual(['med']);
+    await tick(store, send, until + 60_000);
+    expect(sent.filter((s) => s.payload.k === 'water')).toHaveLength(1);
+  });
+
+  it('re-checks policy between awaited sends from the same due snapshot', async () => {
+    const { store, call, sent, send } = await devices();
+    await call('PUT', path(DEV), items());
+    let first = true;
+    await tick(store, async (sub, payload) => {
+      const result = await send(sub, payload);
+      if (first) { first = false; store.setReminderPolicy(VAULT, waterOff(), T0); }
+      return result;
+    }, T0);
+    expect(sent.map((s) => s.payload.k)).toEqual(['med']);
+  });
+
+  it('sends current restrictions to a modern worker before that device has pulled encrypted events', async () => {
+    const { store, call, send, sent } = await devices();
+    await call('PUT', policyPath, { ...emptyPolicy(), modules: { food: choice(false) } });
+    await call('PUT', path(DEV), { ...items(), items: [{ rid: rid('morning'), at: T0, payload: { k: 'morning' } }] });
+    await tick(store, send, T0);
+    expect(sent[0]?.payload).toMatchObject({ pv: 1, a: T0, pa: { food: false, meds: true } });
+    // The old worker would include disabled meals: suppress its indivisible morning summary.
+    await call('PUT', path(DEV2), { items: [{ rid: rid('old-morning'), at: T0, payload: { k: 'morning' } }] });
+    expect(await tick(store, send, T0)).toBe(0);
+  });
+
+  it('isolates policy by vault and retains it when a push subscription is dropped', async () => {
+    const { store, call, send, sent } = await devices();
+    await call('PUT', policyPath, waterOff());
+    await call('DELETE', `/v1/vaults/${VAULT}/devices/${DEV}`);
+    await call('PUT', `/v1/vaults/${VAULT}/devices/${DEV}`, { subscription: SUB });
+    await call('PUT', path(DEV), items());
+    const other = 'b'.repeat(32);
+    await call('PUT', `/v1/vaults/${other}`);
+    await call('PUT', `/v1/vaults/${other}/devices/${DEV}`, { subscription: SUB });
+    await call('PUT', `/v1/vaults/${other}/devices/${DEV}/reminders`, items());
+    await tick(store, send, T0);
+    expect(sent.filter((s) => s.payload.k === 'water')).toHaveLength(1);
+    expect(store.reminderPolicy(VAULT).modules.water?.enabled).toBe(false);
+  });
+
+  it('rejects malformed policies/schedules atomically and does not misreport unsupported versions', async () => {
+    const { store, call } = await devices();
+    for (const body of [{ ...waterOff(), v: 2 }, { ...waterOff(), modules: { arbitrary: choice(false) } },
+      { ...waterOff(), days: [{ ...choice(true), date: '2030-01-01', from: Date.parse('2030-01-01T00:00:00Z'), until: Date.parse('2030-01-02T00:00:00Z') }] },
+      { ...waterOff(), text: 'medical words' }, { ...waterOff(), modules: { water: { ...choice(false), priority: 0 } } }]) {
+      expect((await call('PUT', policyPath, body)).status).toBe(400);
+    }
+    expect(store.reminderPolicy(VAULT)).toEqual(emptyPolicy());
+    for (const body of [{ ...items(), policyVersion: 2 }, { ...items(), items: [null] },
+      { ...items(), items: [{ rid: rid('bad'), at: null, payload: { k: 'water' } }] },
+      { ...items(), items: [{ rid: rid('bad'), at: T0, payload: { k: 'unknown' } }] }]) {
+      expect((await call('PUT', path(DEV), body)).status).toBe(400);
+    }
+    expect(store.all('SELECT * FROM reminders')).toHaveLength(0);
   });
 });

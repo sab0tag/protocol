@@ -7,8 +7,10 @@ import { dateOf } from '../domain/dates';
 import { dayTotals, effectiveTargets } from '../domain/nutrition';
 import { shortGoals } from '../domain/topup';
 import type { DayEntry, Plan } from '../domain/types';
-import { ApiError, dropDevice, pushKey, putDevice, putReminders, testPush } from './api';
+import { ApiError, dropDevice, pushKey, putDevice, putReminderPolicy, putReminders, testPush } from './api';
 import { recordKey, type Keys } from './crypto';
+import { MODULE_POLICY_ENABLED } from '../domain/rollout';
+import { policyFromEvents, type ReminderPolicy } from '../../server/src/reminderPolicy';
 
 export const pushSupported = () => typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
 /** iPhone: push only for a Протокол added to the home screen and opened from there. */
@@ -52,6 +54,33 @@ export async function sendTest(keys: Keys) {
 }
 
 let last = '';
+let scheduleTail: Promise<void> = Promise.resolve();
+const policyAcks = new Map<string, { signature: string; at: number }>();
+
+/** Persistent history is the retry queue. Ack is written only after a compatible server accepted this projection. */
+export async function reconcileReminderPolicy(keys: Keys, force = false): Promise<ReminderPolicy | undefined> {
+  if (!MODULE_POLICY_ENABLED) return;
+  const policy = policyFromEvents(await db.moduleEvents.toArray());
+  const sig = JSON.stringify(policy);
+  const meta = await db.meta.get('sync');
+  if (!meta) return policy;
+  const cached = policyAcks.get(keys.vaultId);
+  if (!force && cached?.signature === sig && Date.now() - cached.at < 300_000
+    && meta.reminderPolicyAck === sig && meta.reminderPolicyState === 'synced') return policy;
+  if (meta.reminderPolicyState !== 'pending') await db.meta.update('sync', { reminderPolicyState: 'pending' });
+  const ack = await putReminderPolicy(keys, policy);
+  if (ack.v !== 1) throw new ApiError(503, 'reminder_policy_unsupported');
+  policyAcks.set(keys.vaultId, { signature: sig, at: Date.now() });
+  // A change during the request remains pending and is retried by the next sync; never mark it as acknowledged.
+  const current = JSON.stringify(policyFromEvents(await db.moduleEvents.toArray()));
+  await db.meta.update('sync', { reminderPolicyAck: sig, reminderPolicyState: current === sig ? 'synced' : 'pending' });
+  return policy;
+}
+
+/** Close already displayed v2 notifications using their opaque reminder metadata, including while offline. */
+export function refreshPushNotifications() {
+  if (MODULE_POLICY_ENABLED && typeof navigator !== 'undefined') navigator.serviceWorker?.controller?.postMessage({ type: 'reminder-policy-changed' });
+}
 
 /** D116: today's day is short of a target of the plan — the time for the evening nudge (two hours before the last meal, not
  *  before 16:00), or nothing. Sent again after every record, so a meal that closes the gap takes the nudge back. */
@@ -72,6 +101,13 @@ async function eveningTopup(plan: Plan, entries: DayEntry[], now: Date): Promise
 
 /** Send this device's schedule if it changed (or `force`). On app start the subscription is renewed too. */
 export async function pushSchedule(keys: Keys, force = false) {
+  const next = scheduleTail.catch(() => undefined).then(() => sendSchedule(keys, force));
+  scheduleTail = next;
+  return next;
+}
+
+async function sendSchedule(keys: Keys, force: boolean) {
+  const policy = await reconcileReminderPolicy(keys, force); // even without push here: another device may have a stale queue
   const meta = await db.meta.get('sync');
   const s = meta?.reminders;
   if (!meta || !s?.on || !meta.device || !pushSupported() || Notification.permission !== 'granted') return;
@@ -79,15 +115,17 @@ export async function pushSchedule(keys: Keys, force = false) {
   const entries = await db.entries.where('at').between(format(addDays(now, -2), 'yyyy-MM-dd'), format(addDays(now, 33), 'yyyy-MM-dd')).toArray();
   const plan = normalizePlan(await db.plan.get('main'));
   const topupAt = plan ? await eveningTopup(plan, entries, now) : undefined; // D116
-  const { items, done } = reminders({ entries, plan, settings: { ...DEFAULT_REMINDERS, ...s }, now, snoozed: meta.snoozed, ...(topupAt ? { topupAt } : {}) });
+  const { items, done } = reminders({ entries, plan, settings: { ...DEFAULT_REMINDERS, ...s }, now, snoozed: meta.snoozed,
+    ...(topupAt ? { topupAt } : {}), ...(policy ? { policy } : {}) });
   const rid = (k: string) => recordKey(keys, `rem:${k}`);
   const body = {
+    ...(policy ? { policyVersion: 1 } : {}),
     items: await Promise.all(items.map(async (i) => ({ rid: await rid(i.key), at: i.at, ...(i.once ? { once: true } : {}),
       payload: { ...i.payload, tag: await rid(i.payload.tag) } }))),
     done: await Promise.all(done.map(rid)),
     repeatEvery: s.repeatMin || 15, repeats: s.repeatMin ? 2 : 0,
   };
-  const sig = JSON.stringify(body);
+  const sig = `${keys.vaultId}:${meta.device}:${JSON.stringify(body)}`;
   if (!force && sig === last) return;
   try {
     await putReminders(keys, meta.device, body);
