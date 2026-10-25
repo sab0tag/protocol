@@ -1,6 +1,17 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import type { DayEntry, Food, Wellbeing, Workout } from '../domain/types';
 import { db, normalizePlan } from './db';
+import { modulePreferences } from '../domain/modulePreferences';
+
+export function useModuleEvents() {
+  return useLiveQuery(() => db.moduleEvents.orderBy('at').toArray(), []);
+}
+
+/** Undefined while loading. The rollout UI must not interpret loading as «all modules off». */
+export function useModulePreferences() {
+  const events = useModuleEvents();
+  return events ? modulePreferences(events) : undefined;
+}
 
 export function useDayEntries(date: string): DayEntry[] | undefined {
   return useLiveQuery(() => db.entries.where('at').startsWith(date).sortBy('at'), [date]);

@@ -3,8 +3,10 @@
 // example plan must not overwrite the real one). Built-in foods and dishes are not synced — every device has them; own foods are (D36).
 import type { ProtocolDB, SyncMeta, SyncRow } from '../data/db';
 import { open, recordKey, seal, type Keys } from './crypto';
+import { isModuleEvent } from '../domain/modulePreferences';
+import { sameModuleEvent } from '../data/modulePreferences';
 
-export const TABLES = ['plan', 'entries', 'wellbeing', 'workouts', 'weights', 'labs', 'recipes', 'foods', 'favorites', 'frictions'] as const; // an older app skips a table it does not know
+export const TABLES = ['plan', 'entries', 'wellbeing', 'workouts', 'weights', 'labs', 'recipes', 'foods', 'favorites', 'frictions', 'moduleEvents'] as const; // an older app skips a table it does not know
 export type SyncTable = (typeof TABLES)[number];
 
 type Row = Record<string, unknown>;
@@ -67,6 +69,7 @@ export async function syncOnce(db: ProtocolDB, keys: Keys, api: Api, now = Date.
   const local = new Map<string, { t: SyncTable; id: string; row: Row; h: string }>();
   for (const t of TABLES) {
     for (const row of await db.table(t).toArray() as Row[]) {
+      if (t === 'moduleEvents' && !isModuleEvent(row)) continue;
       if (!synced(t, row)) continue;
       if (t === 'plan') {
         for (const [k, v] of planParts(row)) {
@@ -93,6 +96,7 @@ export async function syncOnce(db: ProtocolDB, keys: Keys, api: Api, now = Date.
   const seen = new Set([...local.keys()].map((tid) => tid.split(':')[0]!));
   const misread = (t: string) => !seen.has(t) && (known.get(t) ?? 0) >= 3; // deleting the last one or two rows is real
   for (const [tid, b] of base) {
+    if (tid.startsWith('moduleEvents:')) continue; // D134: event history is append-only, never inferred deleted by a partial read/import
     if (tid === `plan:${PLAN}` || required(tid)) continue; // the legacy whole plan and the plan's backbone are never deleted
     if (misread(tid.split(':')[0]!)) continue;
     if (!local.has(tid) && b.h !== undefined && b.h !== DELETED) await mark(tid, DELETED);
@@ -109,6 +113,13 @@ export async function syncOnce(db: ProtocolDB, keys: Keys, api: Api, now = Date.
       let p: Payload;
       try { p = await open<Payload>(keys, r.k, r.v); } catch { continue; } // not ours / damaged — skip
       if (!TABLES.includes(p.t)) continue;
+      if (p.t === 'moduleEvents') {
+        const tid = `moduleEvents:${p.id}`;
+        const restore = () => { if (base.get(tid)?.h && local.has(tid) && !rolledBack.includes(tid)) rolledBack.push(tid); };
+        if (!isModuleEvent(p.d) || p.d.id !== p.id) { restore(); continue; } // no tombstones, unknown modules or free text in history
+        const existing = await db.moduleEvents.get(p.id);
+        if (existing && !sameModuleEvent(existing, p.d)) { restore(); continue; } // restore a known immutable event for new devices too
+      }
       const tid = `${p.t}:${p.id}`;
       if (!p.d && required(tid)) continue; // D43: such a deletion is a misread elsewhere
       const h = p.d ? hashOf(p.d) : DELETED;

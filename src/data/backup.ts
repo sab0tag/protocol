@@ -1,9 +1,11 @@
 // Export / import of all data as JSON (SPEC.md §5.8, §8) — the only backup in v0.
 import type { DayEntry, Favorite, Food, Friction, LabResult, Recipe, WeightLog, Wellbeing, Workout } from '../domain/types';
 import { db, type PlanRow, type ProtocolDB } from './db';
+import { validateModuleEvents, type ModuleEvent } from '../domain/modulePreferences';
+import { appendModuleEvents, initialiseModulePreferences } from './modulePreferences';
 
 export const FORMAT = 'protocol-export';
-export const VERSION = 1;
+export const VERSION = 2; // D134: old apps must not silently restore a file whose preferences they cannot preserve
 
 export interface ExportFile {
   format: typeof FORMAT;
@@ -19,6 +21,7 @@ export interface ExportFile {
   recipes?: Recipe[]; // D27 (files from before dishes have none)
   favorites?: Favorite[]; // D51
   frictions?: Friction[]; // D67
+  moduleEvents?: ModuleEvent[]; // D134: required in v2; absent in legacy v1 files
 }
 
 export async function exportAll(target: ProtocolDB = db, now = new Date()): Promise<ExportFile> {
@@ -29,16 +32,18 @@ export async function exportAll(target: ProtocolDB = db, now = new Date()): Prom
     foods: await target.foods.toArray(), entries: await target.entries.toArray(), wellbeing: await target.wellbeing.toArray(),
     workouts: await target.workouts.toArray(), weights: await target.weights.toArray(), labs: await target.labs.toArray(),
     recipes: await target.recipes.toArray(), favorites: await target.favorites.toArray(), frictions: await target.frictions.toArray(),
+    moduleEvents: await target.moduleEvents.orderBy('at').toArray(),
   };
 }
 
-/** Checks the file before anything is touched; then replaces everything in one transaction. */
+/** Checks the file before anything is touched. Diary data is replaced atomically; preference histories are merged. */
 export function parseExport(text: string): ExportFile {
   let data: unknown;
   try { data = JSON.parse(text); } catch { throw new Error('Це не файл копії: не вдалося прочитати JSON.'); }
   const d = data as Partial<ExportFile>;
   if (d.format !== FORMAT) throw new Error('Це не файл копії «Протоколу».');
   if (typeof d.version !== 'number' || d.version > VERSION) throw new Error('Файл з новішої версії застосунку — оновіть застосунок.');
+  if (!Number.isInteger(d.version) || d.version < 1) throw new Error('Невірна версія файлу копії.');
   if (!d.plan || d.plan.id !== 'main') throw new Error('У файлі немає плану.');
   for (const k of ['foods', 'entries', 'wellbeing', 'workouts', 'weights', 'labs'] as const) {
     if (!Array.isArray(d[k])) throw new Error(`У файлі пошкоджено розділ «${k}».`);
@@ -46,11 +51,17 @@ export function parseExport(text: string): ExportFile {
   for (const k of ['recipes', 'favorites', 'frictions'] as const) {
     if (d[k] !== undefined && !Array.isArray(d[k])) throw new Error(`У файлі пошкоджено розділ «${k}».`);
   }
+  if (d.version === 2) validateModuleEvents(d.moduleEvents);
+  else if (d.moduleEvents !== undefined) throw new Error('Історія налаштувань розділів потребує формату копії 2.');
   return d as ExportFile;
 }
 
 export async function importAll(file: ExportFile, target: ProtocolDB = db): Promise<void> {
-  await target.transaction('rw', [target.plan, target.foods, target.entries, target.wellbeing, target.workouts, target.weights, target.labs, target.recipes, target.favorites, target.frictions], async () => {
+  const events = file.version === 2 ? validateModuleEvents(file.moduleEvents) : [];
+  await target.transaction('rw', [target.plan, target.foods, target.entries, target.wellbeing, target.workouts, target.weights, target.labs, target.recipes, target.favorites, target.frictions, target.moduleEvents], async () => {
+    // Preferences are an immutable history, not a replacement snapshot: an older copy must not undo a newer off.
+    // Colliding ids fail inside the same transaction, before any diary data can be lost.
+    await appendModuleEvents(target, events);
     await Promise.all([target.plan.clear(), target.foods.clear(), target.entries.clear(), target.wellbeing.clear(),
       target.workouts.clear(), target.weights.clear(), target.labs.clear(), target.recipes.clear(), target.favorites.clear(), target.frictions.clear()]);
     if (file.recipes) await target.recipes.bulkPut(file.recipes);
@@ -63,6 +74,7 @@ export async function importAll(file: ExportFile, target: ProtocolDB = db): Prom
     await target.workouts.bulkPut(file.workouts);
     await target.weights.bulkPut(file.weights);
     await target.labs.bulkPut(file.labs);
+    await initialiseModulePreferences(target);
   });
 }
 
