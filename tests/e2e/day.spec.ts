@@ -1,10 +1,10 @@
 import { expect, test } from '@playwright/test';
-import { device, seed, toast, ymd } from './helpers';
+import { device, kyivOffset, seed, toast, ymd } from './helpers';
 
 test('«Зараз»: «Нагадати за 15 хв» hides it for 15 min; water from the dock with undo, counted in «Уже сьогодні»; a workout says it was saved', async ({ browser }) => {
   const page = await device(browser);
   const now = new Date(), d = ymd(now);
-  const at = (minAgo: number) => { const x = new Date(now.getTime() - minAgo * 60_000); return `${d}T${String(x.getHours()).padStart(2, '0')}:${String(x.getMinutes()).padStart(2, '0')}:00+03:00`; };
+  const at = (minAgo: number) => { const x = new Date(now.getTime() - minAgo * 60_000); return `${d}T${String(x.getHours()).padStart(2, '0')}:${String(x.getMinutes()).padStart(2, '0')}:00${kyivOffset(x)}`; };
   test.skip(now.getHours() < 1, 'needs a past time today');
   await seed(page, [{ store: 'entries', value: { id: 'm1', at: at(30), kind: 'meal', status: 'planned', title: 'Обід', items: [{ foodId: 'kefir', name: 'Кефір 2,5 %', grams: 250 }] } }]);
   const card = page.getByRole('region', { name: 'Зараз' });
@@ -32,7 +32,7 @@ test('«Не відмічено» is folded and asks when — or «не пам�
   test.skip(now.getHours() < 3, 'needs a meal 2 h ago today');
   const x = new Date(now.getTime() - 120 * 60_000);
   const hm = `${String(x.getHours()).padStart(2, '0')}:${String(x.getMinutes()).padStart(2, '0')}`;
-  await seed(page, [{ store: 'entries', value: { id: 'm2', at: `${d}T${hm}:00+03:00`, kind: 'meal', status: 'planned', title: 'Сніданок', items: [] } }]);
+  await seed(page, [{ store: 'entries', value: { id: 'm2', at: `${d}T${hm}:00${kyivOffset(x)}`, kind: 'meal', status: 'planned', title: 'Сніданок', items: [] } }]);
   const missed = page.getByRole('region', { name: 'Не відмічено' });
   await missed.getByRole('button', { name: /^Не відмічено · \d/ }).click(); // folded by default
   await expect(missed.getByText('Сніданок')).toBeVisible();
@@ -84,7 +84,7 @@ test('«Мені погано»: a symptom with its time, what was eaten before 
   test.skip(now.getHours() < 2, 'needs a meal an hour ago today');
   const x = new Date(now.getTime() - 60 * 60_000);
   const hm = `${String(x.getHours()).padStart(2, '0')}:${String(x.getMinutes()).padStart(2, '0')}`;
-  await seed(page, [{ store: 'entries', value: { id: 'k', at: `${d}T${hm}:00+03:00`, kind: 'meal', status: 'done', title: 'Перекус',
+  await seed(page, [{ store: 'entries', value: { id: 'k', at: `${d}T${hm}:00${kyivOffset()}`, kind: 'meal', status: 'done', title: 'Перекус',
     items: [{ foodId: 'kefir', name: 'Кефір 2,5 %', grams: 250 }] } }]);
   await page.getByRole('button', { name: 'Мені погано' }).first().click();
   const sheet = page.getByRole('dialog', { name: 'Що відчуваєте?' });
@@ -109,7 +109,7 @@ test('«Мені погано»: a symptom with its time, what was eaten before 
 test('the service worker fills reminders in from the phone\'s own data', async ({ browser }) => {
   const page = await device(browser);
   const today = ymd(new Date()), tomorrow = ymd(new Date(Date.now() + 86_400_000));
-  await seed(page, [{ store: 'entries', value: { id: 't1', at: `${tomorrow}T08:00:00+03:00`, kind: 'meal', status: 'planned', title: 'Сніданок',
+  await seed(page, [{ store: 'entries', value: { id: 't1', at: `${tomorrow}T08:00:00${kyivOffset()}`, kind: 'meal', status: 'planned', title: 'Сніданок',
     items: [{ name: 'Яйце варене', grams: 100 }], menu: { tips: ['Зваріть яйця звечора'] } } }]);
   const cdp = await page.context().newCDPSession(page);
   const regs = new Promise<{ registrationId: string }[]>((res) => cdp.on('ServiceWorker.workerRegistrationUpdated', (e) => { if (e.registrations.length) res(e.registrations); }));

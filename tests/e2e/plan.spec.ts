@@ -89,7 +89,7 @@ test('the example is a database of its own: the own records stay, «Подиви
 
 test('the day\'s own records are there after a look at the example — the example said so, and the way back is named (D99)', async ({ browser }) => {
   const page = await device(browser, 'skip');
-  const at = await page.evaluate(() => { const d = new Date(), p = (n: number) => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T08:00:00+03:00`; });
+  const at = await page.evaluate(() => { const d = new Date(), p = (n: number) => String(n).padStart(2, '0'); const o = -d.getTimezoneOffset(); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T08:00:00${o < 0 ? '-' : '+'}${p(Math.floor(Math.abs(o) / 60))}:${p(Math.abs(o) % 60)}`; }); // the browser's own offset (not «+03:00» all year)
   await seed(page, [{ store: 'entries', value: { id: 'own-1', at, kind: 'meal', status: 'done', title: 'Сніданок', items: [{ foodId: 'egg-boiled', name: 'Яйце варене', grams: 100 }] } }]);
   await expect(page.getByText('Сніданок').first()).toBeVisible();
   await page.goto('./#/more');

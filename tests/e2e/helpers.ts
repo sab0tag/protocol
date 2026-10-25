@@ -66,3 +66,10 @@ export async function seed(page: Page, rows: { store: string; value: unknown }[]
   await page.reload();
   await page.waitForTimeout(500);
 }
+
+/** The offset of Europe/Kyiv at a moment — «+03:00» in summer, «+02:00» in winter (a test hard-coding «+03:00» broke on the
+ *  day the clocks went back, 25.10.2026). */
+export function kyivOffset(at: Date = new Date()): string {
+  const name = new Intl.DateTimeFormat('en-US', { timeZone: 'Europe/Kyiv', timeZoneName: 'longOffset' }).formatToParts(at).find((p) => p.type === 'timeZoneName')!.value;
+  return name === 'GMT' ? '+00:00' : name.replace('GMT', '');
+}
