@@ -13,6 +13,7 @@ import { todayISO } from '../domain/dates';
 import { labRows, pace, patterns, tooFastTwoWeeks, weeklyWeights, weightSummary, type WeekWeight } from '../domain/progress';
 import { habits, weekSummary, type Habit } from '../domain/habits';
 import { t } from '../i18n/uk';
+import { useObservation } from '../app/observation';
 
 const L = t.progress;
 const field = 'mt-1 block min-h-tap w-full rounded-xl border border-line bg-bg px-3';
@@ -23,6 +24,7 @@ const signed = (n: number) => `${n > 0 ? '+' : n < 0 ? '−' : ''}${kg(Math.abs(
 /** «Прогрес» (SPEC.md §5.7). The chart shows the weekly change (honest from zero) against the plan's limit;
  *  the current weight and the change since the start are numbers above it (D23). */
 export function Progress() {
+  const { observation, ready: observationReady } = useObservation();
   const plan = usePlan();
   const weights = useWeights();
   const labs = useLabs();
@@ -30,12 +32,12 @@ export function Progress() {
   const wellbeing = useAllWellbeing();
   const workouts = useWorkouts();
   const foods = useFoods();
-  if (!weights || !labs || !entries || !wellbeing || !workouts || !foods) return <Loading />;
+  if (!weights || !labs || !entries || !wellbeing || !workouts || !foods || !observationReady) return <Loading />;
 
   const max = plan?.targets.maxWeightLossKgPerWeek;
   const weeks = weeklyWeights(weights, max);
   const sum = weightSummary(weights);
-  const found = patterns({ entries, wellbeing, workouts, foods, ...(plan ? { plan } : {}) });
+  const found = patterns({ entries, wellbeing, workouts, foods, observation, ...(plan ? { plan } : {}) });
 
   return (
     <section className="space-y-4 pt-4">
@@ -46,8 +48,8 @@ export function Progress() {
       </div>
       <ExampleNotice plan={plan} />
 
-      <WeekCard summary={weekSummary({ plan, entries, workouts, foods, today: todayISO() })} />
-      <HabitsCard list={habits({ plan, entries, workouts, foods, today: todayISO() })} />
+      <WeekCard summary={weekSummary({ plan, entries, workouts, foods, today: todayISO(), observation })} />
+      <HabitsCard list={habits({ plan, entries, workouts, foods, today: todayISO(), observation })} />
 
       <section className="rounded-2xl border border-line bg-surface p-3">
         <h2 className="mb-2 font-semibold">{L.weight}</h2>
@@ -218,11 +220,12 @@ export function HabitsCard({ list }: { list: Habit[] }) {
 
 export function WeekCard({ summary: s }: { summary: ReturnType<typeof weekSummary> }) {
   const tiles: [string, string][] = [];
-  if (s.carbsOk !== undefined) tiles.push([L.weekCarbs, L.ofDays(s.carbsOk, s.days)]);
-  if (s.proteinOk !== undefined) tiles.push([L.weekProtein, L.ofDays(s.proteinOk, s.days)]);
-  if (s.waterOk !== undefined) tiles.push([L.weekWater, L.ofDays(s.waterOk, s.days)]);
-  tiles.push([L.weekWorkouts, String(s.workouts)]);
+  if (s.carbsOk !== undefined) tiles.push([L.weekCarbs, L.ofDays(s.carbsOk, s.knownDays?.carbs ?? s.days)]);
+  if (s.proteinOk !== undefined) tiles.push([L.weekProtein, L.ofDays(s.proteinOk, s.knownDays?.protein ?? s.days)]);
+  if (s.waterOk !== undefined) tiles.push([L.weekWater, L.ofDays(s.waterOk, s.knownDays?.water ?? s.days)]);
+  if (s.showWorkouts !== false) tiles.push([L.weekWorkouts, String(s.workouts)]);
   if (s.checklistPct !== undefined) tiles.push([L.weekChecklist, `${s.checklistPct} %`]);
+  if (s.knownDays && !tiles.length) return null;
   return (
     <section className="rounded-2xl border border-line bg-surface p-3">
       <h2 className="mb-2 font-semibold">{L.week} <span className="text-sm font-normal text-muted">· {dm(s.from)}–{dm(s.to)}</span></h2>

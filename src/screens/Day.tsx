@@ -31,7 +31,10 @@ import { DayHeader } from '../components/DayHeader';
 import { DayRhythm } from '../components/DayRhythm';
 import { ExampleNotice } from '../components/ExampleNotice';
 import { hasExample } from '../data/seed.example';
-import { DaySummary } from '../components/DaySummary';
+import { DaySummary, type MetricKey } from '../components/DaySummary';
+import { Loading } from '../components/Recovery';
+import { useObservation } from '../app/observation';
+import { observedTargets, scoredDay } from '../domain/observation';
 import { TopupCard } from '../components/TopupCard';
 import { PrnCard } from '../components/PrnCard';
 import { PilotOffer, PilotSurvey } from '../components/PilotConsent';
@@ -47,6 +50,7 @@ const KIND_ICON = { meal: UtensilsCrossed, med: Pill, water: Droplet, workout: D
  *  the plan and the records on one time line — and «Уже сьогодні»; medicine and water float under the thumb. */
 export function Day() {
   const { date, setDate } = useUi();
+  const { observation, ready: observationReady } = useObservation();
   // D34: a reminder opens its day (#/?date=…)
   const [params, setParams] = useSearchParams();
   const [voice, setVoice] = useState(false); // D95
@@ -79,13 +83,13 @@ export function Day() {
   const [tilesRef, tilesOnScreen] = useOnScreen<HTMLElement>(); // D82
   const all = useAllEntries();
   const best = foods && all && workouts
-    ? habits({ plan, entries: all, workouts, foods, today: todayISO() }).filter((h) => h.streak >= 3).sort((a, b) => b.streak - a.streak)[0]
+    ? habits({ plan, entries: all, workouts, foods, today: todayISO(), observation }).filter((h) => h.streak >= 3).sort((a, b) => b.streak - a.streak)[0]
     : undefined; // D38
   const [simple, setSimple] = useState<{ kind: Exclude<EntryKind, 'meal' | 'symptom'>; entry?: DayEntry } | null>(null);
   const [symptom, setSymptom] = useState<{ entry?: DayEntry } | null>(null); // D56
 
   const mode = activeMode(plan, date);
-  const targets = effectiveTargets(plan, date);
+  const targets = observedTargets(effectiveTargets(plan, date), date, observation);
   const totals = entries && foods ? dayTotals(entries, foods) : undefined;
   const isToday = date === todayISO();
   // R06: «Усе з’їдене записано» — a mark of the day, made and taken back by the person
@@ -94,7 +98,7 @@ export function Day() {
     if (on) await saved(db.entries.put({ id, at: atLocal(date, '23:59'), kind: 'note', status: 'done', title: t.summary.foodComplete, checkKey: FOOD_COMPLETE }), t.summary.foodComplete, () => db.entries.delete(id));
     else { const was = await db.entries.get(id); await saved(db.entries.delete(id), t.toast.deleted(t.summary.foodComplete), () => (was ? db.entries.put(was) : undefined)); }
   };
-  const checklist = entries && foods && workouts ? buildChecklist({ plan, date, entries, workouts, foods, now: new Date() }) : undefined;
+  const checklist = entries && foods && workouts ? buildChecklist({ plan, date, entries, workouts, foods, now: new Date(), observation }) : undefined;
 
   const setStatus = async (e: DayEntry, status: DayEntry['status']) => {
     setRowFor(null);
@@ -139,7 +143,7 @@ export function Day() {
     else setSimple({ kind });
   };
 
-  const rhythm = entries ? dayRhythm({ entries, ...(checklist ? { checklist } : {}), ...(targets.lastMealBy ? { lastMealBy: targets.lastMealBy } : {}) }) : undefined;
+  const rhythm = entries ? dayRhythm({ entries, date, observation, ...(checklist ? { checklist } : {}), ...(targets.lastMealBy ? { lastMealBy: targets.lastMealBy } : {}) }) : undefined;
   const quick = [
     { label: t.menu.quick, Icon: Sparkles, go: () => navigate(`/menu?date=${date}`) },
     { label: t.day.likeYesterday, Icon: Undo2, go: () => setYesterday(true) },
@@ -148,11 +152,16 @@ export function Day() {
     { label: t.myday.title, Icon: ListChecks, go: () => navigate('/my-day'), badge: checklist && checklist.total > 0 ? t.myday.counter(checklist.done, checklist.total) : undefined },
   ];
 
+  const allowedMetrics: MetricKey[] | undefined = observation ? [
+    ...(meds.length ? ['meds' as const] : []), ...(scoredDay(observation, 'water', date) ? ['water' as const] : []),
+    ...(scoredDay(observation, 'food', date) ? ['carbs', 'protein', 'calcium', 'kcal'] as const : []),
+  ] : undefined;
+  if (!observationReady) return <Loading />;
   return (
     <section>
       <DayHeader date={date} setDate={setDate} />
 
-      {entries && <NowCard entries={entries} plan={plan} date={date} onConfirm={setConfirming} />}
+      {entries && <NowCard entries={entries} plan={plan} date={date} observation={observation} onConfirm={setConfirming} />}
 
       <ExampleNotice plan={plan} />
       {/* D40: one notice at a time — the code first, then the backup */}
@@ -257,11 +266,11 @@ export function Day() {
         return <TopupCard date={date} targets={targets} tops={topups(s)} near={nearLimit(s)} />;
       })()}
 
-      {totals && <DaySummary totals={totals} targets={targets} meds={{ done: meds.filter((i) => i.done).length, total: meds.length }}
+      {totals && <DaySummary totals={totals} targets={targets} allowed={allowedMetrics} meds={{ done: meds.filter((i) => i.done).length, total: meds.length }}
         {...(isToday && best ? { streak: t.day.streak(t.progress.habit[best.key], best.streak) } : {})}
         {...(entries ? { food: foodState(entries), onComplete: (on: boolean) => void markComplete(on) } : {})} />}
 
-      {voice && foods && all && (() => { const c = checklist ?? buildChecklist({ plan, date, entries: entries ?? [], workouts: workouts ?? [], foods, now: new Date() }); return (
+      {voice && foods && all && (() => { const c = checklist ?? buildChecklist({ plan, date, entries: entries ?? [], workouts: workouts ?? [], foods, now: new Date(), observation }); return (
         <VoiceSheet date={date} plan={plan} foods={foods} recipes={recipes ?? []} today={entries ?? []}
           yesterday={all.filter((e) => dateOf(e.at) === prevDay)} onClose={() => setVoice(false)}
           meds={c.items.filter((i) => i.kind === 'med').map((i) => ({ key: i.key, title: i.title, ...(i.prescriptionId ? { prescriptionId: i.prescriptionId } : {}) }))} />); })()}

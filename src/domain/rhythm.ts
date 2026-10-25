@@ -4,6 +4,7 @@ import type { CheckItem } from './checklist';
 import { shownTime, timeOf } from './dates';
 import { FOOD_COMPLETE } from './habits';
 import type { DayEntry } from './types';
+import { observedPlannedEntry, scoredDay, type Observation } from './observation';
 
 export type RhythmNode =
   | { kind: 'entry'; at: string; entry: DayEntry } // recorded or planned by the person (a meal, a medicine tick…)
@@ -17,15 +18,15 @@ export interface Rhythm {
   anytime: CheckItem[];
 }
 
-export function dayRhythm(args: { entries: DayEntry[]; checklist?: { items: CheckItem[] }; lastMealBy?: string }): Rhythm {
+export function dayRhythm(args: { entries: DayEntry[]; checklist?: { items: CheckItem[] }; lastMealBy?: string; date?: string; observation?: Observation }): Rhythm {
   const nodes: RhythmNode[] = [];
   // R06: the «all written» mark is no row
-  for (const e of args.entries) if (e.kind !== 'water' && e.checkKey !== FOOD_COMPLETE) nodes.push({ kind: 'entry', at: shownTime(e) ?? timeOf(e.at), entry: e });
+  for (const e of args.entries) if (e.kind !== 'water' && e.checkKey !== FOOD_COMPLETE && observedPlannedEntry(args.observation, e)) nodes.push({ kind: 'entry', at: shownTime(e) ?? timeOf(e.at), entry: e });
   const anytime: CheckItem[] = [];
   for (const i of args.checklist?.items ?? []) {
     if (i.kind === 'med' && !i.done && !i.skipped) { if (i.time) nodes.push({ kind: 'dose', at: i.time, item: i }); else anytime.push(i); }
   }
-  if (args.lastMealBy && nodes.length) nodes.push({ kind: 'deadline', at: args.lastMealBy });
+  if (args.lastMealBy && nodes.length && (!args.observation || (args.date && scoredDay(args.observation, 'food', args.date)))) nodes.push({ kind: 'deadline', at: args.lastMealBy });
   const order = { entry: 0, dose: 1, deadline: 2 } as const;
   nodes.sort((a, b) => a.at.localeCompare(b.at) || order[a.kind] - order[b.kind]);
   return { nodes, anytime };

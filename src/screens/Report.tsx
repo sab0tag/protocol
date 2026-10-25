@@ -8,7 +8,8 @@ import { useState } from 'react';
 import { db } from '../data/db';
 import { useAllEntries, useAllWellbeing, useFoods, useLabs, usePlan, useWeights, useWorkouts } from '../data/queries';
 import { dateOf, todayISO } from '../domain/dates';
-import { buildReport, habitLabel, prnLimitText, reportText } from '../domain/report';
+import { buildReport, habitLabel, prnLimitText, reportText, trackingLines, unscoredMedText } from '../domain/report';
+import { useObservation } from '../app/observation';
 import { count } from '../data/tally';
 import { t } from '../i18n/uk';
 
@@ -19,6 +20,7 @@ const dmy = (d: string) => format(parseISO(d), 'd MMMM yyyy', { locale: uk });
 
 /** «Звіт для лікаря» (SPEC.md §5.8): from the last visit to today by default; prints on one page. */
 export function Report() {
+  const { observation, ready: observationReady } = useObservation();
   const plan = usePlan();
   const entries = useAllEntries();
   const wellbeing = useAllWellbeing();
@@ -30,11 +32,11 @@ export function Report() {
   const [range, setRange] = useState<{ from?: string; to: string }>({ to: today });
   const [question, setQuestion] = useState('');
   const [shared, setShared] = useState('');
-  if (!plan || !entries || !wellbeing || !workouts || !weights || !foods || !labs) return <Loading />;
+  if (!plan || !entries || !wellbeing || !workouts || !weights || !foods || !labs || !observationReady) return <Loading />;
 
   const first = [entries[0] && dateOf(entries[0].at), weights[0]?.date].filter(Boolean).sort()[0];
   const from = range.from ?? plan.lastVisit ?? first ?? format(addDays(new Date(), -13), 'yyyy-MM-dd');
-  const r = buildReport({ from, to: range.to, plan, entries, workouts, wellbeing, weights, foods, labs });
+  const r = buildReport({ from, to: range.to, plan, entries, workouts, wellbeing, weights, foods, labs, observation });
   const questions = plan.questions ?? [];
   const setQuestions = (q: string[], say: string = t.toast.saved) => saved(db.plan.update('main', { questions: q }), say);
 
@@ -58,6 +60,8 @@ export function Report() {
           <input type="date" value={range.to} max={today} onChange={(e) => setRange({ ...range, to: e.target.value })} className={field} /></label>
       </div>
       <p className="hidden print:block">{dmy(r.from)} — {dmy(r.to)} · {L.days(r.days)}</p>
+      {r.tracking && <div className="space-y-1 text-sm text-muted">{trackingLines(r.tracking).map((line) => <p key={line}>{line}</p>)}</div>}
+      {r.unscoredMedMarks && <p className="text-sm text-muted">{unscoredMedText(r.unscoredMedMarks)}</p>}
 
       {(r.meds || r.prn.length > 0 || r.deviations || r.labs.length > 0 || r.dietQuestions.length > 0) && (
         <section aria-label={L.main} className="space-y-2 rounded-2xl border border-accent/40 bg-surface p-3">
@@ -69,6 +73,7 @@ export function Report() {
           {r.meds && <p>{L.meds(r.meds.taken, r.meds.due)}
             {r.meds.list.length > 1 ? <span className="mt-1 block space-y-0.5 text-sm text-muted">{r.meds.list.map((m) => <span key={m.title} className="block">{L.medLine(m)}</span>)}</span>
               : r.meds.missed.length > 0 && <span className="block text-sm text-muted">{r.meds.missed.map((m) => L.missed(m.title, m.count)).join(' · ')}</span>}</p>}
+          {!!r.meds?.unmarked && <p className="text-sm text-muted">Без відмітки: {r.meds.unmarked} доз.</p>}
           {r.deviations && (r.deviations.meals ? (
             <p>{L.deviations(r.deviations.meals, r.deviations.of)}
               <span className="block text-sm text-muted">{r.deviations.by.map((b) => `${b.title} — ${b.count}`).join(' · ')}</span></p>
@@ -89,12 +94,14 @@ export function Report() {
         </section>
       )}
 
-      <dl className="grid grid-cols-2 gap-3 rounded-2xl border border-line bg-surface p-3 tabular sm:grid-cols-4">
-        <Metric label={L.checklist} value={r.checklistPct != null ? `${r.checklistPct} %` : '—'} />
-        <Metric label={L.weight} value={r.weightStart != null ? `${num(r.weightStart)} → ${num(r.weightNow!)} кг` : '—'} />
-        <Metric label={L.workouts} value={String(r.workouts)} />
-        <Metric label={L.energy} value={r.avgEnergy != null ? `${num(r.avgEnergy)} ${L.of5}` : '—'} />
-      </dl>
+      {(!r.observed || r.checklistPct != null || r.observed.weight || r.observed.workout || r.observed.wellbeing) && (
+        <dl className="grid grid-cols-2 gap-3 rounded-2xl border border-line bg-surface p-3 tabular sm:grid-cols-4">
+          {(!r.observed || r.checklistPct != null) && <Metric label={L.checklist} value={r.checklistPct != null ? `${r.checklistPct} %` : '—'} />}
+          {r.observed?.weight !== false && <Metric label={L.weight} value={r.weightStart != null ? `${num(r.weightStart)} → ${num(r.weightNow!)} кг` : '—'} />}
+          {r.observed?.workout !== false && <Metric label={L.workouts} value={String(r.workouts)} />}
+          {r.observed?.wellbeing !== false && <Metric label={L.energy} value={r.avgEnergy != null ? `${num(r.avgEnergy)} ${L.of5}` : '—'} />}
+        </dl>
+      )}
 
       {(r.weightPace != null || r.habits.length > 0 || r.menu) && (
         <section className="rounded-2xl border border-line bg-surface p-3">

@@ -51,19 +51,23 @@ function metric(key: MetricKey, totals: DayTotals, targets: Targets, meds: { don
   }
 }
 
-export function DaySummary({ totals, targets, meds, streak, food, onComplete }: { totals: DayTotals; targets: Targets; meds: { done: number; total: number }; streak?: string;
-  food?: FoodState; onComplete?: (on: boolean) => void }) {
+export function DaySummary({ totals, targets, meds, streak, food, onComplete, allowed }: { totals: DayTotals; targets: Targets; meds: { done: number; total: number }; streak?: string;
+  food?: FoodState; onComplete?: (on: boolean) => void; allowed?: readonly MetricKey[] }) {
   const [main, setMain] = useState<MetricKey[]>(loadMain);
   const [all, setAll] = useState(false);
   const [setup, setSetup] = useState(false);
-  const shown = (keys: MetricKey[]) => keys.map((k) => [k, metric(k, totals, targets, meds)] as const).filter((x): x is [MetricKey, Metric] => x[1] !== null);
+  const visible = ALL.filter((key) => !allowed || allowed.includes(key));
+  const selected = main.filter((key) => visible.includes(key));
+  const effectiveMain = selected.length ? selected : visible.slice(0, MAX_MAIN);
+  const shown = (keys: MetricKey[]) => keys.filter((k) => visible.includes(k)).map((k) => [k, metric(k, totals, targets, meds)] as const).filter((x): x is [MetricKey, Metric] => x[1] !== null);
   const toggle = (k: MetricKey, on: boolean) => {
     const next = on ? [...main, k].slice(-MAX_MAIN) : main.filter((x) => x !== k);
     if (!next.length) return;
     setMain(next);
     try { localStorage.setItem(STORE, JSON.stringify(next)); } catch { /* private mode */ }
   };
-  const rest = ALL.filter((k) => !main.includes(k));
+  const rest = visible.filter((k) => !effectiveMain.includes(k));
+  if (!visible.length) return null;
 
   return (
     <section aria-labelledby="summary" className="mb-4 rounded-2xl border border-line bg-surface p-4">
@@ -74,7 +78,7 @@ export function DaySummary({ totals, targets, meds, streak, food, onComplete }: 
       {setup ? (
         <fieldset>
           <legend className="mb-2 text-sm text-muted">{L.setupHint(MAX_MAIN)}</legend>
-          {ALL.map((k) => (
+          {visible.map((k) => (
             <label key={k} className="flex min-h-tap items-center gap-3">
               <input type="checkbox" checked={main.includes(k)} onChange={(e) => toggle(k, e.target.checked)} className="h-5 w-5 accent-[rgb(var(--accent))]" />
               <span>{L[k]}</span>
@@ -83,12 +87,12 @@ export function DaySummary({ totals, targets, meds, streak, food, onComplete }: 
         </fieldset>
       ) : (
         <>
-          <Metrics list={shown(main)} />
+          <Metrics list={shown(effectiveMain)} />
           {all && <div className="mt-3 border-t border-line pt-3"><Metrics list={shown(rest)} /></div>}
           <button type="button" onClick={() => setAll((v) => !v)} aria-expanded={all} className="mt-2 min-h-tap text-sm text-accent">{all ? L.less : L.all}</button>
         </>
       )}
-      {food && ( /* R06: the numbers are «за записами»; only the person can say the day's food is all written */
+      {food && visible.some((k) => k !== 'water' && k !== 'meds') && ( /* R06: only the person can say all food is written */
         <div className="mt-2 flex flex-wrap items-center gap-x-2 text-sm" data-food={food}>
           <span className="text-muted">{food === 'none' ? L.foodNone : food === 'partial' ? L.foodPartial : L.foodComplete}</span>
           {onComplete && food !== 'none' && (

@@ -13,22 +13,25 @@ import { habits, weekSummary, type HabitKey } from '../domain/habits';
 import { motivation } from '../domain/progression';
 import { t } from '../i18n/uk';
 import { HabitsCard, WeekCard } from './Progress';
+import { useObservation } from '../app/observation';
+import { scoredDay } from '../domain/observation';
 
 const L = t.week;
 
 export function Week() {
+  const { observation, ready: observationReady } = useObservation();
   const plan = usePlan();
   const entries = useAllEntries();
   const workouts = useWorkouts();
   const foods = useFoods();
   const [goal, setGoal] = useState<string | null>(null);
-  if (!entries || !workouts || !foods) return <Loading />;
+  if (!entries || !workouts || !foods || !observationReady) return <Loading />;
   const today = todayISO();
-  const summary = weekSummary({ plan, entries, workouts, foods, today });
-  const list = habits({ plan, entries, workouts, foods, today });
+  const summary = weekSummary({ plan, entries, workouts, foods, today, observation });
+  const list = habits({ plan, entries, workouts, foods, today, observation });
   const good = list.filter((h) => h.days7 > 0 && h.last7 >= Math.max(1, Math.ceil(h.days7 * 0.7)));
   const weakest = [...list].filter((h) => h.days7 > 0).sort((a, b) => a.last7 / a.days7 - b.last7 / b.days7)[0];
-  const m = motivation(workouts, today);
+  const m = motivation(workouts.filter((w) => scoredDay(observation, 'workout', w.date)), today);
   const suggestions = [...new Set([...(weakest ? [L.goals[weakest.key as HabitKey]] : []), L.goalWorkouts, ...Object.values(L.goals)])].slice(0, 4);
   const current = plan?.weekGoal;
   const saveGoal = async (text: string) => {

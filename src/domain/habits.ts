@@ -5,6 +5,7 @@ import { buildChecklist } from './checklist';
 import { byAt, dateOf, timeOf } from './dates';
 import { dayTotals, effectiveTargets } from './nutrition';
 import type { DayEntry, Food, ISODate, MealItem, Plan, Workout } from './types';
+import { observedToday, scoredDay, trackingInfo, type Observation } from './observation';
 
 const keyOf = (it: MealItem) => it.recipe ? `r:${it.recipe.id}` : it.foodId ? `f:${it.foodId}:${it.unit?.name ?? 'г'}` : `n:${it.name.toLowerCase()}`;
 
@@ -54,33 +55,39 @@ export interface WeekSummary {
   carbsOk?: number; proteinOk?: number; waterOk?: number;
   workouts: number;
   checklistPct?: number;
+  knownDays?: Partial<Record<'carbs' | 'protein' | 'water', number>>;
+  showWorkouts?: boolean;
 }
 
 /** The last 7 days up to `today`: how many days kept the carbs limit (or minimum), reached ≥ 90 % of the
  *  protein and the water target; workouts; checklist ticks. Only days with entries count; R06: the same day flags as the
  *  habits and the report — what the records cannot prove is not counted either way. */
-export function weekSummary(args: { plan: Plan | undefined; entries: DayEntry[]; workouts: Workout[]; foods: Map<string, Food>; today: ISODate }): WeekSummary {
-  const { plan, entries, workouts, foods, today } = args;
+export function weekSummary(args: { plan: Plan | undefined; entries: DayEntry[]; workouts: Workout[]; foods: Map<string, Food>; today: ISODate; observation?: Observation }): WeekSummary {
+  const { plan, entries, workouts, foods, observation } = args;
+  const today = observation && args.today > observedToday(observation) ? observedToday(observation) : args.today;
   const from = format(addDays(parseISO(today), -6), 'yyyy-MM-dd');
   let days = 0, carbsOk = 0, proteinOk = 0, waterOk = 0, done = 0, total = 0;
   let hasCarbs = false, hasProtein = false, hasWater = false;
+  const knownDays = { carbs: 0, protein: 0, water: 0 };
   for (let i = 0; i < 7; i++) {
     const d = format(addDays(parseISO(from), i), 'yyyy-MM-dd');
     const day = entries.filter((e) => dateOf(e.at) === d);
-    if (!day.length) continue;
+    if (!day.length && !(observation && workouts.some((w) => w.date === d))) continue;
     days += 1;
     const tg = effectiveTargets(plan, d);
-    const f = dayFlags(plan, day, d, workouts, foods);
-    if (tg.carbsG?.max != null || tg.carbsG?.min != null) { hasCarbs = true; if (f.carbs) carbsOk += 1; }
-    if (tg.proteinG) { hasProtein = true; if (f.protein) proteinOk += 1; }
-    if (tg.waterMl) { hasWater = true; if (f.water) waterOk += 1; }
-    const c = buildChecklist({ plan, date: d, entries: day, workouts, foods, now: new Date(`${d}T23:59:00`) });
+    const f = dayFlags(plan, day, d, workouts, foods, observation);
+    if (observation ? f.carbs !== undefined : tg.carbsG?.max != null || tg.carbsG?.min != null) { hasCarbs = true; knownDays.carbs++; if (f.carbs) carbsOk += 1; }
+    if (observation ? f.protein !== undefined : tg.proteinG) { hasProtein = true; knownDays.protein++; if (f.protein) proteinOk += 1; }
+    if (observation ? f.water !== undefined : tg.waterMl) { hasWater = true; knownDays.water++; if (f.water) waterOk += 1; }
+    const c = buildChecklist({ plan, date: d, entries: day, workouts, foods, now: new Date(`${d}T23:59:00`), observation });
     done += c.done; total += c.total;
   }
   return {
     from, to: today, days, workouts: workouts.filter((w) => w.date >= from && w.date <= today).length,
     ...(hasCarbs ? { carbsOk } : {}), ...(hasProtein ? { proteinOk } : {}), ...(hasWater ? { waterOk } : {}),
     ...(total ? { checklistPct: Math.round((done / total) * 100) } : {}),
+    ...(observation ? { knownDays, showWorkouts: workouts.some((w) => w.date >= from && w.date <= today)
+      || trackingInfo(observation, from, today, ['workout']).intervals.length > 0 } : {}),
   };
 }
 
@@ -92,15 +99,16 @@ export interface Habit { key: HabitKey; streak: number; best: number; last7: num
  *  run of «days with records»; today counts only once it is met — an unfinished day breaks nothing), the best run of the last
  *  30 days, and how many of the last 7 days with a known result met it («N з M днів із записами»). Only habits the plan has a
  *  target for. */
-export function habits(args: { plan: Plan | undefined; entries: DayEntry[]; workouts: Workout[]; foods: Map<string, Food>; today: ISODate }): Habit[] {
-  const { plan, entries, workouts, foods, today } = args;
+export function habits(args: { plan: Plan | undefined; entries: DayEntry[]; workouts: Workout[]; foods: Map<string, Food>; today: ISODate; observation?: Observation }): Habit[] {
+  const { plan, entries, workouts, foods, observation } = args;
+  const today = observation && args.today > observedToday(observation) ? observedToday(observation) : args.today;
   const byDay = new Map<string, DayEntry[]>();
   for (const e of entries) { const d = dateOf(e.at); if (d <= today) byDay.set(d, [...(byDay.get(d) ?? []), e]); }
   const flags: { d: string; f: Partial<Record<HabitKey, boolean>> }[] = [];
   for (let i = 29; i >= 0; i--) { // every calendar day — one with no records has no flags
     const d = format(addDays(parseISO(today), -i), 'yyyy-MM-dd');
     const day = byDay.get(d);
-    flags.push({ d, f: day?.length ? dayFlags(plan, day, d, workouts, foods) : {} });
+    flags.push({ d, f: day?.length ? dayFlags(plan, day, d, workouts, foods, observation) : {} });
   }
   const keys: HabitKey[] = ['protein', 'carbs', 'water', 'meds', 'plan'];
   const week = format(addDays(parseISO(today), -6), 'yyyy-MM-dd');
@@ -134,22 +142,25 @@ export function foodState(day: DayEntry[]): FoodState {
 /** One day against the plan: which habits were met (only those the plan has a target for). R06: what the records cannot prove is
  *  left unknown — a day with no food is no success of a carbs limit (a sum of zero), a partial day under the protein target or
  *  under a carbs limit proves neither a shortfall nor keeping the limit; reaching a target and going over a limit are proven. */
-export function dayFlags(plan: Plan | undefined, day: DayEntry[], d: ISODate, workouts: Workout[], foods: Map<string, Food>): Partial<Record<HabitKey, boolean>> {
+export function dayFlags(plan: Plan | undefined, day: DayEntry[], d: ISODate, workouts: Workout[], foods: Map<string, Food>, observation?: Observation): Partial<Record<HabitKey, boolean>> {
+  if (observation && d > observedToday(observation)) return {};
   const hasMeds = (plan?.prescriptions ?? []).some((p) => (p.kind === 'medication' || p.kind === 'supplement') && p.schedule?.times.length);
   const tg = effectiveTargets(plan, d);
   const tot = dayTotals(day, foods);
-  const c = buildChecklist({ plan, date: d, entries: day, workouts, foods, now: new Date(`${d}T23:59:00`) });
+  const c = buildChecklist({ plan, date: d, entries: day, workouts, foods, now: new Date(`${d}T23:59:00`), observation });
   const food = foodState(day);
   const f: Partial<Record<HabitKey, boolean>> = {};
-  if (tg.proteinG && food !== 'none') {
+  if (tg.proteinG && food !== 'none' && scoredDay(observation, 'food', d)) {
     if (tot.protein >= tg.proteinG * 0.9) f.protein = true; else if (food === 'complete') f.protein = false;
   }
-  if ((tg.carbsG?.max != null || tg.carbsG?.min != null) && food !== 'none') {
+  if ((tg.carbsG?.max != null || tg.carbsG?.min != null) && food !== 'none' && scoredDay(observation, 'food', d)) {
     const over = tg.carbsG.max != null && tot.carbs > tg.carbsG.max, reached = tg.carbsG.min == null || tot.carbs >= tg.carbsG.min;
     if (over) f.carbs = false; else if (food === 'complete') f.carbs = reached; else if (tg.carbsG.max == null && reached) f.carbs = true;
   }
-  if (tg.waterMl) f.water = tot.waterMl >= tg.waterMl;
-  if (hasMeds) f.meds = c.items.filter((x) => x.kind === 'med').every((x) => x.done);
-  if (c.total) f.plan = c.done / c.total >= 0.8;
+  const closed = !observation || d < observedToday(observation);
+  if (tg.waterMl && scoredDay(observation, 'water', d) && (tot.waterMl >= tg.waterMl || closed)) f.water = tot.waterMl >= tg.waterMl;
+  const meds = c.items.filter((x) => x.kind === 'med');
+  if (hasMeds && (!observation || (meds.length > 0 && scoredDay(observation, 'meds', d) && (meds.every((x) => x.done) || closed)))) f.meds = meds.every((x) => x.done);
+  if (c.total && (closed || c.done / c.total >= 0.8)) f.plan = c.done / c.total >= 0.8;
   return f;
 }

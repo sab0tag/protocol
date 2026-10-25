@@ -1,10 +1,11 @@
 // «Прогрес» (SPEC.md §5.7, §6.4): weekly weight, too-fast loss, lab table, noticed patterns. Pure.
 import { addDays, differenceInCalendarDays, format, parseISO, startOfISOWeek } from 'date-fns';
-import { coincidences, coincidenceText } from './symptoms';
+import { BEFORE_HOURS, coincidences, coincidenceText } from './symptoms';
 import { flatItems } from './rules';
 import { dateOf } from './dates';
 import { dayTotals, effectiveTargets, normalize } from './nutrition';
 import type { DayEntry, Food, LabResult, Plan, WeightLog, Wellbeing, Workout } from './types';
+import { scoredDay, type Observation } from './observation';
 
 export interface WeekWeight {
   week: string; // Monday "yyyy-MM-dd"
@@ -76,13 +77,27 @@ function meatGrams(items: DayEntry['items'], foods: Map<string, Food>): number {
 
 export interface Pattern { text: string }
 
-export function patterns(args: { entries: DayEntry[]; wellbeing: Wellbeing[]; workouts: Workout[]; foods: Map<string, Food>; plan?: Plan }): Pattern[] {
-  const { entries, wellbeing, workouts, foods } = args;
+/** An unobserved food window is unknown, not evidence that a symptom happened without that food. */
+export function observedCoincidences(entries: DayEntry[], foods: Map<string, Food>, observation?: Observation) {
+  return coincidences(entries.filter((e) => {
+    if (!observation) return true;
+    if (e.kind === 'meal') return scoredDay(observation, 'food', dateOf(e.at));
+    if (e.kind !== 'symptom') return true;
+    const before = new Date(Date.parse(e.at) - BEFORE_HOURS * 3_600_000).toISOString();
+    return scoredDay(observation, 'food', dateOf(e.at)) && scoredDay(observation, 'food', dateOf(before));
+  }), foods);
+}
+
+export function patterns(args: { entries: DayEntry[]; wellbeing: Wellbeing[]; workouts: Workout[]; foods: Map<string, Food>; plan?: Plan; observation?: Observation }): Pattern[] {
+  const { foods, observation } = args;
+  const entries = args.entries.filter((e) => e.kind !== 'meal' || scoredDay(observation, 'food', dateOf(e.at)));
+  const wellbeing = args.wellbeing.filter((w) => scoredDay(observation, 'wellbeing', w.date));
+  const workouts = args.workouts.filter((w) => scoredDay(observation, 'workout', w.date));
   const out: Pattern[] = [];
   const bigMeatDays = new Set(entries.filter((e) => e.kind === 'meal' && e.status === 'done' && meatGrams(e.items, foods) > MEAT_MEAL_G)
     .map((e) => dateOf(e.at)));
   const symptomDays = new Map<string, string[]>();
-  for (const w of wellbeing) for (const s of w.symptoms) symptomDays.set(s, [...(symptomDays.get(s) ?? []), w.date]);
+  for (const w of wellbeing) if (scoredDay(observation, 'food', w.date)) for (const s of w.symptoms) symptomDays.set(s, [...(symptomDays.get(s) ?? []), w.date]);
   for (const [symptom, days] of symptomDays) {
     if (days.length < 3) continue;
     const withMeat = days.filter((d) => bigMeatDays.has(d)).length;
@@ -90,9 +105,9 @@ export function patterns(args: { entries: DayEntry[]; wellbeing: Wellbeing[]; wo
       out.push({ text: `«${symptom}» — ${withMeat} з ${days.length} разів у дні, коли м’яса за один прийом було більше ${MEAT_MEAL_G} г` });
     }
   }
-  out.push(...coincidences(entries, foods).map((c) => ({ text: coincidenceText(c) }))); // D59
-  out.push(...wellbeingCoincidences(entries, wellbeing, foods, args.plan)); // D71
-  const scored = wellbeing.filter((w) => w.energy != null);
+  out.push(...observedCoincidences(entries, foods, observation).map((c) => ({ text: coincidenceText(c) }))); // D59
+  out.push(...wellbeingCoincidences(entries, wellbeing, foods, args.plan, observation)); // D71
+  const scored = wellbeing.filter((w) => w.energy != null && scoredDay(observation, 'workout', w.date));
   if (scored.length >= 10) {
     const trained = new Set(workouts.map((w) => w.date));
     const avg = (xs: Wellbeing[]) => xs.reduce((a, w) => a + (w.energy ?? 0), 0) / xs.length;
@@ -111,7 +126,7 @@ export const MIN_DAYS = 5, MIN_DIFF = 0.7;
 
 /** Counted, not concluded: the average 1–5 score on days with a factor vs days without, both MIN_DAYS+ and MIN_DIFF+
  *  apart. Sleep is set against the day before (a late dinner shows in the night after it). */
-export function wellbeingCoincidences(entries: DayEntry[], wellbeing: Wellbeing[], foods: Map<string, Food>, plan: Plan | undefined): Pattern[] {
+export function wellbeingCoincidences(entries: DayEntry[], wellbeing: Wellbeing[], foods: Map<string, Food>, plan: Plan | undefined, observation?: Observation): Pattern[] {
   const byDay = new Map<string, DayEntry[]>();
   for (const e of entries) if (e.kind === 'meal' && e.status === 'done') byDay.set(dateOf(e.at), [...(byDay.get(dateOf(e.at)) ?? []), e]);
   const factors: { name: (d: string) => string; on: (d: string) => boolean | undefined }[] = [
@@ -133,6 +148,7 @@ export function wellbeingCoincidences(entries: DayEntry[], wellbeing: Wellbeing[
       const v = w[score];
       if (v == null) continue;
       const d = score === 'sleep' ? format(addDays(parseISO(w.date), -1), 'yyyy-MM-dd') : w.date;
+      if (!scoredDay(observation, 'wellbeing', w.date) || !scoredDay(observation, 'food', d)) continue;
       const on = f.on(d);
       if (on === undefined) continue;
       if (on) { yes.push(v); label = f.name(d); } else no.push(v);

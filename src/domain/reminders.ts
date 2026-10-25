@@ -4,6 +4,7 @@
 import { addDays, differenceInMinutes, format } from 'date-fns';
 import { dateOf, timeOf } from './dates';
 import { doseDue } from './checklist';
+import { observedPlannedEntry, observedTask, type Observation } from './observation';
 import type { DayEntry, Plan, Prescription } from './types';
 
 export interface ReminderSettings {
@@ -159,13 +160,13 @@ export const NOW_BEFORE_MIN = 30, NOW_AFTER_MIN = 60;
 /** D50: «Зараз» — the earliest item due now; «Не відмічено» — items whose window passed without a mark (shown as
  *  unknown, never as «take it now»); «Далі» — the next one, when nothing is due. Snoozed ones wait.
  *  D52: only what the person planned needs a mark — a meal proposed by «Меню» (`menu`) never becomes «не відмічено». */
-export function dayFocus(args: { entries: DayEntry[]; plan: Plan | undefined; date: string; now: Date; snoozed?: Record<string, number> }): DayFocus {
+export function dayFocus(args: { entries: DayEntry[]; plan: Plan | undefined; date: string; now: Date; snoozed?: Record<string, number>; observation?: Observation }): DayFocus {
   const { entries, plan, date, now } = args;
   const t0 = now.getTime();
   const sleeping = (key: string) => (args.snoozed?.[key] ?? 0) > t0;
   const out: NowItem[] = [];
   for (const e of entries) {
-    if (e.kind !== 'meal' || e.status !== 'planned' || dateOf(e.at) !== date) continue;
+    if (e.kind !== 'meal' || e.status !== 'planned' || dateOf(e.at) !== date || !observedPlannedEntry(args.observation, e)) continue;
     out.push({ key: `meal:${e.id}:${e.at}`, kind: 'meal', time: timeOf(e.at), title: e.title, late: 0, entry: e });
   }
   const marked = new Set(entries.filter((e) => e.checkKey && e.status !== 'planned' && dateOf(e.at) === date).map((e) => e.checkKey!));
@@ -174,6 +175,7 @@ export function dayFocus(args: { entries: DayEntry[]; plan: Plan | undefined; da
     if (!isMed(p)) continue;
     for (const time of p.schedule?.times ?? []) {
       if (!doseDue(p, date, time)) continue; // D103
+      if (!observedTask(args.observation, 'meds', date, time)) continue;
       const key = `med:${p.id}:${time}`;
       if (!marked.has(key)) byTime.set(time, [...(byTime.get(time) ?? []), { key, title: [p.title, p.dose].filter(Boolean).join(' '), prescriptionId: p.id,
         ...(p.schedule?.withFood != null ? { withFood: p.schedule.withFood } : {}) }]);
