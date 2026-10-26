@@ -28,7 +28,7 @@ test('«Записати їжу»: the food first, the meal line folded; a meal 
 
   await page.goto('./#/meal/new');
   await expect(page.getByText(/^Як раніше ·/)).toHaveCount(0);
-  const fav = page.getByRole('button', { name: /^Перекус Кефір 2,5 %/ });
+  const fav = page.getByRole('region', { name: 'Мої звичні' }).getByRole('button', { name: /^Перекус Кефір 2,5 %/ });
   await fav.click();
   await expect(page.locator('li').filter({ hasText: 'Кефір 2,5 %' }).first()).toBeVisible();
   await page.getByRole('button', { name: 'Прибрати зі звичних: Перекус' }).click();

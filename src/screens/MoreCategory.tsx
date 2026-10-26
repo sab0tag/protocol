@@ -2,6 +2,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Link, Navigate, useParams } from 'react-router-dom';
 import { MORE_GROUPS } from './More';
 import { t } from '../i18n/uk';
+import { SceneHeader } from '../components/SceneHeader';
 
 export function MoreCategory() {
   const { category } = useParams();
@@ -13,14 +14,11 @@ export function MoreCategory() {
       <Link to="/more" className="inline-flex min-h-tap items-center gap-1 text-sm text-muted">
         <ChevronLeft size={18} aria-hidden />{t.nav.more}
       </Link>
-      <header>
-        <h1 className="text-2xl font-semibold">{group.title}</h1>
-        <p className="text-sm text-muted">{group.hint}</p>
-      </header>
-      <ul className="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface">
+      <SceneHeader title={group.title} description={group.hint} />
+      <ul className="divide-y divide-line overflow-hidden protocol-card rounded-2xl border border-line bg-surface">
         {group.links.map(({ to, Icon, title }) => (
           <li key={to}>
-            <Link to={to} className="flex min-h-tap items-center gap-3 px-3 py-2">
+            <Link to={to} className="flex min-h-tap items-center gap-3 px-4 py-4">
               <Icon size={20} className="text-accent" aria-hidden />
               <span className="flex-1 font-medium">{title}</span>
               <ChevronRight size={18} className="text-muted" aria-hidden />

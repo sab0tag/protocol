@@ -1,3 +1,4 @@
+import { SceneHeader } from '../components/SceneHeader';
 import { Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { AllergenPicker } from '../components/AllergenPicker';
@@ -21,7 +22,7 @@ export function MyFoods() {
   return (
     <section className="space-y-4 pt-4">
       <Link to="/dishes" className="inline-flex min-h-tap items-center text-sm text-muted">{t.dishes.title}</Link>
-      <h1 className="text-2xl font-semibold">{L.foods}</h1>
+      <SceneHeader title={L.foods} />
       <p className="text-sm text-muted">{L.foodsHint}</p>
       <LabelScan />
       {mine.length === 0
@@ -53,7 +54,7 @@ function FoodCard({ food }: { food: Food }) {
   const changed = JSON.stringify(edited) !== JSON.stringify(food);
 
   return (
-    <li className="space-y-2 rounded-2xl border border-line bg-surface p-3">
+    <li className="space-y-2 protocol-card rounded-2xl border border-line bg-surface p-3">
       <input value={edited.name} onChange={(e) => setEdited({ ...edited, name: e.target.value })} aria-label={L.rename}
         className="block min-h-tap w-full rounded-xl border border-line bg-bg px-3 font-semibold" />
       <div className="grid grid-cols-4 gap-2">

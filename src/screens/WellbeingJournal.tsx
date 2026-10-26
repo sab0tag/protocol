@@ -36,8 +36,8 @@ export function WellbeingJournal() {
         </button>
       </header>
       {ordered.length === 0
-        ? <p className="rounded-2xl border border-line bg-surface p-4 text-muted">{t.well.noJournal}</p>
-        : <ul className="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface">
+        ? <p className="protocol-card rounded-2xl border border-line bg-surface p-4 text-muted">{t.well.noJournal}</p>
+        : <ul className="divide-y divide-line overflow-hidden protocol-card rounded-2xl border border-line bg-surface">
           {ordered.map((record) => (
             <li key={record.date}>
               <button type="button" onClick={() => openRecord(record.date)}

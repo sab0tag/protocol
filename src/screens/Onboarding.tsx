@@ -111,7 +111,7 @@ function Steps({ plan, start, onScanned }: { plan: PlanRow; start: number; onSca
 
       {step === 1 && <p className="text-sm text-muted">{L.about}</p>}
       {step === 1 && (
-        <div className="rounded-2xl border border-line bg-surface p-3">
+        <div className="protocol-card rounded-2xl border border-line bg-surface p-3">
           <label className="block w-40"><span className="text-sm text-muted">{L.weight}</span>
             <input inputMode="decimal" value={weight} onChange={(e) => setWeight(e.target.value)} className={field} /></label>
         </div>
@@ -120,12 +120,12 @@ function Steps({ plan, start, onScanned }: { plan: PlanRow; start: number; onSca
       {step === 2 && (
         <>
           <PlanScan plan={plan} onDone={onScanned} />
-          <details className="rounded-2xl border border-line bg-surface p-3" open={!!chosen.diet}>
+          <details className="protocol-card rounded-2xl border border-line bg-surface p-3" open={!!chosen.diet}>
             <summary className="min-h-tap cursor-pointer font-medium">{chosen.diet ? chosen.diet.title : L.diet}</summary>
             <div className="mt-2"><DietPicker value={chosen.diet?.diet} onPick={pickDiet} fill={!!fill} onFill={fillDiet} targets={fill ?? targets} /></div>
           </details>
           <p className="text-sm text-muted">{L.constraintsHint}</p>
-          <ul className="divide-y divide-line rounded-2xl border border-line bg-surface">
+          <ul className="divide-y divide-line protocol-card rounded-2xl border border-line bg-surface">
             {TAGS.map((tag) => {
               const c = chosen[tag];
               return (
@@ -149,7 +149,7 @@ function Steps({ plan, start, onScanned }: { plan: PlanRow; start: number; onSca
           <p className="text-sm text-muted">{L.prescriptionsHint}</p>
           <ul className="space-y-2">
             {rx.map((p, i) => (
-              <li key={p.id} className="grid grid-cols-[1fr_5.5rem_auto] items-end gap-2 rounded-2xl border border-line bg-surface p-2">
+              <li key={p.id} className="grid grid-cols-[1fr_5.5rem_auto] items-end gap-2 protocol-card rounded-2xl border border-line bg-surface p-2">
                 <label className="block"><span className="text-sm text-muted">{P.title_}</span>
                   <input value={p.title} onChange={(e) => setRx(rx.map((x, j) => (j === i ? { ...x, title: e.target.value } : x)))} className={field} /></label>
                 <label className="block"><span className="text-sm text-muted">{t.simple.time}</span>
@@ -170,7 +170,7 @@ function Steps({ plan, start, onScanned }: { plan: PlanRow; start: number; onSca
       {step === 3 && (
         <>
           <p className="text-sm text-muted">{L.targetsHint}</p>
-          <div className="rounded-2xl border border-line bg-surface p-3"><TargetFields value={targets} onChange={setTargets} /></div>
+          <div className="protocol-card rounded-2xl border border-line bg-surface p-3"><TargetFields value={targets} onChange={setTargets} /></div>
         </>
       )}
 

@@ -16,8 +16,8 @@ export function DayRhythm({ rhythm, foods, onEntry, onDose, onAnytime, onAdd, on
 }) {
   const empty = rhythm.nodes.length === 0 && rhythm.anytime.length === 0;
   return (
-    <section aria-labelledby="rhythm" className="mb-4">
-      <div className="mb-2 flex items-center justify-between gap-2">
+    <section aria-labelledby="rhythm" className="protocol-card mb-4 p-4 sm:p-5">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <h2 id="rhythm" className="text-xl font-semibold">{L.rhythm}</h2>
         <button type="button" onClick={onYesterday} className="flex min-h-tap shrink-0 items-center gap-1 rounded-xl px-2 text-sm font-medium text-accent">
           <Undo2 size={16} aria-hidden />{L.likeYesterday}
@@ -35,8 +35,8 @@ export function DayRhythm({ rhythm, foods, onEntry, onDose, onAnytime, onAdd, on
       )}
       {rhythm.nodes.length === 0
         ? empty && <p className="py-4 text-muted">{L.empty}</p>
-        : <ol className="relative">{rhythm.nodes.map((n, k) => <Node key={k} node={n} last={k === rhythm.nodes.length - 1} foods={foods} onEntry={onEntry} onDose={onDose} />)}</ol>}
-      {!empty && <button type="button" onClick={onAdd} className="mt-1 flex min-h-tap items-center gap-2 px-1 text-accent"><Plus size={18} aria-hidden />{L.addOther}</button>}
+        : <ol className="relative space-y-1">{rhythm.nodes.map((n, k) => <Node key={k} node={n} last={k === rhythm.nodes.length - 1} foods={foods} onEntry={onEntry} onDose={onDose} />)}</ol>}
+      {!empty && <button type="button" onClick={onAdd} className="protocol-action-secondary mt-3 w-full"><Plus size={18} aria-hidden />{L.addOther}</button>}
     </section>
   );
 }
@@ -56,7 +56,7 @@ function Node({ node, last, foods, onEntry, onDose }: {
     return (
       <li className="relative">
         <button type="button" onClick={() => onDose(i)} aria-label={`${i.title}, ${t.status.planned}`}
-          className="grid min-h-tap w-full grid-cols-[3.5rem_1.5rem_1fr] items-start gap-x-1 py-2 text-left">
+          className="grid min-h-tap w-full grid-cols-[3.5rem_1.5rem_1fr] items-start gap-x-2 rounded-xl px-2 py-3 text-left transition-colors hover:bg-accent/5 focus-visible:outline-offset-0">
           <span className="tabular text-muted">{node.at}</span><Dot state="ahead" />
           <span><span className="block font-medium">{i.title}</span><span className="block text-sm text-muted">{[note, L.byPlan].filter(Boolean).join(' · ')}</span></span>
         </button>{line}
@@ -73,7 +73,7 @@ function Node({ node, last, foods, onEntry, onDose }: {
   return (
     <li className="relative">
       <button type="button" onClick={() => onEntry(e)} aria-label={`${e.title}, ${sym ? t.symptom.word : t.status[e.status]}${e.timeUnknown ? `, ${L.timeUnknown}` : ''}`}
-        className={`grid min-h-tap w-full grid-cols-[3.5rem_1.5rem_1fr_auto] items-start gap-x-1 py-2 text-left ${state === 'skipped' ? 'opacity-60' : ''}`}>
+        className={`grid min-h-tap w-full grid-cols-[3.5rem_1.5rem_1fr_auto] items-start gap-x-2 rounded-xl px-2 py-3 text-left transition-colors hover:bg-accent/5 focus-visible:outline-offset-0 ${state === 'skipped' ? 'opacity-60' : ''}`}>
         <span className="tabular text-muted" title={e.timeUnknown ? L.timeUnknown : undefined}>{e.timeUnknown ? '—' : node.at}</span><Dot state={state} />
         <span className="min-w-0">
           <span className={`block font-medium ${state === 'skipped' ? 'line-through' : ''}`}>{e.title}</span>

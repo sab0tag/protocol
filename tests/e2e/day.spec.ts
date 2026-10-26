@@ -219,7 +219,7 @@ test('«Мені погано»: a symptom with its time, what was eaten before 
   await expect(page.getByRole('dialog', { name: 'Здуття' }).getByRole('button', { name: 'Виконано' })).toHaveCount(0);
 });
 
-test('the service worker fills reminders in from the phone\'s own data', async ({ browser }) => {
+test('the real service worker builds reminder text from local data (notification API captured)', async ({ browser }) => {
   const page = await device(browser);
   const today = ymd(new Date()), tomorrow = ymd(new Date(Date.now() + 86_400_000));
   await seed(page, [{ store: 'entries', value: { id: 't1', at: `${tomorrow}T08:00:00${kyivOffset()}`, kind: 'meal', status: 'planned', title: 'Сніданок',
@@ -228,10 +228,16 @@ test('the service worker fills reminders in from the phone\'s own data', async (
   const regs = new Promise<{ registrationId: string }[]>((res) => cdp.on('ServiceWorker.workerRegistrationUpdated', (e) => { if (e.registrations.length) res(e.registrations); }));
   await cdp.send('ServiceWorker.enable');
   const id = (await regs)[0]!.registrationId;
-  const shown = async () => (await page.evaluate(async () => (await (await navigator.serviceWorker.ready).getNotifications()).map((n) => `${n.title} — ${n.body}`))).sort();
-  // Each push is checked right after it, by its own text: under load the browser may drop a push delivered over
-  // DevTools, or clear notifications it already showed — the browser's doing, not the app's. What is tested is the
-  // text the worker builds from the phone's own data; a push that never shows is sent once more.
+  // Capture the real worker's Notification API boundary. Headless Chromium has no OS notification
+  // centre; getNotifications() can be empty even after successful delivery. OS delivery is a device check.
+  await expect.poll(() => page.context().serviceWorkers().length).toBeGreaterThan(0);
+  const worker = page.context().serviceWorkers()[0]!;
+  await worker.evaluate(() => {
+    const scope = globalThis as unknown as { registration: ServiceWorkerRegistration; reminderTexts: string[] };
+    scope.reminderTexts = [];
+    scope.registration.showNotification = async (title, options) => { scope.reminderTexts.push(`${title} — ${options?.body ?? ''}`); };
+  });
+  const shown = () => worker.evaluate(() => (globalThis as unknown as { reminderTexts: string[] }).reminderTexts);
   const push = async (d: object, text: string) => {
     const send = () => cdp.send('ServiceWorker.deliverPushMessage', { origin: 'http://localhost:4318', registrationId: id,
       data: JSON.stringify({ u: './', tag: Math.random().toString(), n: 0, ...d }) });

@@ -1,3 +1,4 @@
+import { SceneHeader } from '../components/SceneHeader';
 import { Download, FileText, ListPlus, Share2, Trash2 } from 'lucide-react';
 import { DishBreakdown } from '../components/DishBreakdown';
 import { DishList } from '../components/DishList';
@@ -32,9 +33,9 @@ export function Dishes() {
   const own = recipes.filter((r) => !r.builtIn), builtIn = recipes.filter((r) => r.builtIn);
   return (
     <section className="space-y-4 pt-4">
-      <h1 className="text-2xl font-semibold">{L.title}</h1>
+      <SceneHeader title={L.title} />
       <p className="text-sm text-muted">{L.hint}</p>
-      <Link to="/foods" className="flex min-h-tap items-center justify-between rounded-2xl border border-line bg-surface px-3 font-medium">
+      <Link to="/foods" className="flex min-h-tap items-center justify-between protocol-card rounded-2xl border border-line bg-surface px-3 font-medium">
         <span>{L.foods}</span><span aria-hidden className="text-muted">›</span>
       </Link>
       <div className="flex flex-wrap gap-2">
@@ -51,7 +52,7 @@ export function Dishes() {
       <ul className="space-y-3">{own.map((r) => <Card key={r.id} recipe={r} foods={foods} />)}</ul>
       <ul className="space-y-3">{builtIn.map((r) => <Card key={r.id} recipe={r} foods={foods} />)}</ul>
       {diet && (() => { const cards = harchDishes(foods).filter((d) => d.diets.includes(diet)); return cards.length > 0 && (
-        <details className="rounded-2xl border border-line bg-surface p-3">
+        <details className="protocol-card rounded-2xl border border-line bg-surface p-3">
           <summary className="min-h-tap cursor-pointer font-medium">{L.harch(diet, cards.length)}</summary>
           <p className="mb-2 text-xs text-warn">{L.harchHint}</p>
           <ul className="divide-y divide-line text-sm">{cards.map((d) => { const n = mealNutrients(d.items, foods); return (
@@ -74,7 +75,7 @@ function ExportPanel({ recipes, foods }: { recipes: Recipe[]; foods: Map<string,
   const download = (f: File) => { const a = document.createElement('a'); a.href = URL.createObjectURL(f); a.download = f.name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 10_000); };
   const canShare = typeof navigator.canShare === 'function' && navigator.canShare({ files: [json()] });
   return (
-    <section aria-label={L.list.export} className="space-y-2 rounded-2xl border border-line bg-surface p-3">
+    <section aria-label={L.list.export} className="space-y-2 protocol-card rounded-2xl border border-line bg-surface p-3">
       <p className="text-sm text-muted">{L.list.exportHint}</p>
       <div className="flex flex-wrap gap-2">
         <button type="button" onClick={() => download(json())} className="flex min-h-tap items-center gap-2 rounded-xl bg-accent px-3 font-medium text-surface"><Download size={18} aria-hidden />{L.list.saveFile}</button>
@@ -91,7 +92,7 @@ function Card({ recipe, foods }: { recipe: Recipe; foods: Parameters<typeof meal
   const [asking, setAsking] = useState(false);
   const n = mealNutrients(recipe.items, foods);
   return (
-    <li className="rounded-2xl border border-line bg-surface p-3">
+    <li className="protocol-card rounded-2xl border border-line bg-surface p-3">
       {recipe.builtIn ? (
         <p className="font-semibold">{recipe.name} <span className="ml-1 rounded-full bg-bg px-2 text-xs font-normal text-muted">{L.builtIn}</span></p>
       ) : (

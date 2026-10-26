@@ -18,12 +18,12 @@ export function Layout({ children }: { children: ReactNode }) {
     <div className="min-h-dvh md:flex">
       <nav aria-label="Розділи"
         className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-surface pb-safe print:hidden md:static md:inset-auto md:w-20 md:shrink-0 md:border-r md:border-t-0 md:pt-safe">
-        <ul className="flex md:sticky md:top-0 md:flex-col md:gap-1 md:py-4">
+        <ul className="flex gap-1 px-1 py-1.5 md:sticky md:top-0 md:flex-col md:gap-3 md:px-2 md:py-4">
           {TABS.map(({ to, label, Icon, end }) => (
             <li key={to} className="flex-1 md:flex-none">
               <NavLink to={to} end={end} aria-label={label}
                 className={({ isActive }) =>
-                  `flex min-h-tap flex-col items-center justify-center gap-0.5 py-1.5 text-xs ${isActive ? 'text-accent font-medium' : 'text-muted'}`}>
+                  `flex min-h-tap flex-col items-center justify-center gap-1 rounded-2xl py-2 text-xs ${isActive ? 'bg-accent/10 text-accent font-semibold' : 'text-muted'}`}>
                 <Icon size={22} aria-hidden />
                 <span>{label}</span>
               </NavLink>

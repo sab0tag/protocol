@@ -24,7 +24,7 @@ export function ExerciseLibrary({ list = EXERCISES, action }: { list?: Exercise[
       <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">
         {shown.map((e) => (
           <li key={e.id}>
-            <button type="button" onClick={() => setOpen(e)} className="flex h-full w-full flex-col items-stretch gap-1 rounded-2xl border border-line bg-surface p-2 text-left">
+            <button type="button" onClick={() => setOpen(e)} className="flex h-full w-full flex-col items-stretch gap-1 protocol-card rounded-2xl border border-line bg-surface p-2 text-left">
               <div className="pointer-events-none">{e.photos
                 ? <img src={e.photos.move} alt="" loading="lazy" className="aspect-[100/126] w-full rounded-xl object-cover" />
                 : <ExerciseFigure pose={e.poses[1]} ghost={e.poses[0]} label="" />}</div>

@@ -94,6 +94,8 @@ test('before the paper leaves the phone: the header comes painted over, a finger
   const prep = page.getByRole('region', { name: 'Приховайте особисте перед надсиланням' });
   await expect(prep.getByText('Тут зазвичай ПІБ і дата народження')).toBeVisible(); // suggested, already painted
   const area = prep.locator('[data-page="1"]');
+  // A coordinate drag must start on the photo, after the page has scrolled it clear of the fixed tabs.
+  await area.scrollIntoViewIfNeeded();
   const b = (await area.boundingBox())!;
   await page.mouse.move(b.x + b.width * 0.5, b.y + b.height * 0.6); await page.mouse.down(); // a box over 50–80 % × 60–70 %
   await page.mouse.move(b.x + b.width * 0.8, b.y + b.height * 0.7, { steps: 4 }); await page.mouse.up();

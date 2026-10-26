@@ -20,7 +20,7 @@ export function PlanVersions({ current }: { current: PlanRow }) {
   const [error, setError] = useState('');
   const keys = currentKeys();
   if (!keys) return (
-    <p className="rounded-2xl border border-line bg-surface p-3 text-sm text-muted">
+    <p className="protocol-card rounded-2xl border border-line bg-surface p-3 text-sm text-muted">
       {L.noSync} <Link to="/sync" className="font-medium text-accent underline">{L.syncLink}</Link>
     </p>
   );
@@ -50,7 +50,7 @@ export function PlanVersions({ current }: { current: PlanRow }) {
   };
 
   return (
-    <div className="space-y-3 rounded-2xl border border-line bg-surface p-3">
+    <div className="space-y-3 protocol-card rounded-2xl border border-line bg-surface p-3">
       {!list && <button type="button" disabled={busy} onClick={() => void find()}
         className="min-h-tap rounded-xl border border-accent px-3 font-medium text-accent disabled:opacity-40">{busy ? L.busy : L.find}</button>}
       {error && <p role="alert" className="text-sm text-warn">{error}</p>}

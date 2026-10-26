@@ -89,7 +89,7 @@ export function Report() {
         </section>
       )}
 
-      <dl className="grid grid-cols-2 gap-3 rounded-2xl border border-line bg-surface p-3 tabular sm:grid-cols-4">
+      <dl className="grid grid-cols-2 gap-3 protocol-card rounded-2xl border border-line bg-surface p-3 tabular sm:grid-cols-4">
         <Metric label={L.checklist} value={r.checklistPct != null ? `${r.checklistPct} %` : '—'} />
         <Metric label={L.weight} value={r.weightStart != null ? `${num(r.weightStart)} → ${num(r.weightNow!)} кг` : '—'} />
         <Metric label={L.workouts} value={String(r.workouts)} />
@@ -97,7 +97,7 @@ export function Report() {
       </dl>
 
       {(r.weightPace != null || r.habits.length > 0 || r.menu) && (
-        <section className="rounded-2xl border border-line bg-surface p-3">
+        <section className="protocol-card rounded-2xl border border-line bg-surface p-3">
           <h2 className="mb-2 font-semibold">{L.howPlan}</h2>
           {r.weightPace != null && (
             <p className={`mb-2 ${r.maxLossPerWeek != null && -r.weightPace > r.maxLossPerWeek ? 'font-semibold text-warn' : ''}`}>
@@ -117,7 +117,7 @@ export function Report() {
         </section>
       )}
 
-      <section className="rounded-2xl border border-line bg-surface p-3">
+      <section className="protocol-card rounded-2xl border border-line bg-surface p-3">
         <h2 className="mb-2 font-semibold">{L.symptoms}</h2>
         {r.symptoms.length ? (
           <ul className="space-y-1">{r.symptoms.map((s) => (
@@ -133,7 +133,7 @@ export function Report() {
         )}
       </section>
 
-      <section className="rounded-2xl border border-line bg-surface p-3">
+      <section className="protocol-card rounded-2xl border border-line bg-surface p-3">
         <h2 className="mb-2 font-semibold">{L.questions}</h2>
         <ol className="list-decimal space-y-1 pl-5">
           {questions.map((q, i) => (

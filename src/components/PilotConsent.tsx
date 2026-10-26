@@ -142,7 +142,7 @@ export function PilotSurvey() {
         </>
       )}
       <div className="flex gap-2">
-        <button type="button" disabled={!ready} onClick={() => { void answerSurvey(kind, a as SurveyAnswer); setKind(null); toast(S.thanks); }}
+        <button type="button" disabled={!ready} onClick={async () => { await answerSurvey(kind, a as SurveyAnswer); setKind(null); toast(S.thanks); }}
           className="min-h-tap flex-1 rounded-xl bg-accent px-3 font-medium text-surface disabled:opacity-40">{S.send}</button>
         <button type="button" disabled={savingLater} onClick={() => void defer()} className="min-h-tap rounded-xl border border-line px-3 disabled:opacity-50">{S.later}</button>
       </div>
