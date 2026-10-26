@@ -4,7 +4,7 @@ import { timesToSet } from '../domain/conclusion';
 import { Loading } from '../components/Recovery';
 import { saved } from '../components/Toast';
 import { uk } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Pencil, Plus } from 'lucide-react';
+import { CalendarDays, ChevronLeft, ChevronRight, FileSearch, History, Pill, Pencil, Plus, Shield, Target } from 'lucide-react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useMemo, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
@@ -56,6 +56,14 @@ export function Plan({ section = 'home' }: { section?: PlanSection }) {
   if (!plan) return <Loading />;
   const tg = plan.targets;
   const prescriptions = plan.prescriptions.filter((p) => p.kind !== 'test');
+  const activeConstraints = plan.constraints.filter((constraint) => constraint.active);
+  const goalsPreview = [targetSummary(tg), plan.modes.length ? `${P.summaryModes} ${plan.modes.map((mode) => mode.title).join(' · ')}` : '']
+    .filter(Boolean).join(' · ');
+  const checkupTests = plan.prescriptions.filter((p) => p.kind === 'test').map((p) => p.title);
+  const checkupPreview = plan.nextCheckup
+    ? `${dmy(plan.nextCheckup.date)}${plan.nextCheckup.tests.length ? ` · ${plan.nextCheckup.tests.join(' · ')}` : ''}`
+    : checkupTests.join(' · ');
+  const namePreview = (names: string[]) => names.slice(0, 2).join(' · ') + (names.length > 2 ? ` · +${names.length - 2}` : '');
   const sectionTitle = section === 'prescriptions' ? P.prescriptions
     : section === 'constraints' ? P.constraints
       : section === 'goals' ? P.targets
@@ -76,21 +84,31 @@ export function Plan({ section = 'home' }: { section?: PlanSection }) {
         <>
           <nav aria-label={P.sections} className="space-y-2">
             {[
-              { to: '/plan/prescriptions', title: P.prescriptions, count: prescriptions.length },
-              { to: '/plan/constraints', title: P.constraints, count: plan.constraints.length },
-              { to: '/plan/goals', title: `${P.targets} й ${P.modes.toLowerCase()}`, count: (Object.entries(tg).filter(([key, value]) => key !== 'fromDiet' && value != null).length) + plan.modes.length },
-              { to: '/plan/checkup', title: P.checkup, count: (plan.nextCheckup ? 1 : 0) + plan.prescriptions.filter((p) => p.kind === 'test').length },
-            ].map(({ to, title, count }) => (
-              <Link key={to} to={to} className="flex min-h-tap items-center justify-between gap-3 rounded-2xl border border-line bg-surface px-3 py-3">
+              { to: '/plan/prescriptions', title: P.prescriptions, Icon: Pill, count: prescriptions.length, preview: namePreview(prescriptions.map((p) => p.title)) },
+              { to: '/plan/constraints', title: P.constraints, Icon: Shield, count: plan.constraints.length,
+                preview: activeConstraints.length ? `${P.summaryActive} ${namePreview(activeConstraints.map((constraint) => constraint.title))}`
+                  : plan.constraints.length ? P.noActiveConstraints : '' },
+              { to: '/plan/goals', title: `${P.targets} й ${P.modes.toLowerCase()}`, Icon: Target,
+                count: Object.entries(tg).filter(([key, value]) => key !== 'fromDiet' && value != null).length + plan.modes.length, preview: goalsPreview },
+              { to: '/plan/checkup', title: P.checkup, Icon: CalendarDays, count: (plan.nextCheckup ? 1 : 0) + checkupTests.length, preview: checkupPreview },
+            ].map(({ to, title, Icon, count, preview }) => (
+              <Link key={to} to={to} className="flex min-h-tap items-center gap-3 rounded-2xl border border-line bg-surface px-3 py-3">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent/10 text-accent">
+                  <Icon size={20} aria-hidden />
+                </span>
                 <span className="min-w-0">
                   <span className="block font-semibold">{title}</span>
                   <span className="block text-sm text-muted">{count ? P.itemsCount(count) : P.empty}</span>
+                  {preview && <span className="line-clamp-2 block text-sm text-muted">{preview}</span>}
                 </span>
-                <ChevronRight size={20} className="shrink-0 text-muted" aria-hidden />
+                <ChevronRight size={20} className="ml-auto shrink-0 text-muted" aria-hidden />
               </Link>
             ))}
           </nav>
           <Link to="/plan/scan" className="flex min-h-tap items-center justify-between gap-3 rounded-2xl border border-accent/40 bg-surface px-3 py-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent/10 text-accent">
+              <FileSearch size={20} aria-hidden />
+            </span>
             <span className="min-w-0">
               <span className="block font-semibold">{t.conclusion.button}</span>
               <span className="block text-sm text-muted">{P.scanHint}</span>
@@ -98,8 +116,11 @@ export function Plan({ section = 'home' }: { section?: PlanSection }) {
             <ChevronRight size={20} className="shrink-0 text-accent" aria-hidden />
           </Link>
           <Link to="/plan/history" className="flex min-h-tap items-center justify-between gap-3 rounded-2xl border border-line bg-surface px-3 py-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent/10 text-accent">
+              <History size={20} aria-hidden />
+            </span>
             <span className="font-medium">{t.versions.open}</span>
-            <ChevronRight size={20} className="shrink-0 text-muted" aria-hidden />
+            <ChevronRight size={20} className="ml-auto shrink-0 text-muted" aria-hidden />
           </Link>
         </>
       )}

@@ -65,6 +65,19 @@ test('the new «День»: the plan on an empty day, a dose asks when, main num
 
   const summary = page.getByRole('region', { name: 'Уже сьогодні' });
   await expect(summary.getByText('Білок')).toHaveCount(0);
+  for (const label of ['Вода', 'Ліки', 'Вуглеводи']) {
+    const progress = summary.getByRole('progressbar', { name: new RegExp(label) });
+    await expect(progress).toBeVisible();
+    const value = Number(await progress.getAttribute('aria-valuenow'));
+    expect(value).toBeGreaterThanOrEqual(0);
+    expect(value).toBeLessThanOrEqual(100);
+  }
+  await expect(summary.getByRole('progressbar', { name: 'Вода' })).toHaveAttribute('aria-valuetext', / \/ [\d,]+ л/);
+  const carbsProgress = summary.getByRole('progressbar', { name: 'Вуглеводи' });
+  await expect(carbsProgress).toHaveAttribute('aria-valuetext', /межа з плану/);
+  const carbsValue = Number(await carbsProgress.getAttribute('aria-valuenow'));
+  expect(carbsValue).toBeGreaterThanOrEqual(0);
+  expect(carbsValue).toBeLessThanOrEqual(100);
   await summary.getByRole('button', { name: 'Налаштувати' }).click();
   const protein = summary.getByRole('checkbox', { name: 'Білок' });
   await expect(protein).toBeDisabled(); // three main metrics are selected; no silent replacement

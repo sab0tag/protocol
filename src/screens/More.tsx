@@ -1,4 +1,4 @@
-import { Eye, Info, Activity, BellRing, ChevronRight, Dumbbell, FileText, RefreshCw, Salad, ShoppingCart, Sparkles, UserRound, CalendarRange, MessageSquareWarning, Zap, MessageCircle, HandHeart, Database, Heart, ClipboardPlus, Lightbulb, Settings2 } from 'lucide-react';
+import { Eye, Info, Activity, BellRing, ChevronRight, Dumbbell, FileText, RefreshCw, Salad, ShoppingCart, Sparkles, UserRound, CalendarRange, MessageSquareWarning, Zap, MessageCircle, HandHeart, Database, Heart, ClipboardPlus, Lightbulb, Settings2, Apple } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { enterDemo, inDemo } from '../data/db';
@@ -10,6 +10,7 @@ export const MORE_GROUPS = [
     { to: '/menu', Icon: Sparkles, title: t.menu.quick },
     { to: '/shopping', Icon: ShoppingCart, title: t.shop.title },
     { to: '/dishes', Icon: Salad, title: t.dishes.title },
+    { to: '/foods', Icon: Apple, title: t.dishes.foods },
   ] },
   { id: 'health', title: t.more.health, hint: t.more.healthHint, Icon: Activity, links: [
     { to: '/wellbeing', Icon: Activity, title: t.well.title },
