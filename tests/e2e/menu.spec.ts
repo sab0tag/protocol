@@ -24,6 +24,8 @@ test('a 2-day menu (model stubbed): checked by the plan, a line added to one mea
   await page.getByRole('button', { name: /^Прийняти в план/ }).click();
   await expect(toast(page)).toContainText('Меню на 2 дні в плані');
   await expect(page.getByText('Сніданок')).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Сніданок, Заплановано/ })).toBeVisible();
+  await expect(page.getByText('Меню · не підтверджено')).toHaveCount(0);
   await toast(page).getByRole('button', { name: 'Скасувати' }).click();
   await expect(page.getByText('Сніданок')).toHaveCount(0);
 

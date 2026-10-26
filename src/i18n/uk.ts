@@ -168,7 +168,6 @@ export const t = {
     deadline: (time: string) => `Останній прийом їжі до ${time}`,
     byPlan: 'за планом',
     recorded: 'Записано',
-    menuProposal: 'Меню · не підтверджено',
     carbsShort: (g: number) => `В ${g} г`,
     modeDay: (d: number, of: number) => `день ${d} з ${of}`,
     likeYesterday: 'Як учора',
