@@ -69,3 +69,19 @@ body { font-family: 'Golos Text', system-ui, -apple-system, sans-serif; -webkit-
 @media (prefers-reduced-motion: reduce) {
   .protocol-card-interactive { transition: none; }
 }
+
+/* Protocol 2.0 scenic header: local rendering; no external photo or tracking requests. */
+.protocol-day-hero {
+  isolation: isolate;
+  background-color: #142924;
+  background-image: radial-gradient(ellipse at 77% 31%, rgb(224 151 117 / .5), transparent 43%), linear-gradient(165deg, #102523 0%, #3b5250 43%, #243d38 65%, #0b211c 100%);
+  box-shadow: 0 18px 46px -25px rgb(0 0 0 / .48);
+}
+.protocol-day-hero::before {
+  content: ''; position: absolute; inset: 35% 0 0; z-index: -1; opacity: .6; background: #102722;
+  clip-path: polygon(0 70%, 9% 57%, 20% 64%, 31% 40%, 43% 58%, 57% 29%, 69% 48%, 79% 26%, 90% 46%, 100% 22%, 100% 100%, 0 100%);
+}
+.protocol-day-hero::after {
+  content: ''; position: absolute; inset: 55% 0 0; z-index: -1; opacity: .68; background: #091e19;
+  clip-path: polygon(0 62%, 12% 38%, 26% 69%, 41% 44%, 55% 66%, 71% 35%, 82% 60%, 93% 21%, 100% 43%, 100% 100%, 0 100%);
+}
