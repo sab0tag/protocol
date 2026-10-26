@@ -78,6 +78,11 @@ test('the new «День»: the plan on an empty day, a dose asks when, main num
   await expect(page.getByRole('region', { name: 'Уже сьогодні' }).getByText('Білок')).toBeVisible(); // kept on this device
 
   const week = page.getByRole('navigation', { name: 'Тиждень' });
+  const weekdays = week.locator('ol > li button span:first-child');
+  await expect(weekdays).toHaveCount(7);
+  expect(await weekdays.allTextContents()).toEqual(['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'нд']);
+  expect(await weekdays.evaluateAll((labels) => labels.map((label) => getComputedStyle(label, '::first-letter').textTransform)))
+    .toEqual(Array(7).fill('uppercase'));
   await week.getByRole('button', { name: 'Попередній тиждень' }).click();
   await expect(page.getByRole('heading', { level: 1 })).not.toHaveText('Сьогодні');
   await page.getByRole('button', { name: 'До сьогодні' }).click();
