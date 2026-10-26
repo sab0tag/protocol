@@ -5,7 +5,7 @@ import { addDays, format, parseISO, startOfISOWeek } from 'date-fns';
 import { uk } from 'date-fns/locale';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { ChevronLeft, ChevronRight, Cloud, CloudAlert, CloudCheck, CloudOff, Heart, TreePine } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useActiveProfile } from '../app/profiles';
 import { greeting, dailyPhrase } from '../domain/greeting';
@@ -20,7 +20,7 @@ const CLOUD: Record<SyncStatus, { Icon: typeof Cloud; tone: string }> = {
   offline: { Icon: CloudOff, tone: 'text-warn' }, error: { Icon: CloudAlert, tone: 'text-warn' },
 };
 
-export function DayHeader({ date, setDate }: { date: string; setDate: (d: string) => void }) {
+export function DayHeader({ date, setDate, action }: { date: string; setDate: (d: string) => void; action?: ReactNode }) {
   const navigate = useNavigate();
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
@@ -54,6 +54,7 @@ export function DayHeader({ date, setDate }: { date: string; setDate: (d: string
         {showMotivation && <p data-testid="daily-phrase" className="mt-1 flex items-center gap-2 text-sm text-white/85">{dailyPhrase(now)} <Heart size={16} className="fill-emerald-300 text-emerald-300" aria-hidden /></p>}
       <h1 className="mt-4 text-lg font-semibold">{isToday ? L.todayTitle : format(d, 'EEEE, d MMMM', { locale: uk })}</h1>
       {isToday && <p className="mt-1 text-sm text-white/80">{format(d, 'EEEE, d MMMM', { locale: uk })}</p>}
+      {action && <div className="mt-2">{action}</div> /* D140: «Легкий день» */}
       <nav aria-label={L.week} className="protocol-calendar mt-2 flex items-center gap-1 rounded-[1.15rem] p-1">
         <button type="button" onClick={() => setDate(weekStep(date, -1, today))} aria-label={L.prevWeek}
           className="flex min-h-tap w-7 shrink-0 items-center justify-center text-white/80"><ChevronLeft size={18} aria-hidden /></button>

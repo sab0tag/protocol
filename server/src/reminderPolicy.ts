@@ -46,12 +46,23 @@ export function mergeReminderPolicy(a: ReminderPolicy, b: ReminderPolicy): Remin
   return { v: 1, modules, days: [...days.values()].sort((x, y) => x.date.localeCompare(y.date)) };
 }
 
-/** Only module/weight events in this preparation PR. Light-day projection is connected in parts 07/08. */
-export function policyFromEvents(events: readonly unknown[]): ReminderPolicy {
+/** Commands carry their origin's midnight bounds. Legacy preparation rows fall back to this device's local calendar. */
+export function policyFromEvents(events: readonly unknown[], now = Date.now()): ReminderPolicy {
   let p = emptyPolicy();
+  const first = new Date(now), last = new Date(now); first.setDate(first.getDate() - 7); last.setDate(last.getDate() + 31);
+  const dayString = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   for (const value of events) {
     if (!value || typeof value !== 'object') continue;
-    const e = value as { kind?: string; module?: Gate; at?: string; id?: string; enabled?: boolean; source?: string };
+    const e = value as { kind?: string; module?: Gate; at?: string; id?: string; enabled?: boolean; source?: string; date?: string; from?: number; until?: number };
+    if (e.kind === 'light-day' && typeof e.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(e.date)
+      && e.date >= dayString(first) && e.date <= dayString(last)) {
+      const midnight = new Date(e.date + 'T00:00:00'), next = new Date(midnight); next.setDate(next.getDate() + 1);
+      const row = { id: e.id, at: Date.parse(e.at ?? ''), priority: 1, enabled: e.enabled, date: e.date,
+        from: e.from ?? +midnight, until: e.until ?? +next };
+      const parsed = parseReminderPolicy({ v: 1, modules: {}, days: [row] });
+      if (parsed) p = mergeReminderPolicy(p, parsed);
+      continue;
+    }
     const gate = e.kind === 'weight' ? 'weight' : e.kind === 'module' ? e.module : undefined;
     if (!gate || !GATES.includes(gate) || (e.kind === 'module' && gate === 'weight')) continue;
     const personalProgress = gate === 'progress' && !['migration', 'onboarding', 'automatic'].includes(e.source ?? '');
@@ -66,7 +77,8 @@ export function policyAccess(p: ReminderPolicy, at: number, now = at) {
     const c = p.modules[g];
     return !c || (c.enabled && (c.priority === 0 || at >= c.at));
   };
-  const light = p.days.some((d) => d.enabled && ((at >= d.from && at < d.until) || (at <= now && now >= d.from && now < d.until)));
+  const light = p.days.some((d) => d.enabled ? ((at >= d.from && at < d.until) || (at <= now && now >= d.from && now < d.until))
+    : at >= d.from && at < d.until && at < d.at); // cancellation resumes future slots, never the pre-cancel backlog
   return { meds: on('meds'), food: on('food') && !light, water: on('water') && !light,
     menu: on('menu') && !light, assistant: on('assistant') && !light, progress: on('progress') && !light,
     weight: (p.modules.weight ? on('weight') : on('wellbeing')) && !light };

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createApp } from '../src/app.ts';
 import { tick, vapidKeys, type Sender } from '../src/push.ts';
 import { Store } from '../src/store.ts';
-import { emptyPolicy, type ReminderPolicy } from '../src/reminderPolicy.ts';
+import { emptyPolicy, policyFromEvents, type ReminderPolicy } from '../src/reminderPolicy.ts';
 
 const VAULT = 'a'.repeat(32), AUTH = 'k'.repeat(43), DEV = 'd'.repeat(32), DEV2 = 'e'.repeat(32);
 const SUB = { endpoint: 'https://fcm.googleapis.com/fcm/send/abc', keys: { p256dh: 'BPk', auth: 'xyz' } };
@@ -163,6 +163,33 @@ describe('vault reminder reconciliation (D136)', () => {
     expect(sent.map((s) => s.payload.k)).toEqual(['med']);
     await tick(store, send, until + 60_000);
     expect(sent.filter((s) => s.payload.k === 'water')).toHaveLength(1);
+  });
+
+  it('projects saved light-day windows across devices and cancellation cannot revive a stale backlog', async () => {
+    const { store, call, send, sent, at } = await devices();
+    const from = Date.parse('2026-10-08T00:00:00Z'), until = from + 86_400_000;
+    for (const dev of [DEV, DEV2]) await call('PUT', path(dev), { ...items(), items: [...items().items,
+      { rid: rid('tomorrow'), at: until + 60_000, payload: { k: 'water' } }] });
+    await tick(store, send, T0);
+    const medicineState = store.all("SELECT device, rid, sent, repeats_left, next_at FROM reminders WHERE json_extract(payload, '$.k') = 'med'");
+    const event = { id: 'saved-light', kind: 'light-day', date: '2026-10-08', source: 'manual', enabled: true, at: new Date(T0 + 1).toISOString(), from, until };
+    expect((await call('PUT', policyPath, policyFromEvents([event], T0))).status).toBe(200);
+    expect(store.all("SELECT device, rid, sent, repeats_left, next_at FROM reminders WHERE json_extract(payload, '$.k') = 'med'")).toEqual(medicineState);
+    at(T0 + 600_000);
+    const off = { ...event, id: 'cancel-light', enabled: false, at: new Date(T0 + 600_000).toISOString() };
+    expect((await call('PUT', policyPath, policyFromEvents([event, off], T0 + 600_000))).status).toBe(200);
+    await call('PUT', policyPath, policyFromEvents([event], T0)); // stale device cannot replace the cancellation
+    expect(store.reminderPolicy(VAULT).days[0]?.enabled).toBe(false);
+    await call('PUT', path(DEV2), { ...items(), items: [...items().items,
+      { rid: rid('old-snooze'), at: T0 + 900_000, payload: { k: 'water', o: T0 } },
+      { rid: rid('future-water'), at: T0 + 1200_000, payload: { k: 'water' } }] });
+    await tick(store, send, T0 + 900_000);
+    expect(sent.slice(4).every((s) => s.payload.k === 'med')).toBe(true);
+    await tick(store, send, T0 + 1200_000);
+    expect(sent.filter((s) => s.payload.k === 'water')).toHaveLength(3); // two initial sends + one future slot
+    expect(store.all('SELECT * FROM acks')).toHaveLength(0);
+    await tick(store, send, until + 60_000); // the untouched first device's preloaded tomorrow
+    expect(sent.filter((s) => s.payload.k === 'water')).toHaveLength(4);
   });
 
   it('re-checks policy between awaited sends from the same due snapshot', async () => {

@@ -1,7 +1,8 @@
 // D135: observation belongs to an interval, not today's switch. This never changes a doctor's prescription.
 import { addDays, format, parseISO } from 'date-fns';
+import { lightDayOnDate } from './lightDay';
 import type { ModuleId } from './features';
-import { isLightDay, moduleChoiceAt, weightChoiceAt, type ModuleEvent } from './modulePreferences';
+import { moduleChoiceAt, weightChoiceAt, type ModuleEvent } from './modulePreferences';
 import type { DayEntry, ISODate, ISODateTime, Targets } from './types';
 
 export type TrackingKey = ModuleId | 'weight';
@@ -42,7 +43,7 @@ function boundaries(o: Observation, key: TrackingKey, from: number, to: number):
 
 export function neutralDay(o: Observation, key: TrackingKey, date: ISODate): boolean {
   return !o.demo && date <= observedToday(o) && (key === 'food' || key === 'water' || key === 'workout')
-    && ((o.neutral?.[date]?.includes(key) ?? false) || isLightDay(o.events, date));
+    && ((o.neutral?.[date]?.includes(key) ?? false) || lightDayOnDate(o.events, date, o.now));
 }
 
 export function coverage(o: Observation, key: TrackingKey, date: ISODate): Coverage {
