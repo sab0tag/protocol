@@ -6,6 +6,7 @@ import { uk } from 'date-fns/locale';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { ChevronLeft, ChevronRight, Cloud, CloudAlert, CloudCheck, CloudOff } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import type { ReactNode } from 'react';
 import { db } from '../data/db';
 import { todayISO, weekStep } from '../domain/dates';
 import { t } from '../i18n/uk';
@@ -17,7 +18,7 @@ const CLOUD: Record<SyncStatus, { Icon: typeof Cloud; tone: string }> = {
   offline: { Icon: CloudOff, tone: 'text-warn' }, error: { Icon: CloudAlert, tone: 'text-warn' },
 };
 
-export function DayHeader({ date, setDate }: { date: string; setDate: (d: string) => void }) {
+export function DayHeader({ date, setDate, action }: { date: string; setDate: (d: string) => void; action?: ReactNode }) {
   const navigate = useNavigate();
   const today = todayISO();
   const monday = startOfISOWeek(parseISO(date));
@@ -39,6 +40,7 @@ export function DayHeader({ date, setDate }: { date: string; setDate: (d: string
         <button type="button" onClick={() => navigate('/sync')} aria-label={L.syncStatus[status]} title={L.syncStatus[status]}
           className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-surface shadow-sm"><Icon size={22} className={tone} aria-hidden /></button>
       </div>
+      {action && <div className="mt-2">{action}</div>}
       <nav aria-label={L.week} className="mt-3 flex items-center gap-1">
         <button type="button" onClick={() => setDate(weekStep(date, -1, today))} aria-label={L.prevWeek}
           className="flex min-h-tap w-7 shrink-0 items-center justify-center text-muted"><ChevronLeft size={18} aria-hidden /></button>

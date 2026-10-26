@@ -14,7 +14,7 @@ import { amountText, needsGrams, approxG } from '../domain/foodSearch';
 import { dishItem, setPortions } from '../domain/recipes';
 import { evaluate } from '../domain/evaluate';
 import { useRecentEntries } from '../data/queries';
-import { answerSame, change, emptyDraft, newSession, ready, step, type DraftMed, type VoiceDraft, type VoiceSession } from '../domain/voice';
+import { answerSame, change, emptyDraft, newSession, ready, step, lightDayCommand, type DraftMed, type VoiceDraft, type VoiceSession } from '../domain/voice';
 import type { DayEntry, Food, MealItem, Plan, Recipe } from '../domain/types';
 import { t } from '../i18n/uk';
 import { ConciergeNotFound } from './ConciergeNotFound';
@@ -27,6 +27,7 @@ import { countOnce } from '../data/tally';
 import { Link } from 'react-router-dom';
 import { useFeatures } from '../app/features';
 import { can as featureCan } from '../domain/features';
+import { applyLightDay } from '../app/lightDay';
 import { modulePreferences } from '../domain/modulePreferences';
 
 const L = t.voice;
@@ -68,9 +69,17 @@ export function VoiceSheet({ date, plan, foods, recipes, today, yesterday, meds,
     meds: meds.filter((m) => !today.some((e) => e.checkKey === m.key && e.status === 'done')) }), [foods, recipes, plan, yesterday, meds, today, menuAvailable]);
 
   // the field is read as it is, on top of what is already in the draft; an action on the draft takes the field in first
-  const now = useMemo(() => (typed.trim() ? step(session, typed, ctx) : session), [typed, session, ctx]);
+  const dayCommand = enabled && !inDemo() && lightDayCommand(typed);
+  const now = useMemo(() => (typed.trim() && !dayCommand ? step(session, typed, ctx) : session), [typed, session, ctx, dayCommand]);
   const shown = now.draft;
-  const commit = () => { setSession(now); setTyped(''); };
+  const commit = () => { if (!dayCommand) { setSession(now); setTyped(''); } };
+  const [commandMessage, setCommandMessage] = useState('');
+  const applyDayCommand = async () => {
+    if (!dayCommand || saving || danger) return;
+    setSaving(true); stop.current();
+    try { await applyLightDay(true, 'voice'); setTyped(''); setHeard(''); setCommandMessage(t.lightDay.voiceDone); }
+    catch { setCommandMessage(t.startFlow.error); } finally { setSaving(false); }
+  };
   const edit = (fn: (d: VoiceDraft) => VoiceDraft, note?: string) => { setSession(change(now, fn(now.draft), note)); setTyped(''); };
   const undo = () => { const prev = now.history.at(-1); if (prev) setSession({ draft: prev, history: now.history.slice(0, -1), note: C.undone }); setTyped(''); };
   const start = () => {
@@ -82,6 +91,7 @@ export function VoiceSheet({ date, plan, foods, recipes, today, yesterday, meds,
   useEffect(() => { if (ok && speechSupported()) start(); return () => stop.current(); }, [ok]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const save = async () => {
+    if (dayCommand) { await applyDayCommand(); return; }
     const draft = shown;
     if (!ready(draft) || saving) return;
     const latest = enabled ? { ...modulePreferences(await db.moduleEvents.toArray()), tier: 'free' as const, demo: inDemo() } : undefined;
@@ -137,12 +147,14 @@ export function VoiceSheet({ date, plan, foods, recipes, today, yesterday, meds,
       </div>
       {error && <p role="alert" className="mt-2 text-sm text-warn">{L.errors[error]}</p>}
       {danger && (crisis ? <CrisisCard /> : <DangerCard />)}
+      {commandMessage && <p role="status" className="mt-2 text-sm">{commandMessage}</p>}
+      {dayCommand && !danger && <p className="mt-2 text-sm">{t.lightDay.active}</p>}
       {!danger && blocked.length > 0 && <div role="status" className="mt-3 space-y-2 rounded-xl border border-line p-3 text-sm">
         <p>{t.modules.voiceBlocked}</p><Link to="/modules" className="inline-flex min-h-tap items-center text-accent underline">{t.modules.title}</Link>
         {blocked.map((kind) => <button key={kind} type="button" onClick={() => edit((d) => kind === 'food' ? { ...d, items: [], notFound: [] } : kind === 'meds' ? { ...d, meds: [] } : { ...d, waterMl: 0 })}
           className="block min-h-tap text-accent underline">{t.modules.removePart(t.modules.names[kind])}</button>)}
       </div>}
-      <form className="mt-2 flex gap-2" onSubmit={(e) => { e.preventDefault(); commit(); }}>
+      <form className="mt-2 flex gap-2" onSubmit={(e) => { e.preventDefault(); if (dayCommand) void applyDayCommand(); else commit(); }}>
         <label className="flex-1"><span className="sr-only">{L.typed}</span>
           <input value={typed} onChange={(e) => setTyped(e.target.value)} placeholder={L.typedPh} className="block min-h-tap w-full rounded-xl border border-line bg-bg px-3" /></label>
         <button type="submit" className="min-h-tap rounded-xl border border-accent px-3 text-accent">{L.apply}</button>
@@ -239,8 +251,8 @@ export function VoiceSheet({ date, plan, foods, recipes, today, yesterday, meds,
 
       {draft.notFound.length > 0 && !danger && <p className="mt-3 text-sm text-warn">{L.unread(draft.notFound.length)}</p>}
       <div className="mt-3 flex gap-2">
-        <button type="button" disabled={!ready(draft) || saving || blocked.length > 0 || !!danger} onClick={() => void save()}
-          className="min-h-tap flex-1 rounded-xl bg-accent px-4 font-medium text-surface disabled:opacity-40">{L.save}</button>
+        <button type="button" disabled={(!dayCommand && (!ready(draft) || blocked.length > 0)) || saving || !!danger} onClick={() => void save()}
+          className="min-h-tap flex-1 rounded-xl bg-accent px-4 font-medium text-surface disabled:opacity-40">{dayCommand ? t.lightDay.voiceApply : L.save}</button>
         <button type="button" onClick={onClose} className="min-h-tap rounded-xl border border-line px-4">{L.cancel}</button>
       </div>
     </Sheet>

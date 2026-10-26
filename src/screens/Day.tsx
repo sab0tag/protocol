@@ -6,7 +6,7 @@ import { ConfirmMeal } from '../components/ConfirmMeal';
 import { SymptomSheet } from '../components/SymptomSheet';
 import { saved } from '../components/Toast';
 import { Check, Droplet, Dumbbell, Frown, HeartPulse, ListChecks, Mic, NotebookPen, Pencil, Pill, Plus, Sparkles, Star, Target, Trash2, Undo2, UtensilsCrossed, X } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Sheet, SheetButton } from '../components/Sheet';
 import { db } from '../data/db';
@@ -47,6 +47,11 @@ import { useFeatures } from '../app/features';
 import { ENTRY_FEATURES, habitVisible, entryVisible, visibleChecklist } from '../domain/visibility';
 import type { FeatureId } from '../domain/features';
 
+import { lightDayOnDate } from '../domain/lightDay';
+import { LightDayControl } from '../components/LightDayControl';
+import { LightDayNotice } from '../components/LightDayNotice';
+import { requestSync } from '../sync/runner';
+
 const KIND_ICON = { meal: UtensilsCrossed, med: Pill, water: Droplet, workout: Dumbbell, note: NotebookPen, symptom: Frown } as const;
 
 /** «День» (SPEC.md §5.1, §14.1, D53): the day by name and week, «Зараз», «Записати їжу», quick tiles, «Ритм дня» —
@@ -55,6 +60,16 @@ export function Day() {
   const { can, context, enabled } = useFeatures();
   const { date, setDate } = useUi();
   const { observation, ready: observationReady } = useObservation();
+  const today = todayISO();
+  const previousToday = useRef(today);
+  useEffect(() => {
+    if (enabled && previousToday.current !== today) {
+      if (date === previousToday.current) setDate(today);
+      requestSync();
+    }
+    previousToday.current = today;
+  }, [today, date, enabled, setDate]);
+  const light = enabled && !context.demo && date <= today && lightDayOnDate(observation?.events ?? [], date, observation?.now ?? new Date());
   // D34: a reminder opens its day (#/?date=…)
   const [params, setParams] = useSearchParams();
   const [voice, setVoice] = useState(false); // D95
@@ -75,7 +90,7 @@ export function Day() {
   const syncMeta = useLiveQuery(async () => (await db.meta.get('sync')) ?? null, []); // D40: «код записаний?»
   const codeDue = !!syncMeta && Date.now() - (syncMeta.codeCheckedAt ?? 0) > 30 * 86_400_000;
   const syncLast = useSync((s) => (s.status === 'off' ? undefined : s.lastAt));
-  const tips = can('menu.evening') && can('food.log') ? [...new Set((entries ?? []).flatMap((e) => e.menu?.tips ?? []))] : []; // D33
+  const tips = !light && can('menu.evening') && can('food.log') ? [...new Set((entries ?? []).flatMap((e) => e.menu?.tips ?? []))] : []; // D33
   const syncedRecently = syncLast !== undefined && Date.now() - syncLast < 7 * 86_400_000;
   const workouts = useWorkouts();
   const firstEntry = useLiveQuery(() => db.entries.orderBy('at').first(), []);
@@ -102,7 +117,7 @@ export function Day() {
     if (on) await saved(db.entries.put({ id, at: atLocal(date, '23:59'), kind: 'note', status: 'done', title: t.summary.foodComplete, checkKey: FOOD_COMPLETE }), t.summary.foodComplete, () => db.entries.delete(id));
     else { const was = await db.entries.get(id); await saved(db.entries.delete(id), t.toast.deleted(t.summary.foodComplete), () => (was ? db.entries.put(was) : undefined)); }
   };
-  const visibleEntries = entries?.filter((e) => entryVisible(e, context));
+  const visibleEntries = entries?.filter((e) => entryVisible(e, context) && (!light || !['meal', 'water', 'workout'].includes(e.kind)));
   const checklist = entries && foods && workouts ? visibleChecklist(buildChecklist({ plan, date, entries, workouts, foods, now: new Date(), observation }), context) : undefined;
 
   const setStatus = async (e: DayEntry, status: DayEntry['status']) => {
@@ -143,7 +158,7 @@ export function Day() {
   };
   const startAdd = (kind: EntryKind) => {
     setAdding(false);
-    if (!can(ENTRY_FEATURES[kind])) return;
+    if (!can(ENTRY_FEATURES[kind]) || (light && kind === 'workout')) return;
     if (kind === 'meal') navigate('/meal/new');
     else if (kind === 'symptom') setSymptom({});
     else setSimple({ kind });
@@ -158,7 +173,7 @@ export function Day() {
     { feature: 'day.checklist', label: t.myday.title, Icon: ListChecks, go: () => navigate('/my-day'), badge: checklist && checklist.total > 0 ? t.myday.counter(checklist.done, checklist.total) : undefined },
     ...(enabled ? [{ feature: 'wellbeing.weight' as const, label: t.progress.weight, Icon: Target, go: () => navigate('/weight') }] : []),
   ];
-  const quick = quickCandidates.filter((q) => can(q.feature) && (q.feature !== 'menu.yesterday' || can('food.log')));
+  const quick = light ? [] : quickCandidates.filter((q) => can(q.feature) && (q.feature !== 'menu.yesterday' || can('food.log')));
 
   const allowedMetrics: MetricKey[] | undefined = observation ? [
     ...(can('meds.log') && meds.length ? ['meds' as const] : []), ...(can('water.log') && scoredDay(observation, 'water', date) ? ['water' as const] : []),
@@ -167,7 +182,9 @@ export function Day() {
   if (!observationReady) return <Loading />;
   return (
     <section>
-      <DayHeader date={date} setDate={setDate} />
+      <DayHeader date={date} setDate={setDate} action={enabled ? <LightDayControl date={date} /> : undefined} />
+      {light && !isToday && <p className="mb-3 text-sm">{t.lightDay.enable}</p>}
+      {enabled && isToday && <LightDayNotice date={date} />}
 
       {entries && <NowCard entries={entries} plan={plan} date={date} observation={observation} onConfirm={setConfirming} />}
 
@@ -210,7 +227,7 @@ export function Day() {
       {/* D53: recording food is one strong button on «День», not a row under a table */}
       <div className="mb-4 flex gap-2">
         {/* D97: the main action keeps its width — the voice sits inside its right edge, not beside it */}
-        {can('food.log') ? <div className="relative flex min-w-0 flex-1">
+        {can('food.log') && !light ? <div className="relative flex min-w-0 flex-1">
           <button type="button" onClick={() => navigate('/meal/new')}
             className="flex min-h-[3.5rem] min-w-0 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-2xl border border-accent/40 bg-surface pl-2 pr-11 text-base font-semibold text-accent shadow-sm">
             <UtensilsCrossed size={20} className="shrink-0" aria-hidden />{t.day.recordFood}</button>
@@ -226,7 +243,17 @@ export function Day() {
           <span className="hidden min-[385px]:inline" aria-hidden>{t.addKinds.symptom}</span><span className="hidden min-[340px]:inline min-[385px]:hidden" aria-hidden>{t.day.unwellShort}</span></button>
       </div>
 
-      <nav ref={tilesRef} aria-label={t.day.quick} className="mb-5 grid gap-1" style={{ gridTemplateColumns: `repeat(${Math.min(quick.length, 5)}, minmax(0, 1fr))` }}>
+      {light && (can('food.log') || can('water.log')) && <details className="mb-4 rounded-2xl border border-line bg-surface p-3">
+        <summary className="min-h-tap cursor-pointer font-medium">{t.lightDay.voluntary}</summary>
+        <div className="flex flex-wrap gap-2">
+          {can('food.log') && <button type="button" onClick={() => navigate('/meal/new')} className="min-h-tap px-3 text-accent underline">{t.day.recordFood}</button>}
+          {can('water.log') && <button type="button" onClick={() => setSimple({ kind: 'water' })} className="min-h-tap px-3 text-accent underline">{t.addKinds.water}</button>}
+        </div>
+        {(entries ?? []).filter((e) => entryVisible(e, context) && e.status !== 'planned' && ['meal', 'water', 'workout'].includes(e.kind)).map((e) =>
+          <button type="button" key={e.id} onClick={() => setRowFor(e)} className="block min-h-tap text-left text-sm">{timeOf(e.at)} · {e.title}</button>)}
+      </details>}
+
+      {quick.length > 0 && <nav ref={tilesRef} aria-label={t.day.quick} className="mb-5 grid gap-1" style={{ gridTemplateColumns: `repeat(${Math.min(quick.length, 5)}, minmax(0, 1fr))` }}>
         {quick.map(({ label, Icon, go, badge, done }) => (
           <button key={label} type="button" onClick={go} aria-label={[label, done ? t.myday.workoutDone : badge].filter(Boolean).join(', ')} className="flex min-h-tap flex-col items-center gap-1 text-center">
             <span className="relative flex h-12 w-12 items-center justify-center rounded-2xl bg-surface shadow-sm"><Icon size={22} className="text-accent" aria-hidden />
@@ -235,15 +262,15 @@ export function Day() {
             <span className="text-xs leading-tight">{label}</span>
           </button>
         ))}
-      </nav>
+      </nav>}
 
-      {can('progress.week') && plan?.weekGoal && ( /* D72: the week's goal, the person's own */
+      {!light && can('progress.week') && plan?.weekGoal && ( /* D72: the week's goal, the person's own */
         <button type="button" onClick={() => navigate('/week')} className="mb-4 flex min-h-tap w-full items-center gap-2 rounded-2xl border border-line bg-surface px-3 text-left text-sm">
           <Target size={18} className="shrink-0 text-accent" aria-hidden /><span className="text-muted">{t.week.dayLine}:</span><span className="font-medium">{plan.weekGoal.text}</span>
         </button>
       )}
 
-      {can('food.log') && mode && (
+      {!light && can('food.log') && mode && (
         <div className="mb-4 rounded-2xl border border-accent/30 bg-accent/10 p-3">
           <div className="flex items-baseline justify-between gap-2">
             <span className="font-semibold">{mode.mode.title}</span>
@@ -266,7 +293,7 @@ export function Day() {
         </details>
       )}
 
-      {can('food.log') && isToday && plan && totals && foods && all && entries && (() => { // D92: top-up and «close to the limit», code only
+      {!light && can('food.log') && isToday && plan && totals && foods && all && entries && (() => { // D92: top-up and «close to the limit», code only
         const s: DayState = { plan, targets, date, now: format(new Date(), 'HH:mm'), foods, entries: all, // R03: tips checked against the real day
           mealsDone: entries.filter((e) => e.kind === 'meal' && e.status === 'done').length,
           usual: frequentItems(all, date, 60, 50).map((f) => f.item.foodId ?? '').filter(Boolean),
@@ -274,9 +301,9 @@ export function Day() {
         return <TopupCard date={date} targets={targets} tops={can('menu.topup') ? topups(s) : []} near={nearLimit(s)} />;
       })()}
 
-      {totals && <DaySummary totals={totals} targets={targets} allowed={allowedMetrics} meds={{ done: meds.filter((i) => i.done).length, total: meds.length }}
-        {...(isToday && best ? { streak: t.day.streak(t.progress.habit[best.key], best.streak) } : {})}
-        {...(entries ? { food: foodState(entries), onComplete: (on: boolean) => void markComplete(on) } : {})} />}
+      {totals && <DaySummary quiet={light} totals={totals} targets={targets} allowed={allowedMetrics} meds={{ done: meds.filter((i) => i.done).length, total: meds.length }}
+        {...(!light && isToday && best ? { streak: t.day.streak(t.progress.habit[best.key], best.streak) } : {})}
+        {...(!light && entries ? { food: foodState(entries), onComplete: (on: boolean) => void markComplete(on) } : {})} />}
 
       {voice && foods && all && (() => { const c = buildChecklist({ plan, date, entries: entries ?? [], workouts: workouts ?? [], foods, now: new Date() }); return (
         <VoiceSheet date={date} plan={plan} foods={foods} recipes={recipes ?? []} today={entries ?? []}
@@ -302,7 +329,7 @@ export function Day() {
         onDelete={() => { const e = confirming; setConfirming(null); void saved(db.entries.delete(e.id), t.toast.deleted(e.title), () => db.entries.put(e)); }} />}
       {adding && (
         <Sheet title={t.day.addRow} onClose={() => setAdding(false)}>
-          {(Object.keys(KIND_ICON) as EntryKind[]).filter((k) => can(ENTRY_FEATURES[k])).map((k) => {
+          {(Object.keys(KIND_ICON) as EntryKind[]).filter((k) => can(ENTRY_FEATURES[k]) && (!light || k !== 'workout')).map((k) => {
             const Icon = KIND_ICON[k];
             return <SheetButton key={k} onClick={() => startAdd(k)}><Icon size={20} />{t.addKinds[k]}</SheetButton>;
           })}
@@ -334,7 +361,7 @@ export function Day() {
           <div className="h-40 md:h-16" aria-hidden />{/* D48: the end of the day stays visible above the dock */}
           <QuickDock meds={{ done: meds.filter((i) => i.done).length, total: meds.length }} water={checklist.water}
             med={nextMed && { title: nextMed.title, ...(nextMed.time ? { time: nextMed.time } : {}), missed: medMissed }}
-            onMed={dockMed} onWater={dockWater} hideMed={tilesOnScreen || !can('meds.log')} hideWater={!can('water.log')} />
+            onMed={dockMed} onWater={dockWater} hideMed={(!light && tilesOnScreen) || !can('meds.log')} hideWater={light || !can('water.log')} />
         </>
       )}
       {askMed && can('meds.log') && <TimeChoice title={askMed.title} {...(askMed.time ? { planned: askMed.time } : {})} date={date} onClose={() => setAskMed(null)}

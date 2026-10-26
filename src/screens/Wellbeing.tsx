@@ -8,6 +8,8 @@ import { db } from '../data/db';
 import { useWellbeing } from '../data/queries';
 import type { Wellbeing as W } from '../domain/types';
 import { t } from '../i18n/uk';
+import { dangerInText, crisisInText } from '../domain/symptoms';
+import { LightDayControl } from '../components/LightDayControl';
 import { useUi } from '../store/ui';
 
 const L = t.well;
@@ -17,6 +19,7 @@ type Score = 1 | 2 | 3 | 4 | 5;
 export function Wellbeing() {
   const { date, shift } = useUi();
   const rec = useWellbeing(date);
+  const [lightOffer, setLightOffer] = useState<string>();
   const [own, setOwn] = useState('');
   const [note, setNote] = useState<{ date: string; text: string } | null>(null); // a note being typed, not yet saved
   const [savedAt, setSavedAt] = useState<{ date: string; hm: string } | null>(null);
@@ -24,7 +27,10 @@ export function Wellbeing() {
   const w: W = rec ?? { date, symptoms: [] };
   const put = async (patch: Partial<W>) => {
     const ok = await saved(db.wellbeing.put({ ...w, ...patch, date }), t.toast.wellbeing);
-    if (ok !== undefined) setSavedAt({ date, hm: format(new Date(), 'HH:mm') });
+    if (ok !== undefined) {
+      setSavedAt({ date, hm: format(new Date(), 'HH:mm') });
+      if (patch.energy !== undefined) setLightOffer(patch.energy <= 2 ? date : undefined);
+    }
   };
   const typed = note?.date === date ? note.text : (w.note ?? '');
   // D97: the typed note stays until it is written — closing the app right after the tap never loses it
@@ -46,6 +52,8 @@ export function Wellbeing() {
       </header>
       <p role="status" className="flex items-center justify-center gap-1 text-sm text-muted">
         {savedAt?.date === date ? <><Check size={16} className="text-accent" aria-hidden />{L.savedAt(savedAt.hm)}</> : L.autosave}</p>
+
+      {lightOffer === date && !dangerInText([typed, ...w.symptoms].join(' ')) && !crisisInText([typed, ...w.symptoms].join(' ')) && <LightDayControl date={date} onlyEnable />}
 
       {(['energy', 'mood', 'sleep'] as const).map((key) => (
         <fieldset key={key} className="rounded-2xl border border-line bg-surface p-3">

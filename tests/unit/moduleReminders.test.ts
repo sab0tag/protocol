@@ -58,12 +58,12 @@ describe('module reminder policy (D136)', () => {
     expect(mergeReminderPolicy(off, emptyPolicy())).toEqual(off);
   });
 
-  it('projects only module/weight decisions, retaining their exact LWW order and no medical content', () => {
+  it('projects module/weight and dated light-day decisions, retaining LWW order and no medical content', () => {
     const events: ModuleEvent[] = [{ id: 'off', v: 1, kind: 'module', at: '2026-10-20T10:00:00.000Z', module: 'water', source: 'manual', enabled: false },
       { id: 'later-migration', v: 1, kind: 'module', at: '2026-10-25T10:00:00.000Z', module: 'water', source: 'migration', reason: 'records', before: 'unknown', enabled: true },
       { id: 'light', v: 1, kind: 'light-day', date: '2026-10-25', at: '2026-10-25T10:00:00.000Z', source: 'manual', enabled: true }];
-    expect(policyFromEvents(events)).toMatchObject({ modules: { water: { enabled: false, id: 'off' } }, days: [] });
-    expect(policyFromEvents([...events].reverse())).toEqual(policyFromEvents(events));
+    expect(policyFromEvents(events, +now)).toMatchObject({ modules: { water: { enabled: false, id: 'off' } }, days: [{ date: '2026-10-25', enabled: true, from: light.from, until: light.until }] });
+    expect(policyFromEvents([...events].reverse(), +now)).toEqual(policyFromEvents(events, +now));
   });
 
   it('cancels water snoozes without acknowledging the disabled task or touching the medicine keys', () => {
