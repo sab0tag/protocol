@@ -89,7 +89,10 @@ test('«Як учора» stays on «День» and copies a prior meal to today
       items: [{ foodId: 'kefir', name: 'Кефір 2,5 %', grams: 250 }] },
   }]);
 
-  await page.getByRole('button', { name: 'Як учора' }).click();
+  const quick = page.getByRole('navigation', { name: 'Швидко' });
+  await expect(quick.getByRole('button')).toHaveCount(4);
+  const rhythm = page.getByRole('region', { name: 'Ритм дня' });
+  await rhythm.getByRole('button', { name: 'Як учора' }).click();
   const sheet = page.getByRole('dialog', { name: 'Повторити з учора' });
   await expect(sheet.getByText('Кефір 2,5 % 250 г')).toBeVisible();
   await sheet.getByRole('button', { name: /13:00 · Обід/ }).click();

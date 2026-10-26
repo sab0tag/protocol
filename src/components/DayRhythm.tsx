@@ -1,6 +1,6 @@
 // «Ритм дня» (SPEC.md §14.1, D53): the day as a time line — done is a filled dot with «Записано», ahead is an open
 // circle, skipped is quiet. A whole row is the button (the row's sheet, D46); a dose of the plan asks when (D52).
-import { Dumbbell, Pill, Plus } from 'lucide-react';
+import { Dumbbell, Pill, Plus, Undo2 } from 'lucide-react';
 import type { CheckItem } from '../domain/checklist';
 import { amountText } from '../domain/foodSearch';
 import { mealNutrients, round } from '../domain/nutrition';
@@ -10,13 +10,18 @@ import { t } from '../i18n/uk';
 
 const L = t.day;
 
-export function DayRhythm({ rhythm, foods, onEntry, onDose, onAnytime, onAdd }: {
+export function DayRhythm({ rhythm, foods, onEntry, onDose, onAnytime, onAdd, onYesterday }: {
   rhythm: Rhythm; foods?: Map<string, Food>;
-  onEntry: (e: DayEntry) => void; onDose: (i: CheckItem) => void; onAnytime: (i: CheckItem) => void; onAdd: () => void;
+  onEntry: (e: DayEntry) => void; onDose: (i: CheckItem) => void; onAnytime: (i: CheckItem) => void; onAdd: () => void; onYesterday: () => void;
 }) {
   return (
     <section aria-labelledby="rhythm" className="mb-4">
-      <h2 id="rhythm" className="mb-2 text-xl font-semibold">{L.rhythm}</h2>
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <h2 id="rhythm" className="text-xl font-semibold">{L.rhythm}</h2>
+        <button type="button" onClick={onYesterday} className="flex min-h-tap shrink-0 items-center gap-1 rounded-xl px-2 text-sm font-medium text-accent">
+          <Undo2 size={16} aria-hidden />{L.likeYesterday}
+        </button>
+      </div>
       {rhythm.anytime.length > 0 && (
         <div className="mb-2 flex flex-wrap items-center gap-2">
           <span className="text-sm text-muted">{L.anytime}</span>
