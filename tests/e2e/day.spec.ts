@@ -103,6 +103,15 @@ test('«Як учора» stays on «День» and copies a prior meal to today
   await expect(page.getByText(/^Як раніше ·/)).toHaveCount(0);
 });
 
+test('an empty Day rhythm keeps one explanation and leaves food recording as the action', async ({ browser }) => {
+  const page = await device(browser, 'skip');
+  const rhythm = page.getByRole('region', { name: 'Ритм дня' });
+  await expect(rhythm.getByText('На цей день ще нічого немає.')).toBeVisible();
+  await expect(rhythm.getByRole('button', { name: 'Як учора' })).toBeVisible();
+  await expect(rhythm.getByRole('button', { name: 'Додати інше — ліки, тренування, нотатку' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Записати їжу' })).toBeVisible();
+});
+
 test('«Мені погано»: a symptom with its time, what was eaten before it, and «103» for a danger sign (D56)', async ({ browser }) => {
   const page = await device(browser);
   const now = new Date(), d = ymd(now);
