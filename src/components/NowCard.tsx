@@ -34,7 +34,7 @@ export function NowCard({ entries, plan, date, observation, onConfirm }: { entri
     <div className="mb-3 space-y-3">
       {focus.now && <Due item={focus.now} date={date} onSnoozed={() => setClock(new Date())} onConfirm={onConfirm} />}
       {focus.next && (
-        <section aria-label={L.next} className="flex min-h-tap items-center gap-3 rounded-2xl border border-line bg-surface px-3 py-2">
+        <section aria-label={L.next} className="flex min-h-tap items-center gap-3 protocol-card px-4 py-3">
           <span className={label}>{L.next}</span>
           <span className="tabular text-muted">{focus.next.time}</span>
           <span className="min-w-0 flex-1 truncate font-medium">{titleOf(focus.next)}</span>
@@ -62,7 +62,7 @@ function Due({ item, date, onSnoozed, onConfirm }: { item: NowItem; date: string
   const later = () => saved(snooze(item.key, Date.now() + SNOOZE_MIN * 60_000), t.toast.later(SNOOZE_MIN)).then(onSnoozed);
   const nowHm = () => ({ time: format(new Date(), 'HH:mm') });
   return (
-    <section aria-label={L.title} className="rounded-2xl border border-line bg-surface p-4 shadow-md shadow-ink/5">
+    <section aria-label={L.title} className="protocol-card border-accent/30 p-5">
       <p className="flex items-center justify-between gap-2">
         <span className={`${label} flex items-center gap-2 text-ink`}><span className="h-2 w-2 rounded-full bg-accent" aria-hidden />{L.title}</span>
         <span className="tabular text-right text-muted">{when}</span>
@@ -85,7 +85,7 @@ function Missed({ items, date, onConfirm }: { items: NowItem[]; date: string; on
   const [open, setOpen] = useState(false);
   const [asking, setAsking] = useState<NowItem | null>(null);
   return (
-    <section aria-label={L.missed} className="rounded-2xl border border-line bg-surface">
+    <section aria-label={L.missed} className="protocol-card">
       <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open}
         className="flex min-h-tap w-full items-center justify-between gap-2 px-3 text-left">
         <span className={label}>{L.missedCount(items.length)}</span>

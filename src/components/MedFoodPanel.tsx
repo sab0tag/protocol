@@ -9,7 +9,7 @@ const L = t.medFood;
 export function MedFoodPanel({ notes }: { notes: MedFoodNote[] }) {
   if (!notes.length) return null;
   return (
-    <section aria-label={L.title} className="rounded-2xl border border-line bg-surface p-3">
+    <section aria-label={L.title} className="protocol-card rounded-2xl border border-line bg-surface p-3">
       <h2 className="mb-1 flex items-center gap-2 font-semibold"><Info size={18} className="text-accent" aria-hidden />{L.title}</h2>
       <ul className="space-y-2 text-sm">
         {notes.map((n, i) => (

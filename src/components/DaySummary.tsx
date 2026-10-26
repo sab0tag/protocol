@@ -1,9 +1,11 @@
+import { ProgressTrack, type ProgressTone } from './ProgressTrack';
+import { ProgressRing } from './ProgressRing';
 // «Уже сьогодні» (SPEC.md §14.1, D53): two or three main numbers chosen by the person (R5: water, medicines, carbs),
 // each with its target or limit from the plan, units and progress; the rest behind «Усі показники». A ring is
 // something to reach; a bar with «межа» is a limit — «межу не потрібно заповнювати». No overall score of the day.
 import { Beef, Check, Droplet, Flame, MessageCircle, Milk, Pill, Wheat } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { useState, type ReactNode } from 'react';
+import { useState } from 'react';
 import type { DayTotals } from '../domain/nutrition';
 import { round } from '../domain/nutrition';
 import type { Targets } from '../domain/types';
@@ -14,32 +16,39 @@ const L = t.summary;
 export type MetricKey = 'water' | 'meds' | 'carbs' | 'protein' | 'calcium' | 'kcal';
 const ALL: MetricKey[] = ['water', 'meds', 'carbs', 'protein', 'calcium', 'kcal'];
 const DEFAULT: MetricKey[] = ['water', 'meds', 'carbs'];
+const MIN_MAIN = 2;
 const MAX_MAIN = 3;
 const STORE = 'protocol.mainMetrics'; // this device's choice — a view setting, not data
 
 function loadMain(): MetricKey[] {
   try {
     const v = JSON.parse(localStorage.getItem(STORE) ?? 'null') as unknown;
-    if (Array.isArray(v) && v.length && v.every((k) => ALL.includes(k as MetricKey))) return v as MetricKey[];
+    if (Array.isArray(v) && v.length >= MIN_MAIN && v.length <= MAX_MAIN
+      && v.every((k) => ALL.includes(k as MetricKey)) && new Set(v).size === v.length) return v as MetricKey[];
   } catch { /* private mode */ }
   return DEFAULT;
 }
 
-interface Metric { label: string; value: string; target?: string; progress: number; shape: 'ring' | 'limit' | 'min'; over?: boolean; note?: string; Icon: typeof Pill; tone: string }
+interface Metric { label: string; value: string; target?: string; progress: number; progressTarget?: number; shape: 'ring' | 'limit' | 'min'; over?: boolean; note?: string; Icon: typeof Pill; tone: ProgressTone }
 
 const litres = (ml: number) => (ml / 1000).toLocaleString('uk-UA', { maximumFractionDigits: 2 });
 
 function metric(key: MetricKey, totals: DayTotals, targets: Targets, meds: { done: number; total: number }): Metric | null {
   switch (key) {
     case 'water': return { label: L.water, value: `${litres(totals.waterMl)}${targets.waterMl ? ` / ${litres(targets.waterMl)}` : ''} л`,
-      progress: targets.waterMl ? totals.waterMl / targets.waterMl : 0, shape: 'ring', Icon: Droplet, tone: 'water' };
-    case 'meds': return meds.total ? { label: L.meds, value: L.ofTotal(meds.done, meds.total), progress: meds.done / meds.total, shape: 'ring', Icon: Pill, tone: 'accent' } : null;
+      progress: targets.waterMl ? totals.waterMl / targets.waterMl : 0, ...(targets.waterMl ? { progressTarget: targets.waterMl } : {}),
+      shape: 'ring', Icon: Droplet, tone: 'water' };
+    case 'meds': return meds.total ? { label: L.meds, value: L.ofTotal(meds.done, meds.total), progress: meds.done / meds.total, progressTarget: meds.total,
+      shape: 'ring', Icon: Pill, tone: 'meds' } : null;
     case 'protein': return { label: L.protein, value: `${round(totals.protein)}${targets.proteinG ? ` / ${targets.proteinG}` : ''} г`,
-      progress: targets.proteinG ? totals.protein / targets.proteinG : 0, shape: 'ring', Icon: Beef, tone: 'accent' };
+      progress: targets.proteinG ? totals.protein / targets.proteinG : 0, ...(targets.proteinG ? { progressTarget: targets.proteinG } : {}),
+      shape: 'ring', Icon: Beef, tone: 'protein' };
     case 'calcium': return { label: L.calcium, value: `${round(totals.calciumMg)}${targets.calciumMg ? ` / ${targets.calciumMg}` : ''} мг`,
-      progress: targets.calciumMg ? totals.calciumMg / targets.calciumMg : 0, shape: 'ring', Icon: Milk, tone: 'accent' };
+      progress: targets.calciumMg ? totals.calciumMg / targets.calciumMg : 0, ...(targets.calciumMg ? { progressTarget: targets.calciumMg } : {}),
+      shape: 'ring', Icon: Milk, tone: 'calcium' };
     case 'kcal': return { label: L.kcal, value: `${round(totals.kcal)}${targets.kcal ? ` / ${targets.kcal}` : ''} ккал`,
-      progress: targets.kcal ? totals.kcal / targets.kcal : 0, shape: 'ring', Icon: Flame, tone: 'accent' };
+      progress: targets.kcal ? totals.kcal / targets.kcal : 0, ...(targets.kcal ? { progressTarget: targets.kcal } : {}),
+      shape: 'ring', Icon: Flame, tone: 'energy' };
     case 'carbs': {
       const c = round(totals.carbs), min = targets.carbsG?.min, max = targets.carbsG?.max;
       if (min != null) return { label: L.carbs, value: `${c} г`, target: L.atLeast(min), progress: c / min, shape: 'min', Icon: Wheat, tone: 'accent',
@@ -58,11 +67,15 @@ export function DaySummary({ totals, targets, meds, streak, food, onComplete, al
   const [setup, setSetup] = useState(false);
   const visible = ALL.filter((key) => !allowed || allowed.includes(key));
   const selected = main.filter((key) => visible.includes(key));
-  const effectiveMain = selected.length ? selected : visible.slice(0, MAX_MAIN);
+  const minVisible = Math.min(MIN_MAIN, visible.length);
+  const maxVisible = Math.min(MAX_MAIN, visible.length);
+  const effectiveMain = selected.length ? selected : visible.slice(0, maxVisible);
   const shown = (keys: MetricKey[]) => keys.filter((k) => visible.includes(k)).map((k) => [k, metric(k, totals, targets, meds)] as const).filter((x): x is [MetricKey, Metric] => x[1] !== null);
   const toggle = (k: MetricKey, on: boolean) => {
-    const next = on ? [...main, k].slice(-MAX_MAIN) : main.filter((x) => x !== k);
-    if (!next.length) return;
+    if ((on && effectiveMain.length >= maxVisible) || (!on && effectiveMain.length <= minVisible)) return;
+    const nextVisible = on ? [...effectiveMain, k] : effectiveMain.filter((x) => x !== k);
+    const hidden = main.filter((x) => !visible.includes(x)).slice(0, MAX_MAIN - nextVisible.length);
+    const next = [...hidden, ...nextVisible];
     setMain(next);
     try { localStorage.setItem(STORE, JSON.stringify(next)); } catch { /* private mode */ }
   };
@@ -70,17 +83,19 @@ export function DaySummary({ totals, targets, meds, streak, food, onComplete, al
   if (!visible.length) return null;
 
   return (
-    <section aria-labelledby="summary" className="mb-4 rounded-2xl border border-line bg-surface p-4">
+    <section aria-labelledby="summary" className="protocol-card mb-4 p-5">
       <div className="mb-3 flex items-baseline justify-between gap-2">
         <h2 id="summary" className="text-lg font-semibold">{L.title}</h2>
         <button type="button" onClick={() => setSetup((v) => !v)} aria-expanded={setup} className="min-h-tap px-1 text-sm text-accent">{setup ? L.done : L.setup}</button>
       </div>
       {setup ? (
         <fieldset>
-          <legend className="mb-2 text-sm text-muted">{L.setupHint(MAX_MAIN)}</legend>
+          <legend className="mb-2 text-sm text-muted">{L.setupHint(minVisible, maxVisible)}</legend>
           {visible.map((k) => (
-            <label key={k} className="flex min-h-tap items-center gap-3">
-              <input type="checkbox" checked={main.includes(k)} onChange={(e) => toggle(k, e.target.checked)} className="h-5 w-5 accent-[rgb(var(--accent))]" />
+            <label key={k} className="protocol-toggle-row min-h-tap">
+              <input type="checkbox" checked={effectiveMain.includes(k)} disabled={
+                (effectiveMain.length >= maxVisible && !effectiveMain.includes(k)) || (effectiveMain.length <= minVisible && effectiveMain.includes(k))
+              } onChange={(e) => toggle(k, e.target.checked)} className="protocol-switch" />
               <span>{L[k]}</span>
             </label>
           ))}
@@ -113,11 +128,14 @@ function Metrics({ list }: { list: [MetricKey, Metric][] }) {
   return (
     <div className="space-y-4">
       {rings.length > 0 && (
-        <ul className="grid grid-cols-2 gap-x-3 gap-y-4">
+        <ul className="protocol-metric-rings" data-count={rings.length}>
           {rings.map(([k, m]) => (
-            <li key={k} className="flex items-center gap-3">
-              <Ring progress={m.progress} tone={m.tone}><m.Icon size={20} className={m.tone === 'water' ? 'text-water' : 'text-accent'} aria-hidden /></Ring>
-              <span className="min-w-0"><span className="block text-sm text-muted">{m.label}</span><span className="tabular block font-medium">{m.value}</span></span>
+            <li key={k} className="flex min-w-0 flex-col items-center gap-2 text-center">
+              <ProgressRing ratio={m.progressTarget ? m.progress : undefined} tone={m.tone} label={m.label} valueText={m.value}>
+                <m.Icon size={27} className="protocol-ring-icon" aria-hidden />
+              </ProgressRing>
+              <span className="text-sm text-muted">{m.label}</span>
+              <span className="protocol-ring-value tabular">{m.value}</span>
             </li>
           ))}
         </ul>
@@ -129,30 +147,13 @@ function Metrics({ list }: { list: [MetricKey, Metric][] }) {
             {m.target && <span className="text-muted">{m.target}</span>}
           </p>
           {m.target && (
-            <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-line" role="progressbar" aria-label={m.label}
-              aria-valuenow={Math.round(m.progress * 100)} aria-valuemin={0} aria-valuemax={100}>
-              <div className={`h-full rounded-full ${m.over ? 'bg-warn' : m.shape === 'limit' ? 'bg-muted' : 'bg-accent'}`} style={{ width: `${Math.min(100, m.progress * 100)}%` }} />
-            </div>
+            <div className="mt-2"><ProgressTrack ratio={m.progress} label={m.label} valueText={[m.value, m.target, m.note].filter(Boolean).join(' · ')}
+              tone={m.over ? 'warn' : m.shape === 'limit' ? 'carbs' : 'protein'} /></div>
           )}
           {m.note && <p className={`mt-1 flex items-center gap-1 text-sm ${m.over ? 'text-warn' : 'text-muted'}`}>
             {m.shape === 'min' && m.progress >= 1 && <Check size={14} className="text-accent" aria-hidden />}{m.note}</p>}
         </div>
       ))}
     </div>
-  );
-}
-
-const R = 21, C = 2 * Math.PI * R;
-function Ring({ progress, tone, children }: { progress: number; tone: string; children: ReactNode }) {
-  const p = Math.min(1, Math.max(0, progress));
-  return (
-    <span className="relative flex h-12 w-12 shrink-0 items-center justify-center" aria-hidden>
-      <svg viewBox="0 0 48 48" className="absolute inset-0 -rotate-90">
-        <circle cx="24" cy="24" r={R} fill="none" strokeWidth="4" className="stroke-line" />
-        {p > 0 && <circle cx="24" cy="24" r={R} fill="none" strokeWidth="4" strokeLinecap="round" strokeDasharray={C} strokeDashoffset={C * (1 - p)}
-          className={tone === 'water' ? 'stroke-water' : 'stroke-accent'} />}
-      </svg>
-      {children}
-    </span>
   );
 }

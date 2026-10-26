@@ -1,3 +1,4 @@
+import { SceneHeader } from '../components/SceneHeader';
 import { ExerciseLibrary } from '../components/ExerciseLibrary';
 import { EQUIPMENT } from '../domain/workouts';
 import { t } from '../i18n/uk';
@@ -6,7 +7,7 @@ import { t } from '../i18n/uk';
 export function Exercises() {
   return (
     <section className="space-y-3 pt-4">
-      <h1 className="text-2xl font-semibold">{t.exercise.library}</h1>
+      <SceneHeader title={t.exercise.library} />
       <p className="text-sm text-muted">{EQUIPMENT}</p>
       <ExerciseLibrary />
     </section>

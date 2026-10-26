@@ -41,7 +41,7 @@ export default defineConfig({
           { src: 'icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
       },
-      workbox: { globPatterns: ['**/*.{js,css,html,svg,png,jpg,woff2}'], importScripts: ['reminder-policy.js', 'push-sw.js'] }, // D136: one policy for API, client and worker
+      workbox: { globPatterns: ['**/*.{js,css,html,svg,png,jpg,webp,woff2}'], importScripts: ['reminder-policy.js', 'push-sw.js'] }, // D136: one policy for API, client and worker
     }),
   ],
   test: {

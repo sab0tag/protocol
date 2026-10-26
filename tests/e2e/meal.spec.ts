@@ -3,9 +3,15 @@ import { device, toast } from './helpers';
 
 test('«Записати їжу»: the food first, the meal line folded; a meal pinned to «Мої звичні» comes back in one tap (D51)', async ({ browser }) => {
   const page = await device(browser);
+  await page.setViewportSize({ width: 320, height: 844 });
   await page.goto('./#/meal/new');
   const search = page.getByRole('searchbox', { name: /^Що з’їли/ });
   await expect(search).toBeFocused();
+  const searchLabel = page.getByText(/^Що з’їли/);
+  const [labelBox, searchBox] = await Promise.all([searchLabel.boundingBox(), search.boundingBox()]);
+  expect(labelBox).not.toBeNull();
+  expect(searchBox).not.toBeNull();
+  expect(labelBox!.y + labelBox!.height).toBeLessThanOrEqual(searchBox!.y);
   await search.fill('кефір');
   await page.getByRole('button', { name: /^Кефір 2,5 %/ }).first().click();
   const line = page.getByRole('button', { name: /^Прийом: назва, час/ });
@@ -21,7 +27,8 @@ test('«Записати їжу»: the food first, the meal line folded; a meal 
   await expect(toast(page)).toContainText('«Перекус» — у звичних');
 
   await page.goto('./#/meal/new');
-  const fav = page.getByRole('button', { name: /^Перекус Кефір 2,5 %/ });
+  await expect(page.getByText(/^Як раніше ·/)).toHaveCount(0);
+  const fav = page.getByRole('region', { name: 'Мої звичні' }).getByRole('button', { name: /^Перекус Кефір 2,5 %/ });
   await fav.click();
   await expect(page.locator('li').filter({ hasText: 'Кефір 2,5 %' }).first()).toBeVisible();
   await page.getByRole('button', { name: 'Прибрати зі звичних: Перекус' }).click();
@@ -31,7 +38,7 @@ test('«Записати їжу»: the food first, the meal line folded; a meal 
 
 test('a confirmed allergy entered in «План»: marked in search, «Прибрати» in the check (D58)', async ({ browser }) => {
   const page = await device(browser);
-  await page.goto('./#/plan');
+  await page.goto('./#/plan/constraints');
   await page.locator('section.rounded-2xl').filter({ has: page.getByRole('heading', { name: 'Обмеження', exact: true }) }).getByRole('button', { name: 'Додати' }).click();
   const form = page.getByRole('dialog', { name: 'Обмеження' });
   await form.getByRole('combobox', { name: 'Що це за обмеження' }).selectOption('allergy');

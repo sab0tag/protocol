@@ -188,7 +188,7 @@ export function dayFocus(args: { entries: DayEntry[]; plan: Plan | undefined; da
   for (const [time, meds] of byTime) out.push({ key: `med:${date}:${time}`, kind: 'med', time, title: 'Ліки', late: 0, meds });
   for (const x of out) x.late = differenceInMinutes(now, new Date(`${date}T${x.time}:00`));
   out.sort((a, b) => a.time.localeCompare(b.time));
-  const missed = out.filter((x) => x.late > NOW_AFTER_MIN && !x.entry?.menu);
+  const missed = out.filter((x) => x.late > NOW_AFTER_MIN);
   const due = out.find((x) => x.late <= NOW_AFTER_MIN && x.late >= -NOW_BEFORE_MIN && !sleeping(x.key));
   if (due) return { now: due, missed };
   const next = out.find((x) => x.late < -NOW_BEFORE_MIN);

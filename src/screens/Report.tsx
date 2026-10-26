@@ -95,7 +95,7 @@ export function Report() {
       )}
 
       {(!r.observed || r.checklistPct != null || r.observed.weight || r.observed.workout || r.observed.wellbeing) && (
-        <dl className="grid grid-cols-2 gap-3 rounded-2xl border border-line bg-surface p-3 tabular sm:grid-cols-4">
+        <dl className="grid grid-cols-2 gap-3 protocol-card rounded-2xl border border-line bg-surface p-3 tabular sm:grid-cols-4">
           {(!r.observed || r.checklistPct != null) && <Metric label={L.checklist} value={r.checklistPct != null ? `${r.checklistPct} %` : '—'} />}
           {r.observed?.weight !== false && <Metric label={L.weight} value={r.weightStart != null ? `${num(r.weightStart)} → ${num(r.weightNow!)} кг` : '—'} />}
           {r.observed?.workout !== false && <Metric label={L.workouts} value={String(r.workouts)} />}
@@ -104,7 +104,7 @@ export function Report() {
       )}
 
       {(r.weightPace != null || r.habits.length > 0 || r.menu) && (
-        <section className="rounded-2xl border border-line bg-surface p-3">
+        <section className="protocol-card rounded-2xl border border-line bg-surface p-3">
           <h2 className="mb-2 font-semibold">{L.howPlan}</h2>
           {r.weightPace != null && (
             <p className={`mb-2 ${r.maxLossPerWeek != null && -r.weightPace > r.maxLossPerWeek ? 'font-semibold text-warn' : ''}`}>
@@ -124,7 +124,7 @@ export function Report() {
         </section>
       )}
 
-      <section className="rounded-2xl border border-line bg-surface p-3">
+      <section className="protocol-card rounded-2xl border border-line bg-surface p-3">
         <h2 className="mb-2 font-semibold">{L.symptoms}</h2>
         {r.symptoms.length ? (
           <ul className="space-y-1">{r.symptoms.map((s) => (
@@ -140,7 +140,7 @@ export function Report() {
         )}
       </section>
 
-      <section className="rounded-2xl border border-line bg-surface p-3">
+      <section className="protocol-card rounded-2xl border border-line bg-surface p-3">
         <h2 className="mb-2 font-semibold">{L.questions}</h2>
         <ol className="list-decimal space-y-1 pl-5">
           {questions.map((q, i) => (

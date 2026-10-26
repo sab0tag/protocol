@@ -7,14 +7,18 @@
 
 /* Tokens (SPEC.md §7) as RGB triples; the dark theme follows the system setting. */
 :root {
-  --bg: 244 242 238; --surface: 255 255 255; --ink: 27 31 29; --muted: 92 99 95; --line: 230 226 218;
-  --accent: 47 107 79; --warn: 138 60 16; --warn-bg: 246 227 214; --water: 91 141 184;
+  --bg: 241 244 240; --surface: 253 255 252; --ink: 31 46 37; --muted: 91 108 97; --line: 219 229 220;
+  --accent: 45 105 78; --warn: 138 60 16; --warn-bg: 246 227 214; --water: 27 112 168;
+  --meter-energy: 185 80 30; --meter-protein: 27 131 78; --meter-meds: 112 76 178;
+  --meter-calcium: 142 105 23; --meter-carbs: 147 113 30;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: 20 23 21; --surface: 31 35 33; --ink: 236 233 227; --muted: 166 172 168; --line: 55 60 57;
-    --accent: 120 190 152; --warn: 240 172 130; --warn-bg: 72 42 26; --water: 128 174 216;
+    --bg: 15 22 19; --surface: 27 37 31; --ink: 235 242 233; --muted: 165 183 171; --line: 47 65 54;
+    --accent: 157 224 185; --warn: 240 172 130; --warn-bg: 72 42 26; --water: 111 199 251;
+    --meter-energy: 255 155 102; --meter-protein: 132 231 173; --meter-meds: 186 160 255;
+    --meter-calcium: 235 202 115; --meter-carbs: 227 186 111;
     color-scheme: dark;
   }
 }
@@ -28,3 +32,119 @@ body { font-family: 'Golos Text', system-ui, -apple-system, sans-serif; -webkit-
 .pt-safe { padding-top: env(safe-area-inset-top, 0px); }
 :focus-visible { outline: 2px solid rgb(var(--accent)); outline-offset: 2px; }
 @keyframes toast-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } } /* D39 */
+
+/* Protocol 2.0 — additive semantic design layer. Existing tokens stay compatible. */
+:root {
+  --protocol-radius-card: 1.5rem;
+  --protocol-radius-control: 0.875rem;
+  --protocol-space-page: clamp(1rem, 3vw, 1.5rem);
+  --protocol-shadow-card: 0 16px 46px -30px rgb(27 61 41 / .25);
+}
+@layer components {
+  .protocol-card {
+    border: 1px solid rgb(var(--line));
+    border-radius: var(--protocol-radius-card);
+    background: rgb(var(--surface));
+    box-shadow: var(--protocol-shadow-card);
+  }
+  .protocol-card-interactive {
+    border: 1px solid rgb(var(--line));
+    border-radius: var(--protocol-radius-card);
+    background: rgb(var(--surface));
+    box-shadow: var(--protocol-shadow-card);
+    @apply transition-colors duration-150;
+  }
+  .protocol-card-interactive:hover { border-color: rgb(var(--accent) / 0.5); }
+  .protocol-eyebrow {
+    @apply text-xs font-semibold uppercase tracking-widest;
+    color: rgb(var(--accent));
+  }
+  .protocol-action {
+    @apply inline-flex min-h-tap items-center justify-center gap-2 px-4 font-semibold;
+    border-radius: var(--protocol-radius-control);
+    background: rgb(var(--accent));
+    color: rgb(var(--bg));
+  }
+  .protocol-action-secondary {
+    @apply inline-flex min-h-tap items-center justify-center gap-2 border border-line bg-surface px-4 font-medium text-ink;
+    border-radius: var(--protocol-radius-control);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .protocol-card-interactive { transition: none; }
+}
+
+/* Protocol Woodland: the scene is a local, offline-cached asset. */
+body { background-image: radial-gradient(ellipse at 10% 0%, rgb(var(--accent) / .055), transparent 45rem); }
+.protocol-day-hero, .protocol-scene-header {
+  isolation: isolate;
+  background-color: #12251e;
+  background-image: linear-gradient(90deg, rgb(5 22 17 / .72), rgb(7 24 18 / .16)), url('../assets/forest-dusk.webp');
+  background-size: cover;
+  background-position: 100% 61%;
+  box-shadow: 0 18px 46px -25px rgb(0 0 0 / .48);
+}
+.protocol-day-hero { min-height: 20rem; }
+.protocol-day-hero::after, .protocol-scene-header::after {
+  content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background: linear-gradient(180deg, rgb(4 19 14 / .08) 25%, rgb(4 19 14 / .68) 100%);
+}
+.protocol-day-hero .protocol-calendar { background: rgb(6 24 17 / .28); border: 1px solid rgb(255 255 255 / .12); backdrop-filter: blur(10px); }
+.protocol-scene-header { background-position: center 58%; }
+.protocol-card { border-radius: var(--protocol-radius-card); border-color: rgb(var(--line) / .8); }
+.protocol-card > h2, .protocol-card > div > h2 { letter-spacing: -.02em; }
+.protocol-toggle-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 1rem; padding-block: .65rem; }
+.protocol-toggle-row > .protocol-switch { grid-column: 2; grid-row: 1; }
+.protocol-toggle-row > span { grid-column: 1; grid-row: 1; }
+input[type=checkbox] { appearance: none; width: 1.25rem; height: 1.25rem; flex-shrink: 0; border: 1.5px solid rgb(var(--muted) / .6); border-radius: .375rem; background-color: rgb(var(--bg)); cursor: pointer; }
+input[type=checkbox]:checked { background-color: rgb(var(--accent)); border-color: rgb(var(--accent)); background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='m5 10 3 3 7-7' fill='none' stroke='white' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); }
+input[type=checkbox]:disabled { cursor: default; opacity: .4; }
+input[type=checkbox].protocol-switch { position: relative; width: 2.875rem; height: 1.75rem; border-radius: 999px; border-color: rgb(var(--line)); background-image: none; background-color: rgb(var(--line)); }
+input[type=checkbox].protocol-switch::after { content: ''; position: absolute; width: 1.25rem; height: 1.25rem; left: .1875rem; top: .1875rem; border-radius: 50%; background: rgb(var(--surface)); box-shadow: 0 2px 5px rgb(0 0 0 / .15); }
+input[type=checkbox].protocol-switch:checked { background-color: rgb(var(--accent)); border-color: rgb(var(--accent)); }
+input[type=checkbox].protocol-switch:checked::after { transform: translateX(1.125rem); }
+.protocol-progress-track, .protocol-ring { --progress-color: var(--accent); }
+.protocol-progress-track { height: .625rem; overflow: hidden; border-radius: 999px; background: rgb(var(--line) / .72); }
+.protocol-progress-fill { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, rgb(var(--progress-color) / .65), rgb(var(--progress-color))); }
+.protocol-progress-accent { --progress-color: var(--accent); }
+.protocol-progress-water { --progress-color: var(--water); }
+.protocol-progress-energy { --progress-color: var(--meter-energy); }
+.protocol-progress-protein { --progress-color: var(--meter-protein); }
+.protocol-progress-meds { --progress-color: var(--meter-meds); }
+.protocol-progress-calcium { --progress-color: var(--meter-calcium); }
+.protocol-progress-carbs { --progress-color: var(--meter-carbs); }
+.protocol-progress-warn { --progress-color: var(--warn); }
+.protocol-progress-neutral { --progress-color: var(--muted); }
+.protocol-ring { position: relative; display: flex; width: 4.75rem; height: 4.75rem; flex-shrink: 0; align-items: center; justify-content: center; border-radius: 50%; background: rgb(var(--progress-color) / .04); }
+.protocol-ring-dock { width: 3.5rem; height: 3.5rem; }
+.protocol-meter-start { stop-color: rgb(var(--progress-color) / .65); }
+.protocol-meter-end { stop-color: rgb(var(--progress-color)); }
+.protocol-ring-icon { color: rgb(var(--progress-color)); fill: rgb(var(--progress-color) / .18); }
+.protocol-metric-rings { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem .75rem; padding-block: .5rem; }
+.protocol-metric-rings[data-count="1"] { grid-template-columns: minmax(0, 1fr); }
+.protocol-ring-value { max-width: 100%; font-size: .875rem; font-weight: 600; line-height: 1.5; }
+@media (min-width: 380px) {
+  .protocol-metric-rings[data-count="3"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+.protocol-metric { min-width: 0; border-radius: 1.125rem; background: rgb(var(--bg) / .7); padding: .875rem; }
+.protocol-metric-value { font-size: clamp(1rem, 3.5vw, 1.25rem); font-weight: 600; letter-spacing: -.025em; }
+main :where(input:not([type=checkbox]):not([type=radio]), select, textarea) { font-size: 1rem; border-radius: .875rem; }
+main :where(summary) { list-style: none; }
+main :where(summary)::-webkit-details-marker { display: none; }
+main :where(summary)::after { content: '⌄'; float: right; margin-left: .75rem; color: rgb(var(--muted)); }
+main :where(details[open] > summary)::after { transform: rotate(180deg); }
+@media (prefers-color-scheme: dark) {
+  :root { --protocol-shadow-card: 0 18px 48px -30px rgb(0 0 0 / .65); }
+  input[type=checkbox]:checked:not(.protocol-switch) { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='m5 10 3 3 7-7' fill='none' stroke='%23131f18' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); }
+  input[type=checkbox].protocol-switch:checked::after { background: rgb(var(--bg)); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .protocol-progress-fill, .protocol-switch, .protocol-switch::after { transition: width 180ms ease, background-color 180ms ease, transform 180ms ease; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
+@media (forced-colors: active) {
+  input[type=checkbox], input[type=checkbox].protocol-switch { appearance: auto; background-image: none; }
+  input[type=checkbox].protocol-switch::after { display: none; }
+}

@@ -1,19 +1,17 @@
+import { SceneHeader } from '../components/SceneHeader';
 import { format, parseISO } from 'date-fns';
-import { LabsScan } from '../components/LabsScan';
 import { ExampleNotice } from '../components/ExampleNotice';
 import { Loading } from '../components/Recovery';
 import { saved } from '../components/Toast';
-import { AlertTriangle, FileText, Plus } from 'lucide-react';
+import { AlertTriangle, ChevronRight, FileText, Plus } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Bar, BarChart, CartesianGrid, Cell, LabelList, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { db } from '../data/db';
-import { useAllEntries, useAllWellbeing, useFoods, useLabs, usePlan, useWeights, useWorkouts } from '../data/queries';
+import { usePlan, useWeights } from '../data/queries';
 import { todayISO } from '../domain/dates';
-import { labRows, pace, patterns, tooFastTwoWeeks, weeklyWeights, weightSummary, type WeekWeight } from '../domain/progress';
-import { habits, weekSummary, type Habit } from '../domain/habits';
+import { pace, tooFastTwoWeeks, weeklyWeights, weightSummary, type WeekWeight } from '../domain/progress';
 import { t } from '../i18n/uk';
-import { useObservation } from '../app/observation';
 
 const L = t.progress;
 const field = 'mt-1 block min-h-tap w-full rounded-xl border border-line bg-bg px-3';
@@ -24,34 +22,34 @@ const signed = (n: number) => `${n > 0 ? '+' : n < 0 ? '−' : ''}${kg(Math.abs(
 /** «Прогрес» (SPEC.md §5.7). The chart shows the weekly change (honest from zero) against the plan's limit;
  *  the current weight and the change since the start are numbers above it (D23). */
 export function Progress() {
-  const { observation, ready: observationReady } = useObservation();
   const plan = usePlan();
   const weights = useWeights();
-  const labs = useLabs();
-  const entries = useAllEntries();
-  const wellbeing = useAllWellbeing();
-  const workouts = useWorkouts();
-  const foods = useFoods();
-  if (!weights || !labs || !entries || !wellbeing || !workouts || !foods || !observationReady) return <Loading />;
+  if (!weights) return <Loading />;
 
   const max = plan?.targets.maxWeightLossKgPerWeek;
   const weeks = weeklyWeights(weights, max);
   const sum = weightSummary(weights);
-  const found = patterns({ entries, wellbeing, workouts, foods, observation, ...(plan ? { plan } : {}) });
 
   return (
     <section className="space-y-4 pt-4">
-      <div className="flex items-center justify-between gap-2">
-        <h1 className="text-2xl font-semibold">{L.title}</h1>
-        <Link to="/report" className="flex min-h-tap items-center gap-2 rounded-xl border border-accent px-3 font-medium text-accent">
+      <SceneHeader title={L.title} description={t.visual.progressHint}>
+        <Link to="/report" className="inline-flex min-h-tap items-center gap-2 rounded-xl border border-white/25 bg-white/10 px-3 text-sm font-medium text-white">
           <FileText size={18} aria-hidden />{L.report}</Link>
-      </div>
+      </SceneHeader>
       <ExampleNotice plan={plan} />
+      <nav aria-label={L.details} className="grid grid-cols-2 gap-2">
+        {[
+          { to: '/progress/labs', label: L.labs },
+          { to: '/progress/motivation', label: L.motivationTitle },
+          { to: '/progress/insights', label: L.insightsTitle },
+        ].map(({ to, label }) => (
+          <Link key={to} to={to} className="flex min-h-tap items-center justify-between gap-2 rounded-xl border border-line bg-surface px-3 font-medium">
+            <span>{label}</span><ChevronRight size={18} className="shrink-0 text-muted" aria-hidden />
+          </Link>
+        ))}
+      </nav>
 
-      <WeekCard summary={weekSummary({ plan, entries, workouts, foods, today: todayISO(), observation })} />
-      <HabitsCard list={habits({ plan, entries, workouts, foods, today: todayISO(), observation })} />
-
-      <section className="rounded-2xl border border-line bg-surface p-3">
+      <section className="protocol-card rounded-2xl border border-line bg-surface p-3">
         <h2 className="mb-2 font-semibold">{L.weight}</h2>
         {sum.now ? (
           <dl className="mb-3 grid grid-cols-2 gap-3 tabular">
@@ -71,15 +69,6 @@ export function Progress() {
         )}
         {weeks.length > 1 && <WeeklyChart weeks={weeks} max={max} />}
         <AddWeight />
-      </section>
-
-      <Labs rows={labRows(labs)} />
-
-      <section className="rounded-2xl border border-line bg-surface p-3">
-        <h2 className="font-semibold">{L.patterns}</h2>
-        <p className="mb-2 text-sm text-muted">{L.patternsHint}</p>
-        {found.length ? <ul className="list-disc space-y-1 pl-5">{found.map((p) => <li key={p.text}>{p.text}</li>)}</ul>
-          : <p className="text-muted">{L.noPatterns}</p>}
       </section>
     </section>
   );
@@ -134,106 +123,12 @@ function AddWeight() {
     if (n > 0) { const v = Math.round(n * 10) / 10; await saved(db.weights.put({ date, kg: v }), t.toast.weight(kg(v))); setValue(''); }
   };
   return (
-    <form className="mt-3 grid grid-cols-[1fr_1fr_auto] items-end gap-2" onSubmit={(e) => { e.preventDefault(); void save(); }}>
+    <form className="mt-4 grid grid-cols-2 items-end gap-3 border-t border-line pt-4 sm:grid-cols-[1fr_1fr_auto]" onSubmit={(e) => { e.preventDefault(); void save(); }}>
       <label className="block"><span className="text-sm text-muted">{L.date}</span>
         <input type="date" value={date} max={todayISO()} onChange={(e) => setDate(e.target.value)} className={field} /></label>
       <label className="block"><span className="text-sm text-muted">{L.weight}, {L.kg}</span>
         <input inputMode="decimal" value={value} onChange={(e) => setValue(e.target.value)} className={field} /></label>
-      <button type="submit" className="flex min-h-tap items-center gap-1 rounded-xl bg-accent px-3 font-medium text-surface" aria-label={L.addWeight}><Plus size={18} /></button>
+      <button type="submit" className="protocol-action col-span-2 sm:col-span-1" aria-label={L.addWeight}><Plus size={18} /></button>
     </form>
-  );
-}
-
-function Labs({ rows }: { rows: ReturnType<typeof labRows> }) {
-  const [open, setOpen] = useState(false);
-  const [lab, setLab] = useState({ date: todayISO(), name: '', value: '', unit: '', target: '' });
-  const save = async () => {
-    const value = Number(lab.value.replace(',', '.'));
-    if (!lab.name.trim() || Number.isNaN(value)) return;
-    await saved(db.labs.put({ date: lab.date, name: lab.name.trim(), value, unit: lab.unit.trim(), ...(lab.target.trim() ? { target: lab.target.trim() } : {}) }), t.toast.lab(lab.name.trim()));
-    setLab({ ...lab, value: '', target: '' }); setOpen(false);
-  };
-  return (
-    <section className="rounded-2xl border border-line bg-surface p-3">
-      <div className="mb-2 flex items-center justify-between">
-        <h2 className="font-semibold">{L.labs}</h2>
-        <button type="button" onClick={() => setOpen(!open)} className="flex min-h-tap items-center gap-1 px-2 text-accent"><Plus size={18} />{L.addLab}</button>
-      </div>
-      <LabsScan known={rows} />
-      {open && (
-        <form className="mb-3 grid grid-cols-2 gap-2" onSubmit={(e) => { e.preventDefault(); void save(); }}>
-          <label className="col-span-2 block"><span className="text-sm text-muted">{L.labName}</span>
-            <input required value={lab.name} onChange={(e) => setLab({ ...lab, name: e.target.value })} list="lab-names" className={field} /></label>
-          <datalist id="lab-names">{rows.map((r) => <option key={r.name} value={r.name} />)}</datalist>
-          <label className="block"><span className="text-sm text-muted">{L.value}</span>
-            <input required inputMode="decimal" value={lab.value} onChange={(e) => setLab({ ...lab, value: e.target.value })} className={field} /></label>
-          <label className="block"><span className="text-sm text-muted">{L.unit}</span>
-            <input value={lab.unit} onChange={(e) => setLab({ ...lab, unit: e.target.value })} className={field} /></label>
-          <label className="block"><span className="text-sm text-muted">{L.date}</span>
-            <input type="date" value={lab.date} onChange={(e) => setLab({ ...lab, date: e.target.value })} className={field} /></label>
-          <label className="block"><span className="text-sm text-muted">{L.target}</span>
-            <input value={lab.target} onChange={(e) => setLab({ ...lab, target: e.target.value })} placeholder="< 5,6" className={field} /></label>
-          <button type="submit" className="col-span-2 min-h-tap rounded-xl bg-accent font-medium text-surface">{t.plan.save}</button>
-        </form>
-      )}
-      {rows.length ? (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm tabular">
-            <thead><tr className="text-left text-muted"><th className="py-1 font-normal">{L.labName}</th><th className="text-right font-normal">{L.was}</th>
-              <th className="text-right font-normal">{L.nowCol}</th><th className="text-right font-normal">{L.target}</th></tr></thead>
-            <tbody>{rows.map((r) => (
-              <tr key={r.name} className="border-t border-line">
-                <td className="py-2">{r.name}{r.unit && <span className="text-muted">, {r.unit}</span>}</td>
-                <td className="text-right">{kg(r.was.value)}<span className="block text-xs text-muted">{dm(r.was.date)}</span></td>
-                <td className="text-right font-medium">{r.now.date === r.was.date ? '—' : kg(r.now.value)}{r.now.date !== r.was.date && <span className="block text-xs font-normal text-muted">{dm(r.now.date)}</span>}</td>
-                <td className="text-right">{r.target ?? '—'}</td>
-              </tr>
-            ))}</tbody>
-          </table>
-        </div>
-      ) : <p className="text-muted">{L.noLabs}</p>}
-    </section>
-  );
-}
-
-/** D38: gentle — a run when there is one, otherwise how many days of the week; nothing is «lost». */
-export function HabitsCard({ list }: { list: Habit[] }) {
-  if (!list.length) return null;
-  return (
-    <section className="rounded-2xl border border-line bg-surface p-3">
-      <h2 className="font-semibold">{L.habits}</h2>
-      <p className="mb-2 text-sm text-muted">{L.habitsHint}</p>
-      <ul className="space-y-2">
-        {list.map((h) => (
-          <li key={h.key} className="flex items-baseline justify-between gap-2">
-            <span>{L.habit[h.key]}</span>
-            <span className="text-right tabular">
-              <span className={h.streak >= 2 ? 'font-semibold text-accent' : ''}>{h.streak >= 2 ? `🌱 ${L.streak(h.streak)}` : L.ofWeek(h.last7, h.days7)}</span>
-              {h.best >= 3 && h.best > h.streak && <span className="block text-xs text-muted">{L.best(h.best)}</span>}
-            </span>
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-}
-
-export function WeekCard({ summary: s }: { summary: ReturnType<typeof weekSummary> }) {
-  const tiles: [string, string][] = [];
-  if (s.carbsOk !== undefined) tiles.push([L.weekCarbs, L.ofDays(s.carbsOk, s.knownDays?.carbs ?? s.days)]);
-  if (s.proteinOk !== undefined) tiles.push([L.weekProtein, L.ofDays(s.proteinOk, s.knownDays?.protein ?? s.days)]);
-  if (s.waterOk !== undefined) tiles.push([L.weekWater, L.ofDays(s.waterOk, s.knownDays?.water ?? s.days)]);
-  if (s.showWorkouts !== false) tiles.push([L.weekWorkouts, String(s.workouts)]);
-  if (s.checklistPct !== undefined) tiles.push([L.weekChecklist, `${s.checklistPct} %`]);
-  if (s.knownDays && !tiles.length) return null;
-  return (
-    <section className="rounded-2xl border border-line bg-surface p-3">
-      <h2 className="mb-2 font-semibold">{L.week} <span className="text-sm font-normal text-muted">· {dm(s.from)}–{dm(s.to)}</span></h2>
-      {s.days === 0 ? <p className="text-muted">{L.weekNoData}</p> : (
-        <dl className="grid grid-cols-2 gap-x-4 gap-y-2 tabular sm:grid-cols-3">
-          {tiles.map(([label, value]) => <div key={label}><dt className="text-sm text-muted">{label}</dt><dd className="text-lg font-semibold">{value}</dd></div>)}
-        </dl>
-      )}
-    </section>
   );
 }

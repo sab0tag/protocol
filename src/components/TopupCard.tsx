@@ -37,7 +37,7 @@ export function TopupCard({ date, targets, tops, near }: { date: string; targets
     answer(x.goal, 'accepted');
   };
   return (
-    <section aria-label={L.title} className="mb-4 space-y-3 rounded-2xl border border-accent/30 bg-surface p-3">
+    <section aria-label={L.title} className="protocol-card mb-4 space-y-3 border-accent/30 p-4">
       {showTops.map((x) => (
         <div key={x.goal}>
           <p className="font-medium">{L.ask(L.goals[x.goal], x.have, x.target, L.units[x.goal])}</p>

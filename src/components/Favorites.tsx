@@ -1,6 +1,7 @@
 // D51: «Мої звичні» — meals the person pinned («Моя вівсянка», «Звичайний сніданок»). More precise than «Як учора»:
 // yesterday may have been anything. A favorite keeps its own copy of the lines — editing a past meal never changes it.
 import { Star } from 'lucide-react';
+import { useState } from 'react';
 import { db } from '../data/db';
 import { useFavorites } from '../data/queries';
 import { newId } from '../domain/dates';
@@ -21,14 +22,16 @@ export async function pinMeal(title: string, items: MealItem[]) {
 }
 
 /** Under the search in «Записати їжу»: a tap adds the favorite's lines; the star unpins it (with «Скасувати»). */
-export function FavoritesList({ onAdd }: { onAdd: (items: MealItem[]) => void }) {
+export function FavoritesList({ onAdd, limit }: { onAdd: (items: MealItem[]) => void; limit?: number }) {
   const favorites = useFavorites();
+  const [expanded, setExpanded] = useState(false);
   if (!favorites?.length) return null;
+  const shown = expanded || limit == null ? favorites : favorites.slice(0, limit);
   return (
-    <div className="mt-3">
-      <p className="mb-1 text-sm text-muted">{t.meal.favorites}</p>
+    <section aria-label={t.meal.favorites} className="mt-4 border-t border-line pt-4">
+      <h2 className="mb-2 font-semibold">{t.meal.favorites}</h2>
       <ul className="space-y-2">
-        {favorites.map((f) => (
+        {shown.map((f) => (
           <li key={f.id} className="flex items-stretch gap-1">
             <button type="button" onClick={() => onAdd(copy(f.items))}
               className="flex min-h-tap min-w-0 flex-1 flex-col justify-center rounded-xl border border-line px-3 py-1 text-left">
@@ -41,6 +44,8 @@ export function FavoritesList({ onAdd }: { onAdd: (items: MealItem[]) => void })
           </li>
         ))}
       </ul>
-    </div>
+      {limit != null && favorites.length > limit && <button type="button" onClick={() => setExpanded((v) => !v)} aria-expanded={expanded}
+        className="mt-2 min-h-tap text-sm font-medium text-accent">{expanded ? t.meal.fewerFavorites : t.meal.allFavorites(favorites.length)}</button>}
+    </section>
   );
 }
