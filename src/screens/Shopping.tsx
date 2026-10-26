@@ -1,3 +1,4 @@
+import { SceneHeader } from '../components/SceneHeader';
 import { addDays, format } from 'date-fns';
 import { Loading } from '../components/Recovery';
 import { Copy, Share2 } from 'lucide-react';
@@ -39,8 +40,8 @@ export function Shopping() {
 
   return (
     <section className="space-y-4 pt-6">
-      <h1 className="text-2xl font-semibold">{L.title}</h1>
-      <div className="grid grid-cols-2 gap-3 rounded-2xl border border-line bg-surface p-3">
+      <SceneHeader title={L.title} />
+      <div className="grid grid-cols-2 gap-3 protocol-card rounded-2xl border border-line bg-surface p-3">
         <label className="block"><span className="text-sm text-muted">{L.from}</span>
           <input type="date" value={from} min={todayISO()} onChange={(e) => setFrom(e.target.value)} className={field} /></label>
         <label className="block"><span className="text-sm text-muted">{L.to}</span>
@@ -52,7 +53,7 @@ export function Shopping() {
           {[false, true].map((pantry) => {
             const part = rows.filter((r) => r.pantry === pantry);
             return part.length > 0 && (
-              <div key={String(pantry)} className="rounded-2xl border border-line bg-surface p-3">
+              <div key={String(pantry)} className="protocol-card rounded-2xl border border-line bg-surface p-3">
                 {pantry && <p className="mb-1 text-sm text-muted">{L.pantry}</p>}
                 <ul className="divide-y divide-line">
                   {part.map((r) => (

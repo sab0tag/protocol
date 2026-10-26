@@ -1,3 +1,4 @@
+import { SceneHeader } from '../components/SceneHeader';
 // «Що заважало» (D67): for the week of trying the app on oneself — one tap for what got in the way, a line of words if
 // wanted; the list, newest first, and «Скопіювати все» to send it on. These are notes about the app, not health data.
 import { format, parseISO } from 'date-fns';
@@ -38,11 +39,11 @@ export function Frictions() {
 
   return (
     <section className="space-y-4 pt-4">
-      <h1 className="text-2xl font-semibold">{L.title}</h1>
+      <SceneHeader title={L.title} />
       <p className="text-sm text-muted">{L.hint}</p>
       {(() => { const xs = voiceSeconds(); if (!xs.length) return null; const m = [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)]!; /* D95: the pilot's measure */
         return <p className="text-sm">{t.voice.median(m, xs.length)}</p>; })()}
-      <form className="space-y-3 rounded-2xl border border-line bg-surface p-3" onSubmit={(e) => { e.preventDefault(); void add(); }}>
+      <form className="space-y-3 protocol-card rounded-2xl border border-line bg-surface p-3" onSubmit={(e) => { e.preventDefault(); void add(); }}>
         <div className="flex flex-wrap gap-2" role="group" aria-label={L.what}>
           {KINDS.map((k) => (
             <button key={k} type="button" aria-pressed={kind === k} onClick={() => setKind(k)}
@@ -63,7 +64,7 @@ export function Frictions() {
               className="flex min-h-tap items-center gap-1 px-1 text-sm text-accent">{copied ? <Check size={16} aria-hidden /> : <Copy size={16} aria-hidden />}{L.copy}</button>
           </div>
           {!consented(pilot) && <p className="text-xs text-muted">{t.pilot.note.onlyPilot}</p>}
-          <ul className="divide-y divide-line rounded-2xl border border-line bg-surface">
+          <ul className="divide-y divide-line protocol-card rounded-2xl border border-line bg-surface">
             {list.map((f) => (
               <li key={f.id} className="px-3 py-2"><div className="flex items-start gap-2">
                 <span className="min-w-0 flex-1 text-sm">

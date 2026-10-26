@@ -77,8 +77,8 @@ export function ConciergeNotFound({ text, plan, foods, recipes, date, onAdd }: {
       {state === 'consent' && (
         <div className="space-y-2 rounded-xl border border-accent/40 p-2 text-sm">
           <p>{L.consent}</p>
-          <label className="flex min-h-tap items-center gap-3">
-            <input type="checkbox" checked={log} onChange={(e) => setLog(e.target.checked)} className="h-5 w-5 shrink-0 accent-[rgb(var(--accent))]" />
+          <label className="protocol-toggle-row min-h-tap">
+            <input type="checkbox" checked={log} onChange={(e) => setLog(e.target.checked)} className="protocol-switch" />
             <span>{L.logAsk}</span></label>
           <button type="button" onClick={async () => { await db.meta.update('sync', { conciergeConsent: true, conciergeLog: log }); void ask(true, log); }}
             className="min-h-tap rounded-xl bg-accent px-3 font-medium text-surface">{L.allow}</button>

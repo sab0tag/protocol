@@ -12,9 +12,9 @@ export function Sheet({ title, onClose, children }: { title: string; onClose: ()
     return () => document.removeEventListener('keydown', onKey);
   }, [onClose]);
   return (
-    <div className="fixed inset-0 z-30 flex items-end justify-center bg-black/40 md:items-center" onClick={onClose}>
+    <div className="fixed inset-0 z-30 flex items-end justify-center bg-black/50 backdrop-blur-sm md:items-center" onClick={onClose}>
       <div ref={panel} role="dialog" aria-modal="true" aria-label={title}
-        className="max-h-[88dvh] w-full max-w-md overflow-y-auto rounded-t-2xl bg-surface p-4 pb-safe shadow-xl md:rounded-2xl"
+        className="max-h-[88dvh] w-full max-w-md overflow-y-auto rounded-t-[1.75rem] border border-line bg-surface p-5 pb-safe shadow-xl md:rounded-[1.75rem]"
         onClick={(e) => e.stopPropagation()}>
         <div className="mb-3 flex items-start gap-2">
           <h2 className="flex-1 pt-2 text-lg font-semibold">{title}</h2>

@@ -90,6 +90,7 @@ export function PilotOffer() {
 export function PilotSurvey() {
   const [kind, setKind] = useState<SurveyKind | null>(null);
   const [a, setA] = useState<Partial<SurveyAnswer>>({});
+  const [savingLater, setSavingLater] = useState(false);
   useEffect(() => {
     if (inDemo()) return;
     let live = true;
@@ -99,6 +100,20 @@ export function PilotSurvey() {
   if (!kind) return null;
   const S = L.survey;
   const ready = !!a.helps && (kind === 'd7' ? !!a.blocker : !!a.report && a.nps !== undefined);
+  const defer = async () => {
+    if (!kind || savingLater) return;
+    setSavingLater(true);
+    try {
+      await surveyLater(kind);
+      setKind(null);
+      toast(S.laterSaved);
+    } catch (error) {
+      console.error(error);
+      toast(t.toast.failed, { tone: 'warn' });
+    } finally {
+      setSavingLater(false);
+    }
+  };
   const pill = (on: boolean) => `min-h-tap min-w-tap rounded-full border px-3 text-sm ${on ? 'border-accent bg-accent/10 font-medium text-accent' : 'border-line'}`;
   const scale = (from: number, to: number, value: number | undefined, set: (n: number) => void, label: string, ends: readonly string[]) => (
     <div role="group" aria-label={label}>
@@ -127,9 +142,9 @@ export function PilotSurvey() {
         </>
       )}
       <div className="flex gap-2">
-        <button type="button" disabled={!ready} onClick={() => { void answerSurvey(kind, a as SurveyAnswer); setKind(null); toast(S.thanks); }}
+        <button type="button" disabled={!ready} onClick={async () => { await answerSurvey(kind, a as SurveyAnswer); setKind(null); toast(S.thanks); }}
           className="min-h-tap flex-1 rounded-xl bg-accent px-3 font-medium text-surface disabled:opacity-40">{S.send}</button>
-        <button type="button" onClick={() => { void surveyLater(kind); setKind(null); }} className="min-h-tap rounded-xl border border-line px-3">{S.later}</button>
+        <button type="button" disabled={savingLater} onClick={() => void defer()} className="min-h-tap rounded-xl border border-line px-3 disabled:opacity-50">{S.later}</button>
       </div>
     </section>
   );

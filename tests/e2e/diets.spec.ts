@@ -3,7 +3,7 @@ import { device } from './helpers';
 
 test('a diet of Наказ №931: «стіл 5» suggests ЩД to confirm, its rules not set up said plainly, norms fill only empty targets after a preview and marked, a doctor\'s target outside the norm is a question (D90, R02)', async ({ browser }) => {
   const page = await device(browser, 'skip');
-  await page.goto('./#/plan');
+  await page.goto('./#/plan/constraints');
   await page.locator('section.rounded-2xl').filter({ has: page.getByRole('heading', { name: 'Обмеження', exact: true }) }).getByRole('button', { name: 'Додати' }).click();
   const form = page.getByRole('dialog', { name: 'Обмеження' });
   await form.getByRole('combobox', { name: 'Що це за обмеження' }).selectOption('diet');
@@ -16,8 +16,7 @@ test('a diet of Наказ №931: «стіл 5» suggests ЩД to confirm, its 
   await expect(form.getByText(/Буде вписано — середина довідкового діапазону.*2325 ккал/)).toBeVisible(); // a preview before it is written
   await form.getByRole('button', { name: 'Зберегти' }).click();
   await expect(page.getByText(/^ЩД — Варіант дієти/)).toBeVisible();
-  await expect(page.getByText('не перевірено дієтологом')).toBeVisible();
-  await expect(page.getByText(/2325 ккал \(з довідника ЩД, не від лікаря\)/)).toBeVisible(); // the middle of the norm, into an empty target, marked
+  await expect(page.getByText('не перевірено дієтологом', { exact: true })).toBeVisible();
   await expect(page.getByText(/автоматичну перевірку її правил ще не налаштовано/)).toBeVisible();
   // the meal check: no green «Підходить» as if the diet were checked
   await page.goto('./#/meal/new');
@@ -26,7 +25,8 @@ test('a diet of Наказ №931: «стіл 5» suggests ЩД to confirm, its 
   await expect(page.getByText('Зауважень немає — за налаштованими правилами')).toBeVisible();
   await expect(page.getByText(/ЩД: дієту збережено; автоматичну перевірку її правил ще не налаштовано/)).toBeVisible();
   await expect(page.getByText('Підходить', { exact: true })).toHaveCount(0);
-  await page.goto('./#/plan');
+  await page.goto('./#/plan/goals');
+  await expect(page.getByText(/2325 ккал \(з довідника ЩД, не від лікаря\)/)).toBeVisible(); // the middle of the norm, into an empty target, marked
 
   await page.getByRole('button', { name: 'Редагувати', exact: true }).click(); // the targets
   await page.getByRole('dialog').getByRole('textbox', { name: 'Калорії, ккал' }).fill('1800');

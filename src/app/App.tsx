@@ -9,13 +9,22 @@ import { AddMeal } from '../screens/AddMeal';
 import { Day } from '../screens/Day';
 import { Dishes } from '../screens/Dishes';
 import { More } from '../screens/More';
+import { MoreCategory } from '../screens/MoreCategory';
 import { MyDay } from '../screens/MyDay';
 import { Onboarding } from '../screens/Onboarding';
 import { About } from '../screens/About';
 import { ConciergeLog } from '../screens/ConciergeLog';
 import { Assistant } from '../screens/Assistant';
 import { Plan } from '../screens/Plan';
+import { PlanScanScreen } from '../screens/PlanScanScreen';
+import { PlanHistory } from '../screens/PlanHistory';
 import { Progress } from '../screens/Progress';
+import { Insights } from '../screens/Insights';
+import { Motivation } from '../screens/Motivation';
+import { Labs } from '../screens/Labs';
+import { MyFoods } from '../screens/MyFoods';
+import { WellbeingJournal } from '../screens/WellbeingJournal';
+import { Data } from '../screens/Data';
 import { Report } from '../screens/Report';
 import { Sync } from '../screens/Sync';
 import { Menu } from '../screens/Menu';
@@ -40,11 +49,15 @@ function MealRoute() {
 // Exhaustive against ROUTES: adding a screen also requires choosing its feature owner in navigation.ts.
 const SCREENS = {
   day: <Day />, mealNew: <MealRoute />, mealEdit: <MealRoute />, myDay: <MyDay />,
-  wellbeing: <Wellbeing />, workout: <Workout />, exercises: <Exercises />, quickAction: <QuickAction />,
+  wellbeing: <Wellbeing />, wellbeingJournal: <WellbeingJournal />, workout: <Workout />, exercises: <Exercises />, quickAction: <QuickAction />,
   quickLinks: <QuickLinks />, frictions: <Frictions />, pilot: <Pilot />, week: <Week />, plan: <Plan />,
-  onboarding: <Onboarding />, progress: <Progress />, report: <Report />, dishes: <Dishes />, more: <More />,
-  about: <About />, conciergeLog: <ConciergeLog />, assistant: <Assistant />, sync: <Sync />, menu: <Menu />,
-  reminders: <Reminders />, shopping: <Shopping />, fallback: <Day />,
+  planPrescriptions: <Plan section="prescriptions" />, planConstraints: <Plan section="constraints" />,
+  planGoals: <Plan section="goals" />, planCheckup: <Plan section="checkup" />,
+  planScan: <PlanScanScreen />, planHistory: <PlanHistory />,
+  onboarding: <Onboarding />, progress: <Progress />, progressInsights: <Insights />, progressMotivation: <Motivation />,
+  progressLabs: <Labs />, report: <Report />, dishes: <Dishes />, foods: <MyFoods />, data: <Data />,
+  more: <More />, moreCategory: <MoreCategory />, about: <About />, conciergeLog: <ConciergeLog />,
+  assistant: <Assistant />, sync: <Sync />, menu: <Menu />, reminders: <Reminders />, shopping: <Shopping />, fallback: <Day />,
 } satisfies Record<RouteId, ReactNode>;
 
 /** Onboarding opens until it is finished or skipped (SPEC.md §5.9, D17). */

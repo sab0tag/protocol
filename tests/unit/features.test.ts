@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ALL_MODULES, can, FEATURES, isEntitled, isFeatureId, isFeatureVisible, isModuleId, LEGACY_FEATURE_CONTEXT,
   MODULE_IDS, type FeatureContext, type FeatureDefinition, type FeatureId, type ModuleFlags } from '../../src/domain/features';
-import { MORE_GROUPS, QUICK_ACTION_FEATURES, ROUTES, TAB_ROUTES } from '../../src/app/navigation';
+import { MORE_ROUTE_GROUPS, QUICK_ACTION_FEATURES, ROUTES, TAB_ROUTES } from '../../src/app/navigation';
 
 const off: ModuleFlags = { meds: false, water: false, food: false, menu: false, assistant: false, wellbeing: false, workout: false, progress: false };
 const disabled: FeatureContext = { modules: off, tier: 'free' };
@@ -82,7 +82,7 @@ describe('navigation ownership (D133)', () => {
   });
 
   it('makes tabs and More refer to the actual router instead of separate URL lists', () => {
-    const more = MORE_GROUPS.flatMap((group) => [...group.routes]);
+    const more = MORE_ROUTE_GROUPS.flatMap((group) => [...group.routes]);
     expect(new Set(more).size).toBe(more.length);
     for (const id of [...TAB_ROUTES, ...more]) {
       expect(ROUTES[id].path).not.toMatch(/[:*]/);

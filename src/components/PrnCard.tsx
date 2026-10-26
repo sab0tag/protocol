@@ -47,7 +47,7 @@ export function PrnCard({ plan, date, entries }: { plan: Plan; date: string; ent
   };
 
   return (
-    <section aria-label={L.title} className="mb-4 space-y-2 rounded-2xl border border-line bg-surface p-3">
+    <section aria-label={L.title} className="mb-4 space-y-2 protocol-card rounded-2xl border border-line bg-surface p-3">
       <p className="text-sm font-semibold text-muted">{L.title}</p>
       {meds.map((p) => {
         const records = prnRecords(p, entries, date), limit = prnLimit(p), used = limit ? prnUsed(limit, records) : null;

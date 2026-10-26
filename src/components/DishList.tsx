@@ -156,7 +156,7 @@ export function DishList({ foods, recipes, plan, onClose }: { foods: Map<string,
   };
 
   if (!state) return (
-    <section aria-label={L.title} className="space-y-2 rounded-2xl border border-line bg-surface p-3">
+    <section aria-label={L.title} className="space-y-2 protocol-card rounded-2xl border border-line bg-surface p-3">
       <h2 className="flex items-center gap-2 font-semibold"><ListPlus size={18} className="text-accent" aria-hidden />{L.title}</h2>
       <p className="text-sm text-muted">{L.hint}</p>
       <label className="block"><span className="sr-only">{L.title}</span>
@@ -181,7 +181,7 @@ export function DishList({ foods, recipes, plan, onClose }: { foods: Map<string,
   const sum = tally(ways), waiting = cards.filter((c) => c.status === 'waiting').length;
   const ready = cards.filter((c) => sure(c)), drafts = cards.filter((c) => c.status === 'draft');
   return (
-    <section aria-label={L.title} className="space-y-3 rounded-2xl border border-line bg-surface p-3">
+    <section aria-label={L.title} className="space-y-3 protocol-card rounded-2xl border border-line bg-surface p-3">
       <h2 className="flex items-center gap-2 font-semibold"><ListPlus size={18} className="text-accent" aria-hidden />{L.title}</h2>
       <p role="status" data-testid="list-summary" className="text-sm">{L.summary(sum.all, sum.exists, sum.local, sum.drafts, sum.ai, Math.ceil(waiting / 15))}</p>
       {[state.merged > 0 && L.merged(state.merged), state.over > 0 && L.over(state.over), state.cut > 0 && L.cut(state.cut), state.imported > 0 && L.fromFile(state.imported)]
