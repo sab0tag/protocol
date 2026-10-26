@@ -28,3 +28,40 @@ body { font-family: 'Golos Text', system-ui, -apple-system, sans-serif; -webkit-
 .pt-safe { padding-top: env(safe-area-inset-top, 0px); }
 :focus-visible { outline: 2px solid rgb(var(--accent)); outline-offset: 2px; }
 @keyframes toast-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } } /* D39 */
+
+/* Protocol 2.0 — additive semantic design layer. Existing tokens stay compatible. */
+:root {
+  --protocol-radius-card: 1.5rem;
+  --protocol-radius-control: 0.875rem;
+  --protocol-space-page: clamp(1rem, 3vw, 1.5rem);
+  --protocol-shadow-card: 0 12px 40px -24px rgb(0 0 0 / 0.20);
+}
+@layer components {
+  .protocol-card {
+    border: 1px solid rgb(var(--line));
+    border-radius: var(--protocol-radius-card);
+    background: rgb(var(--surface));
+    box-shadow: var(--protocol-shadow-card);
+  }
+  .protocol-card-interactive {
+    @apply protocol-card transition-colors duration-150;
+  }
+  .protocol-card-interactive:hover { border-color: rgb(var(--accent) / 0.5); }
+  .protocol-eyebrow {
+    @apply text-xs font-semibold uppercase tracking-widest;
+    color: rgb(var(--accent));
+  }
+  .protocol-action {
+    @apply inline-flex min-h-tap items-center justify-center gap-2 px-4 font-semibold;
+    border-radius: var(--protocol-radius-control);
+    background: rgb(var(--accent));
+    color: rgb(var(--bg));
+  }
+  .protocol-action-secondary {
+    @apply inline-flex min-h-tap items-center justify-center gap-2 border border-line bg-surface px-4 font-medium text-ink;
+    border-radius: var(--protocol-radius-control);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .protocol-card-interactive { transition: none; }
+}
