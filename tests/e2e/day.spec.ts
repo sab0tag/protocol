@@ -112,6 +112,31 @@ test('an empty Day rhythm keeps one explanation and leaves food recording as the
   await expect(page.getByRole('button', { name: 'Записати їжу' })).toBeVisible();
 });
 
+test('a once-daily medicine without a time is not followed by the empty-rhythm message', async ({ browser }) => {
+  const page = await device(browser);
+  await page.evaluate(async () => {
+    const request = indexedDB.open('protocol');
+    const database = await new Promise<IDBDatabase>((resolve) => { request.onsuccess = () => resolve(request.result); });
+    const transaction = database.transaction('plan', 'readwrite');
+    const store = transaction.objectStore('plan');
+    const get = store.get('main');
+    const plan = await new Promise<Record<string, unknown>>((resolve) => { get.onsuccess = () => resolve(get.result); });
+    const prescriptions = plan.prescriptions as { schedule?: { times?: string[]; [key: string]: unknown }; [key: string]: unknown }[];
+    store.put({ ...plan, prescriptions: prescriptions.map((prescription) => ({
+      ...prescription,
+      schedule: { ...prescription.schedule, times: [] },
+    })) });
+    await new Promise<void>((resolve) => { transaction.oncomplete = () => resolve(); });
+    database.close();
+  });
+  await page.reload();
+
+  const rhythm = page.getByRole('region', { name: 'Ритм дня' });
+  await expect(rhythm.getByText('Сьогодні, будь-коли:')).toBeVisible();
+  await expect(rhythm.getByRole('button', { name: 'Вітамін D' })).toBeVisible();
+  await expect(rhythm.getByText('На цей день ще нічого немає.')).toHaveCount(0);
+});
+
 test('«Мені погано»: a symptom with its time, what was eaten before it, and «103» for a danger sign (D56)', async ({ browser }) => {
   const page = await device(browser);
   const now = new Date(), d = ymd(now);
