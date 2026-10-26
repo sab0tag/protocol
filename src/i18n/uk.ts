@@ -257,8 +257,6 @@ export const t = {
     recognized: 'Розпізнано',
     notFound: 'не знайдено — додайте вручну', orOther: 'або:', // D81
     addRecognized: (n: number) => `Додати ${n}`,
-    likeBefore: (title: string) => `Як раніше · ${title}`,
-    repeat: 'Повторити',
     dish: 'страва',
     composition: (n: number) => `Склад (${n})`,
     saveAsDish: 'Зберегти як мою страву',

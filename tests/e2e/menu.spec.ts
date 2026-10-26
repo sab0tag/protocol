@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { device, syncOn, toast, ymd } from './helpers';
+import { device, kyivOffset, seed, syncOn, toast, ymd } from './helpers';
 
 test('a 2-day menu (model stubbed): checked by the plan, a line added to one meal, accepted with undo, a meal confirmed by ticks, then «Що купити»', async ({ browser }) => {
   const page = await device(browser);
@@ -79,4 +79,23 @@ test('a menu made but not accepted comes back after the page reloads (a locked p
   await expect(toast(page)).toContainText('в плані');
   await page.goto('./#/menu');
   await expect(page.getByText('Разом за день')).toHaveCount(0); // accepted — nothing to bring back
+});
+
+test('a meal 45 minutes ahead does not preselect «Щойно» for confirmation', async ({ browser }) => {
+  const page = await device(browser, 'skip');
+  const now = new Date();
+  const planned = new Date(now.getTime() + 45 * 60_000);
+  test.skip(ymd(planned) !== ymd(now), 'needs a future meal on the same day');
+  const time = `${String(planned.getHours()).padStart(2, '0')}:${String(planned.getMinutes()).padStart(2, '0')}`;
+  await seed(page, [{
+    store: 'entries',
+    value: { id: 'future-confirmation', at: `${ymd(planned)}T${time}:00${kyivOffset(planned)}`, kind: 'meal', status: 'planned', title: 'Обід',
+      items: [{ foodId: 'kefir', name: 'Кефір 2,5 %', grams: 250 }] },
+  }]);
+
+  const rhythm = page.getByRole('region', { name: 'Ритм дня' });
+  await rhythm.getByRole('button', { name: /^Обід, Заплановано/ }).click();
+  const sheet = page.getByRole('dialog', { name: 'Підтвердити: Обід' });
+  await expect(sheet.getByRole('button', { name: /^Щойно/ })).toHaveAttribute('aria-pressed', 'false');
+  await expect(sheet.getByRole('button', { name: 'Позначте, що з’їли' })).toBeDisabled();
 });

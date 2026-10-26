@@ -78,6 +78,65 @@ test('the new «День»: the plan on an empty day, a dose asks when, main num
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Сьогодні');
 });
 
+test('«Як учора» stays on «День» and copies a prior meal to today', async ({ browser }) => {
+  const page = await device(browser, 'skip');
+  const previous = new Date();
+  previous.setDate(previous.getDate() - 1);
+  const date = ymd(previous);
+  await seed(page, [{
+    store: 'entries',
+    value: { id: 'yesterday-meal', at: `${date}T13:00:00${kyivOffset(previous)}`, kind: 'meal', status: 'done', title: 'Обід',
+      items: [{ foodId: 'kefir', name: 'Кефір 2,5 %', grams: 250 }] },
+  }]);
+
+  const quick = page.getByRole('navigation', { name: 'Швидко' });
+  await expect(quick.getByRole('button')).toHaveCount(4);
+  const rhythm = page.getByRole('region', { name: 'Ритм дня' });
+  await rhythm.getByRole('button', { name: 'Як учора' }).click();
+  const sheet = page.getByRole('dialog', { name: 'Повторити з учора' });
+  await expect(sheet.getByText('Кефір 2,5 % 250 г')).toBeVisible();
+  await sheet.getByRole('button', { name: /13:00 · Обід/ }).click();
+  await expect(toast(page)).toContainText('Обід');
+  await expect(page.getByRole('region', { name: 'Ритм дня' })).toContainText('Обід');
+
+  await page.goto('./#/meal/new');
+  await expect(page.getByText(/^Як раніше ·/)).toHaveCount(0);
+});
+
+test('an empty Day rhythm keeps one explanation and leaves food recording as the action', async ({ browser }) => {
+  const page = await device(browser, 'skip');
+  const rhythm = page.getByRole('region', { name: 'Ритм дня' });
+  await expect(rhythm.getByText('На цей день ще нічого немає.')).toBeVisible();
+  await expect(rhythm.getByRole('button', { name: 'Як учора' })).toBeVisible();
+  await expect(rhythm.getByRole('button', { name: 'Додати інше — ліки, тренування, нотатку' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Записати їжу' })).toBeVisible();
+});
+
+test('a once-daily medicine without a time is not followed by the empty-rhythm message', async ({ browser }) => {
+  const page = await device(browser);
+  await page.evaluate(async () => {
+    const request = indexedDB.open('protocol');
+    const database = await new Promise<IDBDatabase>((resolve) => { request.onsuccess = () => resolve(request.result); });
+    const transaction = database.transaction('plan', 'readwrite');
+    const store = transaction.objectStore('plan');
+    const get = store.get('main');
+    const plan = await new Promise<Record<string, unknown>>((resolve) => { get.onsuccess = () => resolve(get.result); });
+    const prescriptions = plan.prescriptions as { schedule?: { times?: string[]; [key: string]: unknown }; [key: string]: unknown }[];
+    store.put({ ...plan, prescriptions: prescriptions.map((prescription) => ({
+      ...prescription,
+      schedule: { ...prescription.schedule, times: [] },
+    })) });
+    await new Promise<void>((resolve) => { transaction.oncomplete = () => resolve(); });
+    database.close();
+  });
+  await page.reload();
+
+  const rhythm = page.getByRole('region', { name: 'Ритм дня' });
+  await expect(rhythm.getByText('Сьогодні, будь-коли:')).toBeVisible();
+  await expect(rhythm.getByRole('button', { name: 'Вітамін D' })).toBeVisible();
+  await expect(rhythm.getByText('На цей день ще нічого немає.')).toHaveCount(0);
+});
+
 test('«Мені погано»: a symptom with its time, what was eaten before it, and «103» for a danger sign (D56)', async ({ browser }) => {
   const page = await device(browser);
   const now = new Date(), d = ymd(now);
@@ -106,7 +165,7 @@ test('«Мені погано»: a symptom with its time, what was eaten before 
   await expect(page.getByRole('dialog', { name: 'Здуття' }).getByRole('button', { name: 'Виконано' })).toHaveCount(0);
 });
 
-test('the service worker fills reminders in from the phone\'s own data', async ({ browser }) => {
+test('the real service worker builds reminder text from local data (notification API captured)', async ({ browser }) => {
   const page = await device(browser);
   const today = ymd(new Date()), tomorrow = ymd(new Date(Date.now() + 86_400_000));
   await seed(page, [{ store: 'entries', value: { id: 't1', at: `${tomorrow}T08:00:00${kyivOffset()}`, kind: 'meal', status: 'planned', title: 'Сніданок',
@@ -115,10 +174,16 @@ test('the service worker fills reminders in from the phone\'s own data', async (
   const regs = new Promise<{ registrationId: string }[]>((res) => cdp.on('ServiceWorker.workerRegistrationUpdated', (e) => { if (e.registrations.length) res(e.registrations); }));
   await cdp.send('ServiceWorker.enable');
   const id = (await regs)[0]!.registrationId;
-  const shown = async () => (await page.evaluate(async () => (await (await navigator.serviceWorker.ready).getNotifications()).map((n) => `${n.title} — ${n.body}`))).sort();
-  // Each push is checked right after it, by its own text: under load the browser may drop a push delivered over
-  // DevTools, or clear notifications it already showed — the browser's doing, not the app's. What is tested is the
-  // text the worker builds from the phone's own data; a push that never shows is sent once more.
+  // Capture the real worker's Notification API boundary. Headless Chromium has no OS notification
+  // centre; getNotifications() can be empty even after successful delivery. OS delivery is a device check.
+  await expect.poll(() => page.context().serviceWorkers().length).toBeGreaterThan(0);
+  const worker = page.context().serviceWorkers()[0]!;
+  await worker.evaluate(() => {
+    const scope = globalThis as unknown as { registration: ServiceWorkerRegistration; reminderTexts: string[] };
+    scope.reminderTexts = [];
+    scope.registration.showNotification = async (title, options) => { scope.reminderTexts.push(`${title} — ${options?.body ?? ''}`); };
+  });
+  const shown = () => worker.evaluate(() => (globalThis as unknown as { reminderTexts: string[] }).reminderTexts);
   const push = async (d: object, text: string) => {
     const send = () => cdp.send('ServiceWorker.deliverPushMessage', { origin: 'http://localhost:4318', registrationId: id,
       data: JSON.stringify({ u: './', tag: Math.random().toString(), n: 0, ...d }) });
