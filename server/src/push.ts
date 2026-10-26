@@ -3,6 +3,7 @@
 // own data. A reminder not ticked on any device of the vault comes again after `repeat_every` minutes.
 import webpush from 'web-push';
 import type { Store } from './store.ts';
+import { reminderAccess, reminderAllowed } from './reminderPolicy.ts';
 
 export interface Vapid { publicKey: string; privateKey: string }
 export type Sender = (sub: string, payload: string) => Promise<'ok' | 'gone' | 'error'>;
@@ -38,11 +39,15 @@ const STALE = 2 * 3600_000; // the server was down: a reminder this late is not 
 export async function tick(store: Store, send: Sender, now: number): Promise<number> {
   let sent = 0;
   for (const r of store.due(now)) {
-    if (r.acked || !r.sub || r.next_at < now - STALE) {
+    const data = JSON.parse(r.payload) as { k?: string; m?: boolean; tag?: string };
+    const policy = store.reminderPolicy(r.vault); // re-read after every awaited send: another device may have disabled a module
+    const aware = store.reminderAware(r.vault, r.device);
+    if (r.acked || !r.sub || r.next_at < now - STALE || !reminderAllowed(policy, data, r.at, now, aware)) {
       store.afterSend(r.vault, r.device, r.rid, null);
       continue;
     }
-    const payload = JSON.stringify({ ...JSON.parse(r.payload) as object, n: r.sent });
+    const governed = aware || Object.keys(policy.modules).length > 0 || policy.days.length > 0;
+    const payload = JSON.stringify({ ...data, n: r.sent, ...(governed ? { pv: 1, a: r.at, pa: reminderAccess(policy, data, r.at, now) } : {}) });
     const res = await send(r.sub, payload);
     if (res === 'gone') { store.dropDevice(r.vault, r.device); continue; }
     if (res === 'ok') {

@@ -15,16 +15,16 @@ function idbGet(store, key) {
   });
 }
 
-function idbAll(store) {
+function idbAll(store, strict = false) {
   return new Promise((resolve) => {
     const open = indexedDB.open('protocol');
-    open.onerror = () => resolve([]);
+    open.onerror = () => resolve(strict ? undefined : []);
     open.onsuccess = () => {
       try {
         const req = open.result.transaction(store, 'readonly').objectStore(store).getAll();
         req.onsuccess = () => { resolve(req.result || []); open.result.close(); };
-        req.onerror = () => { resolve([]); open.result.close(); };
-      } catch (e) { resolve([]); }
+        req.onerror = () => { resolve(strict ? undefined : []); open.result.close(); };
+      } catch (e) { open.result.close(); resolve(strict ? undefined : []); }
     };
   });
 }
@@ -66,9 +66,21 @@ const isMed = (p) => p.kind === 'medication' || p.kind === 'supplement';
 
 const amount = (it) => it.recipe ? `${it.recipe.portions} порц.` : it.unit ? `${it.unit.qty} ${it.unit.name}` : `${it.grams} г`;
 
-async function detail(d) {
+// Re-check on this phone, even offline. The server's restrictions also apply before encrypted sync catches up.
+async function policyContext(d) {
+  if (d.tag === 'test' || d.k === 'test' || d.k === 'visit' || (!self.PROTOCOL_MODULE_POLICY_ENABLED && d.pv !== 1)) return undefined;
+  const policy = self.ProtocolReminderPolicy;
+  const events = await idbAll('moduleEvents', true);
+  if (!events && !d.pa) return false; // policy cannot be read: no unverified module notification
+  const access = policy.reminderAccess(policy.policyFromEvents(events || []), d, typeof d.a === 'number' ? d.a : Date.now(), Date.now());
+  if (d.pa) for (const k of Object.keys(access)) if (d.pa[k] === false) access[k] = false;
+  return policy.accessAllows(access, d) ? access : false;
+}
+
+async function detail(d, access) {
   if (d.k === 'meal' && d.e) {
     const e = await idbGet('entries', d.e);
+    if (access && e && (e.status !== 'planned' || (e.menu && !access.menu))) return false;
     if (e && e.items && e.items.length) return e.items.map((it) => `${it.name} ${amount(it)}`).join(', ');
   }
   if (d.k === 'med' && d.h) {
@@ -86,10 +98,11 @@ async function detail(d) {
   }
   if (d.k === 'morning' && d.d) {
     const [entries, plan] = await Promise.all([idbDay(d.d), idbGet('plan', 'main')]);
-    const meals = entries.filter((e) => e.kind === 'meal' && e.status === 'planned').sort((a, b) => a.at.localeCompare(b.at))
+    const meals = entries.filter((e) => e.kind === 'meal' && e.status === 'planned' && (!access || (access.food && (!e.menu || access.menu)))).sort((a, b) => a.at.localeCompare(b.at))
       .map((e) => `${hm(e.at)} ${e.title}`);
-    const times = [...new Set(((plan && plan.prescriptions) || []).filter(isMed).flatMap((p) => (p.schedule && p.schedule.times) || []))].sort();
+    const times = [...new Set(((plan && plan.prescriptions) || []).filter((p) => isMed(p) && (!access || access.meds)).flatMap((p) => (p.schedule && p.schedule.times) || []))].sort();
     const parts = [meals.join(', '), times.length ? `ліки: ${times.join(', ')}` : ''].filter(Boolean);
+    if (access && !parts.length) return false;
     return parts.length ? parts.join(' · ') : 'Меню на сьогодні немає — можна скласти в «Меню».';
   }
   if (d.k === 'evening' && d.d) {
@@ -105,6 +118,7 @@ async function detail(d) {
     if (tests.length) return tests.join('; ');
   }
   if (d.k === 'week' && d.d) {
+    if (access) return 'Тиждень готовий до перегляду — відкрийте, щоб побачити записи й періоди спостереження.'; // D135: never reconstruct a false denominator in the worker
     const from = new Date(Date.parse(d.d + 'T12:00:00Z') - 6 * 86400000).toISOString().slice(0, 10);
     const [entries, plan] = await Promise.all([idbAll('entries'), idbGet('plan', 'main')]);
     const week = entries.filter((e) => e.at.slice(0, 10) >= from && e.at.slice(0, 10) <= d.d);
@@ -153,18 +167,33 @@ self.addEventListener('push', (event) => {
   let d = {};
   try { d = event.data ? event.data.json() : {}; } catch (e) { d = {}; }
   event.waitUntil((async () => {
+    const access = await policyContext(d);
+    if (access === false && d.k !== 'test' && d.k !== 'visit') return;
     let body = d.b || '';
     let url = d.u || './';
     try {
-      const x = await detail(d);
+      const x = await detail(d, access || undefined);
+      if (x === false) return;
       if (typeof x === 'string') body = x;
       else if (x) { body = x.body; url = x.url; }
     } catch (e) { /* the generic words stay */ }
     if (!d.n && d.tag !== 'test') await tally('rem_sent'); // «Нагадування працюють ✓» is not a reminder
     const title = (d.n > 0 ? '⏰ Ще раз: ' : '') + (d.t || 'Протокол');
     await self.registration.showNotification(title, {
-      body, tag: d.tag || undefined, renotify: true, icon: 'icon-192.png', badge: 'icon-192.png', data: { url },
+      body, tag: d.tag || undefined, renotify: true, icon: 'icon-192.png', badge: 'icon-192.png', data: { url, reminder: d },
     });
+  })());
+});
+
+self.addEventListener('message', (event) => {
+  if (!event.data || event.data.type !== 'reminder-policy-changed') return;
+  event.waitUntil((async () => {
+    for (const n of await self.registration.getNotifications()) {
+      const d = n.data && n.data.reminder;
+      if (!d || d.tag === 'test') continue;
+      const access = await policyContext(d);
+      if (access === false || (access && (d.k === 'morning' || d.k === 'week'))) n.close();
+    }
   })());
 });
 

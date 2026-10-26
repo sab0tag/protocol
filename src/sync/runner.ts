@@ -7,7 +7,7 @@ import { useUi } from '../store/ui';
 import { ApiError, createVault, putPair, takePair, vaultApi } from './api';
 import { deriveKeys, newPairCode, pairId, parseCode, parsePairCode, sealForPairing, type Keys } from './crypto';
 import { repairPlan, syncOnce } from './engine';
-import { disablePush, pushSchedule, renewPush } from './push';
+import { disablePush, pushSchedule, renewPush, reconcileReminderPolicy, refreshPushNotifications } from './push';
 
 export type SyncStatus = 'off' | 'idle' | 'syncing' | 'offline' | 'error';
 
@@ -32,6 +32,8 @@ async function run() {
   running = true;
   useSync.setState({ status: 'syncing' });
   try {
+    // Local off reaches the vault before a potentially slow encrypted-data round; failure stays pending for retry.
+    await reconcileReminderPolicy(keys).catch((e) => console.warn('reminder policy:', (e as Error).message));
     if (!repairTried) { // D43: once a run, before syncing — a plan that lost its parts is filled in from the vault's copy
       repairTried = true;
       if (await repairPlan(db, keys, vaultApi(keys))) useUi.getState().setOnboarded();
@@ -51,7 +53,11 @@ async function run() {
 function wire() {
   if (wired) return;
   wired = true;
-  Dexie.on('storagemutated', () => { if (running) again = true; else requestSync(3000); });
+  Dexie.on('storagemutated', (parts) => {
+    const policyChanged = Object.keys(parts).some((part) => part.startsWith(`idb://${db.name}/moduleEvents/`));
+    if (policyChanged) refreshPushNotifications();
+    if (running) again = true; else requestSync(policyChanged ? 0 : 3000);
+  });
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') requestSync(); });
   window.addEventListener('online', () => requestSync());
   setInterval(() => { if (document.visibilityState === 'visible') requestSync(); }, 120_000);

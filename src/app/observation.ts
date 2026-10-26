@@ -3,8 +3,9 @@ import { useEffect, useState } from 'react';
 import { inDemo } from '../data/db';
 import { useModuleEvents } from '../data/queries';
 import type { Observation } from '../domain/observation';
+import { MODULE_POLICY_ENABLED } from '../domain/rollout';
 
-export const MODULE_POLICY_ENABLED = import.meta.env.VITE_MODULE_POLICY_ENABLED === 'true';
+export { MODULE_POLICY_ENABLED } from '../domain/rollout';
 
 export function useObservation(): { observation: Observation | undefined; ready: boolean } {
   const events = useModuleEvents();

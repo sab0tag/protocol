@@ -42,6 +42,8 @@ export interface SyncMeta {
   device?: string; // D34: this device's id for push
   reminders?: ReminderSettings & { on: boolean };
   snoozed?: Record<string, number>; // D35: «Пізніше» — reminder key → until (ms)
+  reminderPolicyAck?: string; // D136: last server-acknowledged projection; never a claim about an offline change
+  reminderPolicyState?: 'pending' | 'synced';
   codeCheckedAt?: number; // D40: «код записаний?» asked again a month later
 }
 

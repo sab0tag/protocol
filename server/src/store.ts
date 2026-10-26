@@ -1,6 +1,7 @@
 // SQLite (node:sqlite): vaults, their encrypted records and daily counters. The server never sees plain data —
 // a record is an opaque key and an opaque ciphertext (SPEC.md D31).
 import { backup, DatabaseSync } from 'node:sqlite';
+import { emptyPolicy, mergeReminderPolicy, reminderAllowed, type ReminderPolicy } from './reminderPolicy.ts';
 
 export interface StoredRecord { k: string; v: string | null; seq: number }
 
@@ -24,6 +25,9 @@ export class Store {
         payload TEXT NOT NULL, next_at INTEGER NOT NULL, repeats_left INTEGER NOT NULL, repeat_every INTEGER NOT NULL, sent INTEGER NOT NULL DEFAULT 0,
         PRIMARY KEY (vault, device, rid));
       CREATE INDEX IF NOT EXISTS reminders_due ON reminders (next_at);
+      CREATE TABLE IF NOT EXISTS reminder_policies (vault TEXT PRIMARY KEY, body TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS reminder_clients (vault TEXT NOT NULL, device TEXT NOT NULL, aware INTEGER NOT NULL,
+        PRIMARY KEY (vault, device));
       CREATE TABLE IF NOT EXISTS usage (vault TEXT NOT NULL, month TEXT NOT NULL, kind TEXT NOT NULL, calls INTEGER NOT NULL,
         usd_micro INTEGER NOT NULL, PRIMARY KEY (vault, month, kind));
       CREATE TABLE IF NOT EXISTS pairs (pid TEXT PRIMARY KEY, blob TEXT NOT NULL, expires INTEGER NOT NULL);
@@ -142,17 +146,51 @@ export class Store {
   dropDevice(vault: string, device: string) {
     this.db.prepare('DELETE FROM push_subs WHERE vault = ? AND device = ?').run(vault, device);
     this.db.prepare('DELETE FROM reminders WHERE vault = ? AND device = ?').run(vault, device);
+    this.db.prepare('DELETE FROM reminder_clients WHERE vault = ? AND device = ?').run(vault, device);
+  }
+
+  reminderPolicy(vault: string): ReminderPolicy {
+    const row = this.db.prepare('SELECT body FROM reminder_policies WHERE vault = ?').get(vault) as { body: string } | undefined;
+    return row ? JSON.parse(row.body) as ReminderPolicy : emptyPolicy();
+  }
+
+  /** Vault-wide, independent of this device's push subscription. No omitted or older choice can undo an off. */
+  setReminderPolicy(vault: string, policy: ReminderPolicy, now: number) {
+    const merged = mergeReminderPolicy(this.reminderPolicy(vault), policy);
+    merged.days = merged.days.filter((d) => d.until >= now - 7 * 86_400_000);
+    this.db.exec('BEGIN');
+    try {
+      this.db.prepare('INSERT INTO reminder_policies (vault, body) VALUES (?, ?) ON CONFLICT (vault) DO UPDATE SET body = excluded.body')
+        .run(vault, JSON.stringify(merged));
+      this.pruneReminders(vault, now);
+      this.db.exec('COMMIT');
+    } catch (e) { this.db.exec('ROLLBACK'); throw e; }
+  }
+
+  private pruneReminders(vault: string, now: number) {
+    const policy = this.reminderPolicy(vault);
+    const rows = this.db.prepare(`SELECT r.device, r.rid, r.at, r.payload, coalesce(c.aware, 0) AS aware FROM reminders r
+      LEFT JOIN reminder_clients c ON c.vault = r.vault AND c.device = r.device WHERE r.vault = ?`).all(vault) as
+      { device: string; rid: string; at: number; payload: string; aware: number }[];
+    const del = this.db.prepare('DELETE FROM reminders WHERE vault = ? AND device = ? AND rid = ?');
+    for (const r of rows) if (!reminderAllowed(policy, JSON.parse(r.payload), r.at, now, !!r.aware)) del.run(vault, r.device, r.rid);
+  }
+
+  reminderAware(vault: string, device: string): boolean {
+    return !!(this.db.prepare('SELECT aware FROM reminder_clients WHERE vault = ? AND device = ?').get(vault, device) as { aware: number } | undefined)?.aware;
   }
 
   /** The device's whole schedule: unknown reminders go away; a known one keeps its progress (sent, repeats)
    *  unless its time moved; `done` ones are acknowledged for every device of the vault. */
   setReminders(vault: string, device: string, items: { rid: string; at: number; payload: string; once?: boolean }[],
-    repeatEvery: number, repeats: number, done: string[], now: number) {
+    repeatEvery: number, repeats: number, done: string[], now: number, aware = false) {
     const old = new Map((this.db.prepare('SELECT rid, at FROM reminders WHERE vault = ? AND device = ?').all(vault, device) as { rid: string; at: number }[])
       .map((r) => [r.rid, r.at]));
     const keep = new Set(items.map((i) => i.rid));
     this.db.exec('BEGIN');
     try {
+      this.db.prepare('INSERT INTO reminder_clients (vault, device, aware) VALUES (?, ?, ?) ON CONFLICT (vault, device) DO UPDATE SET aware = excluded.aware')
+        .run(vault, device, Number(aware));
       const del = this.db.prepare('DELETE FROM reminders WHERE vault = ? AND device = ? AND rid = ?');
       for (const rid of old.keys()) if (!keep.has(rid)) del.run(vault, device, rid);
       const ins = this.db.prepare(`INSERT INTO reminders (vault, device, rid, at, payload, next_at, repeats_left, repeat_every) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -175,6 +213,7 @@ export class Store {
       }
       this.db.prepare('DELETE FROM acks WHERE at < ?').run(now - 7 * 86_400_000);
       this.db.prepare('DELETE FROM pushed WHERE at < ?').run(now - 7 * 86_400_000);
+      this.pruneReminders(vault, now); // also protects against an old device re-uploading its obsolete queue
       this.db.exec('COMMIT');
     } catch (e) { this.db.exec('ROLLBACK'); throw e; }
   }

@@ -6,6 +6,7 @@ import { dateOf, timeOf } from './dates';
 import { doseDue } from './checklist';
 import { observedPlannedEntry, observedTask, type Observation } from './observation';
 import type { DayEntry, Plan, Prescription } from './types';
+import { reminderAllowed, type ReminderPolicy } from '../../server/src/reminderPolicy';
 
 export interface ReminderSettings {
   meals: boolean;
@@ -30,7 +31,7 @@ export interface Reminder {
   key: string;
   at: number; // ms
   once?: boolean; // never repeated
-  payload: { t: string; b: string; k: ReminderKind; u: string; tag: string; e?: string; h?: string; d?: string };
+  payload: { t: string; b: string; k: ReminderKind; u: string; tag: string; e?: string; h?: string; d?: string; m?: true; o?: number };
 }
 
 const WATER_FROM = 9, WATER_TO = 21;
@@ -38,7 +39,7 @@ const PACE_FROM = 8, GLASS_ML = 250; // D70
 const isMed = (p: Prescription) => p.kind === 'medication' || p.kind === 'supplement';
 
 export function reminders(args: { entries: DayEntry[]; plan: Plan | undefined; settings: ReminderSettings; now: Date;
-  days?: number; snoozed?: Record<string, number>; topupAt?: string }) {
+  days?: number; snoozed?: Record<string, number>; topupAt?: string; policy?: ReminderPolicy }) {
   const { entries, plan, settings, now } = args;
   const days = args.days ?? 30; // D35: daily ones a month ahead — they keep coming even if the app is not opened
   const snoozed = args.snoozed ?? {};
@@ -51,10 +52,12 @@ export function reminders(args: { entries: DayEntry[]; plan: Plan | undefined; s
   const at = (d: string, time: string) => new Date(`${d}T${time}:00`).getTime();
   const dates = Array.from({ length: days + 2 }, (_, i) => format(addDays(now, i - 1), 'yyyy-MM-dd'));
   const push = (r: Reminder) => {
+    if (args.policy && !reminderAllowed(args.policy, r.payload, r.at, t0)) return;
     const until = snoozed[r.key];
     if (until && until > t0) { // «Пізніше»: the original stops, a new one comes at the snooze time
+      if (args.policy && !reminderAllowed(args.policy, r.payload, until, t0)) return;
       done.push(r.key);
-      items.push({ ...r, key: `snooze:${r.key}:${until}`, at: until, payload: { ...r.payload, tag: `snooze:${r.key}` } });
+      items.push({ ...r, key: `snooze:${r.key}:${until}`, at: until, payload: { ...r.payload, tag: `snooze:${r.key}`, ...(args.policy ? { o: r.at } : {}) } });
     } else if (r.at >= (r.once ? t0 : from) && r.at <= to) items.push(r);
   };
 
@@ -63,7 +66,8 @@ export function reminders(args: { entries: DayEntry[]; plan: Plan | undefined; s
       if (e.kind !== 'meal') continue;
       const key = `meal:${e.id}:${e.at}`;
       if (e.status !== 'planned') { done.push(key); continue; }
-      push({ key, at: Date.parse(e.at), payload: { t: e.title, b: 'Час їсти — відкрийте, щоб відмітити', k: 'meal', u: url(dateOf(e.at)), tag: key, e: e.id } });
+      push({ key, at: Date.parse(e.at), payload: { t: args.policy ? 'Їжа' : e.title, b: 'Час їсти — відкрийте, щоб відмітити', k: 'meal', u: url(dateOf(e.at)), tag: key, e: e.id,
+        ...(args.policy && e.menu ? { m: true as const } : {}) } });
     }
   }
 
