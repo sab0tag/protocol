@@ -35,10 +35,10 @@ test('colored rings keep the selected metrics, actual values and working SVG gra
   const summary = page.getByRole('region', { name: t.summary.title });
   await summary.getByRole('button', { name: t.summary.setup }).click();
   await summary.getByRole('checkbox', { name: t.summary.meds, exact: true }).uncheck();
-  await summary.getByRole('checkbox', { name: t.summary.carbs, exact: true }).uncheck();
   await summary.getByRole('checkbox', { name: t.summary.kcal, exact: true }).check();
-  await summary.getByRole('checkbox', { name: t.summary.protein, exact: true }).check();
   await summary.getByRole('checkbox', { name: t.summary.water, exact: true }).uncheck();
+  await summary.getByRole('checkbox', { name: t.summary.protein, exact: true }).check();
+  await summary.getByRole('checkbox', { name: t.summary.carbs, exact: true }).uncheck();
   await summary.getByRole('checkbox', { name: t.summary.water, exact: true }).check();
   await summary.getByRole('button', { name: t.summary.done }).click();
   await page.reload();

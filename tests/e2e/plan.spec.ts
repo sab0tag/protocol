@@ -14,6 +14,16 @@ test('medicine stock: the count in «План», «вистачить на» the
   await expect(page).toHaveURL(/#\/plan$/);
 });
 
+test('«План лікаря» overview previews its saved items without opening each section', async ({ browser }) => {
+  const page = await device(browser);
+  await page.goto('./#/plan');
+  const sections = page.getByRole('navigation', { name: 'Розділи плану' });
+  await expect(sections.getByRole('link', { name: /Призначення/ })).toContainText('Вітамін D');
+  await expect(sections.getByRole('link', { name: /Обмеження/ })).toContainText('Діють: Оксалатні камені');
+  await expect(sections.getByRole('link', { name: /Цілі й режими/ })).toContainText('2100 ккал');
+  await expect(sections.getByRole('link', { name: /Цілі й режими/ })).toContainText('Підготовка до ОГТТ');
+});
+
 test('«Тиждень»: the numbers, what went well, and one goal the person picks — shown on «День» (D72)', async ({ browser }) => {
   const page = await device(browser);
   await page.goto('./#/week');

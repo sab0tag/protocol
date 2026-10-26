@@ -3,10 +3,18 @@ import { device, kyivOffset, seed, toast, ymd } from './helpers';
 
 test('«Зараз»: «Нагадати за 15 хв» hides it for 15 min; water from the dock with undo, counted in «Уже сьогодні»; a workout says it was saved', async ({ browser }) => {
   const page = await device(browser);
-  const now = new Date(), d = ymd(now);
-  const at = (minAgo: number) => { const x = new Date(now.getTime() - minAgo * 60_000); return `${d}T${String(x.getHours()).padStart(2, '0')}:${String(x.getMinutes()).padStart(2, '0')}:00${kyivOffset(x)}`; };
-  test.skip(now.getHours() < 1, 'needs a past time today');
-  await seed(page, [{ store: 'entries', value: { id: 'm1', at: at(30), kind: 'meal', status: 'planned', title: 'Обід', items: [{ foodId: 'kefir', name: 'Кефір 2,5 %', grams: 250 }] } }]);
+  const { hour, at } = await page.evaluate(() => {
+    const localIso = (x: Date) => {
+      const p = (n: number) => String(n).padStart(2, '0');
+      const minutes = -x.getTimezoneOffset(), sign = minutes < 0 ? '-' : '+';
+      const offset = `${sign}${p(Math.floor(Math.abs(minutes) / 60))}:${p(Math.abs(minutes) % 60)}`;
+      return `${x.getFullYear()}-${p(x.getMonth() + 1)}-${p(x.getDate())}T${p(x.getHours())}:${p(x.getMinutes())}:00${offset}`;
+    };
+    const now = new Date();
+    return { hour: now.getHours(), at: localIso(new Date(now.getTime() - 30 * 60_000)) };
+  });
+  test.skip(hour < 1, 'needs a past time today');
+  await seed(page, [{ store: 'entries', value: { id: 'm1', at, kind: 'meal', status: 'planned', title: 'Обід', items: [{ foodId: 'kefir', name: 'Кефір 2,5 %', grams: 250 }] } }]);
   const card = page.getByRole('region', { name: 'Зараз' });
   await expect(card).toBeVisible();
   const first = await card.innerText();
@@ -65,13 +73,37 @@ test('the new «День»: the plan on an empty day, a dose asks when, main num
 
   const summary = page.getByRole('region', { name: 'Уже сьогодні' });
   await expect(summary.getByText('Білок')).toHaveCount(0);
+  for (const label of ['Вода', 'Ліки', 'Вуглеводи']) {
+    const progress = summary.getByRole('progressbar', { name: new RegExp(label) });
+    await expect(progress).toBeVisible();
+    const value = Number(await progress.getAttribute('aria-valuenow'));
+    expect(value).toBeGreaterThanOrEqual(0);
+    expect(value).toBeLessThanOrEqual(100);
+  }
+  await expect(summary.getByRole('progressbar', { name: 'Вода' })).toHaveAttribute('aria-valuetext', / \/ [\d,]+ л/);
+  const carbsProgress = summary.getByRole('progressbar', { name: 'Вуглеводи' });
+  await expect(carbsProgress).toHaveAttribute('aria-valuetext', /межа з плану/);
+  const carbsValue = Number(await carbsProgress.getAttribute('aria-valuenow'));
+  expect(carbsValue).toBeGreaterThanOrEqual(0);
+  expect(carbsValue).toBeLessThanOrEqual(100);
   await summary.getByRole('button', { name: 'Налаштувати' }).click();
-  await summary.getByRole('checkbox', { name: 'Білок' }).check();
+  const protein = summary.getByRole('checkbox', { name: 'Білок' });
+  await expect(protein).toBeDisabled(); // three main metrics are selected; no silent replacement
+  await summary.getByRole('checkbox', { name: 'Вода' }).uncheck();
+  await expect(protein).toBeEnabled();
+  await expect(summary.getByRole('checkbox', { name: 'Ліки' })).toBeDisabled(); // keep at least two
+  await protein.check();
+  await expect(summary.locator('input[type="checkbox"]:checked')).toHaveCount(3);
   await summary.getByRole('button', { name: 'Готово' }).click();
   await page.reload();
   await expect(page.getByRole('region', { name: 'Уже сьогодні' }).getByText('Білок')).toBeVisible(); // kept on this device
 
   const week = page.getByRole('navigation', { name: 'Тиждень' });
+  const weekdays = week.locator('ol > li button span:first-child');
+  await expect(weekdays).toHaveCount(7);
+  expect(await weekdays.allTextContents()).toEqual(['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'нд']);
+  expect(await weekdays.evaluateAll((labels) => labels.map((label) => getComputedStyle(label, '::first-letter').textTransform)))
+    .toEqual(Array(7).fill('uppercase'));
   await week.getByRole('button', { name: 'Попередній тиждень' }).click();
   await expect(page.getByRole('heading', { level: 1 })).not.toHaveText('Сьогодні');
   await page.getByRole('button', { name: 'До сьогодні' }).click();
@@ -135,6 +167,28 @@ test('a once-daily medicine without a time is not followed by the empty-rhythm m
   await expect(rhythm.getByText('Сьогодні, будь-коли:')).toBeVisible();
   await expect(rhythm.getByRole('button', { name: 'Вітамін D' })).toBeVisible();
   await expect(rhythm.getByText('На цей день ще нічого немає.')).toHaveCount(0);
+});
+
+test('«Нічого з цього» skips the planned meal and undo restores the plan', async ({ browser }) => {
+  const page = await device(browser, 'skip');
+  const now = new Date();
+  const planned = new Date(now.getTime() + 45 * 60_000);
+  test.skip(ymd(planned) !== ymd(now), 'needs a future meal on the same day');
+  const time = `${String(planned.getHours()).padStart(2, '0')}:${String(planned.getMinutes()).padStart(2, '0')}`;
+  await seed(page, [{
+    store: 'entries',
+    value: { id: 'skip-confirmation', at: `${ymd(planned)}T${time}:00${kyivOffset(planned)}`, kind: 'meal', status: 'planned', title: 'Обід',
+      items: [{ foodId: 'kefir', name: 'Кефір 2,5 %', grams: 250 }], menu: {} },
+  }]);
+
+  const rhythm = page.getByRole('region', { name: 'Ритм дня' });
+  await rhythm.getByRole('button', { name: /^Обід, Заплановано/ }).click();
+  await page.getByRole('dialog', { name: 'Підтвердити: Обід' }).getByRole('button', { name: 'Нічого з цього' }).click();
+  await expect(toast(page)).toContainText('Обід — пропущено');
+  await expect(rhythm.getByRole('button', { name: /^Обід, Пропущено/ })).toBeVisible();
+
+  await toast(page).getByRole('button', { name: 'Скасувати' }).click();
+  await expect(rhythm.getByRole('button', { name: /^Обід, Заплановано/ })).toBeVisible();
 });
 
 test('«Мені погано»: a symptom with its time, what was eaten before it, and «103» for a danger sign (D56)', async ({ browser }) => {

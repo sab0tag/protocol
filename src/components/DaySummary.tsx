@@ -16,32 +16,39 @@ const L = t.summary;
 export type MetricKey = 'water' | 'meds' | 'carbs' | 'protein' | 'calcium' | 'kcal';
 const ALL: MetricKey[] = ['water', 'meds', 'carbs', 'protein', 'calcium', 'kcal'];
 const DEFAULT: MetricKey[] = ['water', 'meds', 'carbs'];
+const MIN_MAIN = 2;
 const MAX_MAIN = 3;
 const STORE = 'protocol.mainMetrics'; // this device's choice — a view setting, not data
 
 function loadMain(): MetricKey[] {
   try {
     const v = JSON.parse(localStorage.getItem(STORE) ?? 'null') as unknown;
-    if (Array.isArray(v) && v.length && v.every((k) => ALL.includes(k as MetricKey))) return v as MetricKey[];
+    if (Array.isArray(v) && v.length >= MIN_MAIN && v.length <= MAX_MAIN
+      && v.every((k) => ALL.includes(k as MetricKey)) && new Set(v).size === v.length) return v as MetricKey[];
   } catch { /* private mode */ }
   return DEFAULT;
 }
 
-interface Metric { label: string; value: string; target?: string; progress: number; knownTarget?: boolean; shape: 'ring' | 'limit' | 'min'; over?: boolean; note?: string; Icon: typeof Pill; tone: ProgressTone }
+interface Metric { label: string; value: string; target?: string; progress: number; progressTarget?: number; shape: 'ring' | 'limit' | 'min'; over?: boolean; note?: string; Icon: typeof Pill; tone: ProgressTone }
 
 const litres = (ml: number) => (ml / 1000).toLocaleString('uk-UA', { maximumFractionDigits: 2 });
 
 function metric(key: MetricKey, totals: DayTotals, targets: Targets, meds: { done: number; total: number }): Metric | null {
   switch (key) {
     case 'water': return { label: L.water, value: `${litres(totals.waterMl)}${targets.waterMl ? ` / ${litres(targets.waterMl)}` : ''} л`,
-      progress: targets.waterMl ? totals.waterMl / targets.waterMl : 0, knownTarget: !!targets.waterMl, shape: 'ring', Icon: Droplet, tone: 'water' };
-    case 'meds': return meds.total ? { label: L.meds, value: L.ofTotal(meds.done, meds.total), progress: meds.done / meds.total, knownTarget: true, shape: 'ring', Icon: Pill, tone: 'meds' } : null;
+      progress: targets.waterMl ? totals.waterMl / targets.waterMl : 0, ...(targets.waterMl ? { progressTarget: targets.waterMl } : {}),
+      shape: 'ring', Icon: Droplet, tone: 'water' };
+    case 'meds': return meds.total ? { label: L.meds, value: L.ofTotal(meds.done, meds.total), progress: meds.done / meds.total, progressTarget: meds.total,
+      shape: 'ring', Icon: Pill, tone: 'meds' } : null;
     case 'protein': return { label: L.protein, value: `${round(totals.protein)}${targets.proteinG ? ` / ${targets.proteinG}` : ''} г`,
-      progress: targets.proteinG ? totals.protein / targets.proteinG : 0, knownTarget: !!targets.proteinG, shape: 'ring', Icon: Beef, tone: 'protein' };
+      progress: targets.proteinG ? totals.protein / targets.proteinG : 0, ...(targets.proteinG ? { progressTarget: targets.proteinG } : {}),
+      shape: 'ring', Icon: Beef, tone: 'protein' };
     case 'calcium': return { label: L.calcium, value: `${round(totals.calciumMg)}${targets.calciumMg ? ` / ${targets.calciumMg}` : ''} мг`,
-      progress: targets.calciumMg ? totals.calciumMg / targets.calciumMg : 0, knownTarget: !!targets.calciumMg, shape: 'ring', Icon: Milk, tone: 'calcium' };
+      progress: targets.calciumMg ? totals.calciumMg / targets.calciumMg : 0, ...(targets.calciumMg ? { progressTarget: targets.calciumMg } : {}),
+      shape: 'ring', Icon: Milk, tone: 'calcium' };
     case 'kcal': return { label: L.kcal, value: `${round(totals.kcal)}${targets.kcal ? ` / ${targets.kcal}` : ''} ккал`,
-      progress: targets.kcal ? totals.kcal / targets.kcal : 0, knownTarget: !!targets.kcal, shape: 'ring', Icon: Flame, tone: 'energy' };
+      progress: targets.kcal ? totals.kcal / targets.kcal : 0, ...(targets.kcal ? { progressTarget: targets.kcal } : {}),
+      shape: 'ring', Icon: Flame, tone: 'energy' };
     case 'carbs': {
       const c = round(totals.carbs), min = targets.carbsG?.min, max = targets.carbsG?.max;
       if (min != null) return { label: L.carbs, value: `${c} г`, target: L.atLeast(min), progress: c / min, shape: 'min', Icon: Wheat, tone: 'accent',
@@ -60,8 +67,8 @@ export function DaySummary({ totals, targets, meds, streak, food, onComplete }: 
   const [setup, setSetup] = useState(false);
   const shown = (keys: MetricKey[]) => keys.map((k) => [k, metric(k, totals, targets, meds)] as const).filter((x): x is [MetricKey, Metric] => x[1] !== null);
   const toggle = (k: MetricKey, on: boolean) => {
-    const next = on ? [...main, k].slice(-MAX_MAIN) : main.filter((x) => x !== k);
-    if (!next.length) return;
+    if ((on && main.length >= MAX_MAIN) || (!on && main.length <= MIN_MAIN)) return;
+    const next = on ? [...main, k] : main.filter((x) => x !== k);
     setMain(next);
     try { localStorage.setItem(STORE, JSON.stringify(next)); } catch { /* private mode */ }
   };
@@ -78,7 +85,9 @@ export function DaySummary({ totals, targets, meds, streak, food, onComplete }: 
           <legend className="mb-2 text-sm text-muted">{L.setupHint(MAX_MAIN)}</legend>
           {ALL.map((k) => (
             <label key={k} className="protocol-toggle-row min-h-tap">
-              <input type="checkbox" checked={main.includes(k)} onChange={(e) => toggle(k, e.target.checked)} className="protocol-switch" />
+              <input type="checkbox" checked={main.includes(k)} disabled={
+                (main.length >= MAX_MAIN && !main.includes(k)) || (main.length <= MIN_MAIN && main.includes(k))
+              } onChange={(e) => toggle(k, e.target.checked)} className="protocol-switch" />
               <span>{L[k]}</span>
             </label>
           ))}
@@ -114,7 +123,7 @@ function Metrics({ list }: { list: [MetricKey, Metric][] }) {
         <ul className="protocol-metric-rings" data-count={rings.length}>
           {rings.map(([k, m]) => (
             <li key={k} className="flex min-w-0 flex-col items-center gap-2 text-center">
-              <ProgressRing ratio={m.knownTarget ? m.progress : undefined} tone={m.tone} label={m.label} valueText={m.value}>
+              <ProgressRing ratio={m.progressTarget ? m.progress : undefined} tone={m.tone} label={m.label} valueText={m.value}>
                 <m.Icon size={27} className="protocol-ring-icon" aria-hidden />
               </ProgressRing>
               <span className="text-sm text-muted">{m.label}</span>

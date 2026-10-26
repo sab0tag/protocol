@@ -69,7 +69,7 @@ function Node({ node, last, foods, onEntry, onDose }: {
   const sym = e.kind === 'symptom'; // D56
   const state = sym ? 'symptom' : e.status === 'done' ? 'done' : e.status === 'skipped' ? 'skipped' : 'ahead';
   const word = sym ? [t.symptom.word, e.severity ? t.symptom.level(e.severity) : ''].filter(Boolean).join(' · ')
-    : e.status === 'done' ? L.recorded : e.status === 'skipped' ? t.status.skipped : e.menu ? L.menuProposal : t.status.planned;
+    : e.status === 'done' ? L.recorded : e.status === 'skipped' ? t.status.skipped : t.status.planned;
   return (
     <li className="relative">
       <button type="button" onClick={() => onEntry(e)} aria-label={`${e.title}, ${sym ? t.symptom.word : t.status[e.status]}${e.timeUnknown ? `, ${L.timeUnknown}` : ''}`}

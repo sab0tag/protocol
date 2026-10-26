@@ -57,6 +57,14 @@ export function Plan({ section = 'home' }: { section?: PlanSection }) {
   if (!plan) return <Loading />;
   const tg = plan.targets;
   const prescriptions = plan.prescriptions.filter((p) => p.kind !== 'test');
+  const activeConstraints = plan.constraints.filter((constraint) => constraint.active);
+  const goalsPreview = [targetSummary(tg), plan.modes.length ? `${P.summaryModes} ${plan.modes.map((mode) => mode.title).join(' · ')}` : '']
+    .filter(Boolean).join(' · ');
+  const checkupTests = plan.prescriptions.filter((p) => p.kind === 'test').map((p) => p.title);
+  const checkupPreview = plan.nextCheckup
+    ? `${dmy(plan.nextCheckup.date)}${plan.nextCheckup.tests.length ? ` · ${plan.nextCheckup.tests.join(' · ')}` : ''}`
+    : checkupTests.join(' · ');
+  const namePreview = (names: string[]) => names.slice(0, 2).join(' · ') + (names.length > 2 ? ` · +${names.length - 2}` : '');
   const sectionTitle = section === 'prescriptions' ? P.prescriptions
     : section === 'constraints' ? P.constraints
       : section === 'goals' ? P.targets
@@ -78,6 +86,11 @@ export function Plan({ section = 'home' }: { section?: PlanSection }) {
         constraints={plan.constraints.length}
         goals={Object.entries(tg).filter(([key, value]) => key !== 'fromDiet' && value != null).length + plan.modes.length}
         checkups={(plan.nextCheckup ? 1 : 0) + plan.prescriptions.filter((p) => p.kind === 'test').length}
+        prescriptionsPreview={namePreview(prescriptions.map((p) => p.title))}
+        constraintsPreview={activeConstraints.length ? `${P.summaryActive} ${namePreview(activeConstraints.map((constraint) => constraint.title))}`
+          : plan.constraints.length ? P.noActiveConstraints : ''}
+        goalsPreview={goalsPreview}
+        checkupPreview={checkupPreview}
       />}
 
       {section === 'prescriptions' && duplicateInn(plan.prescriptions).map((d) => ( /* D89: information, never «не приймайте» */

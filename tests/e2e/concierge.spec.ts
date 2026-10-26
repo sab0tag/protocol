@@ -57,7 +57,7 @@ test('«Журнал помічника»: off by default, the own records with 
     await r.fulfill({ json: deleted ? [] : [{ id: 'c-1', ts: '2026-10-18T13:20:05.000Z', scenario: 'not_found', input: 'бабусин пиріжок', output: { items: [{ name: 'Млинці' }] }, outcome: 'edited' }] });
   });
   await page.goto('./#/more');
-  await page.getByRole('link', { name: 'Про застосунок' }).click();
+  await page.getByRole('link', { name: /^Про застосунок / }).click();
   await page.getByRole('link', { name: 'Журнал помічника (ІІ)' }).click();
   await expect(page.getByRole('checkbox', { name: 'Записувати звернення до помічника' })).not.toBeChecked();
   await expect(page.getByText('«бабусин пиріжок»')).toBeVisible();
