@@ -7,8 +7,11 @@ import { saved } from '../components/Toast';
 import { uk } from 'date-fns/locale';
 import { ChevronLeft, Pencil, Plus } from 'lucide-react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { useMemo, useState, type ReactNode } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useFeatures } from '../app/features';
+import { PlanModuleReview } from '../components/PlanModuleReview';
+import { ACTIVITY_KINDS, planModuleSuggestions } from '../domain/moduleStart';
 import { useMedIndex } from '../data/medsIndex';
 import { MedboxScan } from '../components/MedboxScan';
 import { DietNorms, DietPicker } from '../components/DietPicker';
@@ -18,7 +21,7 @@ import { prnLimit } from '../domain/prn';
 import { prnLimitText } from '../domain/report';
 import { Sheet } from '../components/Sheet';
 import { db, type PlanRow } from '../data/db';
-import { useAllEntries, usePlan } from '../data/queries';
+import { useAllEntries, useModuleEvents, usePlan } from '../data/queries';
 import { stockLeft } from '../domain/stock';
 import { atLocal, newId, sinceNow, todayISO } from '../domain/dates';
 import { AllergenPicker } from '../components/AllergenPicker';
@@ -50,8 +53,19 @@ export type PlanSection = 'home' | 'prescriptions' | 'constraints' | 'goals' | '
 
 /** «План лікаря»: what the doctor said, as the user entered it. Nothing here is decided by the app. */
 export function Plan({ section = 'home' }: { section?: PlanSection }) {
+  const { enabled } = useFeatures();
+  const events = useModuleEvents();
+  const location = useLocation(), navigate = useNavigate();
+  const [review, setReview] = useState<{ before: PlanT; after: PlanT } | null>(() => (location.state as { moduleReview?: { before: PlanT; after: PlanT } } | null)?.moduleReview ?? null);
+  const previous = useRef<PlanRow>();
   const entries = useAllEntries(); // D69: what is left of each medicine
   const plan = usePlan();
+  useEffect(() => {
+    if (!plan || !events) return;
+    const before = previous.current; previous.current = plan;
+    if (enabled && before && planModuleSuggestions(before, plan, events).length) setReview((prior) => ({ before: prior?.before ?? before, after: plan }));
+  }, [plan, events, enabled]);
+  useEffect(() => { if ((location.state as { moduleReview?: unknown } | null)?.moduleReview) navigate(location.pathname, { replace: true, state: null }); }, []); // consume a completed repeat-onboarding review once
   const [editing, setEditing] = useState<Editing | null>(null);
   const pieces = useLiveQuery(async () => new Map((await db.pieces.toArray()).map((x) => [x.id, x.url])), []); // D114
   if (!plan) return <Loading />;
@@ -92,6 +106,7 @@ export function Plan({ section = 'home' }: { section?: PlanSection }) {
         goalsPreview={goalsPreview}
         checkupPreview={checkupPreview}
       />}
+      {review && <PlanModuleReview before={review.before} after={plan} onClose={() => setReview(null)} />}
 
       {section === 'prescriptions' && duplicateInn(plan.prescriptions).map((d) => ( /* D89: information, never «не приймайте» */
         <p key={d.inn} role="status" className="protocol-card rounded-2xl border border-line bg-surface p-3 text-sm">{P.duplicate(d.titles, d.inn)}</p>
@@ -271,6 +286,7 @@ const str = (n: number | undefined) => (n == null ? '' : String(n));
 
 // ------------------------------------------------------------------ forms
 function PrescriptionForm({ plan, item, onClose }: { plan: PlanRow; item?: Prescription; onClose: () => void }) {
+  const { enabled } = useFeatures();
   const [p, setP] = useState<Prescription>(item ?? { id: newId(), kind: 'medication', title: '', source: '', ...sinceNow() }); // D97, D103
   const [times, setTimes] = useState(item?.schedule?.times.join(', ') ?? '');
   const entries = useAllEntries();
@@ -322,6 +338,9 @@ function PrescriptionForm({ plan, item, onClose }: { plan: PlanRow; item?: Presc
       <Field label={P.kind}>
         <select value={p.kind} onChange={(e) => setP({ ...p, kind: e.target.value as Prescription['kind'] })} className={field}>
           {KINDS.map((k) => <option key={k} value={k}>{P.kinds[k]}</option>)}</select></Field>
+      {enabled && p.kind === 'lifestyle' && <Field label={t.startFlow.activity}><select value={p.activity ?? ''} onChange={(e) => setP({ ...p, activity: (e.target.value || undefined) as Prescription['activity'] })} className={field}>
+        <option value="">{t.startFlow.noActivity}</option>{ACTIVITY_KINDS.map((kind) => <option key={kind} value={kind}>{t.startFlow.activityKinds[kind]}</option>)}
+      </select><span className="text-xs text-muted">{t.startFlow.activityHint}</span></Field>}
       <Field label={P.dose}><input value={p.dose ?? ''} onChange={(e) => setP({ ...p, dose: e.target.value || undefined })} className={field} /></Field>
       {drug && <p className={`-mt-2 text-xs ${p.dose?.trim() ? 'text-muted' : 'text-warn'}`}>{p.dose?.trim() ? P.medDoseNote : P.noDose}</p>}
       <Field label={P.times}><input value={times} onChange={(e) => setTimes(e.target.value)} placeholder={P.timesPh} className={field}

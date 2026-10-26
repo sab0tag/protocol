@@ -11,7 +11,8 @@ export type ModuleChoice = EventBase & Provenance & { kind: 'module'; module: Mo
 export type WeightChoice = EventBase & Provenance & { kind: 'weight'; enabled: boolean };
 export type LightDayChoice = EventBase & { kind: 'light-day'; date: ISODate; enabled: boolean; source: 'manual' | 'voice' };
 export type ModuleOfferEvent = EventBase & { kind: 'offer'; module: ModuleId; offerId: string; action: 'shown' | 'yes' | 'later' | 'no' };
-export type ModuleEvent = ModuleChoice | WeightChoice | LightDayChoice | ModuleOfferEvent | (EventBase & { kind: 'initialised' });
+export type ModuleEvent = ModuleChoice | WeightChoice | LightDayChoice | ModuleOfferEvent | OnboardingEvent | (EventBase & { kind: 'initialised' });
+export type OnboardingEvent = EventBase & ({ kind: 'onboarding-started' } | { kind: 'onboarded'; date: ISODate; progressAt: ISODateTime });
 export interface ModulePreferences { modules: ModuleFlags; overrides: FeatureOverrides }
 
 const ID = /^[A-Za-z0-9:_-]{1,160}$/;
@@ -43,7 +44,14 @@ export function isModuleEvent(value: unknown): value is ModuleEvent {
   } else if (e.kind === 'offer') {
     if (!isModuleId(e.module) || !isEventId(e.offerId) || !['shown', 'yes', 'later', 'no'].some((a) => a === e.action)) return false;
     fields = ['module', 'offerId', 'action'];
-  } else if (e.kind === 'initialised') fields = [];
+  } else if (e.kind === 'onboarded') {
+    if (!isLocalDate(e.date) || !isEventTime(e.progressAt) || e.progressAt <= e.at
+      || Date.parse(e.progressAt) - Date.parse(e.at as string) > 9 * 86_400_000) return false;
+    const day = Date.parse(e.date + 'T00:00:00.000Z'), happened = Date.parse(e.at as string), opens = Date.parse(e.progressAt);
+    if (happened < day - 14 * 3_600_000 || happened >= day + 36 * 3_600_000
+      || opens < day + 7 * 86_400_000 - 14 * 3_600_000 || opens > day + 7 * 86_400_000 + 12 * 3_600_000) return false;
+    fields = ['date', 'progressAt'];
+  } else if (e.kind === 'initialised' || e.kind === 'onboarding-started') fields = [];
   else return false;
   const allowed = new Set(['id', 'v', 'at', 'kind', ...fields]);
   return Object.keys(e).length === allowed.size && Object.keys(e).every((key) => allowed.has(key));
@@ -67,7 +75,13 @@ function choice<T extends ModuleChoice | WeightChoice>(events: readonly T[]): T 
 
 /** Undefined before the first known event means unknown history, not «disabled» or a guessed start date. */
 export function moduleChoiceAt(events: readonly ModuleEvent[], module: ModuleId, at?: ISODateTime): ModuleChoice | undefined {
-  return choice(events.filter((e): e is ModuleChoice => e.kind === 'module' && e.module === module && (at === undefined || e.at <= at)));
+  const rows = events.filter((e): e is ModuleChoice => e.kind === 'module' && e.module === module && (at === undefined || e.at <= at));
+  // D138: an offline day-8 automation must never override a person's progress choice, even if it arrives later.
+  if (module === 'progress') {
+    const personal = rows.filter((e) => !['migration', 'onboarding', 'automatic'].includes(e.source));
+    if (personal.length) return latest(personal);
+  }
+  return choice(rows);
 }
 
 export function weightChoiceAt(events: readonly ModuleEvent[], at?: ISODateTime): WeightChoice | undefined {
@@ -77,8 +91,9 @@ export function weightChoiceAt(events: readonly ModuleEvent[], at?: ISODateTime)
 /** Visibility defaults only. Historical metrics must use moduleChoiceAt so unknown history stays unknown. */
 export function modulePreferences(events: readonly ModuleEvent[], at?: ISODateTime): ModulePreferences {
   const known = at === undefined ? events : events.filter((e) => e.at <= at);
+  const pending = known.some((e) => e.kind === 'onboarding-started') && !known.some((e) => e.kind === 'module' || e.kind === 'onboarded');
   const modules = { ...ALL_MODULES };
-  for (const id of Object.keys(modules) as ModuleId[]) modules[id] = moduleChoiceAt(known, id)?.enabled ?? true;
+  for (const id of Object.keys(modules) as ModuleId[]) modules[id] = moduleChoiceAt(known, id)?.enabled ?? !pending;
   const weight = weightChoiceAt(known);
   return { modules, overrides: weight ? { 'wellbeing.weight': weight.enabled } : {} };
 }

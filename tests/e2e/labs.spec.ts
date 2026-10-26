@@ -145,9 +145,20 @@ test('onboarding starts from the doctor’s paper: photo → hide what is person
   await form.getByRole('textbox', { name: 'Час прийому: Метформін', exact: true }).fill('08:15, 20:30');
   await form.getByRole('checkbox', { name: 'Метформін 500 мг' }).check();
   await expect(form.getByRole('status', { name: 'Рішення щодо ліків' })).toContainText('Ліки без рішення: 1'); // the Каптоприл without its dose
-  await expect(form.getByRole('button', { name: 'Почати (1)' })).toBeDisabled();
+  const confirm = process.env.VITE_MODULE_POLICY_ENABLED === 'true' ? 'Підтвердити рядки й продовжити' : 'Почати (1)';
+  await expect(form.getByRole('button', { name: confirm })).toBeDisabled();
   await form.getByRole('button', { name: 'Не вносити' }).click();
-  await form.getByRole('button', { name: 'Почати (1)' }).click();
+  await form.getByRole('button', { name: confirm }).click();
+  if (process.env.VITE_MODULE_POLICY_ENABLED === 'true') {
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('З чого почнемо');
+    const choices = await page.evaluate(async () => {
+      const req = indexedDB.open('protocol'); await new Promise((r) => { req.onsuccess = r; });
+      const get = req.result.transaction('moduleEvents').objectStore('moduleEvents').getAll(); await new Promise((r) => { get.onsuccess = r; });
+      req.result.close(); return get.result.filter((e: { kind: string }) => e.kind === 'module' || e.kind === 'onboarded');
+    });
+    expect(choices).toEqual([]); // OCR confirmation is still before the final start, including after a reload.
+    await page.getByRole('button', { name: 'Почати', exact: true }).click();
+  }
   await expect(page).toHaveURL(/#\/$/);
   await expect(page.getByText('Метформін').first()).toBeVisible(); // «День» — its doses at the explicitly entered times
   await page.goto('./#/plan/prescriptions');
