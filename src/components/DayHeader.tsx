@@ -38,7 +38,8 @@ export function DayHeader({ date, setDate }: { date: string; setDate: (d: string
         </div>
         <p className="text-2xl font-semibold">Добрий день!</p>
         <p className="mt-1 flex items-center gap-2 text-sm text-white/85">Маленькі кроки — великі зміни <Heart size={16} className="fill-emerald-300 text-emerald-300" aria-hidden /></p>
-      <h1 className="mt-7 text-xl font-semibold first-letter:uppercase">{format(d, 'EEE, d MMMM', { locale: uk })}</h1>
+      <h1 className="mt-7 text-xl font-semibold">{isToday ? L.todayTitle : format(d, 'EEEE, d MMMM', { locale: uk })}</h1>
+      {isToday && <p className="mt-1 text-sm text-white/80">{format(d, 'EEEE, d MMMM', { locale: uk })}</p>}
       <nav aria-label={L.week} className="mt-3 flex items-center gap-1">
         <button type="button" onClick={() => setDate(weekStep(date, -1, today))} aria-label={L.prevWeek}
           className="flex min-h-tap w-7 shrink-0 items-center justify-center text-white/80"><ChevronLeft size={18} aria-hidden /></button>
