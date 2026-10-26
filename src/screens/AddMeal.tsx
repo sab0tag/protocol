@@ -18,7 +18,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { db } from '../data/db';
 import { useAllEntries, useDayEntries, useFoods, usePlan, useRecentEntries, useRecipes } from '../data/queries';
-import { earlierMeals, frequentItems } from '../domain/habits';
+import { frequentItems } from '../domain/habits';
 import { Amount } from '../components/Amount';
 import { dishItem, foodFromLine, recipeFrom, setPortions, withComponents } from '../domain/recipes';
 import { atLocal, dateOf, newId, timeOf, todayISO } from '../domain/dates';
@@ -229,25 +229,6 @@ export function AddMeal() {
               <Link to={`/dishes?describe=${encodeURIComponent(query.trim())}`} className="mt-1 inline-flex min-h-tap items-center text-sm text-accent underline">{t.dishes.breakdown.fromMeal}</Link></>
           )}
           {!query && <FavoritesList onAdd={(xs) => setItems((ys) => [...ys, ...xs])} />}
-          {!query && !id && items.length === 0 && all && (() => {
-            const before = earlierMeals(all, title, date);
-            return before.length > 0 && (
-              <div className="mt-3">
-                <p className="mb-1 text-sm text-muted">{t.meal.likeBefore(title)}</p>
-                <ul className="space-y-2">
-                  {before.map((e) => (
-                    <li key={e.id}>
-                      <button type="button" onClick={() => setItems(e.items!.map((x) => ({ ...x })))}
-                        className="flex min-h-tap w-full items-center gap-2 rounded-xl border border-line px-3 py-2 text-left">
-                        <span className="flex-1 text-sm">{e.items!.map((x) => `${x.name} ${amountText(x)}`).join(', ')}</span>
-                        <span className="shrink-0 text-sm font-medium text-accent">{t.meal.repeat}</span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            );
-          })()}
           {!query && all && (() => {
             const freq = frequentItems(all, todayISO()).filter((f) => !items.some((it) => it.name === f.item.name));
             return freq.length > 0 && (

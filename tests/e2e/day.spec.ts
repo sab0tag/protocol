@@ -78,6 +78,28 @@ test('the new «День»: the plan on an empty day, a dose asks when, main num
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Сьогодні');
 });
 
+test('«Як учора» stays on «День» and copies a prior meal to today', async ({ browser }) => {
+  const page = await device(browser, 'skip');
+  const previous = new Date();
+  previous.setDate(previous.getDate() - 1);
+  const date = ymd(previous);
+  await seed(page, [{
+    store: 'entries',
+    value: { id: 'yesterday-meal', at: `${date}T13:00:00${kyivOffset(previous)}`, kind: 'meal', status: 'done', title: 'Обід',
+      items: [{ foodId: 'kefir', name: 'Кефір 2,5 %', grams: 250 }] },
+  }]);
+
+  await page.getByRole('button', { name: 'Як учора' }).click();
+  const sheet = page.getByRole('dialog', { name: 'Повторити з учора' });
+  await expect(sheet.getByText('Кефір 2,5 % 250 г')).toBeVisible();
+  await sheet.getByRole('button', { name: /13:00 · Обід/ }).click();
+  await expect(toast(page)).toContainText('Обід');
+  await expect(page.getByRole('region', { name: 'Ритм дня' })).toContainText('Обід');
+
+  await page.goto('./#/meal/new');
+  await expect(page.getByText(/^Як раніше ·/)).toHaveCount(0);
+});
+
 test('«Мені погано»: a symptom with its time, what was eaten before it, and «103» for a danger sign (D56)', async ({ browser }) => {
   const page = await device(browser);
   const now = new Date(), d = ymd(now);
