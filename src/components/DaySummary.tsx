@@ -66,7 +66,7 @@ export function DaySummary({ totals, targets, meds, streak, food, onComplete }: 
   const rest = ALL.filter((k) => !main.includes(k));
 
   return (
-    <section aria-labelledby="summary" className="mb-4 rounded-2xl border border-line bg-surface p-4">
+    <section aria-labelledby="summary" className="protocol-card mb-4 p-5">
       <div className="mb-3 flex items-baseline justify-between gap-2">
         <h2 id="summary" className="text-lg font-semibold">{L.title}</h2>
         <button type="button" onClick={() => setSetup((v) => !v)} aria-expanded={setup} className="min-h-tap px-1 text-sm text-accent">{setup ? L.done : L.setup}</button>
