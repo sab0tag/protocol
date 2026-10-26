@@ -9,7 +9,7 @@ import { useState } from 'react';
 import { amountText, needsGrams } from '../domain/foodSearch';
 import { lineNutrients, round } from '../domain/nutrition';
 import { setPortions } from '../domain/recipes';
-import { NOW_AFTER_MIN } from '../domain/reminders';
+import { NOW_AFTER_MIN, NOW_BEFORE_MIN } from '../domain/reminders';
 import { timeOf, todayISO } from '../domain/dates';
 import type { DayEntry, Food, MealItem } from '../domain/types';
 import { t } from '../i18n/uk';
@@ -27,7 +27,8 @@ export function ConfirmMeal({ entry, date, foods, onClose, onEdit, onPin, onDele
   const planned = timeOf(entry.at);
   const now = format(new Date(), 'HH:mm');
   const isToday = date === todayISO();
-  const dueNow = isToday && Math.abs(differenceInMinutes(new Date(), new Date(`${date}T${planned}:00`))) <= NOW_AFTER_MIN;
+  const late = differenceInMinutes(new Date(), new Date(`${date}T${planned}:00`));
+  const dueNow = isToday && late <= NOW_AFTER_MIN && late >= -NOW_BEFORE_MIN;
   const [items, setItems] = useState<MealItem[]>(() => (entry.items ?? []).map((x) => ({ ...x })));
   const [ticked, setTicked] = useState<Set<number>>(new Set());
   const [choice, setChoice] = useState<Choice | null>(dueNow ? 'now' : null);
