@@ -9,6 +9,7 @@ import { useWellbeing } from '../data/queries';
 import type { Wellbeing as W } from '../domain/types';
 import { t } from '../i18n/uk';
 import { useUi } from '../store/ui';
+import { Link } from 'react-router-dom';
 
 const L = t.well;
 type Score = 1 | 2 | 3 | 4 | 5;
@@ -46,6 +47,9 @@ export function Wellbeing() {
       </header>
       <p role="status" className="flex items-center justify-center gap-1 text-sm text-muted">
         {savedAt?.date === date ? <><Check size={16} className="text-accent" aria-hidden />{L.savedAt(savedAt.hm)}</> : L.autosave}</p>
+      <Link to="/wellbeing/journal" className="flex min-h-tap items-center justify-between rounded-xl border border-line bg-surface px-3 font-medium">
+        <span>{L.journal}</span><span aria-hidden className="text-muted">›</span>
+      </Link>
 
       {(['energy', 'mood', 'sleep'] as const).map((key) => (
         <fieldset key={key} className="rounded-2xl border border-line bg-surface p-3">

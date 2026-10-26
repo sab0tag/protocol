@@ -1,0 +1,68 @@
+import { format, parseISO } from 'date-fns';
+import { Loading } from '../components/Recovery';
+import { useAllEntries, useFoods, usePlan, useWorkouts } from '../data/queries';
+import { habits, weekSummary, type Habit } from '../domain/habits';
+import { todayISO } from '../domain/dates';
+import { t } from '../i18n/uk';
+import { Link } from 'react-router-dom';
+
+const L = t.progress;
+
+export function Motivation() {
+  const plan = usePlan();
+  const entries = useAllEntries();
+  const workouts = useWorkouts();
+  const foods = useFoods();
+  if (!entries || !workouts || !foods) return <Loading />;
+
+  return (
+    <section className="space-y-4 pt-4">
+      <Link to="/progress" className="inline-flex min-h-tap items-center text-sm text-muted">{t.progress.title}</Link>
+      <h1 className="text-2xl font-semibold">{t.progress.motivationTitle}</h1>
+      <WeekCard summary={weekSummary({ plan, entries, workouts, foods, today: todayISO() })} />
+      <HabitsCard list={habits({ plan, entries, workouts, foods, today: todayISO() })} showEmpty />
+    </section>
+  );
+}
+
+export function HabitsCard({ list, showEmpty = false }: { list: Habit[]; showEmpty?: boolean }) {
+  if (!list.length) return showEmpty ? <p className="rounded-2xl border border-line bg-surface p-3 text-muted">{L.noHabits}</p> : null;
+  return (
+    <section className="rounded-2xl border border-line bg-surface p-3">
+      <h2 className="font-semibold">{L.habits}</h2>
+      <p className="mb-2 text-sm text-muted">{L.habitsHint}</p>
+      <ul className="space-y-2">
+        {list.map((habit) => (
+          <li key={habit.key} className="flex items-baseline justify-between gap-2">
+            <span>{L.habit[habit.key]}</span>
+            <span className="text-right tabular">
+              <span className={habit.streak >= 2 ? 'font-semibold text-accent' : ''}>
+                {habit.streak >= 2 ? `🌱 ${L.streak(habit.streak)}` : L.ofWeek(habit.last7, habit.days7)}
+              </span>
+              {habit.best >= 3 && habit.best > habit.streak && <span className="block text-xs text-muted">{L.best(habit.best)}</span>}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+export function WeekCard({ summary }: { summary: ReturnType<typeof weekSummary> }) {
+  const tiles: [string, string][] = [];
+  if (summary.carbsOk !== undefined) tiles.push([L.weekCarbs, L.ofDays(summary.carbsOk, summary.days)]);
+  if (summary.proteinOk !== undefined) tiles.push([L.weekProtein, L.ofDays(summary.proteinOk, summary.days)]);
+  if (summary.waterOk !== undefined) tiles.push([L.weekWater, L.ofDays(summary.waterOk, summary.days)]);
+  tiles.push([L.weekWorkouts, String(summary.workouts)]);
+  if (summary.checklistPct !== undefined) tiles.push([L.weekChecklist, `${summary.checklistPct} %`]);
+  return (
+    <section className="rounded-2xl border border-line bg-surface p-3">
+      <h2 className="mb-2 font-semibold">{L.week} <span className="text-sm font-normal text-muted">· {format(parseISO(summary.from), 'dd.MM')}–{format(parseISO(summary.to), 'dd.MM')}</span></h2>
+      {summary.days === 0 ? <p className="text-muted">{L.weekNoData}</p> : (
+        <dl className="grid grid-cols-2 gap-x-4 gap-y-2 tabular sm:grid-cols-3">
+          {tiles.map(([label, value]) => <div key={label}><dt className="text-sm text-muted">{label}</dt><dd className="text-lg font-semibold">{value}</dd></div>)}
+        </dl>
+      )}
+    </section>
+  );
+}

@@ -1,7 +1,6 @@
-import { Eye, Info, Activity, BellRing, ChevronRight, Dumbbell, FileText, RefreshCw, Salad, ShoppingCart, Sparkles, UserRound, CalendarRange, MessageSquareWarning, Zap, MessageCircle, HandHeart } from 'lucide-react';
+import { Eye, Info, Activity, BellRing, ChevronRight, Dumbbell, FileText, RefreshCw, Salad, ShoppingCart, Sparkles, UserRound, CalendarRange, MessageSquareWarning, Zap, MessageCircle, HandHeart, Database, Heart, ClipboardPlus, Lightbulb } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Backup } from '../components/Backup';
 import { enterDemo, inDemo } from '../data/db';
 import { t } from '../i18n/uk';
 
@@ -15,6 +14,10 @@ const GROUPS = [
   ] },
   { title: t.more.health, links: [
     { to: '/wellbeing', Icon: Activity, title: t.well.title },
+    { to: '/wellbeing/journal', Icon: Heart, title: t.well.journal },
+    { to: '/progress/labs', Icon: ClipboardPlus, title: t.progress.labs },
+    { to: '/progress/motivation', Icon: Heart, title: t.progress.motivationTitle },
+    { to: '/progress/insights', Icon: Lightbulb, title: t.progress.insightsTitle },
     { to: '/workout', Icon: Dumbbell, title: t.workout.title },
     { to: '/week', Icon: CalendarRange, title: t.week.title },
     { to: '/report', Icon: FileText, title: t.report.title },
@@ -23,6 +26,7 @@ const GROUPS = [
     { to: '/reminders', Icon: BellRing, title: t.remind.title },
     { to: '/sync', Icon: RefreshCw, title: t.sync.title },
     { to: '/quick', Icon: Zap, title: t.quick.title },
+    { to: '/data', Icon: Database, title: t.data.title },
   ] },
   { title: t.more.app, links: [
     { to: '/frictions', Icon: MessageSquareWarning, title: t.friction.title },
@@ -50,7 +54,6 @@ export function More() {
         </section>
       ))}
       {!inDemo() && <ExampleEntry />}
-      <Backup />
       <p className="mt-4 text-sm text-muted">{t.plan.disclaimer}</p>
     </section>
   );
@@ -73,4 +76,3 @@ function ExampleEntry() {
         <span className="block text-sm text-muted">{t.example.safe}</span></span></button>
   );
 }
-

@@ -16,6 +16,12 @@ import { ConciergeLog } from '../screens/ConciergeLog';
 import { Assistant } from '../screens/Assistant';
 import { Plan } from '../screens/Plan';
 import { Progress } from '../screens/Progress';
+import { Insights } from '../screens/Insights';
+import { Motivation } from '../screens/Motivation';
+import { Labs } from '../screens/Labs';
+import { MyFoods } from '../screens/MyFoods';
+import { WellbeingJournal } from '../screens/WellbeingJournal';
+import { Data } from '../screens/Data';
 import { Report } from '../screens/Report';
 import { Sync } from '../screens/Sync';
 import { Menu } from '../screens/Menu';
@@ -70,6 +76,7 @@ export function App() {
             <Route path="/meal/:id" element={<MealRoute />} />
             <Route path="/my-day" element={<MyDay />} />
             <Route path="/wellbeing" element={<Wellbeing />} />
+            <Route path="/wellbeing/journal" element={<WellbeingJournal />} />
             <Route path="/workout" element={<Workout />} />
             <Route path="/exercises" element={<Exercises />} />
             <Route path="/do/:action" element={<QuickAction />} />
@@ -80,8 +87,13 @@ export function App() {
             <Route path="/plan" element={<Plan />} />
             <Route path="/welcome" element={<Onboarding />} />
             <Route path="/progress" element={<Progress />} />
+            <Route path="/progress/insights" element={<Insights />} />
+            <Route path="/progress/motivation" element={<Motivation />} />
+            <Route path="/progress/labs" element={<Labs />} />
             <Route path="/report" element={<Report />} />
             <Route path="/dishes" element={<Dishes />} />
+            <Route path="/foods" element={<MyFoods />} />
+            <Route path="/data" element={<Data />} />
             <Route path="/more" element={<More />} />
             <Route path="/about" element={<About />} />
             <Route path="/concierge-log" element={<ConciergeLog />} />
