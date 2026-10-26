@@ -5,7 +5,8 @@ import { buildChecklist } from './checklist';
 import { byAt, dateOf, timeOf } from './dates';
 import { dayTotals, effectiveTargets } from './nutrition';
 import type { DayEntry, Food, ISODate, MealItem, Plan, Workout } from './types';
-import { observedToday, scoredDay, trackingInfo, type Observation } from './observation';
+import { coverage, neutralDay, observedToday, scoredDay, trackingInfo, type Observation } from './observation';
+import { lightDayHistory, type LightDayHistory } from './lightDay';
 
 const keyOf = (it: MealItem) => it.recipe ? `r:${it.recipe.id}` : it.foodId ? `f:${it.foodId}:${it.unit?.name ?? 'г'}` : `n:${it.name.toLowerCase()}`;
 
@@ -57,6 +58,8 @@ export interface WeekSummary {
   checklistPct?: number;
   knownDays?: Partial<Record<'carbs' | 'protein' | 'water', number>>;
   showWorkouts?: boolean;
+  lightDays?: LightDayHistory;
+  lightDayWorkouts?: number;
 }
 
 /** The last 7 days up to `today`: how many days kept the carbs limit (or minimum), reached ≥ 90 % of the
@@ -83,7 +86,9 @@ export function weekSummary(args: { plan: Plan | undefined; entries: DayEntry[];
     done += c.done; total += c.total;
   }
   return {
-    from, to: today, days, workouts: workouts.filter((w) => w.date >= from && w.date <= today).length,
+    from, to: today, days, workouts: workouts.filter((w) => w.date >= from && w.date <= today && !(observation && neutralDay(observation, 'workout', w.date))).length,
+    ...(observation && !observation.demo ? { lightDays: lightDayHistory(observation.events, from, today, observation.now),
+      lightDayWorkouts: workouts.filter((w) => w.date >= from && w.date <= today && neutralDay(observation, 'workout', w.date)).length } : {}),
     ...(hasCarbs ? { carbsOk } : {}), ...(hasProtein ? { proteinOk } : {}), ...(hasWater ? { waterOk } : {}),
     ...(total ? { checklistPct: Math.round((done / total) * 100) } : {}),
     ...(observation ? { knownDays, showWorkouts: workouts.some((w) => w.date >= from && w.date <= today)
@@ -116,10 +121,15 @@ export function habits(args: { plan: Plan | undefined; entries: DayEntry[]; work
     const rows = flags.filter((x) => x.f[key] !== undefined);
     if (!rows.length) return [];
     let best = 0, run = 0;
-    for (const r of flags) { run = r.f[key] ? run + 1 : 0; best = Math.max(best, run); }
+    const paused = (d: string) => {
+      const owner = key === 'protein' || key === 'carbs' ? 'food' : key === 'water' ? 'water' : undefined;
+      return !!observation && !!owner && coverage(observation, owner, d) === 'on' && neutralDay(observation, owner, d);
+    };
+    for (const r of flags) { if (paused(r.d)) continue; run = r.f[key] ? run + 1 : 0; best = Math.max(best, run); }
     let streak = 0;
     for (let i = flags.length - 1; i >= 0; i--) {
       const r = flags[i]!;
+      if (paused(r.d)) continue;
       if (r.f[key]) streak += 1;
       else if (r.d === today) continue; // today is not over yet
       else break;

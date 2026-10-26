@@ -17,6 +17,7 @@ import { t } from '../i18n/uk';
 import { useFeatures } from '../app/features';
 import { visibleReport } from '../domain/visibility';
 import { TextSafety } from '../components/TextSafety';
+import { LightDayHistoryView } from '../components/LightDayHistory';
 
 const L = t.report;
 const field = 'mt-1 block min-h-tap w-full rounded-xl border border-line bg-bg px-3';
@@ -67,6 +68,7 @@ export function Report() {
           <input type="date" value={range.to} max={today} onChange={(e) => setRange({ ...range, to: e.target.value })} className={field} /></label>
       </div>
       <p className="hidden print:block">{dmy(r.from)} — {dmy(r.to)} · {L.days(r.days)}</p>
+      <LightDayHistoryView history={r.lightDays} workouts={r.lightDayWorkouts} showEmpty />
       {r.tracking && <div className="space-y-1 text-sm text-muted">{trackingLines(r.tracking).map((line) => <p key={line}>{line}</p>)}</div>}
       {r.unscoredMedMarks && <p className="text-sm text-muted">{unscoredMedText(r.unscoredMedMarks)}</p>}
 
@@ -106,7 +108,7 @@ export function Report() {
         <dl className="grid grid-cols-2 gap-3 protocol-card rounded-2xl border border-line bg-surface p-3 tabular sm:grid-cols-4">
           {(!r.observed || r.checklistPct != null) && <Metric label={L.checklist} value={r.checklistPct != null ? `${r.checklistPct} %` : '—'} />}
           {r.observed?.weight !== false && <Metric label={L.weight} value={r.weightStart != null ? `${num(r.weightStart)} → ${num(r.weightNow!)} кг` : '—'} />}
-          {r.observed?.workout !== false && <Metric label={L.workouts} value={String(r.workouts)} />}
+          {r.observed?.workout !== false && <Metric label={r.lightDayWorkouts ? t.lightDay.scoredWorkouts : L.workouts} value={String(r.workouts)} />}
           {r.observed?.wellbeing !== false && <Metric label={L.energy} value={r.avgEnergy != null ? `${num(r.avgEnergy)} ${L.of5}` : '—'} />}
         </dl>
       )}

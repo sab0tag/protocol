@@ -10,6 +10,7 @@ import { ProgressRing } from '../components/ProgressRing';
 import { SceneHeader } from '../components/SceneHeader';
 import { useObservation } from '../app/observation';
 import { ExampleNotice } from '../components/ExampleNotice';
+import { LightDayHistoryView } from '../components/LightDayHistory';
 
 const L = t.progress;
 
@@ -77,6 +78,7 @@ export function WeekCard({ summary, variant = 'tiles' }: { summary: ReturnType<t
     return (
       <section className="protocol-card rounded-2xl border border-line bg-surface p-3 sm:p-5">
         <h2 className="mb-2 font-semibold">{L.week} <span className="text-sm font-normal text-muted">· {format(parseISO(summary.from), 'dd.MM')}–{format(parseISO(summary.to), 'dd.MM')}</span></h2>
+        <LightDayHistoryView history={summary.lightDays} workouts={summary.lightDayWorkouts} />
         {summary.days === 0 ? <p className="text-muted">{L.weekNoData}</p> : (
           <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
             {metrics.filter((metric) => metric.total > 0).map((metric) => {
@@ -93,7 +95,7 @@ export function WeekCard({ summary, variant = 'tiles' }: { summary: ReturnType<t
               );
             })}
             {summary.showWorkouts !== false && <li className="protocol-metric protocol-week-metric flex min-w-0 flex-col items-center justify-center text-center">
-              <span className="min-h-8 text-sm text-muted">{L.weekWorkouts}</span>
+              <span className="min-h-8 text-sm text-muted">{summary.lightDayWorkouts ? t.lightDay.scoredWorkouts : L.weekWorkouts}</span>
               <span className="tabular text-3xl font-semibold">{summary.workouts}</span>
             </li> /* not observed or the workout module is off — no count to read as zero */}
           </ul>
@@ -106,11 +108,12 @@ export function WeekCard({ summary, variant = 'tiles' }: { summary: ReturnType<t
   if (summary.carbsOk !== undefined) tiles.push([L.weekCarbs, L.ofDays(summary.carbsOk, summary.knownDays?.carbs ?? summary.days)]);
   if (summary.proteinOk !== undefined) tiles.push([L.weekProtein, L.ofDays(summary.proteinOk, summary.knownDays?.protein ?? summary.days)]);
   if (summary.waterOk !== undefined) tiles.push([L.weekWater, L.ofDays(summary.waterOk, summary.knownDays?.water ?? summary.days)]);
-  if (summary.showWorkouts !== false) tiles.push([L.weekWorkouts, String(summary.workouts)]);
+  if (summary.showWorkouts !== false) tiles.push([summary.lightDayWorkouts ? t.lightDay.scoredWorkouts : L.weekWorkouts, String(summary.workouts)]);
   if (summary.checklistPct !== undefined) tiles.push([L.weekChecklist, `${summary.checklistPct} %`]);
   return (
     <section className="protocol-card rounded-2xl border border-line bg-surface p-5">
       <h2 className="mb-2 font-semibold">{L.week} <span className="text-sm font-normal text-muted">· {format(parseISO(summary.from), 'dd.MM')}–{format(parseISO(summary.to), 'dd.MM')}</span></h2>
+      <LightDayHistoryView history={summary.lightDays} workouts={summary.lightDayWorkouts} />
       {summary.days === 0 ? <p className="text-muted">{L.weekNoData}</p> : (
         <dl className="grid grid-cols-2 gap-3 tabular sm:grid-cols-3">
           {tiles.map(([label, value]) => <div key={label} className="protocol-metric"><dt className="text-sm text-muted">{label}</dt><dd className="mt-2 text-xl font-semibold">{value}</dd></div>)}

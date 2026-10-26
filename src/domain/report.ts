@@ -12,7 +12,8 @@ import { evaluate } from './evaluate';
 import { coincidenceText } from './symptoms';
 import { observedCoincidences, pace, weeklyWeights, wellbeingCoincidences } from './progress';
 import type { DailyLimit, DayEntry, Food, ISODate, LabResult, Plan, WeightLog, Wellbeing, Workout } from './types';
-import { observedPlannedEntry, observedToday, trackingInfo, type Observation, type TrackingInfo, type TrackingKey } from './observation';
+import { neutralDay, observedPlannedEntry, observedToday, trackingInfo, type Observation, type TrackingInfo, type TrackingKey } from './observation';
+import { lightDayHistory, type LightDayHistory } from './lightDay';
 
 export interface Report {
   from: ISODate;
@@ -52,6 +53,8 @@ export interface Report {
   tracking?: TrackingInfo;
   observed?: { workout: boolean; weight: boolean; wellbeing: boolean };
   unscoredMedMarks?: number;
+  lightDays?: LightDayHistory;
+  lightDayWorkouts?: number;
 }
 
 export function buildReport(args: {
@@ -90,7 +93,7 @@ export function buildReport(args: {
       m.due += 1; if (i.done) m.taken += 1;
       perMed.set(i.prescriptionId ?? i.title, m);
     }
-    if (plan) for (const m of day.filter((e) => e.kind === 'meal' && e.status === 'done' && e.items?.length)) {
+    if (plan && !(observation && neutralDay(observation, 'food', d))) for (const m of day.filter((e) => e.kind === 'meal' && e.status === 'done' && e.items?.length)) {
       eatenMeals += 1;
       // R03: an eaten meal against what else was eaten that day (not what was only planned) and the week before
       const { checks } = evaluate({ plan, date: d, foods, entries, exclude: m.id, intent: 'recorded', meal: m.items! });
@@ -109,7 +112,7 @@ export function buildReport(args: {
     }
   }
   const menuMeals = entries.filter((e) => e.menu && e.kind === 'meal' && inside(dateOf(e.at)) && isPast(e.at)
-    && observedPlannedEntry(observation, e)); // recorded facts remain; proposals need observed food + menu
+    && !(observation && neutralDay(observation, 'food', dateOf(e.at))) && observedPlannedEntry(observation, e)); // recorded facts remain; proposals need observed food + menu; a light day's food is outside scoring
   const quality = weightQuality(weights, format(now, 'yyyy-MM-dd'));
   const w = quality.accepted.filter((x) => inside(x.date));
   const weightPending = quality.pending.filter((x) => inside(x.record.date)).length;
@@ -135,6 +138,8 @@ export function buildReport(args: {
 
   return {
     from, to, days,
+    ...(observation && !observation.demo ? { lightDays: lightDayHistory(observation.events, from, to, observation.now),
+      lightDayWorkouts: workouts.filter((w) => inside(w.date) && neutralDay(observation, 'workout', w.date)).length } : {}),
     ...(tracking ? { tracking, observed: { workout: hasPeriod('workout') || workouts.some((w) => inside(w.date)),
       weight: w.length > 0, wellbeing: scored.length > 0 } } : {}),
     ...(unscoredMedMarks ? { unscoredMedMarks } : {}),
@@ -147,7 +152,7 @@ export function buildReport(args: {
     habits: (['protein', 'carbs', 'water', 'meds', 'plan'] as HabitKey[]).flatMap((key) => { const h = hab.get(key); return h ? [{ key, ...h }] : []; }),
     ...(menuMeals.length ? { menu: { done: menuMeals.filter((e) => e.status === 'done').length,
       skipped: menuMeals.filter((e) => e.status === 'skipped').length, open: menuMeals.filter((e) => e.status === 'planned').length } } : {}),
-    workouts: workouts.filter((x) => inside(x.date)).length,
+    workouts: workouts.filter((x) => inside(x.date) && !(observation && neutralDay(observation, 'workout', x.date))).length,
     ...(scored.length ? { avgEnergy: Math.round((scored.reduce((a, x) => a + (x.energy ?? 0), 0) / scored.length) * 10) / 10 } : {}),
     symptoms: [...counts.entries()].map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name)),
     coincidences: [...observedCoincidences(entries.filter((e) => inside(dateOf(e.at))), foods, observation).map(coincidenceText),
@@ -193,6 +198,7 @@ const signedKg = (n: number) => `${n > 0 ? '+' : n < 0 ? '−' : ''}${dec(Math.a
 export function reportText(r: Report, dm: (d: ISODate) => string): string {
   const lines = [
     `Звіт за ${dm(r.from)} — ${dm(r.to)} (${r.days} дн.)`,
+    ...(r.lightDays ? [t.lightDay.summary(r.lightDays.count, r.lightDays.days), ...(r.lightDays.dates.length ? [t.lightDay.dates(r.lightDays.dates.map(dm).join(', ')), t.lightDay.hint] : [])] : []),
     ...(r.tracking ? trackingLines(r.tracking) : []),
     ...(r.unscoredMedMarks ? [unscoredMedText(r.unscoredMedMarks)] : []),
     r.meds ? `${t.report.meds(r.meds.taken, r.meds.due)}${r.meds.missed.length ? ` — ${r.meds.missed.map((m) => t.report.missed(m.title, m.count)).join('; ')}` : ''}` : '',
@@ -211,7 +217,8 @@ export function reportText(r: Report, dm: (d: ISODate) => string): string {
     r.weightPace != null ? `Темп за період, за тижневими середніми: ${signedKg(r.weightPace)} кг на тиждень${r.maxLossPerWeek != null ? ` (межа — не швидше ${dec(r.maxLossPerWeek)})` : ''}` : '',
     r.habits.length ? `Дні з записами, коли виконано:\n${r.habits.map((h) => `• ${HABIT[h.key]}: ${h.met} з ${h.of}`).join('\n')}` : '',
     r.menu ? `Меню з застосунку: з’їдено ${r.menu.done}, пропущено ${r.menu.skipped}, не відмічено ${r.menu.open}` : '',
-    r.observed?.workout === false ? '' : `Тренувань: ${r.workouts}`,
+    r.observed?.workout === false ? '' : `${r.lightDayWorkouts ? t.lightDay.scoredWorkouts : 'Тренувань'}: ${r.workouts}`,
+    r.observed?.workout !== false && r.lightDayWorkouts ? t.lightDay.workouts(r.lightDayWorkouts) : '',
     r.avgEnergy != null ? `Середня енергія: ${dec(r.avgEnergy)} з 5` : '',
     r.symptoms.length ? `Симптоми: ${r.symptoms.map((s) => `${s.name} — ${s.count}`).join('; ')}` : '',
     r.coincidences.length ? `Збіги в записах (підрахунок, не висновок):\n${r.coincidences.map((c) => `• ${c}`).join('\n')}` : '',

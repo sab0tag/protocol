@@ -10,8 +10,9 @@ interface EventBase { id: string; v: 1; at: ISODateTime }
 export type ModuleChoice = EventBase & Provenance & { kind: 'module'; module: ModuleId; enabled: boolean };
 export type WeightChoice = EventBase & Provenance & { kind: 'weight'; enabled: boolean };
 export type LightDayChoice = EventBase & { kind: 'light-day'; date: ISODate; enabled: boolean; source: 'manual' | 'voice' };
+export type LightDayNotice = EventBase & { kind: 'light-day-notice'; date: ISODate; episode: ISODate };
 export type ModuleOfferEvent = EventBase & { kind: 'offer'; module: ModuleId; offerId: string; action: 'shown' | 'yes' | 'later' | 'no' };
-export type ModuleEvent = ModuleChoice | WeightChoice | LightDayChoice | ModuleOfferEvent | OnboardingEvent | (EventBase & { kind: 'initialised' });
+export type ModuleEvent = ModuleChoice | WeightChoice | LightDayChoice | LightDayNotice | ModuleOfferEvent | OnboardingEvent | (EventBase & { kind: 'initialised' });
 export type OnboardingEvent = EventBase & ({ kind: 'onboarding-started' } | { kind: 'onboarded'; date: ISODate; progressAt: ISODateTime });
 export interface ModulePreferences { modules: ModuleFlags; overrides: FeatureOverrides }
 
@@ -41,6 +42,9 @@ export function isModuleEvent(value: unknown): value is ModuleEvent {
   } else if (e.kind === 'light-day') {
     if (!isLocalDate(e.date) || typeof e.enabled !== 'boolean' || !['manual', 'voice'].some((s) => s === e.source)) return false;
     fields = ['date', 'enabled', 'source'];
+  } else if (e.kind === 'light-day-notice') {
+    if (!isLocalDate(e.date) || !isLocalDate(e.episode) || e.episode > e.date) return false;
+    fields = ['date', 'episode'];
   } else if (e.kind === 'offer') {
     if (!isModuleId(e.module) || !isEventId(e.offerId) || !['shown', 'yes', 'later', 'no'].some((a) => a === e.action)) return false;
     fields = ['module', 'offerId', 'action'];
