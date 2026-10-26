@@ -143,6 +143,7 @@ test('the survey of the 7th day: only a participant sees it, a card on «Ден�
   const c2 = other.getByRole('region', { name: 'Два питання про застосунок' });
   await c2.getByRole('button', { name: 'Не зараз' }).click();
   await expect(c2).toHaveCount(0);
+  await expect(other.getByRole('status')).toContainText('Відповідь збережено.');
   await other.reload(); await other.waitForTimeout(500);
   await expect(c2).toHaveCount(0);
 });

@@ -1,5 +1,4 @@
 import { format } from 'date-fns';
-import { History } from 'lucide-react';
 import { useState } from 'react';
 import { db, type PlanRow } from '../data/db';
 import { todayISO } from '../domain/dates';
@@ -10,6 +9,7 @@ import { planFromRecords, type PlanVersion } from '../sync/engine';
 import { currentKeys } from '../sync/runner';
 import type { RemoteRecord } from '../sync/engine';
 import { saved } from './Toast';
+import { Link } from 'react-router-dom';
 
 const L = t.versions;
 
@@ -19,7 +19,11 @@ export function PlanVersions({ current }: { current: PlanRow }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const keys = currentKeys();
-  if (!keys) return null;
+  if (!keys) return (
+    <p className="protocol-card rounded-2xl border border-line bg-surface p-3 text-sm text-muted">
+      {L.noSync} <Link to="/sync" className="font-medium text-accent underline">{L.syncLink}</Link>
+    </p>
+  );
 
   const find = async () => {
     setBusy(true); setError('');
@@ -46,9 +50,7 @@ export function PlanVersions({ current }: { current: PlanRow }) {
   };
 
   return (
-    <section className="space-y-3 rounded-2xl border border-line bg-surface p-3">
-      <h2 className="flex items-center gap-2 font-semibold"><History size={18} aria-hidden />{L.title}</h2>
-      <p className="text-sm text-muted">{L.hint}</p>
+    <div className="space-y-3 protocol-card rounded-2xl border border-line bg-surface p-3">
       {!list && <button type="button" disabled={busy} onClick={() => void find()}
         className="min-h-tap rounded-xl border border-accent px-3 font-medium text-accent disabled:opacity-40">{busy ? L.busy : L.find}</button>}
       {error && <p role="alert" className="text-sm text-warn">{error}</p>}
@@ -68,6 +70,6 @@ export function PlanVersions({ current }: { current: PlanRow }) {
           </div>
         );
       })}
-    </section>
+    </div>
   );
 }

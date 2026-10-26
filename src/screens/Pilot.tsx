@@ -35,7 +35,7 @@ export function Pilot() {
       <section aria-label={L.sent} className="space-y-2">
         <h2 className="font-semibold">{L.sent}</h2>
         {sent.length ? [...sent].sort((a, b) => b.week.localeCompare(a.week)).map((s) => (
-          <div key={s.week} className="rounded-2xl border border-line bg-surface p-3" data-week={s.week}><SummaryView s={s} /></div>
+          <div key={s.week} className="protocol-card rounded-2xl border border-line bg-surface p-3" data-week={s.week}><SummaryView s={s} /></div>
         )) : <p className="text-sm text-muted">{L.nothingSent}</p>}
       </section>
       {(m.pid || sent.length > 0) && (erasing ? (

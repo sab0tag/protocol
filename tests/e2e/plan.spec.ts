@@ -3,7 +3,7 @@ import { device, seed } from './helpers';
 
 test('medicine stock: the count in «План», «вистачить на» there and a notice on «День» when it runs low (D69)', async ({ browser }) => {
   const page = await device(browser);
-  await page.goto('./#/plan');
+  await page.goto('./#/plan/prescriptions');
   await page.getByRole('button', { name: /^Редагувати: Вітамін D/ }).click();
   await page.getByRole('textbox', { name: 'Залишилось, шт' }).fill('4');
   await page.getByRole('button', { name: 'Зберегти' }).click();
@@ -12,6 +12,16 @@ test('medicine stock: the count in «План», «вистачить на» the
   await expect(page.getByText('Вітамін D — вистачить на ~4 дн. Час купити.')).toBeVisible();
   await page.getByRole('button', { name: 'Оновити залишок' }).click();
   await expect(page).toHaveURL(/#\/plan$/);
+});
+
+test('«План лікаря» overview previews its saved items without opening each section', async ({ browser }) => {
+  const page = await device(browser);
+  await page.goto('./#/plan');
+  const sections = page.getByRole('navigation', { name: 'Розділи плану' });
+  await expect(sections.getByRole('link', { name: /Призначення/ })).toContainText('Вітамін D');
+  await expect(sections.getByRole('link', { name: /Обмеження/ })).toContainText('Діють: Оксалатні камені');
+  await expect(sections.getByRole('link', { name: /Цілі й режими/ })).toContainText('2100 ккал');
+  await expect(sections.getByRole('link', { name: /Цілі й режими/ })).toContainText('Підготовка до ОГТТ');
 });
 
 test('«Тиждень»: the numbers, what went well, and one goal the person picks — shown on «День» (D72)', async ({ browser }) => {
@@ -29,7 +39,7 @@ test('«Тиждень»: the numbers, what went well, and one goal the person p
 
 test('a skipped onboarding leaves the plan empty; the example is opened on purpose and taken out in one tap (D73)', async ({ browser }) => {
   const empty = await device(browser, 'skip');
-  await empty.goto('./#/plan');
+  await empty.goto('./#/plan/prescriptions');
   await expect(empty.getByText('Вітамін D')).toHaveCount(0);
   await expect(empty.getByText(/Це приклад:/)).toHaveCount(0);
 
@@ -38,7 +48,7 @@ test('a skipped onboarding leaves the plan empty; the example is opened on purpo
   await page.getByRole('button', { name: 'Почати свій план' }).click();
   await expect(page).toHaveURL(/#\/welcome$/);
   await expect(page.getByRole('button', { name: 'Подивитись на прикладі' })).toBeVisible(); // nothing of the person's yet
-  await page.goto('./#/plan');
+  await page.goto('./#/plan/prescriptions');
   await expect(page.getByText('Вітамін D')).toHaveCount(0);
   await expect(page.getByText(/Це приклад:/)).toHaveCount(0);
 });
@@ -65,7 +75,7 @@ test('the example comes with two invented weeks: «Прогрес» and the repo
 
 test('the example is a database of its own: the own records stay, «Подивитись приклад» is always in «Ще», no sync in it (D98)', async ({ browser }) => {
   const page = await device(browser, 'skip');
-  await page.goto('./#/plan');
+  await page.goto('./#/plan/prescriptions');
   await page.locator('section.rounded-2xl').filter({ has: page.getByRole('heading', { name: 'Призначення', exact: true }) }).getByRole('button', { name: 'Додати' }).click();
   await page.getByRole('dialog', { name: 'Призначення' }).getByRole('textbox', { name: 'Назва' }).fill('Мій препарат');
   await page.getByRole('dialog', { name: 'Призначення' }).getByRole('textbox', { name: /^Доза/ }).fill('1 таб.');
@@ -75,14 +85,14 @@ test('the example is a database of its own: the own records stay, «Подиви
   await page.getByRole('button', { name: /Подивитись на прикладі/ }).click(); // the own plan is not empty — still there
   await page.getByRole('button', { name: 'Відкрити приклад' }).click(); // D99: asked first — the own data stays
   await expect(page.getByText(/Це приклад:/)).toBeVisible();
-  await page.goto('./#/plan');
+  await page.goto('./#/plan/prescriptions');
   await expect(page.getByText('Вітамін D')).toBeVisible();
   await expect(page.getByText('Мій препарат')).toHaveCount(0); // not mixed
   await page.goto('./#/sync');
   await expect(page.getByText(/синхронізація в ньому вимкнена/)).toBeVisible();
   // leaving deletes the example's database and reloads — wait for that reload, or it lands after the next navigation
   await Promise.all([page.waitForEvent('load'), page.getByRole('button', { name: 'Повернутися до своїх даних' }).click()]);
-  await page.goto('./#/plan');
+  await page.goto('./#/plan/prescriptions');
   await expect(page.getByText('Мій препарат')).toBeVisible(); // the own, untouched
   await expect(page.getByText('Вітамін D')).toHaveCount(0);
 });
@@ -100,4 +110,15 @@ test('the day\'s own records are there after a look at the example — the examp
   await page.getByRole('button', { name: 'Повернутися до своїх даних' }).click();
   await expect(page.getByText(/Ваші власні записи не зникли/)).toHaveCount(0);
   await expect(page.getByText('Сніданок').first()).toBeVisible(); // the morning's record, as it was
+});
+
+test('the plan history opens separately and explains that sync is required', async ({ browser }) => {
+  const page = await device(browser, 'skip');
+  await page.goto('./#/plan');
+  await page.getByRole('link', { name: 'Історія попередніх версій' }).click();
+  await expect(page).toHaveURL(/#\/plan\/history$/);
+  await expect(page.getByRole('heading', { name: 'Попередні версії плану', level: 1 })).toBeVisible();
+  await expect(page.getByText(/спершу увімкніть синхронізацію/)).toBeVisible();
+  await page.getByRole('link', { name: 'Налаштувати синхронізацію' }).click();
+  await expect(page).toHaveURL(/#\/sync$/);
 });

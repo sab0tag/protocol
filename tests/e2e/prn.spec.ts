@@ -54,7 +54,7 @@ test('an old limit with no unit: counted as intakes, no remainder drawn, the pla
   await expect(card).toContainText('сьогодні прийомів: 1');
   await expect(card).toContainText('Не вдалося зіставити одиниці з межею лікаря');
   await expect(card).not.toContainText('з 3');
-  await page.goto('./#/plan');
+  await page.goto('./#/plan/prescriptions');
   await page.getByRole('button', { name: /Ібупрофен/ }).first().click();
   await expect(page.getByText('Межу внесено без одиниці — вкажіть, у чому вона (таблетки, прийоми…)')).toBeVisible();
   await page.getByLabel('В чому межа').selectOption('intake');

@@ -9,6 +9,8 @@ import { db } from '../data/db';
 import { buildChecklist } from '../domain/checklist';
 import { atLocal, newId, todayISO } from '../domain/dates';
 import { NOW_AFTER_MIN } from '../domain/reminders';
+import { useObservation } from '../app/observation';
+import type { Observation } from '../domain/observation';
 import type { DayEntry } from '../domain/types';
 import { t } from '../i18n/uk';
 import { useUi } from '../store/ui';
@@ -17,17 +19,18 @@ export function QuickAction() {
   const { action } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
+  const { observation, ready } = useObservation();
   const acted = useRef(false); // once per opening; a link typed into the bar has no history key of its own
   useEffect(() => {
-    if (acted.current) return;
+    if (acted.current || !ready) return;
     acted.current = true;
     const ml = Math.min(1000, Math.max(50, Number(new URLSearchParams(location.search).get('ml')) || 250));
-    void run(action ?? '', ml).then((to) => navigate(to, { replace: true }));
-  }, [action, location.search, navigate]);
+    void run(action ?? '', ml, observation).then((to) => navigate(to, { replace: true }));
+  }, [action, location.search, navigate, observation, ready]);
   return <p role="status" className="mt-10 text-center text-muted">{t.quick.working}</p>;
 }
 
-async function run(action: string, ml: number): Promise<string> {
+async function run(action: string, ml: number, observation?: Observation): Promise<string> {
   const date = todayISO(), now = format(new Date(), 'HH:mm');
   useUi.getState().setDate(date);
   if (action === 'water') {
@@ -38,7 +41,7 @@ async function run(action: string, ml: number): Promise<string> {
   if (action === 'med') {
     const [plan, entries, workouts, foods] = await Promise.all([db.plan.get('main'), db.entries.where('at').startsWith(date).toArray(),
       db.workouts.toArray(), db.foods.toArray()]);
-    const c = buildChecklist({ plan, date, entries, workouts, foods: new Map(foods.map((f) => [f.id, f])), now: new Date() });
+    const c = buildChecklist({ plan, date, entries, workouts, foods: new Map(foods.map((f) => [f.id, f])), now: new Date(), observation });
     const next = c.items.find((i) => i.kind === 'med' && !i.done && !i.skipped);
     if (!next) { toast(t.quick.noMed); return '/'; }
     if (next.time && differenceInMinutes(new Date(), new Date(`${date}T${next.time}:00`)) > NOW_AFTER_MIN) { toast(t.quick.medLate(next.title)); return '/'; }

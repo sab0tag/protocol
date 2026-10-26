@@ -12,9 +12,10 @@ import { todayISO } from '../domain/dates';
 import { habits, weekSummary, type HabitKey } from '../domain/habits';
 import { motivation } from '../domain/progression';
 import { t } from '../i18n/uk';
-import { HabitsCard, WeekCard } from './Progress';
+import { HabitsCard, WeekCard } from './Motivation';
 import { useObservation } from '../app/observation';
 import { scoredDay } from '../domain/observation';
+import { SceneHeader } from '../components/SceneHeader';
 
 const L = t.week;
 
@@ -44,7 +45,7 @@ export function Week() {
 
   return (
     <section className="space-y-4 pt-4">
-      <h1 className="text-2xl font-semibold">{L.title}</h1>
+      <SceneHeader title={L.title} />
       <WeekCard summary={summary} />
 
       <section aria-label={L.went} className="rounded-2xl border border-accent/30 bg-accent/10 p-3">
@@ -60,7 +61,7 @@ export function Week() {
 
       <HabitsCard list={list} />
 
-      <section aria-label={L.goal} className="space-y-2 rounded-2xl border border-line bg-surface p-3">
+      <section aria-label={L.goal} className="space-y-2 protocol-card rounded-2xl border border-line bg-surface p-3">
         <h2 className="font-semibold">{L.goal}</h2>
         {current && goal === null && (
           <p className="text-sm">{current.text} <span className="text-muted">· {L.since(format(parseISO(current.set), 'd MMMM', { locale: uk }))}</span></p>

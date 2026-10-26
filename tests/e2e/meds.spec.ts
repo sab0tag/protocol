@@ -4,6 +4,7 @@ import { device, syncOn } from './helpers';
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGP8z8DAwMDAxMDAwMDAAAANHQEDasKb6QAAAABJRU5ErkJggg==', 'base64');
 
 async function addFromRegistry(page: import('@playwright/test').Page, typed: string, pick: RegExp) {
+  await page.goto('./#/plan/prescriptions');
   await page.locator('section.rounded-2xl').filter({ has: page.getByRole('heading', { name: 'Призначення', exact: true }) }).getByRole('button', { name: 'Додати' }).click();
   const form = page.getByRole('dialog', { name: 'Призначення' });
   await form.getByRole('textbox', { name: 'Назва' }).fill(typed);
@@ -18,13 +19,14 @@ async function addFromRegistry(page: import('@playwright/test').Page, typed: str
 
 test('the medicines register: Latin typing finds it, no dose filled, one INN twice — a note, not a ban; offline, no sync (D89)', async ({ browser }) => {
   const page = await device(browser, 'skip');
-  await page.goto('./#/plan');
+  await page.goto('./#/plan/prescriptions');
   await addFromRegistry(page, 'nurofen', /^Нурофєн® · Ibuprofen/);
   await addFromRegistry(page, 'ібупрофен', /^Ібупрофен.* · Ibuprofen/);
   const note = page.getByRole('status').filter({ hasText: 'одна речовина (Ibuprofen)' });
   await expect(note).toContainText('Перевірте з лікарем');
   await expect(note).not.toContainText('не приймайте');
   await page.goto('./#/more');
+  await page.getByRole('link', { name: /Про застосунок/ }).click();
   await page.getByRole('link', { name: 'Про застосунок і джерела' }).click();
   await expect(page.getByRole('link', { name: 'CC BY 4.0' })).toBeVisible();
   await expect(page.getByText(/індекс від .*, \d+ препаратів/)).toBeVisible();
@@ -34,7 +36,7 @@ test('a package photo (model stubbed): the name found in the register; the stren
   const page = await device(browser, 'skip');
   await syncOn(page);
   await page.route('**/medbox', (r) => r.fulfill({ json: { readable: true, name: 'Еутирокс', inn: 'левотироксин', strength: '100 мкг', form: 'таблетки', note: null } }));
-  await page.goto('./#/plan');
+  await page.goto('./#/plan/prescriptions');
   await page.locator('section.rounded-2xl').filter({ has: page.getByRole('heading', { name: 'Призначення', exact: true }) }).getByRole('button', { name: 'Додати' }).click();
   const form = page.getByRole('dialog', { name: 'Призначення' });
   await form.getByRole('button', { name: 'Фото упаковки' }).click();
@@ -48,7 +50,7 @@ test('a package photo (model stubbed): the name found in the register; the stren
 
 test('a medicine without a time or a dose says so — a hint never passes for a value (D97)', async ({ browser }) => {
   const page = await device(browser, 'skip');
-  await page.goto('./#/plan');
+  await page.goto('./#/plan/prescriptions');
   await page.locator('section.rounded-2xl').filter({ has: page.getByRole('heading', { name: 'Призначення', exact: true }) }).getByRole('button', { name: 'Додати' }).click();
   const form = page.getByRole('dialog', { name: 'Призначення' });
   await form.getByRole('textbox', { name: 'Назва' }).fill('Метформін');

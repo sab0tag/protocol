@@ -8,7 +8,7 @@ test('a lab form photo (model stubbed) → numbers checked against the paper →
   await syncOn(page);
   await page.route('**/labs', (r) => r.fulfill({ json: { readable: true, date: '2026-10-10', note: null, items: [
     { name: 'Феритин', value: 310, unit: 'нг/мл', reference: '30–400' }, { name: 'Глюкоза натще', value: 5.4, unit: 'ммоль/л', reference: '3,9–5,5' }] } }));
-  await page.goto('./#/progress');
+  await page.goto('./#/progress/labs');
   await page.getByRole('button', { name: 'Фото бланка аналізів' }).click();
   const [chooser] = await Promise.all([page.waitForEvent('filechooser'), page.getByRole('button', { name: 'Дозволити й вибрати фото' }).click()]);
   await chooser.setFiles({ name: 'labs.png', mimeType: 'image/png', buffer: PNG });
@@ -39,6 +39,8 @@ test('a doctor’s conclusion, two pages, no account (model stubbed) → «Ос�
       unread: [{ text: 'Ам…ин 1/2 т', page: 2, box: [0.1, 0.6, 0.4, 0.05] }] } });
   });
   await page.goto('./#/plan');
+  await page.getByRole('link', { name: /Фото висновку лікаря/ }).click();
+  await expect(page).toHaveURL(/#\/plan\/scan$/);
   await page.getByRole('button', { name: 'Фото висновку лікаря' }).click();
   const [chooser] = await Promise.all([page.waitForEvent('filechooser'), page.getByRole('button', { name: 'Дозволити й вибрати фото' }).click()]);
   await chooser.setFiles([{ name: 'p1.png', mimeType: 'image/png', buffer: PNG }, { name: 'p2.png', mimeType: 'image/png', buffer: PNG }]);
@@ -61,13 +63,17 @@ test('a doctor’s conclusion, two pages, no account (model stubbed) → «Ос�
   await form.getByRole('checkbox', { name: 'Метформін 500 мг', exact: true }).check();
   await form.getByRole('button', { name: 'Внести в план (5)' }).click();
   await expect(toast(page)).toContainText('Внесено в план: 5');
+  await page.goto('./#/plan/prescriptions');
   await expect(page.getByText('Метформін')).toBeVisible();
   await expect(page.getByText(/Вкажіть час прийому/)).toHaveCount(0); // the times are in, marked suggested when they were
+  await page.goto('./#/plan/constraints');
   await expect(page.getByText('Порушена глікемія')).toBeVisible();
+  await page.goto('./#/plan/goals');
   await expect(page.getByText(/вода 2000 мл/)).toBeVisible();
   await expect(page.getByText(/їжа до 19:00/)).toHaveCount(0); // not ticked — not in the plan
   await expect(page.getByText('Каптоприл')).toHaveCount(0);
   // D114: the line as it was on the paper — kept on this device, opened from «План»
+  await page.goto('./#/plan/prescriptions');
   const metformin = page.getByRole('listitem').filter({ hasText: 'Метформін' }).first();
   await metformin.getByRole('button', { name: 'Показати на папері' }).click();
   await expect(metformin.getByRole('img', { name: '«Метформін» у висновку лікаря' })).toBeVisible();
@@ -81,13 +87,15 @@ test('before the paper leaves the phone: the header comes painted over, a finger
   let sent = '';
   await page.route('**/conclusion', async (r) => { sent = (r.request().postDataJSON() as { images: string[] }).images[0]!;
     await r.fulfill({ json: { readable: false, date: null, doctor: null, diet: null, constraints: [], prescriptions: [], tests: [], nextVisit: null, targets: [], unread: [], note: 'Порожньо' } }); });
-  await page.goto('./#/plan');
+  await page.goto('./#/plan/scan');
   await page.getByRole('button', { name: 'Фото висновку лікаря' }).click();
   const [chooser] = await Promise.all([page.waitForEvent('filechooser'), page.getByRole('button', { name: 'Дозволити й вибрати фото' }).click()]);
   await chooser.setFiles({ name: 'p.jpg', mimeType: 'image/jpeg', buffer: jpeg });
   const prep = page.getByRole('region', { name: 'Приховайте особисте перед надсиланням' });
   await expect(prep.getByText('Тут зазвичай ПІБ і дата народження')).toBeVisible(); // suggested, already painted
   const area = prep.locator('[data-page="1"]');
+  // A coordinate drag must start on the photo, after the page has scrolled it clear of the fixed tabs.
+  await area.scrollIntoViewIfNeeded();
   const b = (await area.boundingBox())!;
   await page.mouse.move(b.x + b.width * 0.5, b.y + b.height * 0.6); await page.mouse.down(); // a box over 50–80 % × 60–70 %
   await page.mouse.move(b.x + b.width * 0.8, b.y + b.height * 0.7, { steps: 4 }); await page.mouse.up();
@@ -138,7 +146,7 @@ test('onboarding starts from the doctor’s paper: photo → hide what is person
   await form.getByRole('button', { name: 'Почати (1)' }).click();
   await expect(page).toHaveURL(/#\/$/);
   await expect(page.getByText('Метформін').first()).toBeVisible(); // «День» — its doses at the suggested times
-  await page.goto('./#/plan');
+  await page.goto('./#/plan/prescriptions');
   await expect(page.getByText('Каптоприл')).toHaveCount(0);
   await expect(page.getByText(/08:00, 20:00/)).toBeVisible();
 });
@@ -149,7 +157,7 @@ test('a later visit: the new paper against the plan — new, and a medicine it d
   await page.route('**/conclusion', (r) => r.fulfill({ json: { readable: true, date: '2026-10-19', doctor: 'Ендокринолог', note: null, diagnosis: null, diet: null,
     constraints: [], tests: [], nextVisit: null, targets: [], unread: [], prescriptions: [
       { kind: 'medication', title: 'Еутирокс', dose: '50 мкг', times: ['07:00'], perDay: 1, frequency: null, durationDays: null, asNeeded: false, withFood: false, ...w }] } }));
-  await page.goto('./#/plan');
+  await page.goto('./#/plan/scan');
   await page.getByRole('button', { name: 'Фото висновку лікаря' }).click();
   const [chooser] = await Promise.all([page.waitForEvent('filechooser'), page.getByRole('button', { name: 'Дозволити й вибрати фото' }).click()]);
   await chooser.setFiles({ name: 'p.png', mimeType: 'image/png', buffer: PNG });
@@ -164,6 +172,7 @@ test('a later visit: the new paper against the plan — new, and a medicine it d
   await form.getByRole('checkbox', { name: 'Еутирокс 50 мкг' }).check();
   await form.getByRole('button', { name: 'Внести в план (2)' }).click();
   await expect(toast(page)).toContainText('Внесено в план: 2');
+  await page.goto('./#/plan/prescriptions');
   await expect(page.getByText('Еутирокс')).toBeVisible();
   await expect(page.getByRole('listitem').filter({ hasText: 'Вітамін D' }).first()).toContainText('курс закінчився'); // closed, its history stays
 });

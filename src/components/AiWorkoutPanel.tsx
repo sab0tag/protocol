@@ -62,7 +62,7 @@ export function AiWorkoutPanel({ workouts, plan, date, onDraft }: {
   };
 
   return (
-    <section aria-label={L.title} className="space-y-3 rounded-2xl border border-line bg-surface p-3">
+    <section aria-label={L.title} className="space-y-3 protocol-card rounded-2xl border border-line bg-surface p-3">
       <h2 className="flex items-center gap-2 font-semibold"><Sparkles size={18} className="text-accent" aria-hidden />{L.title}</h2>
       <div className="flex flex-wrap gap-2" role="group" aria-label={L.level}>
         {CHOICES.map((c) => { const on = c.levels.join() === levels.join(); return (

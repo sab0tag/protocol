@@ -11,6 +11,7 @@ import { atLocal, newId, todayISO } from '../domain/dates';
 import { t } from '../i18n/uk';
 import { useUi } from '../store/ui';
 import { useObservation } from '../app/observation';
+import { ProgressTrack } from '../components/ProgressTrack';
 
 const M = t.myday;
 
@@ -46,7 +47,7 @@ export function MyDay() {
     t.toast.water(WATER_SEGMENT_ML), () => db.entries.delete(id)); };
 
   return (
-    <section className="pt-4">
+    <section className="space-y-4 pt-4">
       <header className="mb-3 flex items-center gap-2">
         <button type="button" onClick={() => shift(-1)} aria-label={t.day.prev}
           className="flex min-h-tap min-w-tap items-center justify-center rounded-xl border border-line bg-surface"><ChevronLeft size={20} /></button>
@@ -57,14 +58,15 @@ export function MyDay() {
         <button type="button" onClick={() => shift(1)} aria-label={t.day.next}
           className="flex min-h-tap min-w-tap items-center justify-center rounded-xl border border-line bg-surface"><ChevronRight size={20} /></button>
       </header>
+      {c.total > 0 && <ProgressTrack ratio={c.done / c.total} label={M.title} valueText={M.counter(c.done, c.total)} />}
 
-      {c.total === 0 && <p className="rounded-2xl border border-line bg-surface p-4 text-muted">{M.empty}</p>}
-      <ul className="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface">
+      {c.total === 0 && <p className="protocol-card rounded-2xl border border-line bg-surface p-4 text-muted">{M.empty}</p>}
+      <ul className="divide-y divide-line overflow-hidden protocol-card rounded-2xl border border-line bg-surface">
         {c.items.map((item) => (
           <li key={item.key}>
             <button type="button" onClick={() => void toggle(item)} disabled={!item.tappable && item.kind !== 'workout'}
               aria-pressed={item.tappable ? item.done : undefined}
-              className="flex min-h-tap w-full items-center gap-3 px-3 py-2 text-left disabled:cursor-default">
+              className="flex min-h-tap w-full items-center gap-3 px-4 py-4 text-left disabled:cursor-default">
               {item.done ? <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent text-surface"><Check size={16} aria-hidden /></span>
                 : item.kind === 'workout' ? <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 border-line text-muted"><Dumbbell size={13} aria-hidden /></span>
                   : <Circle size={24} className="text-line" aria-hidden />}
@@ -92,10 +94,10 @@ export function MyDay() {
       </ul>
 
       {c.workoutNote && (
-        <p className="mt-3 flex items-start gap-2 rounded-2xl border border-line bg-surface p-3 text-sm"><Info size={18} className="mt-0.5 shrink-0 text-muted" />{c.workoutNote}</p>
+        <p className="mt-3 flex items-start gap-2 protocol-card rounded-2xl border border-line bg-surface p-3 text-sm"><Info size={18} className="mt-0.5 shrink-0 text-muted" />{c.workoutNote}</p>
       )}
       <button type="button" onClick={() => navigate('/wellbeing')}
-        className="mt-3 flex min-h-tap w-full items-center gap-3 rounded-2xl border border-line bg-surface px-3 font-medium">
+        className="mt-3 flex min-h-tap w-full items-center gap-3 protocol-card rounded-2xl border border-line bg-surface px-3 font-medium">
         <Activity size={20} className="text-accent" />{M.wellbeing}</button>
     </section>
   );
