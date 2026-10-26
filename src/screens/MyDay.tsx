@@ -10,6 +10,7 @@ import { buildChecklist, WATER_SEGMENT_ML, WATER_SEGMENTS, type CheckItem } from
 import { atLocal, newId, todayISO } from '../domain/dates';
 import { t } from '../i18n/uk';
 import { useUi } from '../store/ui';
+import { useObservation } from '../app/observation';
 import { ProgressTrack } from '../components/ProgressTrack';
 
 const M = t.myday;
@@ -17,15 +18,16 @@ const M = t.myday;
 /** «Мій день» (SPEC.md §5.4): one tap per item, the time of the tick is kept. */
 export function MyDay() {
   const { date, shift } = useUi();
+  const { observation, ready: observationReady } = useObservation();
   const plan = usePlan();
   const entries = useDayEntries(date);
   const foods = useFoods();
   const workouts = useWorkouts();
   const navigate = useNavigate();
-  if (!entries || !foods || !workouts) return <Loading />;
+  if (!entries || !foods || !workouts || !observationReady) return <Loading />;
 
   const isToday = date === todayISO();
-  const c = buildChecklist({ plan, date, entries, workouts, foods, now: new Date() });
+  const c = buildChecklist({ plan, date, entries, workouts, foods, now: new Date(), observation });
   const stamp = (scheduled?: string) => atLocal(date, isToday ? format(new Date(), 'HH:mm') : scheduled ?? '12:00');
 
   const toggle = async (item: CheckItem) => {

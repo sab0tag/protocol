@@ -4,6 +4,7 @@ import { timeOf } from './dates';
 import { activeMode, dayTotals, effectiveTargets } from './nutrition';
 import type { DayEntry, Food, ISODate, Plan, Prescription, Workout } from './types';
 import { workoutDay } from './workouts';
+import { observedTargets, observedTask, scoredDay, type Observation } from './observation';
 
 export const WATER_SEGMENT_ML = 250;
 export const WATER_SEGMENTS = 10;
@@ -47,11 +48,12 @@ export function doseDue(p: Prescription, date: ISODate, time?: string): boolean 
 
 export function buildChecklist(args: {
   plan: Plan | undefined; date: ISODate; entries: DayEntry[]; workouts: Workout[]; foods: Map<string, Food>; now: Date;
+  observation?: Observation;
 }): Checklist {
   const { plan, date, entries, workouts, foods, now } = args;
   const ticks = new Map(entries.filter((e) => e.checkKey && e.status === 'done').map((e) => [e.checkKey!, e]));
   const skips = new Set(entries.filter((e) => e.checkKey && e.status === 'skipped').map((e) => e.checkKey!));
-  const targets = effectiveTargets(plan, date);
+  const targets = observedTargets(effectiveTargets(plan, date), date, args.observation);
   const totals = dayTotals(entries, foods);
   const items: CheckItem[] = [];
 
@@ -61,6 +63,7 @@ export function buildChecklist(args: {
     const times: (string | undefined)[] = p.schedule?.times.length ? p.schedule.times : [undefined];
     for (const time of times) {
       if (!doseDue(p, date, time)) continue; // D103: the first day starts from the moment it was added
+      if (!observedTask(args.observation, 'meds', date, time)) continue;
       const key = `med:${p.id}:${time ?? 'day'}`;
       const tick = ticks.get(key);
       items.push({ key, kind: 'med', title: p.title, ...(time ? { time } : {}), prescriptionId: p.id, tappable: true,
@@ -79,7 +82,7 @@ export function buildChecklist(args: {
 
   const wd = workoutDay(plan, workouts, date);
   const workedOut = workouts.some((w) => w.date === date);
-  if (wd.due || workedOut) {
+  if (scoredDay(args.observation, 'workout', date) && (wd.due || workedOut)) {
     items.push({ key: 'workout', kind: 'workout', title: 'Тренування', tappable: false, done: workedOut, detail: 'Гиря 16 кг' });
   }
 
@@ -95,11 +98,11 @@ export function buildChecklist(args: {
 
   const mode = activeMode(plan, date)?.mode;
   const min = mode?.targetsOverride.carbsG?.min;
-  if (mode && min != null) {
+  if (mode && min != null && scoredDay(args.observation, 'food', date)) {
     items.push({ key: 'mode:carbs', kind: 'mode', title: `Вуглеводи не менше ${min} г`, tappable: false,
       done: totals.carbs >= min, detail: `${Math.round(totals.carbs)} г · ${mode.title}` });
   }
 
   const done = items.filter((i) => i.done).length;
-  return { items, done, total: items.length, water, ...(wd.postponed ? { workoutNote: wd.postponed } : {}) };
+  return { items, done, total: items.length, water, ...(wd.postponed && scoredDay(args.observation, 'workout', date) ? { workoutNote: wd.postponed } : {}) };
 }

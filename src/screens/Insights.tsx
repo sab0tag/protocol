@@ -4,15 +4,17 @@ import { useAllEntries, useAllWellbeing, useFoods, usePlan, useWorkouts } from '
 import { patterns } from '../domain/progress';
 import { t } from '../i18n/uk';
 import { Link } from 'react-router-dom';
+import { useObservation } from '../app/observation';
 
 export function Insights() {
+  const { observation, ready: observationReady } = useObservation();
   const plan = usePlan();
   const entries = useAllEntries();
   const wellbeing = useAllWellbeing();
   const workouts = useWorkouts();
   const foods = useFoods();
-  if (!entries || !wellbeing || !workouts || !foods) return <Loading />;
-  const found = patterns({ entries, wellbeing, workouts, foods, ...(plan ? { plan } : {}) });
+  if (!entries || !wellbeing || !workouts || !foods || !observationReady) return <Loading />;
+  const found = patterns({ entries, wellbeing, workouts, foods, observation, ...(plan ? { plan } : {}) });
 
   return (
     <section className="space-y-4 pt-4">

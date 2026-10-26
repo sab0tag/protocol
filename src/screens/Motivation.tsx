@@ -7,22 +7,24 @@ import { t } from '../i18n/uk';
 import { Link } from 'react-router-dom';
 import { ProgressTrack } from '../components/ProgressTrack';
 import { SceneHeader } from '../components/SceneHeader';
+import { useObservation } from '../app/observation';
 
 const L = t.progress;
 
 export function Motivation() {
+  const { observation, ready: observationReady } = useObservation();
   const plan = usePlan();
   const entries = useAllEntries();
   const workouts = useWorkouts();
   const foods = useFoods();
-  if (!entries || !workouts || !foods) return <Loading />;
+  if (!entries || !workouts || !foods || !observationReady) return <Loading />;
 
   return (
     <section className="space-y-4 pt-4">
       <Link to="/progress" className="inline-flex min-h-tap items-center text-sm text-muted">{t.progress.title}</Link>
       <SceneHeader title={t.progress.motivationTitle} />
-      <WeekCard summary={weekSummary({ plan, entries, workouts, foods, today: todayISO() })} />
-      <HabitsCard list={habits({ plan, entries, workouts, foods, today: todayISO() })} showEmpty />
+      <WeekCard summary={weekSummary({ plan, entries, workouts, foods, today: todayISO(), observation })} />
+      <HabitsCard list={habits({ plan, entries, workouts, foods, today: todayISO(), observation })} showEmpty />
     </section>
   );
 }
@@ -54,9 +56,9 @@ export function HabitsCard({ list, showEmpty = false }: { list: Habit[]; showEmp
 
 export function WeekCard({ summary }: { summary: ReturnType<typeof weekSummary> }) {
   const tiles: [string, string][] = [];
-  if (summary.carbsOk !== undefined) tiles.push([L.weekCarbs, L.ofDays(summary.carbsOk, summary.days)]);
-  if (summary.proteinOk !== undefined) tiles.push([L.weekProtein, L.ofDays(summary.proteinOk, summary.days)]);
-  if (summary.waterOk !== undefined) tiles.push([L.weekWater, L.ofDays(summary.waterOk, summary.days)]);
+  if (summary.carbsOk !== undefined) tiles.push([L.weekCarbs, L.ofDays(summary.carbsOk, summary.knownDays?.carbs ?? summary.days)]);
+  if (summary.proteinOk !== undefined) tiles.push([L.weekProtein, L.ofDays(summary.proteinOk, summary.knownDays?.protein ?? summary.days)]);
+  if (summary.waterOk !== undefined) tiles.push([L.weekWater, L.ofDays(summary.waterOk, summary.knownDays?.water ?? summary.days)]);
   tiles.push([L.weekWorkouts, String(summary.workouts)]);
   if (summary.checklistPct !== undefined) tiles.push([L.weekChecklist, `${summary.checklistPct} %`]);
   return (

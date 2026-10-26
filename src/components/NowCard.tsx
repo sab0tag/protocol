@@ -11,6 +11,7 @@ import type { DayEntry, Plan } from '../domain/types';
 import { t } from '../i18n/uk';
 import { localSnoozed, snooze } from '../sync/push';
 import { markMeal, markMeds, TimeChoice, type When } from './MarkTime';
+import type { Observation } from '../domain/observation';
 
 const L = t.now;
 const SNOOZE_MIN = 15;
@@ -20,14 +21,14 @@ const label = 'text-sm font-semibold uppercase tracking-wider text-muted';
  *  «Не відмічено» — past items without a mark, folded into one line, asking what happened — never «take it now»;
  *  «Далі» — the next item, when nothing is due. A reminder opens to this. An earlier day shows only its own
  *  «Не відмічено» (D52) — today's screen never collects yesterday's. */
-export function NowCard({ entries, plan, date, onConfirm }: { entries: DayEntry[]; plan: Plan | undefined; date: string; onConfirm: (e: DayEntry) => void }) {
+export function NowCard({ entries, plan, date, observation, onConfirm }: { entries: DayEntry[]; plan: Plan | undefined; date: string; observation?: Observation; onConfirm: (e: DayEntry) => void }) {
   const [clock, setClock] = useState(() => new Date());
   useEffect(() => { const id = setInterval(() => setClock(new Date()), 30_000); return () => clearInterval(id); }, []);
   const synced = useLiveQuery(async () => (await db.meta.get('sync'))?.snoozed ?? {}, [], undefined);
   const today = todayISO();
   if (synced === undefined || date > today) return null;
   const now = date === today ? clock : new Date(`${date}T23:59:00`);
-  const focus = dayFocus({ entries, plan, date, now, snoozed: { ...localSnoozed, ...synced } });
+  const focus = dayFocus({ entries, plan, date, now, observation, snoozed: { ...localSnoozed, ...synced } });
   if (!focus.now && !focus.next && !focus.missed.length) return null;
   return (
     <div className="mb-3 space-y-3">

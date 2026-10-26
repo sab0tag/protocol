@@ -60,19 +60,27 @@ function metric(key: MetricKey, totals: DayTotals, targets: Targets, meds: { don
   }
 }
 
-export function DaySummary({ totals, targets, meds, streak, food, onComplete }: { totals: DayTotals; targets: Targets; meds: { done: number; total: number }; streak?: string;
-  food?: FoodState; onComplete?: (on: boolean) => void }) {
+export function DaySummary({ totals, targets, meds, streak, food, onComplete, allowed }: { totals: DayTotals; targets: Targets; meds: { done: number; total: number }; streak?: string;
+  food?: FoodState; onComplete?: (on: boolean) => void; allowed?: readonly MetricKey[] }) {
   const [main, setMain] = useState<MetricKey[]>(loadMain);
   const [all, setAll] = useState(false);
   const [setup, setSetup] = useState(false);
-  const shown = (keys: MetricKey[]) => keys.map((k) => [k, metric(k, totals, targets, meds)] as const).filter((x): x is [MetricKey, Metric] => x[1] !== null);
+  const visible = ALL.filter((key) => !allowed || allowed.includes(key));
+  const selected = main.filter((key) => visible.includes(key));
+  const minVisible = Math.min(MIN_MAIN, visible.length);
+  const maxVisible = Math.min(MAX_MAIN, visible.length);
+  const effectiveMain = selected.length ? selected : visible.slice(0, maxVisible);
+  const shown = (keys: MetricKey[]) => keys.filter((k) => visible.includes(k)).map((k) => [k, metric(k, totals, targets, meds)] as const).filter((x): x is [MetricKey, Metric] => x[1] !== null);
   const toggle = (k: MetricKey, on: boolean) => {
-    if ((on && main.length >= MAX_MAIN) || (!on && main.length <= MIN_MAIN)) return;
-    const next = on ? [...main, k] : main.filter((x) => x !== k);
+    if ((on && effectiveMain.length >= maxVisible) || (!on && effectiveMain.length <= minVisible)) return;
+    const nextVisible = on ? [...effectiveMain, k] : effectiveMain.filter((x) => x !== k);
+    const hidden = main.filter((x) => !visible.includes(x)).slice(0, MAX_MAIN - nextVisible.length);
+    const next = [...hidden, ...nextVisible];
     setMain(next);
     try { localStorage.setItem(STORE, JSON.stringify(next)); } catch { /* private mode */ }
   };
-  const rest = ALL.filter((k) => !main.includes(k));
+  const rest = visible.filter((k) => !effectiveMain.includes(k));
+  if (!visible.length) return null;
 
   return (
     <section aria-labelledby="summary" className="protocol-card mb-4 p-5">
@@ -82,11 +90,11 @@ export function DaySummary({ totals, targets, meds, streak, food, onComplete }: 
       </div>
       {setup ? (
         <fieldset>
-          <legend className="mb-2 text-sm text-muted">{L.setupHint(MAX_MAIN)}</legend>
-          {ALL.map((k) => (
+          <legend className="mb-2 text-sm text-muted">{L.setupHint(minVisible, maxVisible)}</legend>
+          {visible.map((k) => (
             <label key={k} className="protocol-toggle-row min-h-tap">
-              <input type="checkbox" checked={main.includes(k)} disabled={
-                (main.length >= MAX_MAIN && !main.includes(k)) || (main.length <= MIN_MAIN && main.includes(k))
+              <input type="checkbox" checked={effectiveMain.includes(k)} disabled={
+                (effectiveMain.length >= maxVisible && !effectiveMain.includes(k)) || (effectiveMain.length <= minVisible && effectiveMain.includes(k))
               } onChange={(e) => toggle(k, e.target.checked)} className="protocol-switch" />
               <span>{L[k]}</span>
             </label>
@@ -94,12 +102,12 @@ export function DaySummary({ totals, targets, meds, streak, food, onComplete }: 
         </fieldset>
       ) : (
         <>
-          <Metrics list={shown(main)} />
+          <Metrics list={shown(effectiveMain)} />
           {all && <div className="mt-3 border-t border-line pt-3"><Metrics list={shown(rest)} /></div>}
           <button type="button" onClick={() => setAll((v) => !v)} aria-expanded={all} className="mt-2 min-h-tap text-sm text-accent">{all ? L.less : L.all}</button>
         </>
       )}
-      {food && ( /* R06: the numbers are «за записами»; only the person can say the day's food is all written */
+      {food && visible.some((k) => k !== 'water' && k !== 'meds') && ( /* R06: only the person can say all food is written */
         <div className="mt-2 flex flex-wrap items-center gap-x-2 text-sm" data-food={food}>
           <span className="text-muted">{food === 'none' ? L.foodNone : food === 'partial' ? L.foodPartial : L.foodComplete}</span>
           {onComplete && food !== 'none' && (
