@@ -19,8 +19,8 @@ export function PlanOverview({ prescriptions, constraints, goals, checkups }: Pl
   ];
   return (
     <div className="space-y-4">
-      <div className="rounded-3xl border border-accent/30 bg-surface p-5">
-        <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-accent">
+      <div className="protocol-card border-accent/30 p-5">
+        <div className="mb-3 flex items-center gap-2 protocol-eyebrow">
           <ShieldCheck size={16} aria-hidden /> Ваш план
         </div>
         <h2 className="text-xl font-semibold">Призначення — під вашим контролем</h2>
