@@ -3,10 +3,18 @@ import { device, kyivOffset, seed, toast, ymd } from './helpers';
 
 test('«Зараз»: «Нагадати за 15 хв» hides it for 15 min; water from the dock with undo, counted in «Уже сьогодні»; a workout says it was saved', async ({ browser }) => {
   const page = await device(browser);
-  const now = new Date(), d = ymd(now);
-  const at = (minAgo: number) => { const x = new Date(now.getTime() - minAgo * 60_000); return `${d}T${String(x.getHours()).padStart(2, '0')}:${String(x.getMinutes()).padStart(2, '0')}:00${kyivOffset(x)}`; };
-  test.skip(now.getHours() < 1, 'needs a past time today');
-  await seed(page, [{ store: 'entries', value: { id: 'm1', at: at(30), kind: 'meal', status: 'planned', title: 'Обід', items: [{ foodId: 'kefir', name: 'Кефір 2,5 %', grams: 250 }] } }]);
+  const { hour, at } = await page.evaluate(() => {
+    const localIso = (x: Date) => {
+      const p = (n: number) => String(n).padStart(2, '0');
+      const minutes = -x.getTimezoneOffset(), sign = minutes < 0 ? '-' : '+';
+      const offset = `${sign}${p(Math.floor(Math.abs(minutes) / 60))}:${p(Math.abs(minutes) % 60)}`;
+      return `${x.getFullYear()}-${p(x.getMonth() + 1)}-${p(x.getDate())}T${p(x.getHours())}:${p(x.getMinutes())}:00${offset}`;
+    };
+    const now = new Date();
+    return { hour: now.getHours(), at: localIso(new Date(now.getTime() - 30 * 60_000)) };
+  });
+  test.skip(hour < 1, 'needs a past time today');
+  await seed(page, [{ store: 'entries', value: { id: 'm1', at, kind: 'meal', status: 'planned', title: 'Обід', items: [{ foodId: 'kefir', name: 'Кефір 2,5 %', grams: 250 }] } }]);
   const card = page.getByRole('region', { name: 'Зараз' });
   await expect(card).toBeVisible();
   const first = await card.innerText();
