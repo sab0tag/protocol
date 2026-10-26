@@ -1,10 +1,11 @@
+import { PlanOverview } from '../components/PlanOverview';
 import { format, parseISO } from 'date-fns';
 import { ExampleNotice } from '../components/ExampleNotice';
 import { timesToSet } from '../domain/conclusion';
 import { Loading } from '../components/Recovery';
 import { saved } from '../components/Toast';
 import { uk } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Pencil, Plus } from 'lucide-react';
+import { ChevronLeft, Pencil, Plus } from 'lucide-react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useMemo, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
@@ -72,37 +73,12 @@ export function Plan({ section = 'home' }: { section?: PlanSection }) {
         </header>
       )}
       <ExampleNotice plan={plan} />
-      {section === 'home' && (
-        <>
-          <nav aria-label={P.sections} className="space-y-2">
-            {[
-              { to: '/plan/prescriptions', title: P.prescriptions, count: prescriptions.length },
-              { to: '/plan/constraints', title: P.constraints, count: plan.constraints.length },
-              { to: '/plan/goals', title: `${P.targets} й ${P.modes.toLowerCase()}`, count: (Object.entries(tg).filter(([key, value]) => key !== 'fromDiet' && value != null).length) + plan.modes.length },
-              { to: '/plan/checkup', title: P.checkup, count: (plan.nextCheckup ? 1 : 0) + plan.prescriptions.filter((p) => p.kind === 'test').length },
-            ].map(({ to, title, count }) => (
-              <Link key={to} to={to} className="flex min-h-tap items-center justify-between gap-3 rounded-2xl border border-line bg-surface px-3 py-3">
-                <span className="min-w-0">
-                  <span className="block font-semibold">{title}</span>
-                  <span className="block text-sm text-muted">{count ? P.itemsCount(count) : P.empty}</span>
-                </span>
-                <ChevronRight size={20} className="shrink-0 text-muted" aria-hidden />
-              </Link>
-            ))}
-          </nav>
-          <Link to="/plan/scan" className="flex min-h-tap items-center justify-between gap-3 rounded-2xl border border-accent/40 bg-surface px-3 py-3">
-            <span className="min-w-0">
-              <span className="block font-semibold">{t.conclusion.button}</span>
-              <span className="block text-sm text-muted">{P.scanHint}</span>
-            </span>
-            <ChevronRight size={20} className="shrink-0 text-accent" aria-hidden />
-          </Link>
-          <Link to="/plan/history" className="flex min-h-tap items-center justify-between gap-3 rounded-2xl border border-line bg-surface px-3 py-3">
-            <span className="font-medium">{t.versions.open}</span>
-            <ChevronRight size={20} className="shrink-0 text-muted" aria-hidden />
-          </Link>
-        </>
-      )}
+      {section === 'home' && <PlanOverview
+        prescriptions={prescriptions.length}
+        constraints={plan.constraints.length}
+        goals={Object.entries(tg).filter(([key, value]) => key !== 'fromDiet' && value != null).length + plan.modes.length}
+        checkups={(plan.nextCheckup ? 1 : 0) + plan.prescriptions.filter((p) => p.kind === 'test').length}
+      />}
 
       {section === 'prescriptions' && duplicateInn(plan.prescriptions).map((d) => ( /* D89: information, never «не приймайте» */
         <p key={d.inn} role="status" className="rounded-2xl border border-line bg-surface p-3 text-sm">{P.duplicate(d.titles, d.inn)}</p>
