@@ -1,18 +1,17 @@
-import { Eye, Info, Activity, BellRing, ChevronRight, Dumbbell, FileText, RefreshCw, Salad, ShoppingCart, Sparkles, UserRound, CalendarRange, MessageSquareWarning, Zap, MessageCircle, HandHeart, Database, Heart, ClipboardPlus, Lightbulb } from 'lucide-react';
+import { Eye, Info, Activity, BellRing, ChevronRight, Dumbbell, FileText, RefreshCw, Salad, ShoppingCart, Sparkles, UserRound, CalendarRange, MessageSquareWarning, Zap, MessageCircle, HandHeart, Database, Heart, ClipboardPlus, Lightbulb, Settings2 } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { enterDemo, inDemo } from '../data/db';
 import { t } from '../i18n/uk';
 
-// D78: four short groups instead of one list of 14; «Мій день» lives on «День», the exercise library inside «Тренування»
-const GROUPS = [
-  { title: t.more.food, links: [
+export const MORE_GROUPS = [
+  { id: 'food', title: t.more.food, hint: t.more.foodHint, Icon: Salad, links: [
     { to: '/assistant', Icon: MessageCircle, title: t.assistant.title }, // D117
     { to: '/menu', Icon: Sparkles, title: t.menu.quick },
     { to: '/shopping', Icon: ShoppingCart, title: t.shop.title },
     { to: '/dishes', Icon: Salad, title: t.dishes.title },
   ] },
-  { title: t.more.health, links: [
+  { id: 'health', title: t.more.health, hint: t.more.healthHint, Icon: Activity, links: [
     { to: '/wellbeing', Icon: Activity, title: t.well.title },
     { to: '/wellbeing/journal', Icon: Heart, title: t.well.journal },
     { to: '/progress/labs', Icon: ClipboardPlus, title: t.progress.labs },
@@ -22,13 +21,13 @@ const GROUPS = [
     { to: '/week', Icon: CalendarRange, title: t.week.title },
     { to: '/report', Icon: FileText, title: t.report.title },
   ] },
-  { title: t.more.settings, links: [
+  { id: 'settings', title: t.more.settings, hint: t.more.settingsHint, Icon: Settings2, links: [
     { to: '/reminders', Icon: BellRing, title: t.remind.title },
     { to: '/sync', Icon: RefreshCw, title: t.sync.title },
     { to: '/quick', Icon: Zap, title: t.quick.title },
     { to: '/data', Icon: Database, title: t.data.title },
   ] },
-  { title: t.more.app, links: [
+  { id: 'app', title: t.more.app, hint: t.more.appHint, Icon: Info, links: [
     { to: '/frictions', Icon: MessageSquareWarning, title: t.friction.title },
     { to: '/pilot', Icon: HandHeart, title: t.pilot.title }, // D119
     { to: '/welcome', Icon: UserRound, title: t.welcome.again },
@@ -41,18 +40,22 @@ export function More() {
   return (
     <section className="pt-6">
       <h1 className="mb-3 text-2xl font-semibold">{t.nav.more}</h1>
-      {GROUPS.map((g) => (
-        <section key={g.title} aria-label={g.title} className="mb-4">
-          <h2 className="mb-1 px-1 text-sm font-medium text-muted">{g.title}</h2>
-          <ul className="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface">
-            {g.links.map(({ to, Icon, title }) => (
-              <li key={to}><Link to={to} className="flex min-h-tap items-center gap-3 px-3 py-2">
-                <Icon size={20} className="text-accent" aria-hidden /><span className="flex-1 font-medium">{title}</span>
-                <ChevronRight size={18} className="text-muted" aria-hidden /></Link></li>
-            ))}
-          </ul>
-        </section>
-      ))}
+      <ul className="space-y-2">
+        {MORE_GROUPS.map(({ id, title, hint, Icon }) => (
+          <li key={id}>
+            <Link to={`/more/${id}`} className="flex min-h-[4.5rem] items-center gap-3 rounded-2xl border border-line bg-surface px-3 py-3">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-accent/10 text-accent">
+                <Icon size={22} aria-hidden />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block font-semibold">{title}</span>
+                <span className="block text-sm text-muted">{hint}</span>
+              </span>
+              <ChevronRight size={18} className="shrink-0 text-muted" aria-hidden />
+            </Link>
+          </li>
+        ))}
+      </ul>
       {!inDemo() && <ExampleEntry />}
       <p className="mt-4 text-sm text-muted">{t.plan.disclaimer}</p>
     </section>

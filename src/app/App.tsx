@@ -9,12 +9,15 @@ import { AddMeal } from '../screens/AddMeal';
 import { Day } from '../screens/Day';
 import { Dishes } from '../screens/Dishes';
 import { More } from '../screens/More';
+import { MoreCategory } from '../screens/MoreCategory';
 import { MyDay } from '../screens/MyDay';
 import { Onboarding } from '../screens/Onboarding';
 import { About } from '../screens/About';
 import { ConciergeLog } from '../screens/ConciergeLog';
 import { Assistant } from '../screens/Assistant';
 import { Plan } from '../screens/Plan';
+import { PlanScanScreen } from '../screens/PlanScanScreen';
+import { PlanHistory } from '../screens/PlanHistory';
 import { Progress } from '../screens/Progress';
 import { Insights } from '../screens/Insights';
 import { Motivation } from '../screens/Motivation';
@@ -85,6 +88,12 @@ export function App() {
             <Route path="/pilot" element={<Pilot />} />
             <Route path="/week" element={<Week />} />
             <Route path="/plan" element={<Plan />} />
+            <Route path="/plan/prescriptions" element={<Plan section="prescriptions" />} />
+            <Route path="/plan/constraints" element={<Plan section="constraints" />} />
+            <Route path="/plan/goals" element={<Plan section="goals" />} />
+            <Route path="/plan/checkup" element={<Plan section="checkup" />} />
+            <Route path="/plan/scan" element={<PlanScanScreen />} />
+            <Route path="/plan/history" element={<PlanHistory />} />
             <Route path="/welcome" element={<Onboarding />} />
             <Route path="/progress" element={<Progress />} />
             <Route path="/progress/insights" element={<Insights />} />
@@ -95,6 +104,7 @@ export function App() {
             <Route path="/foods" element={<MyFoods />} />
             <Route path="/data" element={<Data />} />
             <Route path="/more" element={<More />} />
+            <Route path="/more/:category" element={<MoreCategory />} />
             <Route path="/about" element={<About />} />
             <Route path="/concierge-log" element={<ConciergeLog />} />
             <Route path="/assistant" element={<Assistant />} />

@@ -31,7 +31,7 @@ test('«Записати їжу»: the food first, the meal line folded; a meal 
 
 test('a confirmed allergy entered in «План»: marked in search, «Прибрати» in the check (D58)', async ({ browser }) => {
   const page = await device(browser);
-  await page.goto('./#/plan');
+  await page.goto('./#/plan/constraints');
   await page.locator('section.rounded-2xl').filter({ has: page.getByRole('heading', { name: 'Обмеження', exact: true }) }).getByRole('button', { name: 'Додати' }).click();
   const form = page.getByRole('dialog', { name: 'Обмеження' });
   await form.getByRole('combobox', { name: 'Що це за обмеження' }).selectOption('allergy');
