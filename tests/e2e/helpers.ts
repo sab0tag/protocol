@@ -31,6 +31,15 @@ export async function device(browser: Browser, start: 'example' | 'demo' | 'skip
       const p = req.result.transaction('pilot', 'readwrite');
       p.objectStore('pilot').put({ key: 'pilot', asked: [{ at: '2026-01-01', answer: 'no' }, { at: '2026-02-01', answer: 'no' }] });
       await new Promise((r) => { p.oncomplete = r; });
+      // A general UI fixture models an existing all-module profile, independently of the new clean-start policy.
+      // Actual onboarding acceptance starts with a fresh page and exercises its own confirmed choices.
+      const modules = req.result.transaction('moduleEvents', 'readwrite'), history = modules.objectStore('moduleEvents');
+      history.clear();
+      for (const module of ['meds', 'water', 'food', 'menu', 'assistant', 'wellbeing', 'workout', 'progress']) history.put({
+        id: `fixture-module-${module}`, v: 1, at: '2026-01-01T00:00:00.000Z', kind: 'module', module, enabled: true,
+        source: 'migration', reason: 'compatibility', before: 'unknown' });
+      history.put({ id: 'fixture-initialised', v: 1, at: '2026-01-01T00:00:00.000Z', kind: 'initialised' });
+      await new Promise((r) => { modules.oncomplete = r; });
       req.result.close();
     }, examplePlan());
     await page.reload();

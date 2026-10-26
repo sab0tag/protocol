@@ -26,6 +26,11 @@ test('food/water observation periods are shared by the doctor report and week, b
       ]),
     ];
   });
+  await page.evaluate(async () => {
+    const open = indexedDB.open('protocol'); await new Promise((r) => { open.onsuccess = r; });
+    const tx = open.result.transaction('moduleEvents', 'readwrite'); tx.objectStore('moduleEvents').clear();
+    await new Promise((r) => { tx.oncomplete = r; }); open.result.close();
+  });
   await seed(page, rows);
   await page.goto('./#/report');
   await page.getByLabel('З', { exact: true }).fill('2026-10-20');

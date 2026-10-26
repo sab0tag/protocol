@@ -4,6 +4,8 @@ import { registerSW } from 'virtual:pwa-register';
 import { App } from './app/App';
 import { db, ensureSeeded, inDemo, requestPersistence } from './data/db';
 import { initialiseModulePreferences, legacyModuleUsage } from './data/modulePreferences';
+import { ensureProgressOpened } from './data/moduleStart';
+import { MODULE_POLICY_ENABLED } from './domain/rollout';
 import { startSync } from './sync/runner';
 import { pilotTick, sourceFromLink } from './sync/pilot';
 import { useUi } from './store/ui';
@@ -30,8 +32,9 @@ registerSW({
 void requestPersistence();
 watchResume(); // D42
 const start = () => ensureSeeded().then(async () => {
-  await initialiseModulePreferences(db, new Date().toISOString(), legacyModuleUsage(inDemo()));
+  await initialiseModulePreferences(db, new Date().toISOString(), legacyModuleUsage(inDemo()), { minimalNew: MODULE_POLICY_ENABLED });
   if (inDemo()) return; // D98: the example never syncs, never counts for the pilot
+  if (MODULE_POLICY_ENABLED) await ensureProgressOpened(db);
   void startSync();
   // D119: a QR card's code (the one request without a consent — a count by day and code), then the pilot's week if consented
   void sourceFromLink().then((r) => { if (r) useUi.setState({ srcLink: r }); }).finally(() => void pilotTick());

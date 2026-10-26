@@ -76,7 +76,7 @@ export function legacyModuleUsage(demo = false, storage?: Storage): Partial<Reco
  *  All legacy access is preserved. Evidence explains why; absence of a record is not proof of non-use.
  *  `at` is the migration time, explicitly NOT an invented historical first-use date. */
 export async function initialiseModulePreferences(target: ProtocolDB, at = new Date().toISOString(),
-  legacy: Partial<Record<ModuleId, boolean>> = {}): Promise<void> {
+  legacy: Partial<Record<ModuleId, boolean>> = {}, options: { minimalNew?: boolean } = {}): Promise<void> {
   await target.transaction('rw', [target.moduleEvents, target.plan, target.entries, target.workouts, target.wellbeing, target.weights,
     target.labs, target.recipes, target.favorites], async () => {
     const events = await target.moduleEvents.toArray();
@@ -87,6 +87,15 @@ export async function initialiseModulePreferences(target: ProtocolDB, at = new D
       target.plan.get('main'), target.entries.toArray(), target.workouts.toArray(), target.wellbeing.toArray(), target.weights.toArray(),
       target.labs.toArray(), target.recipes.toArray(), target.favorites.toArray(),
     ]);
+    const fresh = options.minimalNew && target.name !== 'protocol-demo' && !events.length && !plan?.onboardedAt
+      && !plan?.prescriptions.length && !plan?.constraints.length && !plan?.modes.length && !Object.keys(plan?.targets ?? {}).length
+      && !plan?.nextCheckup && !plan?.profile && !plan?.questions?.length && !plan?.lastVisit
+      && !entries.length && !workouts.length && !wellbeing.length && !weights.length && !labs.length && !favorites.length
+      && !recipes.some((r) => !r.builtIn) && !Object.values(legacy).some(Boolean);
+    if (fresh) {
+      await appendModuleEvents(target, [{ id: newId(), v: 1, at, kind: 'onboarding-started' }, { id: newId(), v: 1, at, kind: 'initialised' }]);
+      return;
+    }
     const real = entries.filter((e) => !e.demo);
     const used: Partial<Record<ModuleId, boolean>> = {
       ...legacy,

@@ -57,8 +57,21 @@ test('the example comes with two invented weeks: «Прогрес» and the repo
   await expect(page).toHaveURL(/#\/welcome$/); // the own one, as it was — not onboarded yet
   await page.getByRole('button', { name: /^Пропустити/ }).click();
   await expect(page.getByRole('heading', { level: 1 })).not.toHaveText(/Знайомство|Про себе|Сфотографуйте/);
+  if (process.env.VITE_MODULE_POLICY_ENABLED === 'true') {
+    await page.goto('./#/progress'); await expect(page.getByRole('heading', { level: 1 })).toHaveText('Розділ вимкнено');
+    await page.goto('./#/modules'); await page.getByRole('switch', { name: 'Прогрес і тиждень', exact: true }).click();
+    await expect(page.getByRole('switch', { name: 'Прогрес і тиждень', exact: true })).toBeChecked();
+  }
   await page.goto('./#/progress');
-  await expect(page.getByText(/Ще немає зважувань/)).toBeVisible();
+  if (process.env.VITE_MODULE_POLICY_ENABLED === 'true') {
+    await expect(page.getByText(/Ще немає зважувань/)).toHaveCount(0); // independent weight remains off
+    const ownWeights = await page.evaluate(async () => {
+      const req = indexedDB.open('protocol'); await new Promise((r) => { req.onsuccess = r; });
+      const get = req.result.transaction('weights').objectStore('weights').count(); await new Promise((r) => { get.onsuccess = r; });
+      req.result.close(); return get.result;
+    });
+    expect(ownWeights).toBe(0); // the example did not leak into the person's database
+  } else await expect(page.getByText(/Ще немає зважувань/)).toBeVisible();
   await page.goto('./#/report');
   await expect(page.getByRole('region', { name: 'Головне' })).toHaveCount(0);
 });
@@ -72,6 +85,7 @@ test('the example is a database of its own: the own records stay, «Подиви
   await page.getByRole('dialog', { name: 'Призначення' }).getByRole('textbox', { name: /^Час прийому/ }).fill('09:00');
   await page.getByRole('dialog', { name: 'Призначення' }).getByRole('button', { name: 'Зберегти' }).click();
   await page.goto('./#/more');
+  if (process.env.VITE_MODULE_POLICY_ENABLED === 'true') await page.locator('details').filter({ has: page.getByText('Інші можливості', { exact: true }) }).locator('summary').click();
   await page.getByRole('button', { name: /Подивитись на прикладі/ }).click(); // the own plan is not empty — still there
   await page.getByRole('button', { name: 'Відкрити приклад' }).click(); // D99: asked first — the own data stays
   await expect(page.getByText(/Це приклад:/)).toBeVisible();
@@ -93,6 +107,7 @@ test('the day\'s own records are there after a look at the example — the examp
   await seed(page, [{ store: 'entries', value: { id: 'own-1', at, kind: 'meal', status: 'done', title: 'Сніданок', items: [{ foodId: 'egg-boiled', name: 'Яйце варене', grams: 100 }] } }]);
   await expect(page.getByText('Сніданок').first()).toBeVisible();
   await page.goto('./#/more');
+  if (process.env.VITE_MODULE_POLICY_ENABLED === 'true') await page.locator('details').filter({ has: page.getByText('Інші можливості', { exact: true }) }).locator('summary').click();
   await page.getByRole('button', { name: /Подивитись на прикладі/ }).click();
   await expect(page.getByText(/Ваші дані залишаються окремо/)).toBeVisible();
   await page.getByRole('button', { name: 'Відкрити приклад' }).click();

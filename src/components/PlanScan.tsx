@@ -19,6 +19,9 @@ import { cut, shrink } from '../sync/shrink';
 import { PhotoPrep } from './PhotoPrep';
 import { count } from '../data/tally';
 import { saved } from './Toast';
+import { MODULE_POLICY_ENABLED } from '../domain/rollout';
+import { ACTIVITY_KINDS } from '../domain/moduleStart';
+import type { Prescription } from '../domain/types';
 
 const L = t.conclusion;
 const P = t.plan;
@@ -88,8 +91,9 @@ export function PlanScan({ plan, onDone, onboarding }: { plan: PlanRow; onDone?:
     const applied = applyLines(plan, picked, sinceNow(), placed);
     const next = { ...applied, prescriptions: closeFromToday(applied.prescriptions, close, todayISO()) }; // D115
     const pieces = picked.flatMap((l) => (cuts[l.key] && placed.get(l.key) ? [{ id: placed.get(l.key)!, url: cuts[l.key]!, at: new Date().toISOString(), source }] : []));
-    await saved(db.transaction('rw', db.plan, db.pieces, async () => { await db.plan.update('main', next); await db.pieces.bulkPut(pieces); }), L.saved(picked.length + close.size),
+    const committed = await saved(db.transaction('rw', db.plan, db.pieces, async () => { await db.plan.update('main', next); await db.pieces.bulkPut(pieces); return true; }), L.saved(picked.length + close.size),
       () => db.transaction('rw', db.plan, db.pieces, async () => { await db.plan.update('main', before); await db.pieces.bulkDelete(pieces.map((x) => x.id)); }));
+    if (!committed) return;
     // D120, D122: rows read off the paper and, of them, not put in (unticked, put aside, unreadable) — a bad reading must not look
     // good; a later visit's medicine «без змін» is already in the plan and counts in neither
     const read = lines.filter((l) => diff.get(l.key)?.kind !== 'same');
@@ -166,6 +170,13 @@ export function PlanScan({ plan, onDone, onboarding }: { plan: PlanRow; onDone?:
                           <button type="button" onClick={() => flip(l.key)} aria-pressed={skip.has(l.key)}
                             className="mb-2 ml-8 min-h-[2rem] rounded-full border border-line px-3 text-xs">{skip.has(l.key) ? `${L.skippedMed} · ${L.unskipMed}` : L.skipMed}</button>
                         )}
+                        {MODULE_POLICY_ENABLED && l.kind === 'prescription' && l.prescription.kind === 'lifestyle' && <label className="mb-2 ml-8 block text-sm">
+                          <span>{t.startFlow.activity}</span><select value={l.prescription.activity ?? ''} onChange={(e) => {
+                            const activity = (e.target.value || undefined) as Prescription['activity'];
+                            setLines((rows) => rows.map((row) => row.key === l.key && row.kind === 'prescription' ? { ...row, prescription: { ...row.prescription, activity } } : row));
+                          }} className="mt-1 block min-h-tap w-full rounded-xl border border-line bg-bg px-2">
+                            <option value="">{t.startFlow.noActivity}</option>{ACTIVITY_KINDS.map((kind) => <option key={kind} value={kind}>{t.startFlow.activityKinds[kind]}</option>)}
+                          </select></label>}
                       </li>
                     );
                   })}
@@ -191,7 +202,7 @@ export function PlanScan({ plan, onDone, onboarding }: { plan: PlanRow; onDone?:
           {undecided > 0 && <p role="status" className="text-sm text-warn">{L.undecided(undecided)}</p>}
           <div className="flex flex-wrap gap-2">
             <button type="button" disabled={(!on.size && !close.size) || undecided > 0} onClick={() => void save()}
-              className="min-h-tap rounded-xl bg-accent px-3 font-medium text-surface disabled:opacity-40">{onboarding ? L.start(on.size) : L.save(on.size + close.size)}</button>
+              className="min-h-tap rounded-xl bg-accent px-3 font-medium text-surface disabled:opacity-40">{onboarding ? MODULE_POLICY_ENABLED ? t.startFlow.photoNext : L.start(on.size) : L.save(on.size + close.size)}</button>
             <button type="button" onClick={() => { setState('none'); setLines([]); setCuts({}); }} className="min-h-tap rounded-xl border border-line px-3">{t.meal.cancel}</button>
           </div>
         </section>

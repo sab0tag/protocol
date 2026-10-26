@@ -1,7 +1,7 @@
 // D136: the same small, content-free policy runs in the API, client and bundled service worker.
 export const GATES = ['meds', 'water', 'food', 'menu', 'assistant', 'wellbeing', 'workout', 'progress', 'weight'] as const;
 export type Gate = typeof GATES[number];
-export interface Choice { id: string; at: number; priority: 0 | 1; enabled: boolean }
+export interface Choice { id: string; at: number; priority: 0 | 1 | 2; enabled: boolean }
 export interface DayRule extends Choice { date: string; from: number; until: number }
 export interface ReminderPolicy { v: 1; modules: Partial<Record<Gate, Choice>>; days: DayRule[] }
 export interface PolicyPayload { k?: unknown; m?: unknown; tag?: unknown; o?: unknown; d?: unknown; u?: unknown }
@@ -12,7 +12,7 @@ const fields = (x: object, keys: string[]) => Object.keys(x).length === keys.len
 const choice = (x: unknown): x is Choice => {
   if (!x || typeof x !== 'object' || Array.isArray(x)) return false;
   const c = x as Choice;
-  return typeof c.id === 'string' && ID.test(c.id) && instant(c.at) && (c.priority === 0 || c.priority === 1)
+  return typeof c.id === 'string' && ID.test(c.id) && instant(c.at) && (c.priority === 0 || c.priority === 1 || c.priority === 2)
     && typeof c.enabled === 'boolean' && (c.priority !== 0 || c.enabled);
 };
 export const newer = (a: Choice, b: Choice) => a.priority > b.priority || (a.priority === b.priority
@@ -24,7 +24,7 @@ export function parseReminderPolicy(x: unknown): ReminderPolicy | undefined {
   const p = x as ReminderPolicy;
   if (p.v !== 1 || !p.modules || typeof p.modules !== 'object' || Array.isArray(p.modules) || !Array.isArray(p.days) || p.days.length > 40) return;
   for (const [gate, c] of Object.entries(p.modules)) {
-    if (!GATES.some((g) => g === gate) || !choice(c) || !fields(c, ['id', 'at', 'priority', 'enabled'])) return;
+    if (!GATES.some((g) => g === gate) || !choice(c) || (c.priority === 2 && gate !== 'progress') || !fields(c, ['id', 'at', 'priority', 'enabled'])) return;
   }
   const dates = new Set<string>();
   for (const d of p.days) {
@@ -54,7 +54,8 @@ export function policyFromEvents(events: readonly unknown[]): ReminderPolicy {
     const e = value as { kind?: string; module?: Gate; at?: string; id?: string; enabled?: boolean; source?: string };
     const gate = e.kind === 'weight' ? 'weight' : e.kind === 'module' ? e.module : undefined;
     if (!gate || !GATES.includes(gate) || (e.kind === 'module' && gate === 'weight')) continue;
-    const c = { id: e.id, at: Date.parse(e.at ?? ''), enabled: e.enabled, priority: e.source === 'migration' ? 0 : 1 };
+    const personalProgress = gate === 'progress' && !['migration', 'onboarding', 'automatic'].includes(e.source ?? '');
+    const c = { id: e.id, at: Date.parse(e.at ?? ''), enabled: e.enabled, priority: e.source === 'migration' ? 0 : personalProgress ? 2 : 1 };
     if (choice(c)) p = mergeReminderPolicy(p, { v: 1, modules: { [gate]: c }, days: [] });
   }
   return { ...p, modules: Object.fromEntries(GATES.filter((g) => p.modules[g]).map((g) => [g, p.modules[g]!])) };

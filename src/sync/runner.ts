@@ -8,6 +8,8 @@ import { ApiError, createVault, putPair, takePair, vaultApi } from './api';
 import { deriveKeys, newPairCode, pairId, parseCode, parsePairCode, sealForPairing, type Keys } from './crypto';
 import { repairPlan, syncOnce } from './engine';
 import { disablePush, pushSchedule, renewPush, reconcileReminderPolicy, refreshPushNotifications } from './push';
+import { ensureProgressOpened } from '../data/moduleStart';
+import { MODULE_POLICY_ENABLED } from '../domain/rollout';
 
 export type SyncStatus = 'off' | 'idle' | 'syncing' | 'offline' | 'error';
 
@@ -39,6 +41,7 @@ async function run() {
       if (await repairPlan(db, keys, vaultApi(keys))) useUi.getState().setOnboarded();
     }
     await syncOnce(db, keys, vaultApi(keys));
+    if (MODULE_POLICY_ENABLED) await ensureProgressOpened(db);
     useSync.setState({ status: 'idle', lastAt: Date.now(), error: undefined });
     await pushSchedule(keys).catch((e) => console.warn('reminders:', (e as Error).message)); // D34
   } catch (e) {

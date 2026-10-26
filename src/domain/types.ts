@@ -35,6 +35,8 @@ export interface Prescription {
   dueDate?: ISODate; // for lab tests
   notes?: string;
   source: string;
+  /** D138: explicitly confirmed structured activity; free lifestyle words alone never enable workouts. */
+  activity?: 'walking' | 'strength' | 'other';
   /** D69: pieces left when counted (`at`), and pieces a dose — what remains is counted down by the ticks since */
   stock?: { left: number; perDose: number; at: ISODateTime };
   /** D97: the day it entered the plan — doses before it are not due (a medicine added today is not «missed» for two weeks) */
