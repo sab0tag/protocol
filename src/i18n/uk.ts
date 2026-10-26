@@ -1,6 +1,11 @@
 // All interface texts (SPEC.md §12). Ukrainian only in v0.
 export const t = {
   app: 'Протокол',
+  visual: {
+    moreHint: 'Ваші записи, інструменти та налаштування.',
+    remindersHint: 'Оберіть, про що й коли нагадувати.',
+    progressHint: 'Спостерігайте за змінами у власному темпі.',
+  },
   nav: { day: 'День', food: 'Їжа', plan: 'План', progress: 'Прогрес', more: 'Ще' },
   medFood: { // D89 step 4: information beside the plan's flags, never a ban
     title: 'Препарати й їжа',
@@ -236,6 +241,13 @@ export const t = {
     word: 'Симптом', level: (n: number) => ['легко', 'помірно', 'сильно'][n - 1] ?? '',
   },
   meal: {
+    foodLabel: 'Їжа', addFood: 'Додати до прийому',
+    entryHint: 'Знайдіть продукт, повторіть недавній прийом або додайте фото.',
+    editHint: 'Уточніть склад і кількість, потім збережіть зміни.',
+    recent: 'Нещодавні прийоми', repeat: 'Повторити',
+    repeatHint: 'Склад додасться до цього прийому. Кількість можна змінити перед записом.',
+    allFavorites: (n: number) => `Усі мої звичні (${n})`, fewerFavorites: 'Показати менше',
+    selectedCount: (n: number) => `Додано позицій: ${n}`, chooseFirst: 'Додайте їжу до прийому',
     title: 'Записати їжу',
     editTitle: 'Редагувати прийом їжі',
     name: 'Назва прийому',

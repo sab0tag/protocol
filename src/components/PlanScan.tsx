@@ -214,7 +214,7 @@ export function PlanScan({ plan, onDone, onboarding }: { plan: PlanRow; onDone?:
             )}
           </fieldset>
           {undecided > 0 && <p role="status" className="text-sm text-warn">{L.undecided(undecided)}</p>}
-          <div data-testid="plan-review-actions" className="sticky bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-10 rounded-2xl border border-line bg-surface p-3 shadow-lg md:bottom-4">
+          <div data-testid="plan-review-actions" className="sticky bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-10 protocol-card rounded-2xl border border-line bg-surface p-3 shadow-lg md:bottom-4">
             <p aria-live="polite" aria-atomic="true" className="mb-2 text-sm text-muted">{L.selected(on.size, close.size)}</p>
             <div className="flex flex-wrap gap-2">
               <button type="button" disabled={saving || (!on.size && !close.size) || undecided > 0} onClick={() => void save()}

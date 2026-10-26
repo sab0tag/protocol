@@ -39,7 +39,7 @@ export function Labs() {
       </header>
       <LabsScan known={rows} />
       {open && (
-        <form className="grid grid-cols-2 gap-2 rounded-2xl border border-line bg-surface p-3" onSubmit={(e) => { e.preventDefault(); void save(); }}>
+        <form className="grid grid-cols-2 gap-2 protocol-card rounded-2xl border border-line bg-surface p-3" onSubmit={(e) => { e.preventDefault(); void save(); }}>
           <label className="col-span-2 block"><span className="text-sm text-muted">{L.labName}</span>
             <input required value={lab.name} onChange={(e) => setLab({ ...lab, name: e.target.value })} list="lab-names" className={field} /></label>
           <datalist id="lab-names">{rows.map((row) => <option key={row.name} value={row.name} />)}</datalist>
@@ -55,7 +55,7 @@ export function Labs() {
         </form>
       )}
       {rows.length ? (
-        <div className="overflow-x-auto rounded-2xl border border-line bg-surface p-3">
+        <div className="overflow-x-auto protocol-card rounded-2xl border border-line bg-surface p-3">
           <table className="w-full text-sm tabular">
             <thead><tr className="text-left text-muted"><th className="py-1 font-normal">{L.labName}</th><th className="text-right font-normal">{L.was}</th>
               <th className="text-right font-normal">{L.nowCol}</th><th className="text-right font-normal">{L.target}</th></tr></thead>
@@ -70,7 +70,7 @@ export function Labs() {
             ))}</tbody>
           </table>
         </div>
-      ) : <p className="rounded-2xl border border-line bg-surface p-3 text-muted">{L.noLabs}</p>}
+      ) : <p className="protocol-card rounded-2xl border border-line bg-surface p-3 text-muted">{L.noLabs}</p>}
     </section>
   );
 }

@@ -81,7 +81,7 @@ export function Plan({ section = 'home' }: { section?: PlanSection }) {
       />}
 
       {section === 'prescriptions' && duplicateInn(plan.prescriptions).map((d) => ( /* D89: information, never «не приймайте» */
-        <p key={d.inn} role="status" className="rounded-2xl border border-line bg-surface p-3 text-sm">{P.duplicate(d.titles, d.inn)}</p>
+        <p key={d.inn} role="status" className="protocol-card rounded-2xl border border-line bg-surface p-3 text-sm">{P.duplicate(d.titles, d.inn)}</p>
       ))}
       {section === 'prescriptions' && <Block title={P.prescriptions} onAdd={() => setEditing({ what: 'prescription' })}>
         {prescriptions.map((p) => ( /* D104: tests live with the next checkup */
@@ -101,7 +101,7 @@ export function Plan({ section = 'home' }: { section?: PlanSection }) {
             <label className="flex min-h-tap min-w-tap items-center justify-center">
               <input type="checkbox" checked={c.active} aria-label={`${c.title}: ${c.active ? P.active : P.inactive}`}
                 onChange={(e) => save({ constraints: plan.constraints.map((x) => (x.id === c.id ? { ...x, active: e.target.checked } : x)) })}
-                className="h-5 w-5 accent-[rgb(var(--accent))]" />
+                className="protocol-switch" />
             </label>
             <div className={`min-w-0 flex-1 py-2 ${c.active ? '' : 'opacity-60'}`}>
               <p className="font-medium">{c.title}{c.title !== P.tags[c.tag] && <span className="text-sm font-normal text-muted"> · {P.tags[c.tag]}</span>}</p>
@@ -114,7 +114,7 @@ export function Plan({ section = 'home' }: { section?: PlanSection }) {
                   <DietNorms d={d} />
                   {d.rules.filter((r) => r.checkedBy).map((r) => (
                     <label key={r.id} className="flex min-h-tap items-center gap-2 text-sm">
-                      <input type="checkbox" checked={!c.off?.includes(r.id)} className="h-5 w-5 accent-[rgb(var(--accent))]"
+                      <input type="checkbox" checked={!c.off?.includes(r.id)} className="protocol-switch"
                         onChange={(e) => save({ constraints: plan.constraints.map((x) => (x.id === c.id
                           ? { ...x, off: e.target.checked ? (x.off ?? []).filter((o) => o !== r.id) : [...(x.off ?? []), r.id] } : x)) })} />
                       <span>{r.title}</span></label>
@@ -184,7 +184,7 @@ function targetSummary(tg: Partial<Targets>): string {
 function Block({ title, onAdd, addLabel = P.add, children }: { title: string; onAdd: () => void; addLabel?: string; children: ReactNode }) {
   const list = Array.isArray(children) ? children.filter(Boolean) : children ? [children] : [];
   return (
-    <section className="overflow-hidden rounded-2xl border border-line bg-surface">
+    <section className="overflow-hidden protocol-card rounded-2xl border border-line bg-surface">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-3 py-1">
         <h2 className="min-w-0 font-semibold">{title}</h2>
         <button type="button" onClick={onAdd} className="flex min-h-tap shrink-0 items-center gap-1 px-2 text-accent">
@@ -309,16 +309,16 @@ function PrescriptionForm({ plan, item, onClose }: { plan: PlanRow; item?: Presc
       {drug && <p className={`-mt-2 text-xs ${p.dose?.trim() ? 'text-muted' : 'text-warn'}`}>{p.dose?.trim() ? P.medDoseNote : P.noDose}</p>}
       <Field label={P.times}><input value={times} onChange={(e) => setTimes(e.target.value)} placeholder={P.timesPh} className={field} /></Field>
       {drug && (
-        <label className="-mt-1 flex min-h-tap items-center gap-3">
+        <label className="protocol-toggle-row -mt-1 min-h-tap">
           <input type="checkbox" checked={!!p.asNeeded} onChange={(e) => { const { asNeeded: _a, ...rest } = p; setP(e.target.checked ? { ...p, asNeeded: true } : rest); }}
-            className="h-5 w-5 accent-[rgb(var(--accent))]" /><span>{P.asNeeded}</span></label>
+            className="protocol-switch" /><span>{P.asNeeded}</span></label>
       )}
       {drug && p.asNeeded && <LimitFields p={p} setP={setP} /> /* D118, R01 */}
       {drug && (
         <Field label={P.until}><input type="date" value={p.until ?? ''} min={p.since} onChange={(e) => { const { until: _u, ...rest } = p; setP(e.target.value ? { ...p, until: e.target.value } : rest); }} className={field} /></Field>
       )}
-      <label className="flex min-h-tap items-center gap-3">
-        <input type="checkbox" checked={p.schedule?.withFood ?? false} className="h-5 w-5 accent-[rgb(var(--accent))]"
+      <label className="protocol-toggle-row min-h-tap">
+        <input type="checkbox" checked={p.schedule?.withFood ?? false} className="protocol-switch"
           onChange={(e) => setP({ ...p, schedule: { times: p.schedule?.times ?? [], withFood: e.target.checked } })} />
         <span>{P.withFood}</span></label>
       {(p.kind === 'medication' || p.kind === 'supplement') && (
@@ -374,8 +374,8 @@ function ConstraintForm({ plan, item, onClose }: { plan: PlanRow; item?: Constra
       <Field label={P.title_}><input value={c.title} onChange={(e) => setC({ ...c, title: e.target.value })} placeholder={P.tags[c.tag]} className={field} /></Field>
       <Field label={P.reason}><textarea value={c.reason} onChange={(e) => setC({ ...c, reason: e.target.value })} rows={2} className={`${field} py-2`} /></Field>
       <Field label={P.source}><input value={c.source} onChange={(e) => setC({ ...c, source: e.target.value })} placeholder="Уролог, 2025" className={field} /></Field>
-      <label className="flex min-h-tap items-center gap-3">
-        <input type="checkbox" checked={c.active} onChange={(e) => setC({ ...c, active: e.target.checked })} className="h-5 w-5 accent-[rgb(var(--accent))]" />
+      <label className="protocol-toggle-row min-h-tap">
+        <input type="checkbox" checked={c.active} onChange={(e) => setC({ ...c, active: e.target.checked })} className="protocol-switch" />
         <span>{P.active}</span></label>
     </FormSheet>
   );

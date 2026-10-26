@@ -1,3 +1,5 @@
+import { SceneHeader } from '../components/SceneHeader';
+import { RecentMeals } from '../components/RecentMeals';
 import { MedFoodPanel } from '../components/MedFoodPanel';
 import { DangerCard } from '../components/DangerCard';
 import { crisisInText, dangerInText } from '../domain/symptoms';
@@ -13,7 +15,7 @@ import { LabelScan } from '../components/LabelScan';
 import { Loading } from '../components/Recovery';
 import { saved } from '../components/Toast';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Camera, ChevronDown, Plus, Star, Trash2 } from 'lucide-react';
+import { Camera, Check, ChevronDown, Plus, Search, Star, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { db } from '../data/db';
@@ -164,14 +166,17 @@ export function AddMeal() {
   };
 
   return (
-    <section className="pt-4">
-      <h1 className="mb-3 text-2xl font-semibold">{id ? t.meal.editTitle : t.meal.title}</h1>
+    <section className="space-y-4 pt-4">
+      <SceneHeader eyebrow={t.meal.foodLabel} title={id ? t.meal.editTitle : t.meal.title} description={id ? t.meal.editHint : t.meal.entryHint} />
       <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); void save(); }}>
-        <div className="rounded-2xl border border-line bg-surface p-3">
+        <section aria-label={t.meal.addFood} className="protocol-card p-4 sm:p-5">
           <label htmlFor="meal-search" className="block text-sm text-muted">{t.meal.search}</label>
           <div className="mt-1 flex items-end gap-2">
-            <input id="meal-search" type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t.meal.searchHint}
-              className={`${field} min-w-0 flex-1`} autoComplete="off" autoFocus={!id} />
+            <div className="relative min-w-0 flex-1">
+              <Search size={18} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" aria-hidden />
+              <input id="meal-search" type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t.meal.searchHint}
+                className={`${field} min-w-0 pl-10`} autoComplete="off" autoFocus={!id} />
+            </div>
             <button type="button" onClick={pickPhoto} disabled={photo.state === 'busy'} aria-label={t.meal.photo}
               className="flex min-h-tap items-center gap-1 rounded-xl border border-accent px-3 font-medium text-accent disabled:opacity-40">
               <Camera size={18} aria-hidden /><span className="hidden min-[380px]:inline">{t.meal.photo}</span></button>
@@ -228,12 +233,12 @@ export function AddMeal() {
               {/* D110: a dish of one's own — described, it is broken into ingredients */}
               <Link to={`/dishes?describe=${encodeURIComponent(query.trim())}`} className="mt-1 inline-flex min-h-tap items-center text-sm text-accent underline">{t.dishes.breakdown.fromMeal}</Link></>
           )}
-          {!query && <FavoritesList onAdd={(xs) => setItems((ys) => [...ys, ...xs])} />}
+          {!query && <FavoritesList limit={3} onAdd={(xs) => setItems((ys) => [...ys, ...xs])} />}
           {!query && all && (() => {
             const freq = frequentItems(all, todayISO()).filter((f) => !items.some((it) => it.name === f.item.name));
             return freq.length > 0 && (
-              <div className="mt-2">
-                <p className="mb-1 text-sm text-muted">{t.meal.frequent}</p>
+              <details className="mt-3 border-t border-line pt-2">
+                <summary className="min-h-tap cursor-pointer py-2 text-sm font-medium text-muted">{t.meal.frequent}</summary>
                 <div className="flex flex-wrap gap-2">
                   {freq.map((f) => (
                     <button key={f.item.name} type="button" onClick={() => setItems((xs) => [...xs, f.item])}
@@ -241,15 +246,17 @@ export function AddMeal() {
                       {f.item.name} <span className="text-muted">· {amountText(f.item)}</span></button>
                   ))}
                 </div>
-              </div>
+              </details>
             );
           })()}
-          <button type="button" onClick={() => setFree((v) => !v)} className="mt-2 min-h-tap text-accent underline">{t.meal.free}</button>
+          <button type="button" onClick={() => setFree((v) => !v)} aria-expanded={free} className="mt-2 min-h-tap text-accent underline">{t.meal.free}</button>
           {free && <FreeItemForm onAdd={(it) => { setItems((xs) => [...xs, it]); setFree(false); }} />}
           <LabelScan onAdd={(it) => setItems((xs) => [...xs, it])} />
-        </div>
+        </section>
 
-        <div className={`rounded-2xl border border-line bg-surface p-3 ${items.length ? '' : 'hidden'}`}>{/* D78: appears with the first line */}
+        {!id && !query && !free && photo.state === 'none' && items.length === 0 && all && <RecentMeals entries={all} date={date} onAdd={(xs) => setItems((ys) => [...ys, ...xs])} />}
+
+        <section aria-label={t.meal.items} className={`protocol-card p-4 sm:p-5 ${items.length ? '' : 'hidden'}`}>{/* D78: appears with the first line */}
           <h2 className="mb-2 font-semibold">{t.meal.items}</h2>
           <ul className="space-y-3">
             {items.map((it, i) => {
@@ -300,7 +307,7 @@ export function AddMeal() {
                       className="flex min-h-tap min-w-tap items-center justify-center text-warn" aria-label={`${t.meal.remove}: ${it.name}`}>
                       <Trash2 size={18} /></button>
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid gap-3 sm:grid-cols-2">
                     <Amount item={it} food={it.foodId ? foods.get(it.foodId) : undefined} onChange={(patch) => setItem(i, patch)} />
                     {(it.cooking || cookable(it.foodId ? foods.get(it.foodId) : undefined)) && <label className="block"><span className="text-sm text-muted">{t.meal.cooking}</span>
                       <select value={it.cooking ?? ''} onChange={(e) => setItem(i, { cooking: (e.target.value || undefined) as Cooking | undefined })}
@@ -344,14 +351,14 @@ export function AddMeal() {
               </div>
             ))}
           {dishSaved && <p role="status" className="mt-1 text-sm text-accent">{dishSaved}</p>}
-        </div>
+        </section>
 
         {items.length > 0 && <CheckPanel checks={checks} anyActive={anyActive} swapped={swapped} eaten={eaten && hasSwaps(checks)} plan={plan} />}
         {items.length > 0 && plan && <MedFoodPanel notes={medFoodNotes(plan.prescriptions, items, foods, { mealAt: atLocal(date, time),
           doses: new Map(plan.prescriptions.map((p) => [p.id, (others ?? []).filter((e) => e.kind === 'med' && e.status === 'done' && e.prescriptionId === p.id && !e.timeUnknown).map((e) => e.at)])) })} />}
 
         {/* D78: the totals only once there is something to add up — no «0 ккал» on an empty meal */}
-        {items.length > 0 && <div className="rounded-2xl border border-line bg-surface p-3 tabular">
+        {items.length > 0 && <div className="protocol-card p-4 tabular sm:p-5">
           <p><span className="text-muted">{t.meal.mealTotal}: </span>
             {round(meal.kcal)} {t.units.kcal} · Б {round(meal.protein)} · Ж {round(meal.fat)} · В {round(meal.carbs)} · Ca {round(meal.calciumMg)} {t.units.mg}</p>
           {after && (
@@ -366,7 +373,7 @@ export function AddMeal() {
         </div>}
 
         {/* D51: the food comes first; name, time and «з'їдено» are one line to check before saving */}
-        <div className="rounded-2xl border border-line bg-surface">
+        <div className="protocol-card overflow-hidden">
           <button type="button" onClick={() => setMetaOpen((v) => !v)} aria-expanded={metaOpen} aria-label={t.meal.mealLine}
             className="flex min-h-tap w-full items-center gap-2 px-3 py-2 text-left">
             <span className="flex-1"><span className="font-medium">{title.trim() || defaultMealName(time)}</span>
@@ -387,26 +394,29 @@ export function AddMeal() {
                 <label className="block"><span className="text-sm text-muted">{t.meal.time}</span>
                   <input type="time" value={time} onChange={(e) => setTime(e.target.value)} required className={field} /></label>
               </div>
-              <label className="mt-2 flex min-h-tap items-center gap-3">
-                <input type="checkbox" checked={eaten} onChange={(e) => setEaten(e.target.checked)} className="h-5 w-5 accent-[rgb(var(--accent))]" />
+              <label className="protocol-toggle-row mt-2 min-h-tap">
+                <input type="checkbox" checked={eaten} onChange={(e) => setEaten(e.target.checked)} className="protocol-switch" />
                 <span>{t.meal.eaten}</span>
               </label>
             </div>
           )}
         </div>
 
-        <div className="flex flex-wrap gap-2">
+        <div data-testid="meal-save-actions" className="sticky bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-10 protocol-card rounded-2xl border border-line bg-surface p-3 shadow-lg md:bottom-4">
+          <p aria-live="polite" aria-atomic="true" className="mb-2 text-sm text-muted">{items.length ? t.meal.selectedCount(items.length) : t.meal.chooseFirst}</p>
+          <div className="flex flex-wrap gap-2">
           {swapped ? (
             <>
               <button type="button" onClick={() => void save(swapped)} disabled={swapped.length === 0}
-                className="min-h-tap flex-1 rounded-xl bg-accent px-4 font-medium text-surface disabled:opacity-40">{t.check.saveSwap}</button>
-              <button type="submit" className="min-h-tap flex-1 rounded-xl border border-accent px-4 font-medium text-accent">{t.check.saveAsIs}</button>
+                className="protocol-action min-w-[9rem] flex-1 disabled:opacity-40">{t.check.saveSwap}</button>
+              <button type="submit" className="protocol-action-secondary min-w-[9rem] flex-1">{t.check.saveAsIs}</button>
             </>
           ) : (
             <button type="submit" disabled={items.length === 0}
-              className="min-h-tap flex-1 rounded-xl bg-accent px-4 font-medium text-surface disabled:opacity-40">{t.meal.save}</button>
+              className="protocol-action flex-1 disabled:opacity-40"><Check size={18} aria-hidden />{t.meal.save}</button>
           )}
-          <button type="button" onClick={() => { if (id === undefined) keep(DRAFT, undefined); navigate(-1); }} className="min-h-tap rounded-xl border border-line px-4">{t.meal.cancel}</button>
+          <button type="button" onClick={() => { if (id === undefined) keep(DRAFT, undefined); navigate(-1); }} className="protocol-action-secondary">{t.meal.cancel}</button>
+          </div>
         </div>
       </form>
     </section>
@@ -433,7 +443,7 @@ function RecognizedPanel({ title, rows: given, note, onAdd, notFound }: {
           <li key={k}>
             {r.item ? (
               <label data-item={r.item.name} className="flex min-h-tap items-center gap-3">
-                <input type="checkbox" checked={!skip.has(k)} className="h-5 w-5 accent-[rgb(var(--accent))]"
+                <input type="checkbox" checked={!skip.has(k)} className="h-5 w-5 shrink-0"
                   onChange={(e) => setSkip((s) => { const n = new Set(s); if (e.target.checked) n.delete(k); else n.add(k); return n; })} />
                 <span className="flex-1">{r.item.name} <span className="text-muted">· {amountText(r.item)}{needsGrams(r.item) ? ` ≈ ${approxG(r.item.grams)} г` : ''}</span>
                   {(r.unsure || r.estimate) && <span className="block text-xs text-warn">{[r.unsure && t.meal.photoUnsure, r.estimate && t.meal.photoEstimate].filter(Boolean).join(' · ')}</span>}
@@ -480,8 +490,8 @@ function FreeItemForm({ onAdd }: { onAdd: (item: MealItem) => void }) {
             <input type="text" inputMode="decimal" value={n[k] ?? ''} onChange={(e) => setN((x) => ({ ...x, [k]: e.target.value }))} className={field} /></label>
         ))}
       </div>
-      <label className="flex min-h-tap items-center gap-3 text-sm">
-        <input type="checkbox" checked={save} onChange={(e) => setSave(e.target.checked)} className="h-5 w-5 accent-[rgb(var(--accent))]" />
+      <label className="protocol-toggle-row min-h-tap text-sm">
+        <input type="checkbox" checked={save} onChange={(e) => setSave(e.target.checked)} className="protocol-switch" />
         <span>{t.meal.saveToBase}</span>
       </label>
       <button type="button" disabled={!name.trim() || !grams}
@@ -510,7 +520,7 @@ function cookable(food: Food | undefined): boolean {
 /** «Перевірка»: each item's verdict with the reason, the meal as a whole, and what «Записати заміну» would write. */
 function CheckPanel({ checks, anyActive, swapped, eaten, plan }: { checks: ItemCheck[]; anyActive: boolean; swapped: MealItem[] | null; eaten: boolean; plan: Plan | undefined }) {
   const [why, setWhy] = useState<string | null>(null); // D91: «Чому?» — open for one flag at a time
-  if (!anyActive) return <p className="rounded-2xl border border-line bg-surface p-3 text-muted">{t.check.noPlan}</p>;
+  if (!anyActive) return <p className="protocol-card rounded-2xl border border-line bg-surface p-3 text-muted">{t.check.noPlan}</p>;
   const v = mealVerdict(checks);
   // R02: a diet chosen but none of its rules set up — no green «Підходить» as if it were checked
   const unset = dietCoverage(plan).filter((c) => !c.configured);

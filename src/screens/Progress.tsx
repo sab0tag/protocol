@@ -1,3 +1,4 @@
+import { SceneHeader } from '../components/SceneHeader';
 import { format, parseISO } from 'date-fns';
 import { ExampleNotice } from '../components/ExampleNotice';
 import { Loading } from '../components/Recovery';
@@ -31,11 +32,10 @@ export function Progress() {
 
   return (
     <section className="space-y-4 pt-4">
-      <div className="flex items-center justify-between gap-2">
-        <h1 className="text-2xl font-semibold">{L.title}</h1>
-        <Link to="/report" className="flex min-h-tap items-center gap-2 rounded-xl border border-accent px-3 font-medium text-accent">
+      <SceneHeader title={L.title} description={t.visual.progressHint}>
+        <Link to="/report" className="inline-flex min-h-tap items-center gap-2 rounded-xl border border-white/25 bg-white/10 px-3 text-sm font-medium text-white">
           <FileText size={18} aria-hidden />{L.report}</Link>
-      </div>
+      </SceneHeader>
       <ExampleNotice plan={plan} />
       <nav aria-label={L.details} className="grid grid-cols-2 gap-2">
         {[
@@ -49,7 +49,7 @@ export function Progress() {
         ))}
       </nav>
 
-      <section className="rounded-2xl border border-line bg-surface p-3">
+      <section className="protocol-card rounded-2xl border border-line bg-surface p-3">
         <h2 className="mb-2 font-semibold">{L.weight}</h2>
         {sum.now ? (
           <dl className="mb-3 grid grid-cols-2 gap-3 tabular">
@@ -123,12 +123,12 @@ function AddWeight() {
     if (n > 0) { const v = Math.round(n * 10) / 10; await saved(db.weights.put({ date, kg: v }), t.toast.weight(kg(v))); setValue(''); }
   };
   return (
-    <form className="mt-3 grid grid-cols-[1fr_1fr_auto] items-end gap-2" onSubmit={(e) => { e.preventDefault(); void save(); }}>
+    <form className="mt-4 grid grid-cols-2 items-end gap-3 border-t border-line pt-4 sm:grid-cols-[1fr_1fr_auto]" onSubmit={(e) => { e.preventDefault(); void save(); }}>
       <label className="block"><span className="text-sm text-muted">{L.date}</span>
         <input type="date" value={date} max={todayISO()} onChange={(e) => setDate(e.target.value)} className={field} /></label>
       <label className="block"><span className="text-sm text-muted">{L.weight}, {L.kg}</span>
         <input inputMode="decimal" value={value} onChange={(e) => setValue(e.target.value)} className={field} /></label>
-      <button type="submit" className="flex min-h-tap items-center gap-1 rounded-xl bg-accent px-3 font-medium text-surface" aria-label={L.addWeight}><Plus size={18} /></button>
+      <button type="submit" className="protocol-action col-span-2 sm:col-span-1" aria-label={L.addWeight}><Plus size={18} /></button>
     </form>
   );
 }

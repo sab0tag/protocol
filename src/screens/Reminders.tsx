@@ -1,3 +1,4 @@
+import { SceneHeader } from '../components/SceneHeader';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Loading } from '../components/Recovery';
 import { toast } from '../components/Toast';
@@ -41,8 +42,8 @@ export function Reminders() {
 
   return (
     <section className="space-y-4 pt-6">
-      <h1 className="text-2xl font-semibold">{L.title}</h1>
-      <div className="space-y-3 rounded-2xl border border-line bg-surface p-3">
+      <SceneHeader title={L.title} description={t.visual.remindersHint} />
+      <div className="space-y-3 protocol-card rounded-2xl border border-line bg-surface p-3">
         <p>{L.text}</p>
         <p className="text-sm text-muted">{L.privacy}</p>
         {!meta || !keys ? <NeedsSync text={L.needsSync} />
@@ -71,10 +72,10 @@ export function Reminders() {
       </div>
 
       {meta && keys && pushSupported() && (
-        <div className="space-y-2 rounded-2xl border border-line bg-surface p-3">
+        <div className="space-y-2 protocol-card rounded-2xl border border-line bg-surface p-3">
           {([['meals', L.meals], ['meds', L.meds], ['visits', L.visits], ['weekly', L.weekly]] as const).map(([k, label]) => (
-            <label key={k} className="flex min-h-tap items-center gap-3">
-              <input type="checkbox" checked={!!s[k]} onChange={(e) => void change({ [k]: e.target.checked })} className="h-5 w-5 accent-[rgb(var(--accent))]" />
+            <label key={k} className="protocol-toggle-row min-h-tap">
+              <input type="checkbox" checked={!!s[k]} onChange={(e) => void change({ [k]: e.target.checked })} className="protocol-switch" />
               <span>{label}</span>
             </label>
           ))}
@@ -93,18 +94,18 @@ export function Reminders() {
               <option value={0}>{L.weightOff}</option>
               {[1, 2, 3, 4, 5, 6, 7].map((d) => <option key={d} value={d}>{L.weekdays[d]}</option>)}
             </select></label>
-          <label className="block"><span className="text-sm text-muted">{L.water}</span>
+          <div><label className="block"><span className="text-sm text-muted">{L.water}</span>
             <select value={s.waterEveryH} onChange={(e) => void change({ waterEveryH: Number(e.target.value) as ReminderSettings['waterEveryH'] })} className={select}>
               <option value={0}>{L.waterOff}</option><option value={2}>{L.waterEvery(2)}</option><option value={3}>{L.waterEvery(3)}</option>
-            </select>
+            </select></label>
             {s.waterEveryH > 0 && (
-              <span className="mt-2 flex min-h-tap items-center gap-3 text-sm">
+              <label className="protocol-toggle-row mt-2 min-h-tap text-sm">
                 <input type="checkbox" checked={s.waterIfBehind !== false} onChange={(e) => void change({ waterIfBehind: e.target.checked })}
-                  className="h-5 w-5 accent-[rgb(var(--accent))]" aria-label={L.waterIfBehind} />
-                <span>{L.waterIfBehind}</span></span>
-            )}</label>
-          <label className="flex min-h-tap items-center gap-3 text-sm"> {/* D116 */}
-            <input type="checkbox" checked={s.topup !== false} onChange={(e) => void change({ topup: e.target.checked })} className="h-5 w-5 accent-[rgb(var(--accent))]" />
+                  className="protocol-switch" aria-label={L.waterIfBehind} />
+                <span>{L.waterIfBehind}</span></label>
+            )}</div>
+          <label className="protocol-toggle-row min-h-tap text-sm"> {/* D116 */}
+            <input type="checkbox" checked={s.topup !== false} onChange={(e) => void change({ topup: e.target.checked })} className="protocol-switch" />
             <span>{L.topup}</span></label>
           <label className="block"><span className="text-sm text-muted">{L.repeat}</span>
             <select value={s.repeatMin} onChange={(e) => void change({ repeatMin: Number(e.target.value) as ReminderSettings['repeatMin'] })} className={select}>

@@ -44,8 +44,8 @@ export function DietPicker({ value, onPick, fill, onFill, targets }: {
           <p className={`text-xs ${picked.rules.some(runnable) ? 'text-muted' : 'text-warn'}`}>{picked.rules.some(runnable)
             ? L.coverage(picked.rules.filter(runnable).length, 0, picked.rules.filter((r) => !r.checkedBy).length) : L.noRules}</p>
           {(picked.norms.kcal || picked.norms.proteinG) && (
-            <label className="flex min-h-tap items-center gap-3 text-sm">
-              <input type="checkbox" checked={fill} onChange={(e) => onFill(e.target.checked)} className="h-5 w-5 accent-[rgb(var(--accent))]" />
+            <label className="protocol-toggle-row min-h-tap text-sm">
+              <input type="checkbox" checked={fill} onChange={(e) => onFill(e.target.checked)} className="protocol-switch" />
               <span>{L.fill}</span></label>
           )}
           {fill && (() => { // R02: what would be written, before it is — a preview, not a default

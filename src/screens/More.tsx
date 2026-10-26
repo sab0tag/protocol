@@ -1,3 +1,4 @@
+import { SceneHeader } from '../components/SceneHeader';
 import { Eye, Info, Activity, BellRing, ChevronRight, Dumbbell, FileText, RefreshCw, Salad, ShoppingCart, Sparkles, UserRound, CalendarRange, MessageSquareWarning, Zap, MessageCircle, HandHeart, Database, Heart, ClipboardPlus, Lightbulb, Settings2 } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -38,12 +39,12 @@ export const MORE_GROUPS = [
 
 export function More() {
   return (
-    <section className="pt-6">
-      <h1 className="mb-3 text-2xl font-semibold">{t.nav.more}</h1>
-      <ul className="space-y-2">
+    <section className="space-y-4 pt-4">
+      <SceneHeader title={t.nav.more} description={t.visual.moreHint} />
+      <ul className="grid gap-3 sm:grid-cols-2">
         {MORE_GROUPS.map(({ id, title, hint, Icon }) => (
           <li key={id}>
-            <Link to={`/more/${id}`} className="flex min-h-[4.5rem] items-center gap-3 rounded-2xl border border-line bg-surface px-3 py-3">
+            <Link to={`/more/${id}`} className="flex min-h-[4.5rem] items-center gap-3 protocol-card rounded-2xl border border-line bg-surface px-3 py-3">
               <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-accent/10 text-accent">
                 <Icon size={22} aria-hidden />
               </span>
@@ -74,7 +75,7 @@ function ExampleEntry() {
       </div>
     </div>
   ) : (
-    <button type="button" onClick={() => setAsking(true)} className="mb-4 flex min-h-tap w-full items-center gap-3 rounded-2xl border border-line bg-surface px-3 py-2 text-left">
+    <button type="button" onClick={() => setAsking(true)} className="mb-4 flex min-h-tap w-full items-center gap-3 protocol-card rounded-2xl border border-line bg-surface px-3 py-2 text-left">
       <Eye size={20} className="text-accent" aria-hidden /><span className="flex-1"><span className="block font-medium">{t.welcome.example}</span>
         <span className="block text-sm text-muted">{t.example.safe}</span></span></button>
   );

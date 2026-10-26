@@ -53,8 +53,8 @@ export function SimpleEntrySheet({ kind, entry, date, onClose }: {
             className="mt-1 block min-h-tap w-full rounded-xl border border-line bg-bg px-3" />
           {entry?.timeUnknown && time === timeOf(entry.at) && <span className="mt-1 block text-sm text-muted">{t.simple.timeUnknown}</span>}
         </label>
-        <label className="flex min-h-tap items-center gap-3">
-          <input type="checkbox" checked={done} onChange={(e) => setDone(e.target.checked)} className="h-5 w-5 accent-[rgb(var(--accent))]" />
+        <label className="protocol-toggle-row min-h-tap">
+          <input type="checkbox" checked={done} onChange={(e) => setDone(e.target.checked)} className="protocol-switch" />
           <span>{t.status.done}</span>
         </label>
         <div className="flex gap-2 pt-1">

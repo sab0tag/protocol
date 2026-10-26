@@ -55,7 +55,7 @@ export function DishBreakdown({ foods, plan, initial = '', replace }: { foods: M
   };
 
   return (
-    <section aria-label={L.title} className="space-y-2 rounded-2xl border border-line bg-surface p-3">
+    <section aria-label={L.title} className="space-y-2 protocol-card rounded-2xl border border-line bg-surface p-3">
       <h2 className="flex items-center gap-2 font-semibold"><Sparkles size={18} className="text-accent" aria-hidden />{L.title}</h2>
       {state !== 'form' && (
         <>

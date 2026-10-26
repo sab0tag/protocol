@@ -1,3 +1,4 @@
+import { SceneHeader } from '../components/SceneHeader';
 import { Link } from 'react-router-dom';
 import { ChevronLeft } from 'lucide-react';
 import { Backup } from '../components/Backup';
@@ -9,7 +10,7 @@ export function Data() {
       <Link to="/more" className="inline-flex min-h-tap items-center gap-1 text-sm text-muted">
         <ChevronLeft size={18} aria-hidden />{t.nav.more}
       </Link>
-      <h1 className="text-2xl font-semibold">{t.data.title}</h1>
+      <SceneHeader title={t.data.title} />
       <p className="text-sm text-muted">{t.data.hint}</p>
       <Backup alwaysOpen />
     </section>

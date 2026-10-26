@@ -4,7 +4,7 @@
 import { addDays, format, parseISO, startOfISOWeek } from 'date-fns';
 import { uk } from 'date-fns/locale';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { ChevronLeft, ChevronRight, Cloud, CloudAlert, CloudCheck, CloudOff, Heart } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Cloud, CloudAlert, CloudCheck, CloudOff, Heart, TreePine } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { db } from '../data/db';
 import { todayISO, weekStep } from '../domain/dates';
@@ -33,14 +33,14 @@ export function DayHeader({ date, setDate }: { date: string; setDate: (d: string
     <header className="protocol-day-hero relative mb-5 overflow-hidden rounded-[1.75rem] px-3 pb-4 pt-5 text-white sm:px-5">
       <div className="relative z-10">
         <div className="mb-6 flex items-center justify-between">
-          <span className="text-lg font-semibold">▣ Протокол</span>
+          <span className="flex items-center gap-2 text-lg font-semibold"><TreePine size={22} className="text-emerald-200" aria-hidden />Протокол</span>
           <button type="button" onClick={() => navigate('/sync')} aria-label={L.syncStatus[status]} className="flex min-h-tap min-w-tap items-center justify-center rounded-full border border-white/30 bg-black/25"><Icon size={20} className="text-white" aria-hidden /></button>
         </div>
         <p className="text-2xl font-semibold">Добрий день!</p>
         <p className="mt-1 flex items-center gap-2 text-sm text-white/85">Маленькі кроки — великі зміни <Heart size={16} className="fill-emerald-300 text-emerald-300" aria-hidden /></p>
       <h1 className="mt-7 text-xl font-semibold">{isToday ? L.todayTitle : format(d, 'EEEE, d MMMM', { locale: uk })}</h1>
       {isToday && <p className="mt-1 text-sm text-white/80">{format(d, 'EEEE, d MMMM', { locale: uk })}</p>}
-      <nav aria-label={L.week} className="mt-3 flex items-center gap-1">
+      <nav aria-label={L.week} className="protocol-calendar mt-3 flex items-center gap-1 rounded-[1.4rem] p-1">
         <button type="button" onClick={() => setDate(weekStep(date, -1, today))} aria-label={L.prevWeek}
           className="flex min-h-tap w-7 shrink-0 items-center justify-center text-white/80"><ChevronLeft size={18} aria-hidden /></button>
         <ol className="grid flex-1 grid-cols-7 gap-1">

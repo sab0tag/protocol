@@ -1,3 +1,4 @@
+import { SceneHeader } from '../components/SceneHeader';
 import { Loading } from '../components/Recovery';
 import { useAllEntries, useAllWellbeing, useFoods, usePlan, useWorkouts } from '../data/queries';
 import { patterns } from '../domain/progress';
@@ -16,8 +17,8 @@ export function Insights() {
   return (
     <section className="space-y-4 pt-4">
       <Link to="/progress" className="inline-flex min-h-tap items-center text-sm text-muted">{t.progress.title}</Link>
-      <h1 className="text-2xl font-semibold">{t.progress.insightsTitle}</h1>
-      <section className="rounded-2xl border border-line bg-surface p-3">
+      <SceneHeader title={t.progress.insightsTitle} />
+      <section className="protocol-card rounded-2xl border border-line bg-surface p-3">
         <h2 className="font-semibold">{t.progress.patterns}</h2>
         <p className="mb-2 text-sm text-muted">{t.progress.patternsHint}</p>
         {found.length
