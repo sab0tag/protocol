@@ -6,10 +6,9 @@ import { Check, Droplet, Pill } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
 import { t } from '../i18n/uk';
 import { toast } from './Toast';
+import { ProgressRing } from './ProgressRing';
 
 const L = t.dock;
-const R = 26, C = 2 * Math.PI * R;
-const STROKE = { accent: 'stroke-accent', warn: 'stroke-warn', water: 'stroke-water' } as const;
 const SHOW_MS = 5000;
 
 type Undo = () => unknown;
@@ -70,14 +69,13 @@ export function QuickDock({ med, meds, water, onMed, onWater, hideMed, inline }:
 
   return (
     <div role="group" aria-label={L.label}
-      className={inline ? 'relative flex min-h-16 items-center justify-between gap-3 rounded-2xl border border-line bg-surface px-4 py-2 print:hidden' : 'fixed bottom-[calc(8.75rem+env(safe-area-inset-bottom))] right-4 z-20 flex flex-col gap-3 print:hidden md:bottom-8 md:right-8'}>
-      {inline && <div><p className="text-sm text-muted">{t.summary.water}</p><p className="tabular font-semibold">{water.ml.toLocaleString('uk-UA')}{water.target ? ` / ${water.target.toLocaleString('uk-UA')}` : ''} мл</p></div>}
+      className={inline ? 'relative flex min-h-tap justify-end gap-3 print:hidden' : 'fixed bottom-[calc(8.75rem+env(safe-area-inset-bottom))] right-4 z-20 flex flex-col gap-3 print:hidden md:bottom-8 md:right-8'}>
       {meds.total > 0 && !hideMed && (
         <div className="relative">
           {bubble('med')}
-          <Round progress={meds.done / meds.total} tone={med?.missed ? 'warn' : 'accent'} done={!med}
+          <Round progress={meds.done / meds.total} tone={med?.missed ? 'warn' : 'meds'} done={!med}
             onClick={() => med && void run('med', onMed, t.toast.med(med.title))} label={med ? L.med(med.title, med.time) : L.medsDone}>
-            <Pill size={22} className={!med ? '' : med.missed ? 'text-warn' : 'text-accent'} aria-hidden />
+            <Pill size={22} className={!med ? '' : 'protocol-ring-icon'} aria-hidden />
             {med?.missed && <span className="absolute right-0.5 top-0.5 h-3 w-3 rounded-full border-2 border-surface bg-warn" aria-hidden />}
             {!med && <span className="absolute -right-0.5 -top-0.5 flex h-5 w-5 items-center justify-center rounded-full border-2 border-accent bg-surface text-accent" aria-hidden>
               <Check size={12} strokeWidth={3} /></span>}
@@ -86,29 +84,22 @@ export function QuickDock({ med, meds, water, onMed, onWater, hideMed, inline }:
       )}
       <div className="relative">
         {bubble('water')}
-        <Round progress={water.target ? water.ml / water.target : undefined} tone="water" onClick={() => void run('water', onWater, '')} label={L.water(water.ml, water.target)}>
+        <Round compact={inline} progress={water.target ? water.ml / water.target : undefined} tone="water" onClick={() => void run('water', onWater, '')} label={L.water(water.ml, water.target)}>
           <Droplet size={22} className="text-water" aria-hidden />
+          {inline && <span>{L.addWater}</span>}
         </Round>
       </div>
     </div>
   );
 }
 
-function Round({ progress, tone, done, label, onClick, children }:
-  { progress?: number; tone: keyof typeof STROKE; done?: boolean; label: string; onClick: () => void; children: ReactNode }) {
-  const p = progress != null && Number.isFinite(progress) ? Math.min(1, Math.max(0, progress)) : 0;
+function Round({ progress, tone, done, label, onClick, children, compact }:
+  { progress?: number; tone: 'meds' | 'warn' | 'water'; done?: boolean; label: string; onClick: () => void; children: ReactNode; compact?: boolean }) {
   return (
     <button type="button" onClick={onClick} disabled={done} aria-label={label} title={label}
-      className={`relative flex h-14 w-14 items-center justify-center rounded-full border shadow-lg shadow-ink/15 transition-transform active:scale-95
-        ${done ? 'border-accent bg-accent text-surface' : 'border-line bg-surface'}`}>
-      {!done && progress != null && (
-        <svg viewBox="0 0 56 56" className="pointer-events-none absolute inset-0 -rotate-90" aria-hidden>
-          <circle cx="28" cy="28" r={R} fill="none" strokeWidth="3" className="stroke-line" />
-          {p > 0 && <circle cx="28" cy="28" r={R} fill="none" strokeWidth="3" strokeLinecap="round" className={`${STROKE[tone]} transition-[stroke-dashoffset] duration-500`}
-            strokeDasharray={C} strokeDashoffset={C * (1 - p)} />}
-        </svg>
-      )}
-      {children}
+      className={compact ? 'flex min-h-tap items-center justify-center gap-2 rounded-full border border-water/30 bg-water/10 px-4 text-sm font-medium text-water'
+        : `relative flex h-14 w-14 items-center justify-center rounded-full border shadow-lg shadow-ink/15 transition-transform active:scale-95 ${done ? 'border-accent bg-accent text-surface' : 'border-line bg-surface'}`}>
+      {compact || done ? children : <ProgressRing ratio={progress} tone={tone} label={label} valueText={label} decorative className="protocol-ring-dock">{children}</ProgressRing>}
     </button>
   );
 }

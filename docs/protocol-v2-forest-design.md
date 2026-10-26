@@ -9,8 +9,8 @@ The user's visual correction was explicit: recognizable fir trees, the shared to
 | Surface | Result |
 | --- | --- |
 | Today | Photographic fir forest replaces CSS polygons; food/voice action follows the calendar; summary precedes the timeline. |
-| Water/medicines dock | Water has a reserved row while quick actions are visible. Scrolling brings back the floating controls. The same save, accumulated feedback, and undo remain. Feedback wraps within narrow screens. |
-| Metrics | Spacious metric tiles, bounded accessible rings and bars, real values in text. No completion ring without a configured target. Carbohydrate limits retain neutral/warning treatment and the explanation that a limit is not a goal. |
+| Water/medicines dock | Water has a compact +250 ml action while quick actions are visible, without a repeated total. Scrolling brings back the floating controls. The same save, accumulated feedback, and undo remain. Feedback wraps within narrow screens. |
+| Metrics | Large colored accessible rings and gradient bars, real values in text. Calories use orange, protein green, water blue, medicines violet, calcium gold, and carbohydrate limits amber. No completion ring without a configured target. Carbohydrate limits retain neutral/warning treatment and the explanation that a limit is not a goal. |
 | Working headers | Shared local forest scene for Food, Progress, More/categories, Wellbeing, Assistant, Week, Motivation, Sync/Reminders, Menu/Shopping/Dishes, and supporting tools. Plan overview uses the same scene. |
 | Controls | Native keyboard-operable checkboxes styled as switches for binary settings; document/ingredient selections remain square checkboxes. Labels, checked state, disabled state, and handlers remain native. |
 | Wellbeing | Separate score cards with clear selected states, roomy five-step groups and quiet scale labels; autosave remains visible. |
@@ -53,3 +53,10 @@ Exact image-generation prompt:
 - Full browser run: 85 of 86 passed. The photo-redaction coordinate test failed because the enlarged layout left its drag point outside the visible photo. After adding the explicit scroll, the unchanged redaction/pixel assertions passed with `npm run e2e -- --last-failed` (1/1). All 86 scenarios have therefore been exercised successfully; this is not a claim of a second full 86/86 run.
 
 This is a shared visual/interaction pass, not completion of every release in the Product/UX/Architecture TZ. Multi-plan storage, full document provenance/edit verification, admin/caregiver access and the separate explicit-import-time branch are not introduced by this branch. Existing medical rules and safety cards remain in place. OS notification delivery, actual camera input and OCR/model quality still need device/service checks.
+
+
+## Screenshot feedback follow-up
+
+The separate water-total card was removed after screenshot review. The compact `+250 мл` action preserves accumulated feedback and undo; the current total is shown once in the summary. Existing metric preferences are retained. Ring rows use three columns when the phone has room and two on 320 px screens. The shared gradient treatment is used by summary rings, floating dock rings, progress tracks and weekly habit tracks. Unknown targets still have no completion arc; graphical ranges remain capped while text preserves actual over-target amounts.
+
+Two browser acceptance cases cover single water-counter rendering with add/undo/reload, selected metric persistence, semantic values, actual SVG gradient references and distinct orange/green/blue colors in both themes. See [colored summary capture](previews/colored-summary.png).

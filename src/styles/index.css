@@ -8,13 +8,17 @@
 /* Tokens (SPEC.md §7) as RGB triples; the dark theme follows the system setting. */
 :root {
   --bg: 241 244 240; --surface: 253 255 252; --ink: 31 46 37; --muted: 91 108 97; --line: 219 229 220;
-  --accent: 45 105 78; --warn: 138 60 16; --warn-bg: 246 227 214; --water: 67 126 158;
+  --accent: 45 105 78; --warn: 138 60 16; --warn-bg: 246 227 214; --water: 27 112 168;
+  --meter-energy: 185 80 30; --meter-protein: 27 131 78; --meter-meds: 112 76 178;
+  --meter-calcium: 142 105 23; --meter-carbs: 147 113 30;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: 15 22 19; --surface: 27 37 31; --ink: 235 242 233; --muted: 165 183 171; --line: 47 65 54;
-    --accent: 157 224 185; --warn: 240 172 130; --warn-bg: 72 42 26; --water: 137 194 216;
+    --accent: 157 224 185; --warn: 240 172 130; --warn-bg: 72 42 26; --water: 111 199 251;
+    --meter-energy: 255 155 102; --meter-protein: 132 231 173; --meter-meds: 186 160 255;
+    --meter-calcium: 235 202 115; --meter-carbs: 227 186 111;
     color-scheme: dark;
   }
 }
@@ -99,12 +103,29 @@ input[type=checkbox].protocol-switch { position: relative; width: 2.875rem; heig
 input[type=checkbox].protocol-switch::after { content: ''; position: absolute; width: 1.25rem; height: 1.25rem; left: .1875rem; top: .1875rem; border-radius: 50%; background: rgb(var(--surface)); box-shadow: 0 2px 5px rgb(0 0 0 / .15); }
 input[type=checkbox].protocol-switch:checked { background-color: rgb(var(--accent)); border-color: rgb(var(--accent)); }
 input[type=checkbox].protocol-switch:checked::after { transform: translateX(1.125rem); }
+.protocol-progress-track, .protocol-ring { --progress-color: var(--accent); }
 .protocol-progress-track { height: .625rem; overflow: hidden; border-radius: 999px; background: rgb(var(--line) / .72); }
-.protocol-progress-fill { display: block; height: 100%; border-radius: inherit; }
-.protocol-progress-accent { background: linear-gradient(90deg, rgb(var(--accent) / .65), rgb(var(--accent))); }
-.protocol-progress-water { background: linear-gradient(90deg, rgb(var(--water) / .65), rgb(var(--water))); }
-.protocol-progress-warn { background: rgb(var(--warn)); }
-.protocol-progress-neutral { background: rgb(var(--muted) / .65); }
+.protocol-progress-fill { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, rgb(var(--progress-color) / .65), rgb(var(--progress-color))); }
+.protocol-progress-accent { --progress-color: var(--accent); }
+.protocol-progress-water { --progress-color: var(--water); }
+.protocol-progress-energy { --progress-color: var(--meter-energy); }
+.protocol-progress-protein { --progress-color: var(--meter-protein); }
+.protocol-progress-meds { --progress-color: var(--meter-meds); }
+.protocol-progress-calcium { --progress-color: var(--meter-calcium); }
+.protocol-progress-carbs { --progress-color: var(--meter-carbs); }
+.protocol-progress-warn { --progress-color: var(--warn); }
+.protocol-progress-neutral { --progress-color: var(--muted); }
+.protocol-ring { position: relative; display: flex; width: 4.75rem; height: 4.75rem; flex-shrink: 0; align-items: center; justify-content: center; border-radius: 50%; background: rgb(var(--progress-color) / .04); }
+.protocol-ring-dock { width: 3.5rem; height: 3.5rem; }
+.protocol-meter-start { stop-color: rgb(var(--progress-color) / .65); }
+.protocol-meter-end { stop-color: rgb(var(--progress-color)); }
+.protocol-ring-icon { color: rgb(var(--progress-color)); fill: rgb(var(--progress-color) / .18); }
+.protocol-metric-rings { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem .75rem; padding-block: .5rem; }
+.protocol-metric-rings[data-count="1"] { grid-template-columns: minmax(0, 1fr); }
+.protocol-ring-value { max-width: 100%; font-size: .875rem; font-weight: 600; line-height: 1.5; }
+@media (min-width: 380px) {
+  .protocol-metric-rings[data-count="3"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
 .protocol-metric { min-width: 0; border-radius: 1.125rem; background: rgb(var(--bg) / .7); padding: .875rem; }
 .protocol-metric-value { font-size: clamp(1rem, 3.5vw, 1.25rem); font-weight: 600; letter-spacing: -.025em; }
 main :where(input:not([type=checkbox]):not([type=radio]), select, textarea) { font-size: 1rem; border-radius: .875rem; }

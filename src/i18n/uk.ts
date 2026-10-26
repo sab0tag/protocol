@@ -213,6 +213,7 @@ export const t = {
   },
   dock: { // D48
     label: 'Ліки й вода',
+    addWater: '+250 мл',
     med: (title: string, time?: string) => `Відмітити прийнятим: ${title}${time ? `, ${time}` : ''}`,
     waterAdded: (added: number, total: number) => `+${added} мл · ${(total / 1000).toLocaleString('uk-UA', { maximumFractionDigits: 2 })} л`,
     medsDone: 'Ліки на сьогодні прийнято',

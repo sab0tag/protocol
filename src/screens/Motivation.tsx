@@ -43,7 +43,8 @@ export function HabitsCard({ list, showEmpty = false }: { list: Habit[]; showEmp
               </span>
               {habit.best >= 3 && habit.best > habit.streak && <span className="block text-xs text-muted">{L.best(habit.best)}</span>}
             </span></div>
-            {habit.days7 > 0 && <ProgressTrack ratio={habit.last7 / habit.days7} label={L.habit[habit.key]} valueText={L.ofWeek(habit.last7, habit.days7)} />}
+            {habit.days7 > 0 && <ProgressTrack ratio={habit.last7 / habit.days7} label={L.habit[habit.key]} valueText={L.ofWeek(habit.last7, habit.days7)}
+              tone={habit.key === 'water' ? 'water' : habit.key === 'protein' ? 'protein' : habit.key === 'meds' ? 'meds' : habit.key === 'carbs' ? 'carbs' : 'accent'} />}
           </li>
         ))}
       </ul>

@@ -180,7 +180,7 @@ export function Day() {
           </button>
         ))}
       </nav>
-      {checklist && <div className="mb-4 min-h-[4.5rem]">
+      {checklist && <div className="mb-4 min-h-tap">
         <QuickDock meds={{ done: meds.filter((i) => i.done).length, total: meds.length }} water={checklist.water}
           med={nextMed && { title: nextMed.title, ...(nextMed.time ? { time: nextMed.time } : {}), missed: medMissed }}
           onMed={dockMed} onWater={dockWater} hideMed={tilesOnScreen} inline={tilesOnScreen} />
