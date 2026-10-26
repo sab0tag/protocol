@@ -2,7 +2,8 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { registerSW } from 'virtual:pwa-register';
 import { App } from './app/App';
-import { ensureSeeded, inDemo, requestPersistence } from './data/db';
+import { db, ensureSeeded, inDemo, requestPersistence } from './data/db';
+import { initialiseModulePreferences, legacyModuleUsage } from './data/modulePreferences';
 import { startSync } from './sync/runner';
 import { pilotTick, sourceFromLink } from './sync/pilot';
 import { useUi } from './store/ui';
@@ -28,7 +29,8 @@ registerSW({
 });
 void requestPersistence();
 watchResume(); // D42
-const start = () => ensureSeeded().then(() => {
+const start = () => ensureSeeded().then(async () => {
+  await initialiseModulePreferences(db, new Date().toISOString(), legacyModuleUsage(inDemo()));
   if (inDemo()) return; // D98: the example never syncs, never counts for the pilot
   void startSync();
   // D119: a QR card's code (the one request without a consent — a count by day and code), then the pilot's week if consented

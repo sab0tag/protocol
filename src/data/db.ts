@@ -2,6 +2,7 @@
 import Dexie, { type Table } from 'dexie';
 import type { ReminderSettings } from '../domain/reminders';
 import type { SurveyKind, SurveyState } from '../domain/pilot';
+import type { ModuleEvent } from '../domain/modulePreferences';
 import type { DayEntry, Favorite, Food, Friction, LabResult, Plan, Recipe, WeightLog, Wellbeing, Workout } from '../domain/types';
 import { FOODS } from './foods';
 import { RECIPES } from './recipes';
@@ -83,6 +84,7 @@ export class ProtocolDB extends Dexie {
   pilot!: Table<PilotMeta, string>;
   sync!: Table<SyncRow, string>;
   meta!: Table<SyncMeta, string>;
+  moduleEvents!: Table<ModuleEvent, string>;
 
   constructor(name = 'protocol') {
     super(name);
@@ -101,6 +103,7 @@ export class ProtocolDB extends Dexie {
     this.version(5).stores({ frictions: 'id, at' }); // D67: «Що заважало»
     this.version(6).stores({ pieces: 'id' }); // D114: pieces of the doctor's paper — this device only, never synced or exported
     this.version(7).stores({ tally: 'day', pilot: 'key' }); // D119: the pilot — this device only, never synced or exported
+    this.version(8).stores({ moduleEvents: 'id, at, kind' }); // D134: immutable preferences/history, encrypted sync + backup
   }
 }
 

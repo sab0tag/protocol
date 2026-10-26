@@ -20,7 +20,7 @@ async function fileOf(): Promise<File> {
   return new File([JSON.stringify({ ...data, plan: { ...data.plan, lastExportAt: todayISO() } }, null, 1)], name, { type: 'application/json' });
 }
 
-/** «Резервна копія» (SPEC.md §5.8, §8): save or send a JSON file; restore replaces everything after a confirmation. */
+/** «Резервна копія»: restore replaces diary data; immutable section choices merge by their original time (D134). */
 export function Backup({ alwaysOpen = false }: { alwaysOpen?: boolean }) {
   const plan = usePlan();
   const input = useRef<HTMLInputElement>(null);
@@ -49,7 +49,7 @@ export function Backup({ alwaysOpen = false }: { alwaysOpen?: boolean }) {
 
   return (
     // D78: folded to one line — open by itself only while there is neither a copy nor sync
-    <details open={alwaysOpen || (!plan?.lastExportAt && synced === false)} className="group protocol-card rounded-2xl border border-line bg-surface p-3">
+    <details open={alwaysOpen || !!pending || !!message || (!plan?.lastExportAt && synced === false)} className="group protocol-card rounded-2xl border border-line bg-surface p-3">
       <summary className="flex min-h-tap cursor-pointer list-none items-center gap-2">
         <span className="flex-1"><span className="block font-semibold">{L.title}</span>
           <span className="block text-sm text-muted">{plan?.lastExportAt ? L.last(dmy(plan.lastExportAt)) : L.never}</span></span>
@@ -65,8 +65,13 @@ export function Backup({ alwaysOpen = false }: { alwaysOpen?: boolean }) {
       {pending && (
         <div role="alertdialog" aria-label={L.restore} className="mt-3 rounded-xl border border-warn/40 bg-warn-bg p-3">
           <p className="mb-2 text-warn">{L.confirm(dmy(pending.exportedAt.slice(0, 10)))}</p>
+          <p className="mb-2 text-sm text-muted">{pending.version >= 2 ? L.moduleHistory : L.legacyModuleHistory}</p>
           <div className="flex gap-2">
-            <button type="button" onClick={async () => { await importAll(pending); setPending(null); setMessage(L.restored); }}
+            <button type="button" onClick={async () => {
+              try { await importAll(pending); setMessage(L.restored); }
+              catch (e) { setMessage((e as Error).message); }
+              setPending(null);
+            }}
               className="min-h-tap rounded-xl bg-warn px-3 font-medium text-surface">{L.yes}</button>
             <button type="button" onClick={() => setPending(null)} className="min-h-tap rounded-xl border border-line bg-surface px-3">{L.no}</button>
           </div>
