@@ -168,10 +168,10 @@ export function AddMeal() {
       <h1 className="mb-3 text-2xl font-semibold">{id ? t.meal.editTitle : t.meal.title}</h1>
       <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); void save(); }}>
         <div className="rounded-2xl border border-line bg-surface p-3">
-          <div className="flex items-end gap-2">
-            <label className="block flex-1"><span className="text-sm text-muted">{t.meal.search}</span>
-              <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t.meal.searchHint}
-                className={field} autoComplete="off" autoFocus={!id} /></label>
+          <label htmlFor="meal-search" className="block text-sm text-muted">{t.meal.search}</label>
+          <div className="mt-1 flex items-end gap-2">
+            <input id="meal-search" type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t.meal.searchHint}
+              className={`${field} min-w-0 flex-1`} autoComplete="off" autoFocus={!id} />
             <button type="button" onClick={pickPhoto} disabled={photo.state === 'busy'} aria-label={t.meal.photo}
               className="flex min-h-tap items-center gap-1 rounded-xl border border-accent px-3 font-medium text-accent disabled:opacity-40">
               <Camera size={18} aria-hidden /><span className="hidden min-[380px]:inline">{t.meal.photo}</span></button>

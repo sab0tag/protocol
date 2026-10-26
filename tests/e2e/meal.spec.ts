@@ -3,9 +3,15 @@ import { device, toast } from './helpers';
 
 test('«Записати їжу»: the food first, the meal line folded; a meal pinned to «Мої звичні» comes back in one tap (D51)', async ({ browser }) => {
   const page = await device(browser);
+  await page.setViewportSize({ width: 320, height: 844 });
   await page.goto('./#/meal/new');
   const search = page.getByRole('searchbox', { name: /^Що з’їли/ });
   await expect(search).toBeFocused();
+  const searchLabel = page.getByText(/^Що з’їли/);
+  const [labelBox, searchBox] = await Promise.all([searchLabel.boundingBox(), search.boundingBox()]);
+  expect(labelBox).not.toBeNull();
+  expect(searchBox).not.toBeNull();
+  expect(labelBox!.y + labelBox!.height).toBeLessThanOrEqual(searchBox!.y);
   await search.fill('кефір');
   await page.getByRole('button', { name: /^Кефір 2,5 %/ }).first().click();
   const line = page.getByRole('button', { name: /^Прийом: назва, час/ });
