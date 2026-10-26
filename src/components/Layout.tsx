@@ -5,6 +5,7 @@ import { t } from '../i18n/uk';
 import { Toaster } from './Toast';
 import { ROUTES, TAB_ROUTES, type TabRouteId } from '../app/navigation';
 import { sceneArtworkForPath } from '../domain/sceneArtwork';
+import { useFeatures } from '../app/features';
 
 const TABS = {
   day: { label: t.nav.day, Icon: CalendarDays },
@@ -16,6 +17,7 @@ const TABS = {
 
 /** Bottom tab bar on phones, an icon rail from 768 px — same icons and routes (SPEC.md §5). */
 export function Layout({ children }: { children: ReactNode }) {
+  const { can } = useFeatures();
   const { pathname } = useLocation();
   const artwork = sceneArtworkForPath(pathname);
   const foodActive = ['/food', '/meal', '/dishes'].some(p => pathname === p || pathname.startsWith(p + '/'));
@@ -24,7 +26,7 @@ export function Layout({ children }: { children: ReactNode }) {
       <nav aria-label="Розділи"
         className="protocol-bottom-nav fixed inset-x-0 bottom-0 z-20 border-t border-line bg-surface pb-safe print:hidden md:static md:inset-auto md:w-20 md:shrink-0 md:border-r md:border-t-0 md:pt-safe">
         <ul className="flex gap-1 px-1 py-1.5 md:sticky md:top-0 md:flex-col md:gap-3 md:px-2 md:py-4">
-          {TAB_ROUTES.map((id) => { const { label, Icon } = TABS[id];
+          {TAB_ROUTES.filter((id) => can(ROUTES[id].feature)).map((id) => { const { label, Icon } = TABS[id];
             const isActive = id === 'food' ? foodActive : pathname === ROUTES[id].path || (id !== 'day' && pathname.startsWith(ROUTES[id].path + '/'));
             return (
             <li key={id} className="flex-1 md:flex-none">

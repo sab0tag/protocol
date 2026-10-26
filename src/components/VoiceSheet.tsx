@@ -25,6 +25,10 @@ import { Sheet } from './Sheet';
 import { saved } from './Toast';
 import { CrisisCard } from './CrisisCard';
 import { countOnce } from '../data/tally';
+import { Link } from 'react-router-dom';
+import { useFeatures } from '../app/features';
+import { can as featureCan } from '../domain/features';
+import { modulePreferences } from '../domain/modulePreferences';
 
 const L = t.voice;
 const C = t.voice.cmd;
@@ -46,6 +50,7 @@ export function VoiceSheet({ date, plan, foods, recipes, today, yesterday, meds,
   date: string; plan: Plan | undefined; foods: Map<string, Food>; recipes: Recipe[]; today: DayEntry[]; yesterday: DayEntry[];
   meds: DraftMed[]; onClose: () => void;
 }) {
+  const { can, enabled } = useFeatures();
   const recent = useRecentEntries(date, 8); // R03: the day and the week before it
   const opened = useRef(Date.now());
   const ids = useRef({ meal: newId(), water: newId(), meds: new Map<string, string>() }); // fixed: a second tap writes the same rows
@@ -59,8 +64,9 @@ export function VoiceSheet({ date, plan, foods, recipes, today, yesterday, meds,
   const [saving, setSaving] = useState(false);
   const stop = useRef<() => void>(() => undefined);
   const said = useRef<string[]>([]); // D107: what was heard before — a recogniser may glue it to the new words
-  const ctx = useMemo(() => ({ foods: [...foods.values()], recipes, dishItem, prescriptions: plan?.prescriptions ?? [], yesterday,
-    meds: meds.filter((m) => !today.some((e) => e.checkKey === m.key && e.status === 'done')) }), [foods, recipes, plan, yesterday, meds, today]);
+  const menuAvailable = can('menu.yesterday');
+  const ctx = useMemo(() => ({ foods: [...foods.values()], recipes, dishItem, prescriptions: plan?.prescriptions ?? [], yesterday: menuAvailable ? yesterday : [],
+    meds: meds.filter((m) => !today.some((e) => e.checkKey === m.key && e.status === 'done')) }), [foods, recipes, plan, yesterday, meds, today, menuAvailable]);
 
   // the field is read as it is, on top of what is already in the draft; an action on the draft takes the field in first
   const now = useMemo(() => (typed.trim() ? step(session, typed, ctx) : session), [typed, session, ctx]);
@@ -79,6 +85,9 @@ export function VoiceSheet({ date, plan, foods, recipes, today, yesterday, meds,
   const save = async () => {
     const draft = shown;
     if (!ready(draft) || saving) return;
+    const latest = enabled ? { ...modulePreferences(await db.moduleEvents.toArray()), tier: 'free' as const, demo: inDemo() } : undefined;
+    if (latest && ((draft.items.length > 0 && !featureCan('food.log', latest)) || (draft.meds.length > 0 && !featureCan('meds.log', latest))
+      || (draft.waterMl > 0 && !featureCan('water.log', latest)))) return;
     setSaving(true);
     const at = atLocal(date, time), rows: DayEntry[] = [];
     if (draft.items.length) rows.push({ id: ids.current.meal, at, kind: 'meal', status: 'done', title: draft.title ?? defaultTitle(time), items: draft.items.map((x) => x.item), via: 'voice' }); // D119
@@ -103,6 +112,10 @@ export function VoiceSheet({ date, plan, foods, recipes, today, yesterday, meds,
   const partAsk = now.ask?.kind === 'part' ? now.ask : undefined;
   const crisis = crisisInText(heard) || crisisInText(typed) || draft.notFound.some(crisisInText); // D130
   const danger = crisis || dangerInText(heard) || dangerInText(typed) || draft.notFound.some(dangerInText); // D97: one 103 card, nothing else about those words
+  const blocked = [
+    ...(!can('food.log') && (draft.items.length || draft.notFound.length) ? ['food' as const] : []),
+    ...(!can('meds.log') && draft.meds.length ? ['meds' as const] : []), ...(!can('water.log') && draft.waterMl ? ['water' as const] : []),
+  ];
   // R03: what is said is eaten — judged against the day's eaten food and the week before (the liver once a week too)
   const checks = plan && draft.items.length ? evaluate({ plan, date, foods, entries: recent ?? today, intent: 'recorded', meal: draft.items.map((x) => x.item) }).checks : [];
 
@@ -125,6 +138,11 @@ export function VoiceSheet({ date, plan, foods, recipes, today, yesterday, meds,
       </div>
       {error && <p role="alert" className="mt-2 text-sm text-warn">{L.errors[error]}</p>}
       {danger && (crisis ? <CrisisCard /> : <DangerCard />)}
+      {!danger && blocked.length > 0 && <div role="status" className="mt-3 space-y-2 rounded-xl border border-line p-3 text-sm">
+        <p>{t.modules.voiceBlocked}</p><Link to="/modules" className="inline-flex min-h-tap items-center text-accent underline">{t.modules.title}</Link>
+        {blocked.map((kind) => <button key={kind} type="button" onClick={() => edit((d) => kind === 'food' ? { ...d, items: [], notFound: [] } : kind === 'meds' ? { ...d, meds: [] } : { ...d, waterMl: 0 })}
+          className="block min-h-tap text-accent underline">{t.modules.removePart(t.modules.names[kind])}</button>)}
+      </div>}
       <form className="mt-2 flex gap-2" onSubmit={(e) => { e.preventDefault(); commit(); }}>
         <label className="flex-1"><span className="sr-only">{L.typed}</span>
           <input value={typed} onChange={(e) => setTyped(e.target.value)} placeholder={L.typedPh} className="block min-h-tap w-full rounded-xl border border-line bg-bg px-3" /></label>
@@ -208,8 +226,8 @@ export function VoiceSheet({ date, plan, foods, recipes, today, yesterday, meds,
                   <p className="flex items-start gap-2"><span className="flex-1 text-warn">«{text}» — {t.meal.notFound}</span>
                     <button type="button" onClick={() => edit((d) => ({ ...d, notFound: d.notFound.filter((n) => n !== text) }))}
                       className="min-h-[2rem] px-1 text-muted underline">{L.drop}</button></p>
-                  <ConciergeNotFound text={text} plan={plan} foods={foods} recipes={recipes} date={date}
-                    onAdd={(s) => edit((d) => ({ ...d, notFound: d.notFound.filter((n) => n !== text), items: [...d.items, { item: s.item, said: text, sure: true }] }))} /></div>
+                  {can('food.not-found') && <ConciergeNotFound text={text} plan={plan} foods={foods} recipes={recipes} date={date}
+                    onAdd={(s) => edit((d) => ({ ...d, notFound: d.notFound.filter((n) => n !== text), items: [...d.items, { item: s.item, said: text, sure: true }] }))} />}</div>
               ))}
             </div>
           )}
@@ -222,7 +240,7 @@ export function VoiceSheet({ date, plan, foods, recipes, today, yesterday, meds,
 
       {draft.notFound.length > 0 && !danger && <p className="mt-3 text-sm text-warn">{L.unread(draft.notFound.length)}</p>}
       <div className="mt-3 flex gap-2">
-        <button type="button" disabled={!ready(draft) || saving} onClick={() => void save()}
+        <button type="button" disabled={!ready(draft) || saving || blocked.length > 0 || !!danger} onClick={() => void save()}
           className="min-h-tap flex-1 rounded-xl bg-accent px-4 font-medium text-surface disabled:opacity-40">{L.save}</button>
         <button type="button" onClick={onClose} className="min-h-tap rounded-xl border border-line px-4">{L.cancel}</button>
       </div>

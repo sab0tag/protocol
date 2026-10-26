@@ -28,6 +28,8 @@ export const ROUTES = {
   planImport:   { path: '/plan/import',      feature: 'plan' },
   onboarding:   { path: '/welcome',         feature: 'onboarding' },
   progress:     { path: '/progress',        feature: 'progress' },
+  weight:       { path: '/weight',          feature: 'wellbeing.weight' },
+  modules:      { path: '/modules',         feature: 'modules.settings' },
   progressInsights: { path: '/progress/insights', feature: 'progress.patterns' },
   progressMotivation: { path: '/progress/motivation', feature: 'progress.patterns' },
   progressLabs: { path: '/progress/labs',    feature: 'progress.labs' },
@@ -55,8 +57,8 @@ export type TabRouteId = (typeof TAB_ROUTES)[number];
 
 export const MORE_ROUTE_GROUPS = [
   { id: 'food', routes: ['assistant', 'menu', 'shopping', 'dishes', 'foods'] },
-  { id: 'health', routes: ['wellbeing', 'wellbeingJournal', 'progressLabs', 'progressMotivation', 'progressInsights', 'workout', 'week', 'report'] },
-  { id: 'settings', routes: ['profiles', 'reminders', 'sync', 'quickLinks', 'data'] },
+  { id: 'health', routes: ['wellbeing', 'wellbeingJournal', 'weight', 'progressLabs', 'progressMotivation', 'progressInsights', 'workout', 'week', 'report'] },
+  { id: 'settings', routes: ['profiles', 'modules', 'reminders', 'sync', 'quickLinks', 'data'] },
   { id: 'app', routes: ['frictions', 'pilot', 'onboarding', 'conciergeLog', 'about'] },
 ] as const satisfies readonly { readonly id: string; readonly routes: readonly StaticRouteId[] }[];
 export type MoreGroupId = (typeof MORE_ROUTE_GROUPS)[number]['id'];

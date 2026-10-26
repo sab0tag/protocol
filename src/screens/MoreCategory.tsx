@@ -1,6 +1,6 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Link, Navigate, useParams } from 'react-router-dom';
-import { MORE_GROUPS } from './More';
+import { useMoreGroups } from './More';
 import { t } from '../i18n/uk';
 import { SceneHeader } from '../components/SceneHeader';
 import { ProfilePhotoSettings } from '../components/ProfilePhotoSettings';
@@ -8,7 +8,7 @@ import { ThemeSettings } from '../components/ThemeSettings';
 
 export function MoreCategory() {
   const { category } = useParams();
-  const group = MORE_GROUPS.find((item) => item.id === category);
+  const group = useMoreGroups().find((item) => item.id === category);
   if (!group) return <Navigate to="/more" replace />;
 
   return (

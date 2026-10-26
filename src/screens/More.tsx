@@ -1,10 +1,11 @@
 import { SceneHeader } from '../components/SceneHeader';
-import { Eye, Info, Activity, BellRing, ChevronRight, Dumbbell, FileText, RefreshCw, Salad, ShoppingCart, Sparkles, UserRound, CalendarRange, MessageSquareWarning, Zap, MessageCircle, HandHeart, Database, Heart, ClipboardPlus, Lightbulb, Settings2, Apple, type LucideIcon } from 'lucide-react';
+import { Eye, Info, Activity, BellRing, ChevronRight, Dumbbell, FileText, RefreshCw, Salad, ShoppingCart, Sparkles, UserRound, CalendarRange, MessageSquareWarning, Zap, MessageCircle, HandHeart, Database, Heart, ClipboardPlus, Lightbulb, Settings2, Apple, Scale, type LucideIcon } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { enterDemo, inDemo } from '../data/db';
 import { t } from '../i18n/uk';
 import { MORE_ROUTE_GROUPS, ROUTES, type MoreGroupId, type MoreRouteId } from '../app/navigation';
+import { useFeatures } from '../app/features';
 
 const LINKS = {
   profiles: { Icon: UserRound, title: t.profiles.title },
@@ -30,6 +31,8 @@ const LINKS = {
   onboarding: { Icon: UserRound, title: t.welcome.again },
   conciergeLog: { Icon: Sparkles, title: t.conciergeLog.link },
   about: { Icon: Info, title: t.about.link },
+  modules: { Icon: Settings2, title: t.modules.title },
+  weight: { Icon: Scale, title: t.progress.weight },
 } satisfies Record<MoreRouteId, { Icon: LucideIcon; title: string }>;
 
 const GROUP_META = {
@@ -42,15 +45,24 @@ const GROUP_META = {
 export const MORE_GROUPS = MORE_ROUTE_GROUPS.map(({ id, routes }) => ({
   id,
   ...GROUP_META[id],
-  links: routes.map((routeId) => ({ to: ROUTES[routeId].path, ...LINKS[routeId] })),
+  links: routes.map((routeId: MoreRouteId) => ({ routeId, to: ROUTES[routeId].path, ...LINKS[routeId] })),
 }));
 
+/** D137: a switched-off module's rows leave «Ще»; a group left without rows goes too. Without the rollout flag the
+ *  settings and the standalone weight entry stay hidden — the previous build's access is unchanged. */
+export function useMoreGroups() {
+  const { can, enabled } = useFeatures();
+  return MORE_GROUPS.map((g) => ({ ...g, links: g.links.filter(({ routeId }) => can(ROUTES[routeId].feature)
+    && (enabled || (routeId !== 'modules' && routeId !== 'weight'))) })).filter((g) => g.links.length);
+}
+
 export function More() {
+  const groups = useMoreGroups();
   return (
     <section className="space-y-4 pt-4">
       <SceneHeader title={t.more.title} description={t.visual.moreHint} />
       <ul className="grid gap-3 sm:grid-cols-2">
-        {MORE_GROUPS.map(({ id, title, hint, Icon }) => (
+        {groups.map(({ id, title, hint, Icon }) => (
           <li key={id}>
             <Link to={`/more/${id}`} className="flex min-h-[4.5rem] items-center gap-3 protocol-card rounded-2xl border border-line bg-surface px-3 py-3">
               <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-accent/10 text-accent">

@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { device, seed, toast } from './helpers';
+import { device, seed } from './helpers';
 import { t } from '../../src/i18n/uk';
 
 // Run normally to verify preparation compatibility, and with VITE_MODULE_POLICY_ENABLED=true to exercise the policy.
@@ -16,7 +16,7 @@ test('food/water observation periods are shared by the doctor report and week, b
         since: '2026-10-01', schedule: { times: ['08:00', '20:00'] } }], constraints: [], modes: [], onboardedAt: '2026-10-01',
         targets: { proteinG: 100, carbsG: { max: 150 }, waterMl: 2000 } } },
       ...modules.map((module) => ({ store: 'moduleEvents', value: { id: `test-init-${module}`, v: 1, at: at('2026-10-01'), kind: 'module', module,
-        enabled: module === 'meds', source: 'onboarding' } })),
+        enabled: module === 'meds' || module === 'progress', source: 'onboarding' } })),
       { store: 'moduleEvents', value: { id: 'test-food-on', v: 1, at: at('2026-10-23'), kind: 'module', module: 'food', enabled: true, source: 'manual' } },
       { store: 'moduleEvents', value: { id: 'test-water-on', v: 1, at: at('2026-10-24'), kind: 'module', module: 'water', enabled: true, source: 'manual' } },
       ...['2026-10-21', '2026-10-22', '2026-10-23', '2026-10-24'].flatMap((date) => [
@@ -89,8 +89,7 @@ test('the quick medicine action does not mark a dose while meds observation is o
       at: '2026-10-01T00:00:00.000Z', kind: 'module', module, enabled: false, source: 'onboarding' } })),
   ]);
   await page.goto('./#/do/med');
-  await expect(page).toHaveURL(/#\/$/);
-  await expect(toast(page)).toContainText(t.quick.noMed);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Розділ вимкнено'); // D137: a bookmark to a switched-off module explains it, writing nothing
   const marked = await page.evaluate(async () => {
     const req = indexedDB.open('protocol');
     await new Promise((resolve) => { req.onsuccess = resolve; });

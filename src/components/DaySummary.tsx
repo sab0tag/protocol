@@ -1,3 +1,4 @@
+import { useFeatures } from '../app/features';
 import { profileKey } from '../data/profiles';
 import { ProgressTrack, type ProgressTone } from './ProgressTrack';
 import { ProgressRing } from './ProgressRing';
@@ -63,6 +64,7 @@ function metric(key: MetricKey, totals: DayTotals, targets: Targets, meds: { don
 
 export function DaySummary({ totals, targets, meds, streak, food, onComplete, allowed, title = L.title }: { totals: DayTotals; targets: Targets; meds: { done: number; total: number }; streak?: string; title?: string;
   food?: FoodState; onComplete?: (on: boolean) => void; allowed?: readonly MetricKey[] }) {
+  const { can } = useFeatures();
   const [main, setMain] = useState<MetricKey[]>(loadMain);
   const [all, setAll] = useState(false);
   const [setup, setSetup] = useState(false);
@@ -118,8 +120,8 @@ export function DaySummary({ totals, targets, meds, streak, food, onComplete, al
         </div>
       )}
       {streak && <p className="mt-1 text-sm text-accent">{streak}</p>}
-      <Link to="/assistant" className="mt-1 inline-flex min-h-tap items-center gap-2 text-sm text-accent underline"> {/* D117 */}
-        <MessageCircle size={16} aria-hidden />{t.assistant.link}</Link>
+      {can('assistant.chat') && <Link to="/assistant" className="mt-1 inline-flex min-h-tap items-center gap-2 text-sm text-accent underline"> {/* D117 */}
+        <MessageCircle size={16} aria-hidden />{t.assistant.link}</Link>}
     </section>
   );
 }

@@ -92,10 +92,10 @@ export function WeekCard({ summary, variant = 'tiles' }: { summary: ReturnType<t
                 </li>
               );
             })}
-            <li className="protocol-metric protocol-week-metric flex min-w-0 flex-col items-center justify-center text-center">
+            {summary.showWorkouts !== false && <li className="protocol-metric protocol-week-metric flex min-w-0 flex-col items-center justify-center text-center">
               <span className="min-h-8 text-sm text-muted">{L.weekWorkouts}</span>
               <span className="tabular text-3xl font-semibold">{summary.workouts}</span>
-            </li>
+            </li> /* not observed or the workout module is off — no count to read as zero */}
           </ul>
         )}
       </section>
@@ -106,7 +106,7 @@ export function WeekCard({ summary, variant = 'tiles' }: { summary: ReturnType<t
   if (summary.carbsOk !== undefined) tiles.push([L.weekCarbs, L.ofDays(summary.carbsOk, summary.knownDays?.carbs ?? summary.days)]);
   if (summary.proteinOk !== undefined) tiles.push([L.weekProtein, L.ofDays(summary.proteinOk, summary.knownDays?.protein ?? summary.days)]);
   if (summary.waterOk !== undefined) tiles.push([L.weekWater, L.ofDays(summary.waterOk, summary.knownDays?.water ?? summary.days)]);
-  tiles.push([L.weekWorkouts, String(summary.workouts)]);
+  if (summary.showWorkouts !== false) tiles.push([L.weekWorkouts, String(summary.workouts)]);
   if (summary.checklistPct !== undefined) tiles.push([L.weekChecklist, `${summary.checklistPct} %`]);
   return (
     <section className="protocol-card rounded-2xl border border-line bg-surface p-5">
