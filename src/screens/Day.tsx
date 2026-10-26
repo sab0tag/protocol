@@ -142,7 +142,6 @@ export function Day() {
   const rhythm = entries ? dayRhythm({ entries, ...(checklist ? { checklist } : {}), ...(targets.lastMealBy ? { lastMealBy: targets.lastMealBy } : {}) }) : undefined;
   const quick = [
     { label: t.menu.quick, Icon: Sparkles, go: () => navigate(`/menu?date=${date}`) },
-    { label: t.day.likeYesterday, Icon: Undo2, go: () => setYesterday(true) },
     { label: t.well.short, Icon: HeartPulse, go: () => navigate('/wellbeing') },
     { label: t.workout.title, Icon: Dumbbell, go: () => navigate('/workout'), done: !!workouts?.some((w) => w.date === date) },
     { label: t.myday.title, Icon: ListChecks, go: () => navigate('/my-day'), badge: checklist && checklist.total > 0 ? t.myday.counter(checklist.done, checklist.total) : undefined },
@@ -152,12 +151,47 @@ export function Day() {
     <section>
       <DayHeader date={date} setDate={setDate} />
 
+      {/* D53: recording food is one strong button on «День», not a row under a table */}
+      <div className="mb-4 flex gap-2">
+        {/* D97: the main action keeps its width — the voice sits inside its right edge, not beside it */}
+        <div className="relative flex min-w-0 flex-1">
+          <button type="button" onClick={() => navigate('/meal/new')}
+            className="flex min-h-[3.5rem] min-w-0 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-2xl border border-accent/40 bg-surface pl-2 pr-11 text-base font-semibold text-accent shadow-sm">
+            <UtensilsCrossed size={20} className="shrink-0" aria-hidden />{t.day.recordFood}</button>
+          {/* D95: say it — a meal, a medicine, water — in one window */}
+          <button type="button" onClick={() => setVoice(true)} aria-label={t.voice.open} disabled={voice} /* D107: one window, one listener */
+            className="absolute inset-y-1 right-1 flex w-10 items-center justify-center rounded-xl border-l border-accent/20 text-accent"><Mic size={20} aria-hidden /></button>
+        </div>
+        {/* D56: a symptom with its time, next to the food it may follow */}
+        <button type="button" onClick={() => setSymptom({})} aria-label={t.addKinds.symptom}
+          className="flex min-h-[3.5rem] shrink-0 items-center justify-center gap-1.5 protocol-card rounded-2xl border border-line bg-surface px-2.5 text-[15px] font-medium shadow-sm">
+          <Frown size={20} className="text-warn" aria-hidden />
+          {/* D97: narrow phones keep «Записати їжу» whole — the words here get shorter, the name for a screen reader stays */}
+          <span className="hidden min-[385px]:inline" aria-hidden>{t.addKinds.symptom}</span><span className="hidden min-[340px]:inline min-[385px]:hidden" aria-hidden>{t.day.unwellShort}</span></button>
+      </div>
+
+      <nav ref={tilesRef} aria-label={t.day.quick} className="mb-5 grid grid-cols-4 gap-1">
+        {quick.map(({ label, Icon, go, badge, done }) => (
+          <button key={label} type="button" onClick={go} aria-label={[label, done ? t.myday.workoutDone : badge].filter(Boolean).join(', ')} className="flex min-h-tap flex-col items-center gap-1 text-center">
+            <span className="relative flex h-12 w-12 items-center justify-center rounded-2xl bg-surface shadow-sm"><Icon size={22} className="text-accent" aria-hidden />
+              {badge && <span className="tabular absolute -right-2 -top-1.5 rounded-full bg-accent px-1.5 text-xs font-medium text-surface">{badge}</span>}
+              {done && <span className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full border-2 border-bg bg-accent text-surface" aria-hidden><Check size={11} strokeWidth={3} /></span>}</span>
+            <span className="text-xs leading-tight">{label}</span>
+          </button>
+        ))}
+      </nav>
+      {checklist && <div className="mb-4 min-h-tap">
+        <QuickDock meds={{ done: meds.filter((i) => i.done).length, total: meds.length }} water={checklist.water}
+          med={nextMed && { title: nextMed.title, ...(nextMed.time ? { time: nextMed.time } : {}), missed: medMissed }}
+          onMed={dockMed} onWater={dockWater} hideMed={tilesOnScreen} inline={tilesOnScreen} />
+      </div>}
+
       {entries && <NowCard entries={entries} plan={plan} date={date} onConfirm={setConfirming} />}
 
       <ExampleNotice plan={plan} />
       {/* D40: one notice at a time — the code first, then the backup */}
       {isToday && codeDue && (
-        <div role="status" className="mb-3 space-y-2 rounded-2xl border border-line bg-surface p-3 text-sm">
+        <div role="status" className="mb-3 space-y-2 protocol-card rounded-2xl border border-line bg-surface p-3 text-sm">
           <p>{t.sync.codeCheck}</p>
           <div className="flex gap-2">
             <button type="button" onClick={() => void saved(db.meta.update('sync', { codeCheckedAt: Date.now() }), t.sync.codeKept)}
@@ -190,38 +224,9 @@ export function Day() {
         </div>
       ))}
 
-      {/* D53: recording food is one strong button on «День», not a row under a table */}
-      <div className="mb-4 flex gap-2">
-        {/* D97: the main action keeps its width — the voice sits inside its right edge, not beside it */}
-        <div className="relative flex min-w-0 flex-1">
-          <button type="button" onClick={() => navigate('/meal/new')}
-            className="flex min-h-[3.5rem] min-w-0 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-2xl border border-accent/40 bg-surface pl-2 pr-11 text-base font-semibold text-accent shadow-sm">
-            <UtensilsCrossed size={20} className="shrink-0" aria-hidden />{t.day.recordFood}</button>
-          {/* D95: say it — a meal, a medicine, water — in one window */}
-          <button type="button" onClick={() => setVoice(true)} aria-label={t.voice.open} disabled={voice} /* D107: one window, one listener */
-            className="absolute inset-y-1 right-1 flex w-10 items-center justify-center rounded-xl border-l border-accent/20 text-accent"><Mic size={20} aria-hidden /></button>
-        </div>
-        {/* D56: a symptom with its time, next to the food it may follow */}
-        <button type="button" onClick={() => setSymptom({})} aria-label={t.addKinds.symptom}
-          className="flex min-h-[3.5rem] shrink-0 items-center justify-center gap-1.5 rounded-2xl border border-line bg-surface px-2.5 text-[15px] font-medium shadow-sm">
-          <Frown size={20} className="text-warn" aria-hidden />
-          {/* D97: narrow phones keep «Записати їжу» whole — the words here get shorter, the name for a screen reader stays */}
-          <span className="hidden min-[385px]:inline" aria-hidden>{t.addKinds.symptom}</span><span className="hidden min-[340px]:inline min-[385px]:hidden" aria-hidden>{t.day.unwellShort}</span></button>
-      </div>
-
-      <nav ref={tilesRef} aria-label={t.day.quick} className="mb-5 grid grid-cols-5 gap-1">
-        {quick.map(({ label, Icon, go, badge, done }) => (
-          <button key={label} type="button" onClick={go} aria-label={[label, done ? t.myday.workoutDone : badge].filter(Boolean).join(', ')} className="flex min-h-tap flex-col items-center gap-1 text-center">
-            <span className="relative flex h-12 w-12 items-center justify-center rounded-2xl bg-surface shadow-sm"><Icon size={22} className="text-accent" aria-hidden />
-              {badge && <span className="tabular absolute -right-2 -top-1.5 rounded-full bg-accent px-1.5 text-xs font-medium text-surface">{badge}</span>}
-              {done && <span className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full border-2 border-bg bg-accent text-surface" aria-hidden><Check size={11} strokeWidth={3} /></span>}</span>
-            <span className="text-xs leading-tight">{label}</span>
-          </button>
-        ))}
-      </nav>
 
       {plan?.weekGoal && ( /* D72: the week's goal, the person's own */
-        <button type="button" onClick={() => navigate('/week')} className="mb-4 flex min-h-tap w-full items-center gap-2 rounded-2xl border border-line bg-surface px-3 text-left text-sm">
+        <button type="button" onClick={() => navigate('/week')} className="mb-4 flex min-h-tap w-full items-center gap-2 protocol-card rounded-2xl border border-line bg-surface px-3 text-left text-sm">
           <Target size={18} className="shrink-0 text-accent" aria-hidden /><span className="text-muted">{t.week.dayLine}:</span><span className="font-medium">{plan.weekGoal.text}</span>
         </button>
       )}
@@ -239,11 +244,14 @@ export function Day() {
       )}
 
       {isToday && plan && entries && <PrnCard plan={plan} date={date} entries={entries} /> /* D118 */}
-      {rhythm && <DayRhythm rhythm={rhythm} foods={foods} onEntry={(e) => (e.kind === 'meal' && e.status === 'planned' && e.items?.length ? setConfirming(e) : setRowFor(e))} onDose={setAskMed} onAdd={() => setAdding(true)}
+      {totals && <DaySummary totals={totals} targets={targets} meds={{ done: meds.filter((i) => i.done).length, total: meds.length }}
+        {...(isToday && best ? { streak: t.day.streak(t.progress.habit[best.key], best.streak) } : {})}
+        {...(entries ? { food: foodState(entries), onComplete: (on: boolean) => void markComplete(on) } : {})} />}
+      {rhythm && <DayRhythm rhythm={rhythm} foods={foods} onYesterday={() => setYesterday(true)} onEntry={(e) => (e.kind === 'meal' && e.status === 'planned' && e.items?.length ? setConfirming(e) : setRowFor(e))} onDose={setAskMed} onAdd={() => setAdding(true)}
         onAnytime={(i) => (i.kind === 'workout' ? navigate('/workout') : setAskMed(i))} />}
 
       {tips.length > 0 && (
-        <details className="mb-4 rounded-2xl border border-line bg-surface p-3">
+        <details className="mb-4 protocol-card rounded-2xl border border-line bg-surface p-3">
           <summary className="min-h-tap cursor-pointer py-1 font-medium">{t.menu.tips}</summary>
           <ul className="list-disc space-y-1 pl-5 text-sm">{tips.map((x) => <li key={x}>{x}</li>)}</ul>
         </details>
@@ -257,9 +265,7 @@ export function Day() {
         return <TopupCard date={date} targets={targets} tops={topups(s)} near={nearLimit(s)} />;
       })()}
 
-      {totals && <DaySummary totals={totals} targets={targets} meds={{ done: meds.filter((i) => i.done).length, total: meds.length }}
-        {...(isToday && best ? { streak: t.day.streak(t.progress.habit[best.key], best.streak) } : {})}
-        {...(entries ? { food: foodState(entries), onComplete: (on: boolean) => void markComplete(on) } : {})} />}
+
 
       {voice && foods && all && (() => { const c = checklist ?? buildChecklist({ plan, date, entries: entries ?? [], workouts: workouts ?? [], foods, now: new Date() }); return (
         <VoiceSheet date={date} plan={plan} foods={foods} recipes={recipes ?? []} today={entries ?? []}
@@ -312,14 +318,7 @@ export function Day() {
         );
       })()}
       <p className="text-center"><button type="button" onClick={() => navigate('/frictions')} className="min-h-tap px-2 text-sm text-muted underline">{t.friction.ask}</button></p>
-      {checklist && (
-        <>
-          <div className="h-40 md:h-16" aria-hidden />{/* D48: the end of the day stays visible above the dock */}
-          <QuickDock meds={{ done: meds.filter((i) => i.done).length, total: meds.length }} water={checklist.water}
-            med={nextMed && { title: nextMed.title, ...(nextMed.time ? { time: nextMed.time } : {}), missed: medMissed }}
-            onMed={dockMed} onWater={dockWater} hideMed={tilesOnScreen} />
-        </>
-      )}
+      {checklist && <div className="h-40 md:h-16" aria-hidden /> /* D48: the last record stays above the floating dock */}
       {askMed && <TimeChoice title={askMed.title} {...(askMed.time ? { planned: askMed.time } : {})} date={date} onClose={() => setAskMed(null)}
         onPick={(when) => void markMeds([{ key: askMed.key, title: askMed.title, ...(askMed.prescriptionId ? { prescriptionId: askMed.prescriptionId } : {}) }],
           date, askMed.time, 'done', when)} />}

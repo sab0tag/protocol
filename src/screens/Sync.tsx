@@ -12,6 +12,7 @@ import { newCode, parseCode, parsePairCode } from '../sync/crypto';
 import { useUi } from '../store/ui';
 import { codeFromPairing, disableSync, enableSync, offerPairing, requestSync, useSync } from '../sync/runner';
 import { saved } from '../components/Toast';
+import { SceneHeader } from '../components/SceneHeader';
 
 const L = t.sync;
 const field = 'mt-1 block min-h-tap w-full rounded-xl border border-line bg-bg px-3 font-mono uppercase tracking-wider';
@@ -26,9 +27,9 @@ export function Sync() {
   if (meta === undefined) return <Loading />;
   return (
     <section className="space-y-4 pt-6">
-      <h1 className="text-2xl font-semibold">{L.title}</h1>
+      <SceneHeader title={L.title} />
       {inDemo() ? ( /* D98: nothing of the example goes to the server */
-        <div className="space-y-2 rounded-2xl border border-line bg-surface p-3">
+        <div className="space-y-2 protocol-card rounded-2xl border border-line bg-surface p-3">
           <p>{t.example.noSync}</p>
           <button type="button" onClick={() => void leaveDemo()} className="min-h-tap rounded-xl bg-accent px-3 font-medium text-surface">{t.example.leave}</button>
         </div>
@@ -60,7 +61,7 @@ function Off() {
   };
 
   return (
-    <div className="space-y-3 rounded-2xl border border-line bg-surface p-3">
+    <div className="space-y-3 protocol-card rounded-2xl border border-line bg-surface p-3">
       <p>{L.text}</p>
       {mode === 'none' && (
         <div className="flex flex-wrap gap-2">
@@ -141,7 +142,7 @@ function Pairing() {
   const link = pair ? `${location.origin}${location.pathname}#/sync?pair=${pair.code.replace('-', '')}` : '';
   const svg = (() => { if (!link) return ''; const q = qrcode(0, 'M'); q.addData(link); q.make(); return q.createSvgTag({ cellSize: 5, margin: 2, scalable: true }); })();
   return (
-    <div className="space-y-3 rounded-2xl border border-line bg-surface p-3">
+    <div className="space-y-3 protocol-card rounded-2xl border border-line bg-surface p-3">
       <h2 className="font-semibold">{L.pairTitle}</h2>
       {!pair ? (
         <>
@@ -170,7 +171,7 @@ function On({ code, photo }: { code: string; photo: boolean }) {
   const bad = status === 'error' && error ? (L.errors as Record<string, string>)[error] ?? error : '';
   return (
     <>
-      <div className="space-y-3 rounded-2xl border border-line bg-surface p-3">
+      <div className="space-y-3 protocol-card rounded-2xl border border-line bg-surface p-3">
         <p className="font-medium">{L.status[status]}</p>
         {lastAt && <p className="text-sm text-muted">{L.last(format(lastAt, 'dd.MM HH:mm'))}</p>}
         {bad && <p role="alert" className="text-sm text-warn">{bad}</p>}
@@ -187,12 +188,12 @@ function On({ code, photo }: { code: string; photo: boolean }) {
 
       <Pairing />
 
-      <div className="space-y-2 rounded-2xl border border-line bg-surface p-3">
+      <div className="space-y-2 protocol-card rounded-2xl border border-line bg-surface p-3">
         <h2 className="font-semibold">{L.photoTitle}</h2>
         <p className="text-sm text-muted">{t.meal.photoConsent}</p>
-        <label className="flex min-h-tap items-center gap-3">
+        <label className="protocol-toggle-row min-h-tap">
           <input type="checkbox" checked={photo} onChange={(e) => void db.meta.update('sync', { photoConsent: e.target.checked })}
-            className="h-5 w-5 accent-[rgb(var(--accent))]" />
+            className="protocol-switch" />
           <span>{L.photoOn}</span>
         </label>
       </div>

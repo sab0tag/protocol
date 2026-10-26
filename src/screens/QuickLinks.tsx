@@ -1,3 +1,4 @@
+import { SceneHeader } from '../components/SceneHeader';
 // D66: «Швидкі дії» — the links of `#/do/…`, ready to copy into Shortcuts / Back Tap, and how.
 import { Check, Copy } from 'lucide-react';
 import { useState } from 'react';
@@ -12,9 +13,9 @@ export function QuickLinks() {
   const copy = async (url: string) => { try { await navigator.clipboard.writeText(url); setCopied(url); } catch { setCopied(''); } };
   return (
     <section className="space-y-4 pt-4">
-      <h1 className="text-2xl font-semibold">{L.title}</h1>
+      <SceneHeader title={L.title} />
       <p className="text-sm text-muted">{L.hint}</p>
-      <ul className="divide-y divide-line rounded-2xl border border-line bg-surface">
+      <ul className="divide-y divide-line protocol-card rounded-2xl border border-line bg-surface">
         {ACTIONS.map(([a, label]) => {
           const url = base + a;
           return (
@@ -27,7 +28,7 @@ export function QuickLinks() {
           );
         })}
       </ul>
-      <div className="space-y-2 rounded-2xl border border-line bg-surface p-3 text-sm">
+      <div className="space-y-2 protocol-card rounded-2xl border border-line bg-surface p-3 text-sm">
         <p className="font-semibold">{L.howTitle}</p>
         <ol className="list-decimal space-y-1 pl-5">{L.how.map((x) => <li key={x}>{x}</li>)}</ol>
         <p className="text-warn">{L.safari}</p>

@@ -39,7 +39,7 @@ export function watchResume() {
 
 function Panel({ text, detail }: { text: string; detail?: string }) {
   return (
-    <div role="alert" className="mx-auto mt-10 max-w-sm space-y-3 rounded-2xl border border-line bg-surface p-4 text-center">
+    <div role="alert" className="mx-auto mt-10 max-w-sm space-y-3 protocol-card rounded-2xl border border-line bg-surface p-4 text-center">
       <p>{text}</p>
       <button type="button" onClick={() => location.reload()}
         className="mx-auto flex min-h-tap items-center gap-2 rounded-xl bg-accent px-4 font-medium text-surface"><RefreshCw size={18} aria-hidden />{t.recovery.reload}</button>

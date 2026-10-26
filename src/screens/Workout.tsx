@@ -115,7 +115,7 @@ export function Workout() {
       )}
 
       {!existing && (
-        <p className="flex items-start gap-2 rounded-2xl border border-line bg-surface p-3 text-sm">
+        <p className="flex items-start gap-2 protocol-card rounded-2xl border border-line bg-surface p-3 text-sm">
           <Info size={18} className="mt-0.5 shrink-0 text-muted" />
           {schedule.postponed ?? (schedule.due ? L.today : `${L.notToday}. ${schedule.next ? L.nextOn(dm(schedule.next)) : ''}`)}
         </p>
@@ -128,7 +128,7 @@ export function Workout() {
         const rows: number[][] = [];
         ex.sets.forEach((s, j) => { const k = s.side === 'L' ? rows.length - 1 : rows.length; if (s.side === 'L' && k >= 0) rows[k]!.push(j); else rows.push([j]); });
         return (
-          <fieldset key={`${i}-${ex.name}`} className="rounded-2xl border border-line bg-surface p-3">
+          <fieldset key={`${i}-${ex.name}`} className="protocol-card rounded-2xl border border-line bg-surface p-3">
             <legend className="sr-only">{ex.name}</legend>
             <div className="flex items-start gap-1">
               {lib ? <button type="button" onClick={() => setCard(lib)} aria-label={`${E.how}: ${ex.name}`}
@@ -205,7 +205,7 @@ export function Workout() {
         </div>
       )}
 
-      <div className="rounded-2xl border border-line bg-surface p-3">
+      <div className="protocol-card rounded-2xl border border-line bg-surface p-3">
         <label className="block"><span className="text-sm text-muted">{L.duration}</span>
           <input type="number" inputMode="numeric" min={0} value={draft.durationMin}
             onChange={(e) => setDraft({ ...draft, durationMin: Math.max(0, Number(e.target.value) || 0) })}

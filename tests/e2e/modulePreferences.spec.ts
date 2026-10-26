@@ -10,7 +10,7 @@ test('module history survives restart and a backup restored on an already bootst
     { store: 'entries', value: { id: 'water', at, kind: 'water', status: 'done', title: 'Вода', waterMl: 250 } }]);
   // Storage preparation must not start UI filtering before the accounting and scheduler PRs are ready.
   await expect(page.getByRole('link', { name: 'Їжа', exact: true })).toBeVisible();
-  await page.goto('./#/more');
+  await page.goto('./#/data');
   const download = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Зберегти копію' }).click();
   const path = await (await download).path();
@@ -21,7 +21,7 @@ test('module history survives restart and a backup restored on an already bootst
   expect(backup.moduleEvents).toContainEqual(expect.objectContaining({ id: 'own-food-off', enabled: false }));
 
   const other = await device(browser, 'skip');
-  await other.goto('./#/more');
+  await other.goto('./#/data');
   await other.locator('input[type=file]').setInputFiles({ name: 'protocol.json', mimeType: 'application/json', buffer: bytes });
   await expect(other.getByRole('alertdialog')).toContainText('Для розділів збережеться новіший вибір');
   await other.getByRole('button', { name: 'Так, замінити' }).click();

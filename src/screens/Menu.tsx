@@ -20,6 +20,7 @@ import { effectiveTargets, lineNutrients, round } from '../domain/nutrition';
 import { dishItem } from '../domain/recipes';
 import type { MealItem } from '../domain/types';
 import { t } from '../i18n/uk';
+import { SceneHeader } from '../components/SceneHeader';
 import { useUi } from '../store/ui';
 import { ApiError, menu as askMenu } from '../sync/api';
 import { currentKeys } from '../sync/runner';
@@ -138,17 +139,15 @@ export function Menu() {
 
   return (
     <section className="space-y-4 pt-6">
-      <div className="flex items-start justify-between gap-2">
-        <h1 className="text-2xl font-semibold">{L.titleFor(date === todayISO() ? L.today : date === tomorrow() ? L.tomorrow
-          : format(parseISO(date), 'd MMMM', { locale: uk }))}</h1>
-        <Link to={`/shopping?from=${date}&to=${last}`} className="flex min-h-tap items-center gap-1 text-accent underline">
+      <SceneHeader title={L.titleFor(date === todayISO() ? L.today : date === tomorrow() ? L.tomorrow
+          : format(parseISO(date), 'd MMMM', { locale: uk }))} description={L.hint}>
+        <Link to={`/shopping?from=${date}&to=${last}`} className="inline-flex min-h-tap items-center gap-2 rounded-xl border border-white/25 px-3 text-white">
           <ShoppingCart size={18} aria-hidden />{t.shop.title}</Link>
-      </div>
-      <p className="text-sm text-muted">{L.hint}</p>
+      </SceneHeader>
 
-      <div className="space-y-3 rounded-2xl border border-line bg-surface p-3">
-        <div className="grid grid-cols-[1fr_auto] gap-3">
-          <label className="block"><span className="text-sm text-muted">{L.date}</span>
+      <div className="space-y-3 protocol-card rounded-2xl border border-line bg-surface p-3">
+        <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+          <label className="block min-w-0"><span className="text-sm text-muted">{L.date}</span>
             <input type="date" value={date} min={todayISO()} onChange={(e) => { setDate(e.target.value); setDrafts([]); }} className={field} /></label>
           <div><span className="text-sm text-muted">{L.days}</span>
             <div className="mt-1 flex gap-1" role="group" aria-label={L.days}>
@@ -195,7 +194,7 @@ export function Menu() {
           <div key={draft.date} className="space-y-3">
             <p className="text-lg font-semibold">{dm(draft.date)}</p>
             {draft.meals.map((m, mi) => (
-              <div key={mi} className="rounded-2xl border border-line bg-surface p-3">
+              <div key={mi} className="protocol-card rounded-2xl border border-line bg-surface p-3">
                 <div className="mb-1 flex items-center gap-2">
                   <h2 className="flex-1 font-semibold">{m.title}</h2>
                   <input type="time" value={m.time} aria-label={`${m.title}: ${t.meal.time}`} onChange={(e) => setTime(di, mi, e.target.value)}
@@ -225,7 +224,7 @@ export function Menu() {
                       className="mt-1 flex min-h-tap items-center gap-1 px-1 text-accent"><Plus size={18} aria-hidden />{L.add}</button>}
               </div>
             ))}
-            <div className="rounded-2xl border border-line bg-surface p-3 tabular">
+            <div className="protocol-card rounded-2xl border border-line bg-surface p-3 tabular">
               <p className="mb-1 font-semibold">{L.total}</p>
               <p>{round(totals.kcal)} {t.units.kcal}{targets.kcal ? ` / ${L.target} ${targets.kcal}` : ''}</p>
               <p className="text-sm text-muted">
@@ -238,7 +237,7 @@ export function Menu() {
               <p className="mt-1 text-xs text-muted">✓ {L.checked}</p>
             </div>
             {draft.tips.length > 0 && (
-              <div className="rounded-2xl border border-line bg-surface p-3">
+              <div className="protocol-card rounded-2xl border border-line bg-surface p-3">
                 <p className="mb-1 font-semibold">{L.tips}</p>
                 <ul className="list-disc space-y-1 pl-5">{draft.tips.map((x) => <li key={x}>{x}</li>)}</ul>
               </div>
