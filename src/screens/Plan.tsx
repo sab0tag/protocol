@@ -1,14 +1,13 @@
 import { format, parseISO } from 'date-fns';
 import { ExampleNotice } from '../components/ExampleNotice';
-import { PlanScan } from '../components/PlanScan';
 import { timesToSet } from '../domain/conclusion';
-import { PlanVersions } from '../components/PlanVersions';
 import { Loading } from '../components/Recovery';
 import { saved } from '../components/Toast';
 import { uk } from 'date-fns/locale';
-import { Pencil, Plus } from 'lucide-react';
+import { CalendarDays, ChevronLeft, ChevronRight, FileSearch, History, Pill, Pencil, Plus, Shield, Target } from 'lucide-react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useMemo, useState, type ReactNode } from 'react';
+import { Link } from 'react-router-dom';
 import { useMedIndex } from '../data/medsIndex';
 import { MedboxScan } from '../components/MedboxScan';
 import { DietNorms, DietPicker } from '../components/DietPicker';
@@ -46,26 +45,91 @@ async function photoEdited(id: string, was: unknown[], now: unknown[]) {
 }
 const dmy = (d: string) => format(parseISO(d), 'd MMMM', { locale: uk });
 
+export type PlanSection = 'home' | 'prescriptions' | 'constraints' | 'goals' | 'checkup';
+
 /** «План лікаря»: what the doctor said, as the user entered it. Nothing here is decided by the app. */
-export function Plan() {
+export function Plan({ section = 'home' }: { section?: PlanSection }) {
   const entries = useAllEntries(); // D69: what is left of each medicine
   const plan = usePlan();
   const [editing, setEditing] = useState<Editing | null>(null);
   const pieces = useLiveQuery(async () => new Map((await db.pieces.toArray()).map((x) => [x.id, x.url])), []); // D114
   if (!plan) return <Loading />;
   const tg = plan.targets;
+  const prescriptions = plan.prescriptions.filter((p) => p.kind !== 'test');
+  const activeConstraints = plan.constraints.filter((constraint) => constraint.active);
+  const goalsPreview = [targetSummary(tg), plan.modes.length ? `${P.summaryModes} ${plan.modes.map((mode) => mode.title).join(' · ')}` : '']
+    .filter(Boolean).join(' · ');
+  const checkupTests = plan.prescriptions.filter((p) => p.kind === 'test').map((p) => p.title);
+  const checkupPreview = plan.nextCheckup
+    ? `${dmy(plan.nextCheckup.date)}${plan.nextCheckup.tests.length ? ` · ${plan.nextCheckup.tests.join(' · ')}` : ''}`
+    : checkupTests.join(' · ');
+  const namePreview = (names: string[]) => names.slice(0, 2).join(' · ') + (names.length > 2 ? ` · +${names.length - 2}` : '');
+  const sectionTitle = section === 'prescriptions' ? P.prescriptions
+    : section === 'constraints' ? P.constraints
+      : section === 'goals' ? P.targets
+        : section === 'checkup' ? P.checkup : P.title;
 
   return (
     <section className="space-y-4 pt-4">
-      <h1 className="text-2xl font-semibold">{P.title}</h1>
+      {section === 'home' ? <h1 className="text-2xl font-semibold">{P.title}</h1> : (
+        <header className="space-y-2">
+          <Link to="/plan" className="inline-flex min-h-tap items-center gap-1 text-sm text-muted">
+            <ChevronLeft size={18} aria-hidden />{P.title}
+          </Link>
+          <h1 className="text-2xl font-semibold">{sectionTitle}</h1>
+        </header>
+      )}
       <ExampleNotice plan={plan} />
-      <PlanScan plan={plan} />
+      {section === 'home' && (
+        <>
+          <nav aria-label={P.sections} className="space-y-2">
+            {[
+              { to: '/plan/prescriptions', title: P.prescriptions, Icon: Pill, count: prescriptions.length, preview: namePreview(prescriptions.map((p) => p.title)) },
+              { to: '/plan/constraints', title: P.constraints, Icon: Shield, count: plan.constraints.length,
+                preview: activeConstraints.length ? `${P.summaryActive} ${namePreview(activeConstraints.map((constraint) => constraint.title))}`
+                  : plan.constraints.length ? P.noActiveConstraints : '' },
+              { to: '/plan/goals', title: `${P.targets} й ${P.modes.toLowerCase()}`, Icon: Target,
+                count: Object.entries(tg).filter(([key, value]) => key !== 'fromDiet' && value != null).length + plan.modes.length, preview: goalsPreview },
+              { to: '/plan/checkup', title: P.checkup, Icon: CalendarDays, count: (plan.nextCheckup ? 1 : 0) + checkupTests.length, preview: checkupPreview },
+            ].map(({ to, title, Icon, count, preview }) => (
+              <Link key={to} to={to} className="flex min-h-tap items-center gap-3 rounded-2xl border border-line bg-surface px-3 py-3">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent/10 text-accent">
+                  <Icon size={20} aria-hidden />
+                </span>
+                <span className="min-w-0">
+                  <span className="block font-semibold">{title}</span>
+                  <span className="block text-sm text-muted">{count ? P.itemsCount(count) : P.empty}</span>
+                  {preview && <span className="line-clamp-2 block text-sm text-muted">{preview}</span>}
+                </span>
+                <ChevronRight size={20} className="ml-auto shrink-0 text-muted" aria-hidden />
+              </Link>
+            ))}
+          </nav>
+          <Link to="/plan/scan" className="flex min-h-tap items-center justify-between gap-3 rounded-2xl border border-accent/40 bg-surface px-3 py-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent/10 text-accent">
+              <FileSearch size={20} aria-hidden />
+            </span>
+            <span className="min-w-0">
+              <span className="block font-semibold">{t.conclusion.button}</span>
+              <span className="block text-sm text-muted">{P.scanHint}</span>
+            </span>
+            <ChevronRight size={20} className="shrink-0 text-accent" aria-hidden />
+          </Link>
+          <Link to="/plan/history" className="flex min-h-tap items-center justify-between gap-3 rounded-2xl border border-line bg-surface px-3 py-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent/10 text-accent">
+              <History size={20} aria-hidden />
+            </span>
+            <span className="font-medium">{t.versions.open}</span>
+            <ChevronRight size={20} className="ml-auto shrink-0 text-muted" aria-hidden />
+          </Link>
+        </>
+      )}
 
-      {duplicateInn(plan.prescriptions).map((d) => ( /* D89: information, never «не приймайте» */
+      {section === 'prescriptions' && duplicateInn(plan.prescriptions).map((d) => ( /* D89: information, never «не приймайте» */
         <p key={d.inn} role="status" className="rounded-2xl border border-line bg-surface p-3 text-sm">{P.duplicate(d.titles, d.inn)}</p>
       ))}
-      <Block title={P.prescriptions} onAdd={() => setEditing({ what: 'prescription' })}>
-        {plan.prescriptions.filter((p) => p.kind !== 'test').map((p) => ( /* D104: tests live with the next checkup */
+      {section === 'prescriptions' && <Block title={P.prescriptions} onAdd={() => setEditing({ what: 'prescription' })}>
+        {prescriptions.map((p) => ( /* D104: tests live with the next checkup */
           <Item key={p.id} onEdit={() => setEditing({ what: 'prescription', item: p })} piece={pieces?.get(p.id)}
             title={p.title} meta={[P.kinds[p.kind], (p.kind === 'medication' || p.kind === 'supplement') ? (p.med ? p.med.inn : P.offRegistry) : undefined, p.dose, p.asNeeded ? (prnLimit(p) ? `${t.conclusion.asNeeded}, ${prnLimitText(prnLimit(p)!)}` : t.conclusion.asNeeded) : p.schedule?.times.join(', '),
               p.schedule?.withFood === true ? P.withFood.toLowerCase() : p.schedule?.withFood === false ? t.conclusion.empty : undefined,
@@ -74,9 +138,9 @@ export function Plan() {
               ...(entries && stockLeft(p, entries) ? [P.stockDays(stockLeft(p, entries)!.days)] : [])]} note={p.notes} source={p.source}
             warn={timesToSet(p) ? P.setTimes(timesToSet(p)!) : undefined} />
         ))}
-      </Block>
+      </Block>}
 
-      <Block title={P.constraints} onAdd={() => setEditing({ what: 'constraint' })}>
+      {section === 'constraints' && <Block title={P.constraints} onAdd={() => setEditing({ what: 'constraint' })}>
         {plan.constraints.map((c) => (
           <li key={c.id} className="flex items-start gap-2 border-t border-line px-3 py-2 first:border-t-0">
             <label className="flex min-h-tap min-w-tap items-center justify-center">
@@ -109,8 +173,9 @@ export function Plan() {
             <EditButton label={c.title} onClick={() => setEditing({ what: 'constraint', item: c })} />
           </li>
         ))}
-      </Block>
+      </Block>}
 
+      {section === 'goals' && <>
       <Block title={P.targets} onAdd={() => setEditing({ what: 'targets' })} addLabel={P.edit}>
         <li className="px-3 py-2">{targetSummary(tg) || <span className="text-muted">{P.noTargets}</span>}</li>
         {dietConflicts(plan).map((x) => ( /* D90: a doctor's target and a diet's norm that differ — a question, not settled */
@@ -125,8 +190,9 @@ export function Plan() {
             meta={[`${dmy(m.from)} — ${dmy(m.to)}`, targetSummary(m.targetsOverride) || undefined]} note={m.notes.join(' · ')} />
         ))}
       </Block>
+      </>}
 
-      <Block title={P.checkup} onAdd={() => setEditing({ what: 'checkup' })} addLabel={plan.nextCheckup ? P.edit : P.add}>
+      {section === 'checkup' && <Block title={P.checkup} onAdd={() => setEditing({ what: 'checkup' })} addLabel={plan.nextCheckup ? P.edit : P.add}>
         {plan.nextCheckup && <li className="px-3 py-2"><p className="font-medium">{dmy(plan.nextCheckup.date)}</p>
           <p className="text-sm text-muted">{plan.nextCheckup.tests.join(', ')}</p>
           {pieces?.get('checkup') && <Paper url={pieces.get('checkup')!} title={P.checkup} />}</li>}
@@ -134,7 +200,7 @@ export function Plan() {
           <Item key={p.id} onEdit={() => setEditing({ what: 'prescription', item: p })} title={p.title} piece={pieces?.get(p.id)}
             meta={[P.kinds.test, p.dueDate ? `${P.dueDate.toLowerCase()} ${dmy(p.dueDate)}` : undefined]} note={p.notes} source={p.source} />
         ))}
-      </Block>
+      </Block>}
 
       <p className="pb-2 text-sm text-muted">{P.disclaimer}</p>
 
@@ -143,7 +209,6 @@ export function Plan() {
       {editing?.what === 'mode' && <ModeForm plan={plan} item={editing.item} onClose={() => setEditing(null)} />}
       {editing?.what === 'targets' && <TargetsForm plan={plan} onClose={() => setEditing(null)} />}
       {editing?.what === 'checkup' && <CheckupForm plan={plan} onClose={() => setEditing(null)} />}
-      <PlanVersions current={plan} />
     </section>
   );
 }
@@ -165,9 +230,9 @@ function Block({ title, onAdd, addLabel = P.add, children }: { title: string; on
   const list = Array.isArray(children) ? children.filter(Boolean) : children ? [children] : [];
   return (
     <section className="overflow-hidden rounded-2xl border border-line bg-surface">
-      <div className="flex items-center justify-between border-b border-line px-3 py-1">
-        <h2 className="font-semibold">{title}</h2>
-        <button type="button" onClick={onAdd} className="flex min-h-tap items-center gap-1 px-2 text-accent">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-3 py-1">
+        <h2 className="min-w-0 font-semibold">{title}</h2>
+        <button type="button" onClick={onAdd} className="flex min-h-tap shrink-0 items-center gap-1 px-2 text-accent">
           {addLabel === P.add && <Plus size={18} aria-hidden />}{addLabel}</button>
       </div>
       {list.length ? <ul>{children}</ul> : <p className="px-3 py-3 text-muted">{P.empty}</p>}

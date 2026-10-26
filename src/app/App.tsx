@@ -9,13 +9,22 @@ import { AddMeal } from '../screens/AddMeal';
 import { Day } from '../screens/Day';
 import { Dishes } from '../screens/Dishes';
 import { More } from '../screens/More';
+import { MoreCategory } from '../screens/MoreCategory';
 import { MyDay } from '../screens/MyDay';
 import { Onboarding } from '../screens/Onboarding';
 import { About } from '../screens/About';
 import { ConciergeLog } from '../screens/ConciergeLog';
 import { Assistant } from '../screens/Assistant';
 import { Plan } from '../screens/Plan';
+import { PlanScanScreen } from '../screens/PlanScanScreen';
+import { PlanHistory } from '../screens/PlanHistory';
 import { Progress } from '../screens/Progress';
+import { Insights } from '../screens/Insights';
+import { Motivation } from '../screens/Motivation';
+import { Labs } from '../screens/Labs';
+import { MyFoods } from '../screens/MyFoods';
+import { WellbeingJournal } from '../screens/WellbeingJournal';
+import { Data } from '../screens/Data';
 import { Report } from '../screens/Report';
 import { Sync } from '../screens/Sync';
 import { Menu } from '../screens/Menu';
@@ -70,6 +79,7 @@ export function App() {
             <Route path="/meal/:id" element={<MealRoute />} />
             <Route path="/my-day" element={<MyDay />} />
             <Route path="/wellbeing" element={<Wellbeing />} />
+            <Route path="/wellbeing/journal" element={<WellbeingJournal />} />
             <Route path="/workout" element={<Workout />} />
             <Route path="/exercises" element={<Exercises />} />
             <Route path="/do/:action" element={<QuickAction />} />
@@ -78,11 +88,23 @@ export function App() {
             <Route path="/pilot" element={<Pilot />} />
             <Route path="/week" element={<Week />} />
             <Route path="/plan" element={<Plan />} />
+            <Route path="/plan/prescriptions" element={<Plan section="prescriptions" />} />
+            <Route path="/plan/constraints" element={<Plan section="constraints" />} />
+            <Route path="/plan/goals" element={<Plan section="goals" />} />
+            <Route path="/plan/checkup" element={<Plan section="checkup" />} />
+            <Route path="/plan/scan" element={<PlanScanScreen />} />
+            <Route path="/plan/history" element={<PlanHistory />} />
             <Route path="/welcome" element={<Onboarding />} />
             <Route path="/progress" element={<Progress />} />
+            <Route path="/progress/insights" element={<Insights />} />
+            <Route path="/progress/motivation" element={<Motivation />} />
+            <Route path="/progress/labs" element={<Labs />} />
             <Route path="/report" element={<Report />} />
             <Route path="/dishes" element={<Dishes />} />
+            <Route path="/foods" element={<MyFoods />} />
+            <Route path="/data" element={<Data />} />
             <Route path="/more" element={<More />} />
+            <Route path="/more/:category" element={<MoreCategory />} />
             <Route path="/about" element={<About />} />
             <Route path="/concierge-log" element={<ConciergeLog />} />
             <Route path="/assistant" element={<Assistant />} />

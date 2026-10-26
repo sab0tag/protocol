@@ -3,7 +3,6 @@ import { DishBreakdown } from '../components/DishBreakdown';
 import { DishList } from '../components/DishList';
 import { kept } from '../data/kept';
 import { toCsv, toFile } from '../domain/dishList';
-import { LabelScan } from '../components/LabelScan';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Loading } from '../components/Recovery';
 import { saved } from '../components/Toast';
@@ -13,9 +12,8 @@ import { useAllRecipes, useFoods, usePlan } from '../data/queries';
 import { harchDishes } from '../data/harchDishes';
 import { amountText } from '../domain/foodSearch';
 import { mealNutrients, round } from '../domain/nutrition';
-import { detachFood, sumGrams } from '../domain/recipes';
+import { sumGrams } from '../domain/recipes';
 import type { Food, Recipe } from '../domain/types';
-import { AllergenPicker } from '../components/AllergenPicker';
 import { t } from '../i18n/uk';
 
 const L = t.dishes;
@@ -31,12 +29,14 @@ export function Dishes() {
   const [panel, setPanel] = useState<'list' | 'export' | null>(() => (kept('dishlist', 7 * 86_400_000) ? 'list' : null));
   if (!recipes || !foods) return <Loading />;
   const diet = plan?.constraints.find((c) => c.tag === 'diet' && c.active)?.diet; // D90
-  const mine = [...foods.values()].filter((f) => f.custom).sort((a, b) => a.name.localeCompare(b.name, 'uk'));
   const own = recipes.filter((r) => !r.builtIn), builtIn = recipes.filter((r) => r.builtIn);
   return (
     <section className="space-y-4 pt-4">
       <h1 className="text-2xl font-semibold">{L.title}</h1>
       <p className="text-sm text-muted">{L.hint}</p>
+      <Link to="/foods" className="flex min-h-tap items-center justify-between rounded-2xl border border-line bg-surface px-3 font-medium">
+        <span>{L.foods}</span><span aria-hidden className="text-muted">›</span>
+      </Link>
       <div className="flex flex-wrap gap-2">
         <button type="button" aria-pressed={panel === 'list'} onClick={() => setPanel(panel === 'list' ? null : 'list')}
           className="flex min-h-tap items-center gap-2 rounded-xl border border-accent px-3 font-medium text-accent"><ListPlus size={18} aria-hidden />{L.list.add}</button>
@@ -59,11 +59,6 @@ export function Dishes() {
               <span className="block text-xs text-muted">{d.category} · {d.outputG} г · {round(n.kcal)} ккал · Б {round(n.protein)} · В {round(n.carbs)}</span></li>); })}</ul>
         </details>); })()}
 
-      <h2 className="pt-2 text-xl font-semibold">{L.foods}</h2>
-      <p className="text-sm text-muted">{L.foodsHint}</p>
-      <LabelScan />
-      {mine.length === 0 ? <p className="text-muted">{L.foodsEmpty}</p>
-        : <ul className="space-y-3">{mine.map((f) => <FoodCard key={f.id} food={f} />)}</ul>}
     </section>
   );
 }
@@ -88,52 +83,6 @@ function ExportPanel({ recipes, foods }: { recipes: Recipe[]; foods: Map<string,
           className="flex min-h-tap items-center gap-2 rounded-xl border border-accent px-3 font-medium text-accent"><Share2 size={18} aria-hidden />{L.list.share}</button>}
       </div>
     </section>
-  );
-}
-
-async function removeFood(food: Food) {
-  await db.transaction('rw', db.entries, db.recipes, db.foods, async () => {
-    for (const e of await db.entries.filter((e) => !!e.items?.length).toArray()) {
-      const r = detachFood(e.items!, food);
-      if (r.changed) await db.entries.put({ ...e, items: r.items });
-    }
-    for (const rec of await db.recipes.toArray()) {
-      const r = detachFood(rec.items, food);
-      if (r.changed) await db.recipes.put({ ...rec, items: r.items });
-    }
-    await db.foods.delete(food.id);
-  });
-}
-
-/** D36: an own food — name and nutrients per 100 g; deleting it turns the lines that used it into free lines
- *  with the same nutrients, so the history does not change. */
-function FoodCard({ food }: { food: Food }) {
-  const [f, setF] = useState(food);
-  const [asking, setAsking] = useState(false);
-  const num = (v: string) => Math.max(0, Number(v.replace(',', '.')) || 0);
-  const fields: [keyof Food['per100g'], string][] = [['kcal', 'ккал'], ['protein', 'Б'], ['fat', 'Ж'], ['carbs', 'В']];
-  const changed = JSON.stringify(f) !== JSON.stringify(food);
-  return (
-    <li className="space-y-2 rounded-2xl border border-line bg-surface p-3">
-      <input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} aria-label={L.rename}
-        className="block min-h-tap w-full rounded-xl border border-line bg-bg px-3 font-semibold" />
-      <div className="grid grid-cols-4 gap-2">
-        {fields.map(([k, label]) => (
-          <label key={k} className="block"><span className="text-xs text-muted">{label} / 100 г</span>
-            <input inputMode="decimal" value={String(f.per100g[k] ?? 0)} onChange={(e) => setF({ ...f, per100g: { ...f.per100g, [k]: num(e.target.value) } })}
-              className="block min-h-tap w-full rounded-xl border border-line bg-bg px-2" /></label>
-        ))}
-      </div>
-      <AllergenPicker value={f.allergens ?? []} onChange={(v) => setF({ ...f, allergens: v })} />
-      <div className="flex gap-2">
-        <button type="button" disabled={!changed || !f.name.trim()} onClick={() => void saved(db.foods.put({ ...f, name: f.name.trim() }), t.toast.saved)}
-          className="min-h-tap rounded-xl bg-accent px-3 font-medium text-surface disabled:opacity-40">{L.save}</button>
-        {asking
-          ? <button type="button" onClick={() => void saved(removeFood(food), t.toast.deleted(food.name))} className="min-h-tap rounded-xl bg-warn px-3 font-medium text-surface">{L.confirmDelete(food.name)}</button>
-          : <button type="button" onClick={() => setAsking(true)} aria-label={`${L.delete}: ${food.name}`}
-              className="flex min-h-tap min-w-tap items-center justify-center rounded-xl border border-line text-warn"><Trash2 size={18} /></button>}
-      </div>
-    </li>
   );
 }
 

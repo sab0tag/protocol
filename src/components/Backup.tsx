@@ -21,7 +21,7 @@ async function fileOf(): Promise<File> {
 }
 
 /** «Резервна копія» (SPEC.md §5.8, §8): save or send a JSON file; restore replaces everything after a confirmation. */
-export function Backup() {
+export function Backup({ alwaysOpen = false }: { alwaysOpen?: boolean }) {
   const plan = usePlan();
   const input = useRef<HTMLInputElement>(null);
   const [pending, setPending] = useState<ExportFile | null>(null);
@@ -49,7 +49,7 @@ export function Backup() {
 
   return (
     // D78: folded to one line — open by itself only while there is neither a copy nor sync
-    <details open={!plan?.lastExportAt && synced === false} className="group rounded-2xl border border-line bg-surface p-3">
+    <details open={alwaysOpen || (!plan?.lastExportAt && synced === false)} className="group rounded-2xl border border-line bg-surface p-3">
       <summary className="flex min-h-tap cursor-pointer list-none items-center gap-2">
         <span className="flex-1"><span className="block font-semibold">{L.title}</span>
           <span className="block text-sm text-muted">{plan?.lastExportAt ? L.last(dmy(plan.lastExportAt)) : L.never}</span></span>

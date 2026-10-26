@@ -142,7 +142,6 @@ export function Day() {
   const rhythm = entries ? dayRhythm({ entries, ...(checklist ? { checklist } : {}), ...(targets.lastMealBy ? { lastMealBy: targets.lastMealBy } : {}) }) : undefined;
   const quick = [
     { label: t.menu.quick, Icon: Sparkles, go: () => navigate(`/menu?date=${date}`) },
-    { label: t.day.likeYesterday, Icon: Undo2, go: () => setYesterday(true) },
     { label: t.well.short, Icon: HeartPulse, go: () => navigate('/wellbeing') },
     { label: t.workout.title, Icon: Dumbbell, go: () => navigate('/workout'), done: !!workouts?.some((w) => w.date === date) },
     { label: t.myday.title, Icon: ListChecks, go: () => navigate('/my-day'), badge: checklist && checklist.total > 0 ? t.myday.counter(checklist.done, checklist.total) : undefined },
@@ -209,7 +208,7 @@ export function Day() {
           <span className="hidden min-[385px]:inline" aria-hidden>{t.addKinds.symptom}</span><span className="hidden min-[340px]:inline min-[385px]:hidden" aria-hidden>{t.day.unwellShort}</span></button>
       </div>
 
-      <nav ref={tilesRef} aria-label={t.day.quick} className="mb-5 grid grid-cols-5 gap-1">
+      <nav ref={tilesRef} aria-label={t.day.quick} className="mb-5 grid grid-cols-4 gap-1">
         {quick.map(({ label, Icon, go, badge, done }) => (
           <button key={label} type="button" onClick={go} aria-label={[label, done ? t.myday.workoutDone : badge].filter(Boolean).join(', ')} className="flex min-h-tap flex-col items-center gap-1 text-center">
             <span className="relative flex h-12 w-12 items-center justify-center rounded-2xl bg-surface shadow-sm"><Icon size={22} className="text-accent" aria-hidden />
@@ -239,7 +238,7 @@ export function Day() {
       )}
 
       {isToday && plan && entries && <PrnCard plan={plan} date={date} entries={entries} /> /* D118 */}
-      {rhythm && <DayRhythm rhythm={rhythm} foods={foods} onEntry={(e) => (e.kind === 'meal' && e.status === 'planned' && e.items?.length ? setConfirming(e) : setRowFor(e))} onDose={setAskMed} onAdd={() => setAdding(true)}
+      {rhythm && <DayRhythm rhythm={rhythm} foods={foods} onYesterday={() => setYesterday(true)} onEntry={(e) => (e.kind === 'meal' && e.status === 'planned' && e.items?.length ? setConfirming(e) : setRowFor(e))} onDose={setAskMed} onAdd={() => setAdding(true)}
         onAnytime={(i) => (i.kind === 'workout' ? navigate('/workout') : setAskMed(i))} />}
 
       {tips.length > 0 && (

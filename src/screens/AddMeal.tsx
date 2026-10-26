@@ -18,7 +18,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { db } from '../data/db';
 import { useAllEntries, useDayEntries, useFoods, usePlan, useRecentEntries, useRecipes } from '../data/queries';
-import { earlierMeals, frequentItems } from '../domain/habits';
+import { frequentItems } from '../domain/habits';
 import { Amount } from '../components/Amount';
 import { dishItem, foodFromLine, recipeFrom, setPortions, withComponents } from '../domain/recipes';
 import { atLocal, dateOf, newId, timeOf, todayISO } from '../domain/dates';
@@ -168,10 +168,10 @@ export function AddMeal() {
       <h1 className="mb-3 text-2xl font-semibold">{id ? t.meal.editTitle : t.meal.title}</h1>
       <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); void save(); }}>
         <div className="rounded-2xl border border-line bg-surface p-3">
-          <div className="flex items-end gap-2">
-            <label className="block flex-1"><span className="text-sm text-muted">{t.meal.search}</span>
-              <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t.meal.searchHint}
-                className={field} autoComplete="off" autoFocus={!id} /></label>
+          <label htmlFor="meal-search" className="block text-sm text-muted">{t.meal.search}</label>
+          <div className="mt-1 flex items-end gap-2">
+            <input id="meal-search" type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t.meal.searchHint}
+              className={`${field} min-w-0 flex-1`} autoComplete="off" autoFocus={!id} />
             <button type="button" onClick={pickPhoto} disabled={photo.state === 'busy'} aria-label={t.meal.photo}
               className="flex min-h-tap items-center gap-1 rounded-xl border border-accent px-3 font-medium text-accent disabled:opacity-40">
               <Camera size={18} aria-hidden /><span className="hidden min-[380px]:inline">{t.meal.photo}</span></button>
@@ -229,25 +229,6 @@ export function AddMeal() {
               <Link to={`/dishes?describe=${encodeURIComponent(query.trim())}`} className="mt-1 inline-flex min-h-tap items-center text-sm text-accent underline">{t.dishes.breakdown.fromMeal}</Link></>
           )}
           {!query && <FavoritesList onAdd={(xs) => setItems((ys) => [...ys, ...xs])} />}
-          {!query && !id && items.length === 0 && all && (() => {
-            const before = earlierMeals(all, title, date);
-            return before.length > 0 && (
-              <div className="mt-3">
-                <p className="mb-1 text-sm text-muted">{t.meal.likeBefore(title)}</p>
-                <ul className="space-y-2">
-                  {before.map((e) => (
-                    <li key={e.id}>
-                      <button type="button" onClick={() => setItems(e.items!.map((x) => ({ ...x })))}
-                        className="flex min-h-tap w-full items-center gap-2 rounded-xl border border-line px-3 py-2 text-left">
-                        <span className="flex-1 text-sm">{e.items!.map((x) => `${x.name} ${amountText(x)}`).join(', ')}</span>
-                        <span className="shrink-0 text-sm font-medium text-accent">{t.meal.repeat}</span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            );
-          })()}
           {!query && all && (() => {
             const freq = frequentItems(all, todayISO()).filter((f) => !items.some((it) => it.name === f.item.name));
             return freq.length > 0 && (

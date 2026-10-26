@@ -50,7 +50,7 @@ export function DayHeader({ date, setDate }: { date: string; setDate: (d: string
                 <button type="button" onClick={() => setDate(day)} aria-current={selected ? 'date' : undefined}
                   aria-label={format(x, 'EEEE, d MMMM', { locale: uk }) + (withRecords?.has(day) ? `, ${L.hasRecords}` : '')}
                   className={`flex w-full flex-col items-center rounded-2xl py-1.5 ${selected ? 'bg-ink text-bg' : day === today ? 'text-accent' : ''}`}>
-                  <span className={`text-xs ${selected ? '' : 'text-muted'}`}>{format(x, 'EEEEEE', { locale: uk })}</span>
+                  <span className={`text-xs first-letter:uppercase ${selected ? '' : 'text-muted'}`}>{format(x, 'EEEEEE', { locale: uk })}</span>
                   <span className="tabular text-lg font-medium leading-tight">{format(x, 'd')}</span>
                   <span className={`mt-0.5 h-1.5 w-1.5 rounded-full ${withRecords?.has(day) ? (selected ? 'bg-bg' : 'bg-accent') : 'bg-transparent'}`} aria-hidden />
                 </button>

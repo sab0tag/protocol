@@ -12,7 +12,7 @@ import { todayISO } from '../domain/dates';
 import { habits, weekSummary, type HabitKey } from '../domain/habits';
 import { motivation } from '../domain/progression';
 import { t } from '../i18n/uk';
-import { HabitsCard, WeekCard } from './Progress';
+import { HabitsCard, WeekCard } from './Motivation';
 
 const L = t.week;
 
