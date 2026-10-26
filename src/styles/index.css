@@ -44,7 +44,11 @@ body { font-family: 'Golos Text', system-ui, -apple-system, sans-serif; -webkit-
     box-shadow: var(--protocol-shadow-card);
   }
   .protocol-card-interactive {
-    @apply protocol-card transition-colors duration-150;
+    border: 1px solid rgb(var(--line));
+    border-radius: var(--protocol-radius-card);
+    background: rgb(var(--surface));
+    box-shadow: var(--protocol-shadow-card);
+    @apply transition-colors duration-150;
   }
   .protocol-card-interactive:hover { border-color: rgb(var(--accent) / 0.5); }
   .protocol-eyebrow {
