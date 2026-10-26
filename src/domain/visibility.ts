@@ -26,7 +26,7 @@ export const fullChecklist = (c: FeatureContext) => ['meds.log', 'water.log', 'f
 export const habitVisible = (key: HabitKey, context: FeatureContext) => can(HABIT_FEATURES[key], context) && (key !== 'plan' || fullChecklist(context));
 export function visibleWeek(s: ReturnType<typeof weekSummary>, context: FeatureContext): ReturnType<typeof weekSummary> {
   return { ...s, ...(!can('food.log', context) ? { carbsOk: undefined, proteinOk: undefined } : {}),
-    ...(!can('water.log', context) ? { waterOk: undefined } : {}), ...(!can('workout.log', context) ? { showWorkouts: false } : {}),
+    ...(!can('water.log', context) ? { waterOk: undefined } : {}), ...(!can('workout.log', context) ? { showWorkouts: false, lightDayWorkouts: undefined } : {}),
     ...(!fullChecklist(context) ? { checklistPct: undefined } : {}) };
 }
 
@@ -38,6 +38,7 @@ export function visibleReport(r: Report, context: FeatureContext): Report {
     ...(!food || !can('menu.ai', context) ? { menu: undefined } : {}), ...(!can('progress.labs', context) ? { labs: [] } : {}),
     ...(!weight ? { weightStart: undefined, weightNow: undefined, weightPace: undefined } : {}),
     ...(!can('wellbeing.log', context) ? { avgEnergy: undefined } : {}),
+    ...(!can('workout.log', context) ? { lightDayWorkouts: undefined } : {}),
     ...(!fullChecklist(context) ? { checklistPct: undefined } : {}),
     observed: { workout: can('workout.log', context) && r.observed?.workout !== false,
       weight: weight && r.observed?.weight !== false, wellbeing: can('wellbeing.log', context) && r.observed?.wellbeing !== false },

@@ -1,7 +1,7 @@
 // D135: observation belongs to an interval, not today's switch. This never changes a doctor's prescription.
 import { addDays, format, parseISO } from 'date-fns';
 import type { ModuleId } from './features';
-import { moduleChoiceAt, weightChoiceAt, type ModuleEvent } from './modulePreferences';
+import { isLightDay, moduleChoiceAt, weightChoiceAt, type ModuleEvent } from './modulePreferences';
 import type { DayEntry, ISODate, ISODateTime, Targets } from './types';
 
 export type TrackingKey = ModuleId | 'weight';
@@ -10,7 +10,7 @@ export interface Observation {
   readonly events: readonly ModuleEvent[];
   readonly now: Date;
   readonly demo?: boolean;
-  /** Prepared contract for PR 07. Medication observation cannot be relaxed by a neutral day. */
+  /** Optional explicit context for pure callers. Persisted light-day decisions also apply; never to medications. */
   readonly neutral?: Readonly<Partial<Record<ISODate, readonly ('food' | 'water' | 'workout')[]>>>;
 }
 export interface TrackingInterval { key: TrackingKey; from: ISODateTime; to: ISODateTime; since?: ISODateTime; unknownStart: boolean }
@@ -41,7 +41,8 @@ function boundaries(o: Observation, key: TrackingKey, from: number, to: number):
 }
 
 export function neutralDay(o: Observation, key: TrackingKey, date: ISODate): boolean {
-  return (key === 'food' || key === 'water' || key === 'workout') && (o.neutral?.[date]?.includes(key) ?? false);
+  return !o.demo && date <= observedToday(o) && (key === 'food' || key === 'water' || key === 'workout')
+    && ((o.neutral?.[date]?.includes(key) ?? false) || isLightDay(o.events, date));
 }
 
 export function coverage(o: Observation, key: TrackingKey, date: ISODate): Coverage {

@@ -1,6 +1,13 @@
 // All interface texts (SPEC.md §12). Ukrainian only in v0.
 export const t = {
   app: 'Протокол',
+  lightDay: {
+    history: 'Легкі дні', summary: (n: number, days: number) => `Легких днів: ${n} з ${days}`,
+    dates: (dates: string) => `Дати: ${dates}`,
+    hint: 'Їжа, вода й тренування цих днів поза оцінюванням. Ліки враховуються як завжди.',
+    workouts: (n: number) => `Добровільно записано тренувань у легкі дні: ${n} — поза оцінюванням.`,
+    scoredWorkouts: 'Тренувань поза легкими днями',
+  },
   startFlow: {
     title: 'З чого почнемо', summary: 'Після старту будуть доступні:', choose: 'Змінити стартові розділи',
     always: 'План лікаря, звіт, «Мені погано», голос і резервна копія доступні завжди.',

@@ -13,6 +13,7 @@ import { labRows, patterns } from '../domain/progress';
 import { habits, weekSummary, type Habit } from '../domain/habits';
 import { t } from '../i18n/uk';
 import { useObservation } from '../app/observation';
+import { LightDayHistoryView } from '../components/LightDayHistory';
 
 import { WeightCard } from './Weight';
 import { useFeatures } from '../app/features';
@@ -145,12 +146,13 @@ export function WeekCard({ summary: s }: { summary: ReturnType<typeof weekSummar
   if (s.carbsOk !== undefined) tiles.push([L.weekCarbs, L.ofDays(s.carbsOk, s.knownDays?.carbs ?? s.days)]);
   if (s.proteinOk !== undefined) tiles.push([L.weekProtein, L.ofDays(s.proteinOk, s.knownDays?.protein ?? s.days)]);
   if (s.waterOk !== undefined) tiles.push([L.weekWater, L.ofDays(s.waterOk, s.knownDays?.water ?? s.days)]);
-  if (s.showWorkouts !== false) tiles.push([L.weekWorkouts, String(s.workouts)]);
+  if (s.showWorkouts !== false) tiles.push([s.lightDayWorkouts ? t.lightDay.scoredWorkouts : L.weekWorkouts, String(s.workouts)]);
   if (s.checklistPct !== undefined) tiles.push([L.weekChecklist, `${s.checklistPct} %`]);
-  if (s.knownDays && !tiles.length) return null;
+  if (s.knownDays && !tiles.length && !s.lightDays?.count) return null;
   return (
     <section className="rounded-2xl border border-line bg-surface p-3">
       <h2 className="mb-2 font-semibold">{L.week} <span className="text-sm font-normal text-muted">· {dm(s.from)}–{dm(s.to)}</span></h2>
+      <LightDayHistoryView history={s.lightDays} workouts={s.lightDayWorkouts} />
       {s.days === 0 ? <p className="text-muted">{L.weekNoData}</p> : (
         <dl className="grid grid-cols-2 gap-x-4 gap-y-2 tabular sm:grid-cols-3">
           {tiles.map(([label, value]) => <div key={label}><dt className="text-sm text-muted">{label}</dt><dd className="text-lg font-semibold">{value}</dd></div>)}
