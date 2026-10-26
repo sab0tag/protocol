@@ -137,6 +137,28 @@ test('a once-daily medicine without a time is not followed by the empty-rhythm m
   await expect(rhythm.getByText('На цей день ще нічого немає.')).toHaveCount(0);
 });
 
+test('«Нічого з цього» skips the planned meal and undo restores the plan', async ({ browser }) => {
+  const page = await device(browser, 'skip');
+  const now = new Date();
+  const planned = new Date(now.getTime() + 45 * 60_000);
+  test.skip(ymd(planned) !== ymd(now), 'needs a future meal on the same day');
+  const time = `${String(planned.getHours()).padStart(2, '0')}:${String(planned.getMinutes()).padStart(2, '0')}`;
+  await seed(page, [{
+    store: 'entries',
+    value: { id: 'skip-confirmation', at: `${ymd(planned)}T${time}:00${kyivOffset(planned)}`, kind: 'meal', status: 'planned', title: 'Обід',
+      items: [{ foodId: 'kefir', name: 'Кефір 2,5 %', grams: 250 }], menu: {} },
+  }]);
+
+  const rhythm = page.getByRole('region', { name: 'Ритм дня' });
+  await rhythm.getByRole('button', { name: /^Обід, Заплановано/ }).click();
+  await page.getByRole('dialog', { name: 'Підтвердити: Обід' }).getByRole('button', { name: 'Нічого з цього' }).click();
+  await expect(toast(page)).toContainText('Обід — пропущено');
+  await expect(rhythm.getByRole('button', { name: /^Обід, Пропущено/ })).toBeVisible();
+
+  await toast(page).getByRole('button', { name: 'Скасувати' }).click();
+  await expect(rhythm.getByRole('button', { name: /^Обід, Заплановано/ })).toBeVisible();
+});
+
 test('«Мені погано»: a symptom with its time, what was eaten before it, and «103» for a danger sign (D56)', async ({ browser }) => {
   const page = await device(browser);
   const now = new Date(), d = ymd(now);
