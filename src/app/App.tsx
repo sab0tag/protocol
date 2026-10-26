@@ -38,12 +38,27 @@ import { QuickLinks } from '../screens/QuickLinks';
 import { Frictions } from '../screens/Frictions';
 import { Week } from '../screens/Week';
 import { Pilot } from '../screens/Pilot';
+import { ROUTES, type RouteId } from './navigation';
 
 /** A fresh form for every meal: /meal/new after editing /meal/:id must not keep the old state. */
 function MealRoute() {
   const { id } = useParams();
   return <AddMeal key={id ?? 'new'} />;
 }
+
+// Exhaustive against ROUTES: adding a screen also requires choosing its feature owner in navigation.ts.
+const SCREENS = {
+  day: <Day />, mealNew: <MealRoute />, mealEdit: <MealRoute />, myDay: <MyDay />,
+  wellbeing: <Wellbeing />, wellbeingJournal: <WellbeingJournal />, workout: <Workout />, exercises: <Exercises />, quickAction: <QuickAction />,
+  quickLinks: <QuickLinks />, frictions: <Frictions />, pilot: <Pilot />, week: <Week />, plan: <Plan />,
+  planPrescriptions: <Plan section="prescriptions" />, planConstraints: <Plan section="constraints" />,
+  planGoals: <Plan section="goals" />, planCheckup: <Plan section="checkup" />,
+  planScan: <PlanScanScreen />, planHistory: <PlanHistory />,
+  onboarding: <Onboarding />, progress: <Progress />, progressInsights: <Insights />, progressMotivation: <Motivation />,
+  progressLabs: <Labs />, report: <Report />, dishes: <Dishes />, foods: <MyFoods />, data: <Data />,
+  more: <More />, moreCategory: <MoreCategory />, about: <About />, conciergeLog: <ConciergeLog />,
+  assistant: <Assistant />, sync: <Sync />, menu: <Menu />, reminders: <Reminders />, shopping: <Shopping />, fallback: <Day />,
+} satisfies Record<RouteId, ReactNode>;
 
 /** Onboarding opens until it is finished or skipped (SPEC.md §5.9, D17). */
 function OnboardingGate({ children }: { children: ReactNode }) {
@@ -74,45 +89,9 @@ export function App() {
         <OnboardingGate>
           <ScreenBoundary>
           <Routes>
-            <Route path="/" element={<Day />} />
-            <Route path="/meal/new" element={<MealRoute />} />
-            <Route path="/meal/:id" element={<MealRoute />} />
-            <Route path="/my-day" element={<MyDay />} />
-            <Route path="/wellbeing" element={<Wellbeing />} />
-            <Route path="/wellbeing/journal" element={<WellbeingJournal />} />
-            <Route path="/workout" element={<Workout />} />
-            <Route path="/exercises" element={<Exercises />} />
-            <Route path="/do/:action" element={<QuickAction />} />
-            <Route path="/quick" element={<QuickLinks />} />
-            <Route path="/frictions" element={<Frictions />} />
-            <Route path="/pilot" element={<Pilot />} />
-            <Route path="/week" element={<Week />} />
-            <Route path="/plan" element={<Plan />} />
-            <Route path="/plan/prescriptions" element={<Plan section="prescriptions" />} />
-            <Route path="/plan/constraints" element={<Plan section="constraints" />} />
-            <Route path="/plan/goals" element={<Plan section="goals" />} />
-            <Route path="/plan/checkup" element={<Plan section="checkup" />} />
-            <Route path="/plan/scan" element={<PlanScanScreen />} />
-            <Route path="/plan/history" element={<PlanHistory />} />
-            <Route path="/welcome" element={<Onboarding />} />
-            <Route path="/progress" element={<Progress />} />
-            <Route path="/progress/insights" element={<Insights />} />
-            <Route path="/progress/motivation" element={<Motivation />} />
-            <Route path="/progress/labs" element={<Labs />} />
-            <Route path="/report" element={<Report />} />
-            <Route path="/dishes" element={<Dishes />} />
-            <Route path="/foods" element={<MyFoods />} />
-            <Route path="/data" element={<Data />} />
-            <Route path="/more" element={<More />} />
-            <Route path="/more/:category" element={<MoreCategory />} />
-            <Route path="/about" element={<About />} />
-            <Route path="/concierge-log" element={<ConciergeLog />} />
-            <Route path="/assistant" element={<Assistant />} />
-            <Route path="/sync" element={<Sync />} />
-            <Route path="/menu" element={<Menu />} />
-            <Route path="/reminders" element={<Reminders />} />
-            <Route path="/shopping" element={<Shopping />} />
-            <Route path="*" element={<Day />} />
+            {(Object.keys(ROUTES) as RouteId[]).map((id) => (
+              <Route key={id} path={ROUTES[id].path} element={SCREENS[id]} />
+            ))}
           </Routes>
           </ScreenBoundary>
         </OnboardingGate>
