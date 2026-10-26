@@ -66,7 +66,13 @@ test('the new «День»: the plan on an empty day, a dose asks when, main num
   const summary = page.getByRole('region', { name: 'Уже сьогодні' });
   await expect(summary.getByText('Білок')).toHaveCount(0);
   await summary.getByRole('button', { name: 'Налаштувати' }).click();
-  await summary.getByRole('checkbox', { name: 'Білок' }).check();
+  const protein = summary.getByRole('checkbox', { name: 'Білок' });
+  await expect(protein).toBeDisabled(); // three main metrics are selected; no silent replacement
+  await summary.getByRole('checkbox', { name: 'Вода' }).uncheck();
+  await expect(protein).toBeEnabled();
+  await expect(summary.getByRole('checkbox', { name: 'Ліки' })).toBeDisabled(); // keep at least two
+  await protein.check();
+  await expect(summary.locator('input[type="checkbox"]:checked')).toHaveCount(3);
   await summary.getByRole('button', { name: 'Готово' }).click();
   await page.reload();
   await expect(page.getByRole('region', { name: 'Уже сьогодні' }).getByText('Білок')).toBeVisible(); // kept on this device

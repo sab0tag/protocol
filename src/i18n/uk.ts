@@ -192,7 +192,7 @@ export const t = {
   },
   summary: { // D53: «Уже сьогодні»
     title: 'Уже сьогодні', setup: 'Налаштувати', done: 'Готово', all: 'Усі показники', less: 'Згорнути',
-    setupHint: (n: number) => `Головні показники — до ${n}; решта — в «Усі показники».`,
+    setupHint: (n: number) => `Оберіть 2–${n} головні показники; решта — в «Усі показники».`,
     water: 'Вода', meds: 'Ліки', carbs: 'Вуглеводи', protein: 'Білок', calcium: 'Кальцій', kcal: 'Калорії',
     ofTotal: (done: number, total: number) => `${done} з ${total}`,
     atLeast: (n: number) => `мінімум ${n} г`,

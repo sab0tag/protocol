@@ -14,13 +14,15 @@ const L = t.summary;
 export type MetricKey = 'water' | 'meds' | 'carbs' | 'protein' | 'calcium' | 'kcal';
 const ALL: MetricKey[] = ['water', 'meds', 'carbs', 'protein', 'calcium', 'kcal'];
 const DEFAULT: MetricKey[] = ['water', 'meds', 'carbs'];
+const MIN_MAIN = 2;
 const MAX_MAIN = 3;
 const STORE = 'protocol.mainMetrics'; // this device's choice — a view setting, not data
 
 function loadMain(): MetricKey[] {
   try {
     const v = JSON.parse(localStorage.getItem(STORE) ?? 'null') as unknown;
-    if (Array.isArray(v) && v.length && v.every((k) => ALL.includes(k as MetricKey))) return v as MetricKey[];
+    if (Array.isArray(v) && v.length >= MIN_MAIN && v.length <= MAX_MAIN
+      && v.every((k) => ALL.includes(k as MetricKey)) && new Set(v).size === v.length) return v as MetricKey[];
   } catch { /* private mode */ }
   return DEFAULT;
 }
@@ -58,8 +60,8 @@ export function DaySummary({ totals, targets, meds, streak, food, onComplete }: 
   const [setup, setSetup] = useState(false);
   const shown = (keys: MetricKey[]) => keys.map((k) => [k, metric(k, totals, targets, meds)] as const).filter((x): x is [MetricKey, Metric] => x[1] !== null);
   const toggle = (k: MetricKey, on: boolean) => {
-    const next = on ? [...main, k].slice(-MAX_MAIN) : main.filter((x) => x !== k);
-    if (!next.length) return;
+    if ((on && main.length >= MAX_MAIN) || (!on && main.length <= MIN_MAIN)) return;
+    const next = on ? [...main, k] : main.filter((x) => x !== k);
     setMain(next);
     try { localStorage.setItem(STORE, JSON.stringify(next)); } catch { /* private mode */ }
   };
@@ -76,7 +78,9 @@ export function DaySummary({ totals, targets, meds, streak, food, onComplete }: 
           <legend className="mb-2 text-sm text-muted">{L.setupHint(MAX_MAIN)}</legend>
           {ALL.map((k) => (
             <label key={k} className="flex min-h-tap items-center gap-3">
-              <input type="checkbox" checked={main.includes(k)} onChange={(e) => toggle(k, e.target.checked)} className="h-5 w-5 accent-[rgb(var(--accent))]" />
+              <input type="checkbox" checked={main.includes(k)} disabled={
+                (main.length >= MAX_MAIN && !main.includes(k)) || (main.length <= MIN_MAIN && main.includes(k))
+              } onChange={(e) => toggle(k, e.target.checked)} className="h-5 w-5 accent-[rgb(var(--accent))]" />
               <span>{L[k]}</span>
             </label>
           ))}
