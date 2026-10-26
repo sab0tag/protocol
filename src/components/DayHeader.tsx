@@ -25,7 +25,7 @@ export function DayHeader({ date, setDate }: { date: string; setDate: (d: string
   const withRecords = useLiveQuery(async () => new Set((await db.entries.where('at').between(days[0]!, `${days[6]!}￿`).toArray())
     .map((e) => e.at.slice(0, 10))), [days[0]]);
   const status = useSync((s) => s.status);
-  const { Icon, tone } = CLOUD[status];
+  const { Icon } = CLOUD[status];
   const isToday = date === today;
   const d = parseISO(date);
 
