@@ -6,7 +6,7 @@
 import { format, parseISO } from 'date-fns';
 import { uk } from 'date-fns/locale';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { FileScan } from 'lucide-react';
+import { FileScan, ShieldCheck } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
 import { db, inDemo, type PlanRow } from '../data/db';
 import { useMedIndex } from '../data/medsIndex';
@@ -35,6 +35,8 @@ export function PlanScan({ plan, onDone, onboarding }: { plan: PlanRow; onDone?:
   const [state, setState] = useState<'none' | 'demo' | 'consent' | 'prep' | 'busy' | 'form'>('none');
   const [raw, setRaw] = useState<string[]>([]); // D112: the pages as taken, before they are cut and painted over
   const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
   const [lines, setLines] = useState<DraftLine[]>([]);
   const [cuts, setCuts] = useState<Record<string, string>>({});
   const [on, setOn] = useState<Set<string>>(new Set());
@@ -81,21 +83,26 @@ export function PlanScan({ plan, onDone, onboarding }: { plan: PlanRow; onDone?:
     }
   };
   const save = async () => {
-    const picked = lines.filter((l) => on.has(l.key));
-    const before = { constraints: plan.constraints, prescriptions: plan.prescriptions, targets: plan.targets, nextCheckup: plan.nextCheckup };
-    // D114: the pieces of paper stay with the lines they came from — on this device only
-    const placed = new Map<string, string>();
-    const applied = applyLines(plan, picked, sinceNow(), placed);
-    const next = { ...applied, prescriptions: closeFromToday(applied.prescriptions, close, todayISO()) }; // D115
-    const pieces = picked.flatMap((l) => (cuts[l.key] && placed.get(l.key) ? [{ id: placed.get(l.key)!, url: cuts[l.key]!, at: new Date().toISOString(), source }] : []));
-    await saved(db.transaction('rw', db.plan, db.pieces, async () => { await db.plan.update('main', next); await db.pieces.bulkPut(pieces); }), L.saved(picked.length + close.size),
-      () => db.transaction('rw', db.plan, db.pieces, async () => { await db.plan.update('main', before); await db.pieces.bulkDelete(pieces.map((x) => x.id)); }));
-    // D120, D122: rows read off the paper and, of them, not put in (unticked, put aside, unreadable) — a bad reading must not look
-    // good; a later visit's medicine «без змін» is already in the plan and counts in neither
-    const read = lines.filter((l) => diff.get(l.key)?.kind !== 'same');
-    if (read.length) { void count('photo_rows', read.length); void count('photo_unchecked', read.filter((l) => !on.has(l.key)).length); }
-    setState('none'); setLines([]); setCuts({});
-    onDone?.();
+    if (savingRef.current || (!on.size && !close.size) || undecided > 0) return;
+    savingRef.current = true; setSaving(true);
+    try {
+      const picked = lines.filter((l) => on.has(l.key));
+      const before = { constraints: plan.constraints, prescriptions: plan.prescriptions, targets: plan.targets, nextCheckup: plan.nextCheckup };
+      // D114: the pieces of paper stay with the lines they came from — on this device only
+      const placed = new Map<string, string>();
+      const applied = applyLines(plan, picked, sinceNow(), placed);
+      const next = { ...applied, prescriptions: closeFromToday(applied.prescriptions, close, todayISO()) }; // D115
+      const pieces = picked.flatMap((l) => (cuts[l.key] && placed.get(l.key) ? [{ id: placed.get(l.key)!, url: cuts[l.key]!, at: new Date().toISOString(), source }] : []));
+      const result = await saved(db.transaction('rw', db.plan, db.pieces, async () => { await db.plan.update('main', next); await db.pieces.bulkPut(pieces); return true; }), L.saved(picked.length + close.size),
+        () => db.transaction('rw', db.plan, db.pieces, async () => { await db.plan.update('main', before); await db.pieces.bulkDelete(pieces.map((x) => x.id)); }));
+      if (!result) return; // Keep the checked draft open so a failed write can be retried.
+      // D120, D122: rows read off the paper and, of them, not put in (unticked, put aside, unreadable) — a bad reading must not look
+      // good; a later visit's medicine «без змін» is already in the plan and counts in neither
+      const read = lines.filter((l) => diff.get(l.key)?.kind !== 'same');
+      if (read.length) { void count('photo_rows', read.length); void count('photo_unchecked', read.filter((l) => !on.has(l.key)).length); }
+      setState('none'); setLines([]); setCuts({});
+      onDone?.();
+    } finally { savingRef.current = false; setSaving(false); }
   };
   const toggle = (key: string) => setOn((s) => { const n = new Set(s); if (n.has(key)) n.delete(key); else n.add(key); return n; });
   // «all» never covers medicines (each is confirmed by its own tap) nor a line marked «?» — that one is checked by hand (D103)
@@ -108,91 +115,112 @@ export function PlanScan({ plan, onDone, onboarding }: { plan: PlanRow; onDone?:
   const undecided = onboarding ? lines.filter((l) => isMed(l) && !on.has(l.key) && !skip.has(l.key)).length : 0;
   const flip = (key: string) => setSkip((x) => { const n = new Set(x); if (n.has(key)) n.delete(key); else n.add(key); return n; });
 
+  const step = state === 'form' ? 2 : state === 'prep' || state === 'busy' ? 1 : 0;
+  const reviewCount = lines.filter((l) => l.status !== 'sure' || missing(l)).length;
   return (
-    <div className="space-y-2 rounded-2xl border border-line bg-surface p-3">
+    <div className="space-y-4">
+      <ol aria-label={L.stepsLabel} className="grid grid-cols-3 gap-2 text-xs sm:text-sm">
+        {L.steps.map((label, i) => (
+          <li key={label} aria-current={step === i ? 'step' : undefined}
+            className={`flex min-w-0 flex-col items-center gap-2 rounded-2xl border px-2 py-3 text-center sm:flex-row sm:px-3 sm:text-left ${step === i ? 'border-accent bg-accent/10 font-semibold' : 'border-line text-muted'}`}>
+            <span aria-hidden className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-current text-xs">{i + 1}</span>
+            <span className="min-w-0">{label}</span>
+          </li>
+        ))}
+      </ol>
       {state === 'prep' && <PhotoPrep pages={raw} onDone={(p) => void send(p)} onCancel={() => { setRaw([]); setState('none'); }} />}
       {state !== 'form' && state !== 'prep' && (
         <>
-          <button type="button" onClick={pick} disabled={state === 'busy'} className="flex min-h-tap items-center gap-2 font-medium text-accent disabled:opacity-40">
+          <button type="button" onClick={pick} disabled={state === 'busy'} className="protocol-action w-full disabled:opacity-40">
             <FileScan size={20} aria-hidden />{state === 'busy' ? L.busy : L.button}</button>
-          {state === 'none' && <p className="text-sm text-muted">{L.hint}</p>}
+          {state === 'none' && <p className="px-1 text-sm leading-relaxed text-muted">{L.hint}</p>}
         </>
       )}
       <input ref={input} type="file" accept="image/*" multiple className="hidden" onChange={(e) => void read([...(e.target.files ?? [])])} />
       {state === 'demo' && <p className="text-sm text-muted">{L.demo}</p>}
       {state === 'consent' && (
-        <div className="space-y-2 rounded-xl border border-accent/40 p-2 text-sm">
+        <div className="protocol-card space-y-3 p-4 text-sm leading-relaxed">
           <p>{L.consent}</p>
           <button type="button" onClick={() => void allow()} className="min-h-tap rounded-xl bg-accent px-3 font-medium text-surface">{L.allow}</button>
         </div>
       )}
       {state === 'form' && (
-        <section aria-label={L.check} className="space-y-3">
-          <p className="font-medium">{L.check}</p>
-          <p className="text-sm text-muted">{L.from(source)}</p>
-          {note && <p className="text-sm text-warn">{note}</p>}
-          {bulk.length > 1 && (
-            <button type="button" onClick={() => setOn((s) => { const n = new Set(s); for (const l of bulk) { if (allOn) n.delete(l.key); else n.add(l.key); } return n; })}
-              className="min-h-tap text-sm text-accent underline">{allOn ? L.none : L.all}</button>
-          )}
-          {GROUPS.map((g) => {
-            const ls = lines.filter((l) => groupOf(l) === g);
-            if (!ls.length) return null;
-            return (
-              <div key={g}>
-                <h3 className="text-sm font-semibold text-muted">{L.groups[g]}</h3>
-                {g === 'meds' && <p className="text-xs text-muted">{L.medsOneByOne}</p>}
+        <section aria-label={L.check} aria-busy={saving} className="space-y-4">
+          <div className="protocol-card space-y-3 border-accent/30 p-4 sm:p-5">
+            <p className="protocol-eyebrow flex items-center gap-2"><ShieldCheck size={16} aria-hidden />{L.draft}</p>
+            <h2 className="text-xl font-semibold leading-snug">{L.check}</h2>
+            <p className="text-sm text-muted">{L.from(source)}</p>
+            <p className="text-sm leading-relaxed text-muted">{L.reviewHint}</p>
+            {reviewCount > 0 && <p className="rounded-xl bg-warn-bg p-3 text-sm text-warn">{L.reviewCount(reviewCount)}</p>}
+            {note && <p className="text-sm text-warn">{note}</p>}
+          </div>
+          <fieldset disabled={saving} className="min-w-0 space-y-4">
+            {bulk.length > 1 && (
+              <button type="button" onClick={() => setOn((s) => { const n = new Set(s); for (const l of bulk) { if (allOn) n.delete(l.key); else n.add(l.key); } return n; })}
+                className="min-h-tap text-sm text-accent underline">{allOn ? L.none : L.all}</button>
+            )}
+            {GROUPS.map((g) => {
+              const ls = lines.filter((l) => groupOf(l) === g);
+              if (!ls.length) return null;
+              return (
+                <div key={g} className="protocol-card p-4 sm:p-5">
+                  <h3 className="mb-1 text-lg font-semibold">{L.groups[g]} <span className="text-sm font-normal text-muted">· {ls.length}</span></h3>
+                  {g === 'meds' && <p className="text-xs text-muted">{L.medsOneByOne}</p>}
+                  <ul className="divide-y divide-line">
+                    {ls.map((l) => {
+                      const lack = missing(l);
+                      const body = (
+                        <span className="min-w-0 flex-1">
+                          <LineText line={l} plan={plan} known={!!index} change={diff.get(l.key)} />
+                          <Status line={l} />
+                          {lack && <span className="block text-sm text-warn">{lack === 'dose' ? L.needDose : L.needTime}</span>}
+                          {cuts[l.key] && <img src={cuts[l.key]} alt={L.piece} className="mt-2 max-h-32 max-w-full rounded-xl border border-line" />}
+                        </span>
+                      );
+                      return (
+                        <li key={l.key}>
+                          {l.kind === 'unread' ? <div className="py-2">{body}</div> : (
+                            <label className="flex min-h-tap items-start gap-3 py-2">
+                              <input type="checkbox" checked={on.has(l.key)} disabled={!!lack} onChange={() => toggle(l.key)} aria-label={nameOf(l)}
+                                className="mt-0.5 h-5 w-5 shrink-0 accent-[rgb(var(--accent))] disabled:opacity-40" />
+                              {body}
+                            </label>
+                          )}
+                          {onboarding && isMed(l) && !on.has(l.key) && (
+                            <button type="button" onClick={() => flip(l.key)} aria-pressed={skip.has(l.key)}
+                              className="mb-2 ml-8 min-h-[2rem] rounded-full border border-line px-3 text-xs">{skip.has(l.key) ? `${L.skippedMed} · ${L.unskipMed}` : L.skipMed}</button>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              );
+            })}
+            {gone.length > 0 && ( /* D115: never closed silently — another doctor's paper does not cancel them */
+              <div className="protocol-card p-4 sm:p-5">
+                <h3 className="mb-1 text-lg font-semibold">{L.gone}</h3>
+                <p className="text-xs text-muted">{L.goneHint}</p>
                 <ul className="divide-y divide-line">
-                  {ls.map((l) => {
-                    const lack = missing(l);
-                    const body = (
-                      <span className="min-w-0 flex-1">
-                        <LineText line={l} plan={plan} known={!!index} change={diff.get(l.key)} />
-                        <Status line={l} />
-                        {lack && <span className="block text-sm text-warn">{lack === 'dose' ? L.needDose : L.needTime}</span>}
-                        {cuts[l.key] && <img src={cuts[l.key]} alt={L.piece} className="mt-1 max-h-24 max-w-full rounded border border-line" />}
-                      </span>
-                    );
-                    return (
-                      <li key={l.key}>
-                        {l.kind === 'unread' ? <div className="py-2">{body}</div> : (
-                          <label className="flex min-h-tap items-start gap-3 py-2">
-                            <input type="checkbox" checked={on.has(l.key)} disabled={!!lack} onChange={() => toggle(l.key)} aria-label={nameOf(l)}
-                              className="mt-0.5 h-5 w-5 shrink-0 accent-[rgb(var(--accent))] disabled:opacity-40" />
-                            {body}
-                          </label>
-                        )}
-                        {onboarding && isMed(l) && !on.has(l.key) && (
-                          <button type="button" onClick={() => flip(l.key)} aria-pressed={skip.has(l.key)}
-                            className="mb-2 ml-8 min-h-[2rem] rounded-full border border-line px-3 text-xs">{skip.has(l.key) ? `${L.skippedMed} · ${L.unskipMed}` : L.skipMed}</button>
-                        )}
-                      </li>
-                    );
-                  })}
+                  {gone.map((p) => (
+                    <li key={p.id}><label className="flex min-h-tap items-start gap-3 py-2">
+                      <input type="checkbox" checked={close.has(p.id)} aria-label={L.closeAria(p.title)} className="mt-0.5 h-5 w-5 shrink-0 accent-[rgb(var(--accent))]"
+                        onChange={() => setClose((x) => { const n = new Set(x); if (n.has(p.id)) n.delete(p.id); else n.add(p.id); return n; })} />
+                      <span><span className="font-medium">{p.title}</span>{p.dose && ` · ${p.dose}`}<span className="block text-sm text-muted">{L.close}</span></span>
+                    </label></li>
+                  ))}
                 </ul>
               </div>
-            );
-          })}
-          {gone.length > 0 && ( /* D115: never closed silently — another doctor's paper does not cancel them */
-            <div>
-              <h3 className="text-sm font-semibold text-muted">{L.gone}</h3>
-              <p className="text-xs text-muted">{L.goneHint}</p>
-              <ul className="divide-y divide-line">
-                {gone.map((p) => (
-                  <li key={p.id}><label className="flex min-h-tap items-start gap-3 py-2">
-                    <input type="checkbox" checked={close.has(p.id)} aria-label={L.closeAria(p.title)} className="mt-0.5 h-5 w-5 shrink-0 accent-[rgb(var(--accent))]"
-                      onChange={() => setClose((x) => { const n = new Set(x); if (n.has(p.id)) n.delete(p.id); else n.add(p.id); return n; })} />
-                    <span><span className="font-medium">{p.title}</span>{p.dose && ` · ${p.dose}`}<span className="block text-sm text-muted">{L.close}</span></span>
-                  </label></li>
-                ))}
-              </ul>
-            </div>
-          )}
+            )}
+          </fieldset>
           {undecided > 0 && <p role="status" className="text-sm text-warn">{L.undecided(undecided)}</p>}
-          <div className="flex flex-wrap gap-2">
-            <button type="button" disabled={(!on.size && !close.size) || undecided > 0} onClick={() => void save()}
-              className="min-h-tap rounded-xl bg-accent px-3 font-medium text-surface disabled:opacity-40">{onboarding ? L.start(on.size) : L.save(on.size + close.size)}</button>
-            <button type="button" onClick={() => { setState('none'); setLines([]); setCuts({}); }} className="min-h-tap rounded-xl border border-line px-3">{t.meal.cancel}</button>
+          <div data-testid="plan-review-actions" className="sticky bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-10 rounded-2xl border border-line bg-surface p-3 shadow-lg md:bottom-4">
+            <p aria-live="polite" aria-atomic="true" className="mb-2 text-sm text-muted">{L.selected(on.size, close.size)}</p>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" disabled={saving || (!on.size && !close.size) || undecided > 0} onClick={() => void save()}
+                className="protocol-action flex-1 disabled:opacity-40">{saving ? L.saving : onboarding ? L.start(on.size) : L.save(on.size + close.size)}</button>
+              <button type="button" disabled={saving} onClick={() => { setState('none'); setLines([]); setCuts({}); }} className="protocol-action-secondary disabled:opacity-40">{t.meal.cancel}</button>
+            </div>
           </div>
         </section>
       )}
