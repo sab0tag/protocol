@@ -24,6 +24,7 @@ interface Props {
   /** D82: the quick tiles are on screen — the medicine is marked in «Ритм дня» right below, and its button would cover a
    *  tile; water stays, it has no other button up there */
   hideMed?: boolean;
+  hideWater?: boolean;
 }
 
 /** D82: whether an element is on screen now (for the dock — hidden while the quick tiles are in view). */
@@ -41,7 +42,7 @@ export function useOnScreen<T extends Element>(): [(el: T | null) => void, boole
 
 let seq = 0;
 
-export function QuickDock({ med, meds, water, onMed, onWater, hideMed }: Props) {
+export function QuickDock({ med, meds, water, onMed, onWater, hideMed, hideWater }: Props) {
   const [note, setNote] = useState<Note | null>(null);
   useEffect(() => {
     if (!note) return;
@@ -67,6 +68,7 @@ export function QuickDock({ med, meds, water, onMed, onWater, hideMed }: Props) 
     </div>
   );
 
+  if (hideWater && (hideMed || !meds.total)) return null;
   return (
     <div role="group" aria-label={L.label}
       className="fixed bottom-[calc(8.75rem+env(safe-area-inset-bottom))] right-4 z-20 flex flex-col gap-3 print:hidden md:bottom-8 md:right-8">
@@ -82,12 +84,12 @@ export function QuickDock({ med, meds, water, onMed, onWater, hideMed }: Props) 
           </Round>
         </div>
       )}
-      <div className="relative">
+      {!hideWater && <div className="relative">
         {bubble('water')}
         <Round progress={water.target ? water.ml / water.target : 0} tone="water" onClick={() => void run('water', onWater, '')} label={L.water(water.ml, water.target)}>
           <Droplet size={22} className="text-water" aria-hidden />
         </Round>
-      </div>
+      </div>}
     </div>
   );
 }

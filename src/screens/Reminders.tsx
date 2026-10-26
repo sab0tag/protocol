@@ -10,6 +10,8 @@ import { ApiError } from '../sync/api';
 import { disablePush, enablePush, needsHomeScreen, pushSchedule, pushSupported, sendTest } from '../sync/push';
 import { currentKeys } from '../sync/runner';
 import { NeedsSync } from '../components/NeedsSync';
+import { useFeatures } from '../app/features';
+import { Link } from 'react-router-dom';
 
 const L = t.remind;
 const select = 'mt-1 block min-h-tap w-full rounded-xl border border-line bg-bg px-3';
@@ -20,6 +22,7 @@ const errorText = (e: unknown) => {
 
 /** «Нагадування» (SPEC.md D34): Web Push for planned meals, medicine times and water, with repeats. */
 export function Reminders() {
+  const { can, enabled } = useFeatures();
   const meta = useLiveQuery(async () => (await db.meta.get('sync')) ?? null, []);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
@@ -42,6 +45,7 @@ export function Reminders() {
   return (
     <section className="space-y-4 pt-6">
       <h1 className="text-2xl font-semibold">{L.title}</h1>
+      {enabled && <Link to="/modules" className="inline-flex min-h-tap items-center text-accent underline">{t.modules.title}</Link>}
       <div className="space-y-3 rounded-2xl border border-line bg-surface p-3">
         <p>{L.text}</p>
         <p className="text-sm text-muted">{L.privacy}</p>
@@ -72,28 +76,29 @@ export function Reminders() {
 
       {meta && keys && pushSupported() && (
         <div className="space-y-2 rounded-2xl border border-line bg-surface p-3">
-          {([['meals', L.meals], ['meds', L.meds], ['visits', L.visits], ['weekly', L.weekly]] as const).map(([k, label]) => (
+          {([['meals', L.meals], ['meds', L.meds], ['visits', L.visits], ['weekly', L.weekly]] as const)
+            .filter(([k]) => k === 'visits' || can(k === 'meals' ? 'food.log' : k === 'meds' ? 'meds.reminders' : 'progress.week')).map(([k, label]) => (
             <label key={k} className="flex min-h-tap items-center gap-3">
               <input type="checkbox" checked={!!s[k]} onChange={(e) => void change({ [k]: e.target.checked })} className="h-5 w-5 accent-[rgb(var(--accent))]" />
               <span>{label}</span>
             </label>
           ))}
-          <label className="block"><span className="text-sm text-muted">{L.morning}</span>
+          {(can('meds.reminders') || can('food.log')) && <label className="block"><span className="text-sm text-muted">{L.morning}</span>
             <select value={s.morning} onChange={(e) => void change({ morning: e.target.value })} className={select}>
               <option value="">{L.timeOff}</option>
               {['06:30', '07:00', '07:30', '08:00', '08:30', '09:00'].map((x) => <option key={x} value={x}>{x}</option>)}
-            </select></label>
-          <label className="block"><span className="text-sm text-muted">{L.evening}</span>
+            </select></label>}
+          {can('menu.evening') && can('food.log') && <label className="block"><span className="text-sm text-muted">{L.evening}</span>
             <select value={s.evening} onChange={(e) => void change({ evening: e.target.value })} className={select}>
               <option value="">{L.timeOff}</option>
               {['19:00', '19:30', '20:00', '20:30', '21:00', '21:30'].map((x) => <option key={x} value={x}>{x}</option>)}
-            </select></label>
-          <label className="block"><span className="text-sm text-muted">{L.weight}</span>
+            </select></label>}
+          {can('wellbeing.weight') && <label className="block"><span className="text-sm text-muted">{L.weight}</span>
             <select value={s.weightDay ?? 0} onChange={(e) => void change({ weightDay: Number(e.target.value) })} className={select}>
               <option value={0}>{L.weightOff}</option>
               {[1, 2, 3, 4, 5, 6, 7].map((d) => <option key={d} value={d}>{L.weekdays[d]}</option>)}
-            </select></label>
-          <label className="block"><span className="text-sm text-muted">{L.water}</span>
+            </select></label>}
+          {can('water.reminders') && <label className="block"><span className="text-sm text-muted">{L.water}</span>
             <select value={s.waterEveryH} onChange={(e) => void change({ waterEveryH: Number(e.target.value) as ReminderSettings['waterEveryH'] })} className={select}>
               <option value={0}>{L.waterOff}</option><option value={2}>{L.waterEvery(2)}</option><option value={3}>{L.waterEvery(3)}</option>
             </select>
@@ -102,15 +107,15 @@ export function Reminders() {
                 <input type="checkbox" checked={s.waterIfBehind !== false} onChange={(e) => void change({ waterIfBehind: e.target.checked })}
                   className="h-5 w-5 accent-[rgb(var(--accent))]" aria-label={L.waterIfBehind} />
                 <span>{L.waterIfBehind}</span></span>
-            )}</label>
-          <label className="flex min-h-tap items-center gap-3 text-sm"> {/* D116 */}
+            )}</label>}
+          {can('menu.topup') && can('food.log') && can('assistant.chat') && <label className="flex min-h-tap items-center gap-3 text-sm"> {/* D116 */}
             <input type="checkbox" checked={s.topup !== false} onChange={(e) => void change({ topup: e.target.checked })} className="h-5 w-5 accent-[rgb(var(--accent))]" />
-            <span>{L.topup}</span></label>
-          <label className="block"><span className="text-sm text-muted">{L.repeat}</span>
+            <span>{L.topup}</span></label>}
+          {(can('meds.reminders') || can('food.log')) && <label className="block"><span className="text-sm text-muted">{L.repeat}</span>
             <select value={s.repeatMin} onChange={(e) => void change({ repeatMin: Number(e.target.value) as ReminderSettings['repeatMin'] })} className={select}>
               <option value={0}>{L.repeatOff}</option>
               {[10, 15, 30].map((m) => <option key={m} value={m}>{L.repeatEvery(m)}</option>)}
-            </select></label>
+            </select></label>}
         </div>
       )}
     </section>

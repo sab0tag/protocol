@@ -15,7 +15,7 @@ test('food/water observation periods are shared by the doctor report and week, b
         since: '2026-10-01', schedule: { times: ['08:00', '20:00'] } }], constraints: [], modes: [], onboardedAt: '2026-10-01',
         targets: { proteinG: 100, carbsG: { max: 150 }, waterMl: 2000 } } },
       ...modules.map((module) => ({ store: 'moduleEvents', value: { id: `test-init-${module}`, v: 1, at: at('2026-10-01'), kind: 'module', module,
-        enabled: module === 'meds', source: 'onboarding' } })),
+        enabled: module === 'meds' || module === 'progress', source: 'onboarding' } })),
       { store: 'moduleEvents', value: { id: 'test-food-on', v: 1, at: at('2026-10-23'), kind: 'module', module: 'food', enabled: true, source: 'manual' } },
       { store: 'moduleEvents', value: { id: 'test-water-on', v: 1, at: at('2026-10-24'), kind: 'module', module: 'water', enabled: true, source: 'manual' } },
       ...['2026-10-21', '2026-10-22', '2026-10-23', '2026-10-24'].flatMap((date) => [

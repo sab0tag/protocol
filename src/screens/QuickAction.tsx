@@ -12,8 +12,22 @@ import { NOW_AFTER_MIN } from '../domain/reminders';
 import type { DayEntry } from '../domain/types';
 import { t } from '../i18n/uk';
 import { useUi } from '../store/ui';
+import { useFeatures } from '../app/features';
+import { QUICK_ACTION_FEATURES } from '../app/navigation';
+import { FeatureUnavailable } from '../components/FeatureUnavailable';
+import { can } from '../domain/features';
+import { modulePreferences } from '../domain/modulePreferences';
+import { MODULE_POLICY_ENABLED } from '../domain/rollout';
 
 export function QuickAction() {
+  const { action } = useParams();
+  const { can } = useFeatures();
+  const location = useLocation();
+  const feature = action && Object.hasOwn(QUICK_ACTION_FEATURES, action) ? QUICK_ACTION_FEATURES[action as keyof typeof QUICK_ACTION_FEATURES] : undefined;
+  return feature && !can(feature) ? <FeatureUnavailable feature={feature} /> : <ActiveQuickAction key={`${action}:${location.key}`} />;
+}
+
+function ActiveQuickAction() {
   const { action } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
@@ -28,6 +42,9 @@ export function QuickAction() {
 }
 
 async function run(action: string, ml: number): Promise<string> {
+  const events = MODULE_POLICY_ENABLED ? await db.moduleEvents.toArray() : [];
+  const feature = Object.hasOwn(QUICK_ACTION_FEATURES, action) ? QUICK_ACTION_FEATURES[action as keyof typeof QUICK_ACTION_FEATURES] : undefined;
+  if (MODULE_POLICY_ENABLED && feature && !can(feature, { ...modulePreferences(events), tier: 'free' })) return '/modules';
   const date = todayISO(), now = format(new Date(), 'HH:mm');
   useUi.getState().setDate(date);
   if (action === 'water') {
@@ -38,7 +55,8 @@ async function run(action: string, ml: number): Promise<string> {
   if (action === 'med') {
     const [plan, entries, workouts, foods] = await Promise.all([db.plan.get('main'), db.entries.where('at').startsWith(date).toArray(),
       db.workouts.toArray(), db.foods.toArray()]);
-    const c = buildChecklist({ plan, date, entries, workouts, foods: new Map(foods.map((f) => [f.id, f])), now: new Date() });
+    const c = buildChecklist({ plan, date, entries, workouts, foods: new Map(foods.map((f) => [f.id, f])), now: new Date(),
+      ...(MODULE_POLICY_ENABLED ? { observation: { events, now: new Date() } } : {}) });
     const next = c.items.find((i) => i.kind === 'med' && !i.done && !i.skipped);
     if (!next) { toast(t.quick.noMed); return '/'; }
     if (next.time && differenceInMinutes(new Date(), new Date(`${date}T${next.time}:00`)) > NOW_AFTER_MIN) { toast(t.quick.medLate(next.title)); return '/'; }

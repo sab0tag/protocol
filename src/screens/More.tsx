@@ -1,10 +1,11 @@
-import { Eye, Info, Activity, BellRing, ChevronRight, Dumbbell, FileText, RefreshCw, Salad, ShoppingCart, Sparkles, UserRound, CalendarRange, MessageSquareWarning, Zap, MessageCircle, HandHeart, type LucideIcon } from 'lucide-react';
+import { Eye, Info, Activity, BellRing, ChevronRight, Dumbbell, FileText, RefreshCw, Salad, ShoppingCart, Sparkles, UserRound, CalendarRange, MessageSquareWarning, Zap, MessageCircle, HandHeart, Settings2, Scale, type LucideIcon } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Backup } from '../components/Backup';
 import { enterDemo, inDemo } from '../data/db';
 import { t } from '../i18n/uk';
 import { MORE_GROUPS, ROUTES, type MoreRouteId } from '../app/navigation';
+import { useFeatures } from '../app/features';
 
 // D78: four short groups instead of one list of 14; «Мій день» lives on «День», the exercise library inside «Тренування»
 const LINKS = {
@@ -24,25 +25,30 @@ const LINKS = {
   onboarding: { Icon: UserRound, title: t.welcome.again },
   conciergeLog: { Icon: Sparkles, title: t.conciergeLog.link },
   about: { Icon: Info, title: t.about.link },
+  modules: { Icon: Settings2, title: t.modules.title },
+  weight: { Icon: Scale, title: t.progress.weight },
 } satisfies Record<MoreRouteId, { Icon: LucideIcon; title: string }>;
 
 export function More() {
+  const { can, enabled } = useFeatures();
+  const extra = ['quickLinks', 'onboarding', 'about'] as const;
+  const groups = MORE_GROUPS.map((g) => ({ ...g, routes: g.routes.filter((id) => can(ROUTES[id].feature)
+    && (enabled || (id !== 'modules' && id !== 'weight')) && (!enabled || !extra.some((x) => x === id))) })).filter((g) => g.routes.length);
+  const row = (id: MoreRouteId) => { const { Icon, title } = LINKS[id]; return <li key={id}><Link to={ROUTES[id].path} className="flex min-h-tap items-center gap-3 px-3 py-2">
+    <Icon size={20} className="text-accent" aria-hidden /><span className="flex-1 font-medium">{title}</span><ChevronRight size={18} className="text-muted" aria-hidden /></Link></li>; };
   return (
     <section className="pt-6">
       <h1 className="mb-3 text-2xl font-semibold">{t.nav.more}</h1>
-      {MORE_GROUPS.map((g) => (
+      {groups.map((g) => (
         <section key={g.titleKey} aria-label={t.more[g.titleKey]} className="mb-4">
           <h2 className="mb-1 px-1 text-sm font-medium text-muted">{t.more[g.titleKey]}</h2>
           <ul className="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface">
-            {g.routes.map((id) => { const { Icon, title } = LINKS[id]; return (
-              <li key={id}><Link to={ROUTES[id].path} className="flex min-h-tap items-center gap-3 px-3 py-2">
-                <Icon size={20} className="text-accent" aria-hidden /><span className="flex-1 font-medium">{title}</span>
-                <ChevronRight size={18} className="text-muted" aria-hidden /></Link></li>
-            ); })}
+            {g.routes.map(row)}
           </ul>
         </section>
       ))}
-      {!inDemo() && <ExampleEntry />}
+      {enabled ? <details className="mb-4 rounded-2xl border border-line bg-surface p-3"><summary className="min-h-tap cursor-pointer py-2 font-medium">{t.modules.extra}</summary>
+        <ul className="divide-y divide-line">{extra.map(row)}</ul>{!inDemo() && <ExampleEntry />}</details> : !inDemo() && <ExampleEntry />}
       <Backup />
       <p className="mt-4 text-sm text-muted">{t.plan.disclaimer}</p>
     </section>

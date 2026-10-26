@@ -1,3 +1,4 @@
+import { useFeatures } from '../app/features';
 // D92: «Білка 85 з 140 г. Добрати до вечора?» and «Вуглеводів 170 з 190 г — на вечерю краще без гарніру» on «День» — the
 // numbers from the code, at most once a day for each target, with «Не сьогодні». A tap puts the choice in the evening's
 // plan as a planned snack (to tick when eaten), never into what was eaten.
@@ -18,6 +19,7 @@ const L = t.topup;
 const DAY = 86_400_000;
 
 export function TopupCard({ date, targets, tops, near }: { date: string; targets: Targets; tops: Topup[]; near: NearLimit | null }) {
+  const { can } = useFeatures();
   const [, redraw] = useState(0);
   const done = (key: string) => kept<string>(`topup:${date}:${key}`, DAY) !== undefined;
   const answer = (key: string, what: string) => { keep(`topup:${date}:${key}`, what); redraw((n) => n + 1); };
@@ -51,7 +53,7 @@ export function TopupCard({ date, targets, tops, near }: { date: string; targets
           <button type="button" onClick={() => answer(x.goal, 'snoozed')} className="min-h-tap px-1 text-sm text-muted underline">{L.notToday}</button>
         </div>
       ))}
-      {showTops.length > 0 && <Link to="/assistant" className="block min-h-tap text-sm text-accent underline">{L.other}</Link> /* D117 */}
+      {showTops.length > 0 && can('assistant.chat') && <Link to="/assistant" className="block min-h-tap text-sm text-accent underline">{L.other}</Link> /* D117 */}
       {showNear && (
         <div>
           <p className="font-medium">{L.near(showNear.have, showNear.max)}</p>

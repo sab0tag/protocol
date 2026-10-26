@@ -171,6 +171,7 @@ self.addEventListener('push', (event) => {
     if (access === false && d.k !== 'test' && d.k !== 'visit') return;
     let body = d.b || '';
     let url = d.u || './';
+    if (access && d.k === 'weight') url = './#/weight';
     try {
       const x = await detail(d, access || undefined);
       if (x === false) return;

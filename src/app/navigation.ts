@@ -17,6 +17,8 @@ export const ROUTES = {
   plan:         { path: '/plan',           feature: 'plan' },
   onboarding:   { path: '/welcome',        feature: 'onboarding' },
   progress:     { path: '/progress',       feature: 'progress' },
+  weight:       { path: '/weight',         feature: 'wellbeing.weight' },
+  modules:      { path: '/modules',        feature: 'modules.settings' },
   report:       { path: '/report',         feature: 'report' },
   dishes:       { path: '/dishes',         feature: 'dishes.list' },
   more:         { path: '/more',           feature: 'more' },
@@ -38,8 +40,8 @@ export type TabRouteId = (typeof TAB_ROUTES)[number];
 
 export const MORE_GROUPS = [
   { titleKey: 'food', routes: ['assistant', 'menu', 'shopping', 'dishes'] },
-  { titleKey: 'health', routes: ['wellbeing', 'workout', 'week', 'report'] },
-  { titleKey: 'settings', routes: ['reminders', 'sync', 'quickLinks'] },
+  { titleKey: 'health', routes: ['wellbeing', 'weight', 'workout', 'week', 'report'] },
+  { titleKey: 'settings', routes: ['modules', 'reminders', 'sync', 'quickLinks'] },
   { titleKey: 'app', routes: ['frictions', 'pilot', 'onboarding', 'conciergeLog', 'about'] },
 ] as const satisfies readonly { readonly titleKey: string; readonly routes: readonly StaticRouteId[] }[];
 export type MoreRouteId = (typeof MORE_GROUPS)[number]['routes'][number];

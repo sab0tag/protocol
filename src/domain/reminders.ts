@@ -110,7 +110,7 @@ export function reminders(args: { entries: DayEntry[]; plan: Plan | undefined; s
     }
     if (settings.weightDay && wd === settings.weightDay) {
       push({ key: `weight:${d}`, at: at(d, settings.morning || '08:00') + 5 * 60_000, once: true,
-        payload: { t: 'Зважування', b: 'Зранку, до сніданку — і запишіть у «Прогрес»', k: 'weight', u: './#/progress', tag: `weight:${d}`, d } });
+        payload: { t: 'Зважування', b: args.policy ? 'Зранку, до сніданку — відкрийте, щоб записати' : 'Зранку, до сніданку — і запишіть у «Прогрес»', k: 'weight', u: args.policy ? './#/weight' : './#/progress', tag: `weight:${d}`, d } });
     }
     if (settings.evening) {
       const next = format(addDays(new Date(`${d}T12:00:00`), 1), 'yyyy-MM-dd');

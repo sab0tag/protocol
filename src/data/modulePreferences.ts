@@ -47,6 +47,15 @@ export async function setWeightEnabled(target: ProtocolDB, enabled: boolean,
     await appendModuleEvents(target, [{ id: newId(), v: 1, at, kind: 'weight', enabled, source }]);
   });
 }
+
+/** A single manual action, atomically across modules and the independent weight override. */
+export async function enableAllModules(target: ProtocolDB, at = new Date().toISOString()): Promise<void> {
+  await target.transaction('rw', target.moduleEvents, async () => {
+    const events = await target.moduleEvents.toArray();
+    for (const module of MODULE_IDS) if (moduleChoiceAt(events, module)?.enabled === false) await setModuleEnabled(target, module, true, 'manual', at);
+    if (weightChoiceAt(events)?.enabled === false) await setWeightEnabled(target, true, 'manual', at);
+  });
+}
 /** Only the presence of an old draft/talk is used. Its words never enter the preference history. */
 export function legacyModuleUsage(demo = false, storage?: Storage): Partial<Record<ModuleId, boolean>> {
   const used: Partial<Record<ModuleId, boolean>> = {};

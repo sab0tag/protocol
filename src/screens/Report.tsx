@@ -12,6 +12,9 @@ import { buildReport, habitLabel, prnLimitText, reportText, trackingLines, unsco
 import { useObservation } from '../app/observation';
 import { count } from '../data/tally';
 import { t } from '../i18n/uk';
+import { useFeatures } from '../app/features';
+import { visibleReport } from '../domain/visibility';
+import { TextSafety } from '../components/TextSafety';
 
 const L = t.report;
 const field = 'mt-1 block min-h-tap w-full rounded-xl border border-line bg-bg px-3';
@@ -20,6 +23,7 @@ const dmy = (d: string) => format(parseISO(d), 'd MMMM yyyy', { locale: uk });
 
 /** «Звіт для лікаря» (SPEC.md §5.8): from the last visit to today by default; prints on one page. */
 export function Report() {
+  const { can, context, enabled } = useFeatures();
   const { observation, ready: observationReady } = useObservation();
   const plan = usePlan();
   const entries = useAllEntries();
@@ -36,7 +40,8 @@ export function Report() {
 
   const first = [entries[0] && dateOf(entries[0].at), weights[0]?.date].filter(Boolean).sort()[0];
   const from = range.from ?? plan.lastVisit ?? first ?? format(addDays(new Date(), -13), 'yyyy-MM-dd');
-  const r = buildReport({ from, to: range.to, plan, entries, workouts, wellbeing, weights, foods, labs, observation });
+  const raw = buildReport({ from, to: range.to, plan, entries, workouts, wellbeing: can('wellbeing.log') ? wellbeing : [], weights, foods, labs, observation });
+  const r = enabled ? visibleReport(raw, context) : raw;
   const questions = plan.questions ?? [];
   const setQuestions = (q: string[], say: string = t.toast.saved) => saved(db.plan.update('main', { questions: q }), say);
 
@@ -154,6 +159,7 @@ export function Report() {
             <input value={question} onChange={(e) => setQuestion(e.target.value)} placeholder={L.questionPh} className="block min-h-tap w-full rounded-xl border border-line bg-bg px-3" /></label>
           <button type="submit" className="flex min-h-tap items-center gap-1 rounded-xl border border-accent px-3 text-accent"><Plus size={18} />{t.well.add}</button>
         </form>
+        <TextSafety text={question} />
       </section>
 
       <div className="flex flex-wrap gap-2 print:hidden">

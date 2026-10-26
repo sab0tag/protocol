@@ -1,3 +1,4 @@
+import { useFeatures } from '../app/features';
 // «Мені погано» (SPEC.md D56): what is felt, since when, how strongly — and right below, what was eaten in the
 // hours before, so the person sees it side by side. A danger sign shows «телефонуйте 103» at once, before anything
 // is saved. The app records and shows; it never says what caused it.
@@ -15,12 +16,14 @@ import { AllergenNote } from './AllergenPicker';
 import { t } from '../i18n/uk';
 import { Sheet } from './Sheet';
 import { saved } from './Toast';
+import { TextSafety } from './TextSafety';
 
 const L = t.symptom;
 const chip = (on: boolean, danger = false) =>
   `min-h-tap rounded-full border px-3 text-sm ${on ? (danger ? 'border-warn bg-warn-bg font-medium text-warn' : 'border-accent bg-accent/10 font-medium text-accent') : 'border-line'}`;
 
 export function SymptomSheet({ date, entry, all, foods, onClose }: { date: string; entry?: DayEntry; all: DayEntry[]; foods?: Map<string, Food>; onClose: () => void }) {
+  const { can } = useFeatures();
   const [picked, setPicked] = useState<string[]>(entry?.symptoms ?? []);
   const [own, setOwn] = useState('');
   const [time, setTime] = useState(entry ? timeOf(entry.at) : date === todayISO() ? format(new Date(), 'HH:mm') : '');
@@ -55,7 +58,7 @@ export function SymptomSheet({ date, entry, all, foods, onClose }: { date: strin
       <div className="flex flex-wrap gap-2" role="group" aria-label={L.danger}>
         {DANGER.map((s) => <button key={s} type="button" aria-pressed={picked.includes(s)} onClick={() => toggle(s)} className={chip(picked.includes(s), true)}>{s}</button>)}
       </div>
-      {danger && <DangerCard />}
+      {danger ? <DangerCard /> : <TextSafety text={[own, ...picked].join(' ')} />}
 
       <div className="mt-3 grid grid-cols-[8rem_1fr] items-end gap-3">
         <label className="block"><span className="text-sm text-muted">{L.when}</span>
@@ -67,7 +70,7 @@ export function SymptomSheet({ date, entry, all, foods, onClose }: { date: strin
           </div></fieldset>
       </div>
 
-      <section aria-label={L.before(BEFORE_HOURS)} className="mt-4">
+      {can('food.log') && <section aria-label={L.before(BEFORE_HOURS)} className="mt-4">
         <p className="mb-1 text-sm font-medium">{L.before(BEFORE_HOURS)}</p>
         {before.length === 0 ? <p className="text-sm text-muted">{L.nothingBefore}</p> : (
           <ul className="space-y-1 text-sm">
@@ -79,7 +82,7 @@ export function SymptomSheet({ date, entry, all, foods, onClose }: { date: strin
           </ul>
         )}
         {before.length > 0 && foods && <p className="mt-1 text-xs text-muted">{t.allergen.typical}</p>}
-      </section>
+      </section>}
 
       <button type="button" onClick={save} disabled={!picked.length || !at}
         className="mt-4 min-h-tap w-full rounded-xl bg-accent px-4 font-medium text-surface disabled:opacity-40">{picked.length ? L.save : L.pickSome}</button>

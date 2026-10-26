@@ -15,10 +15,13 @@ import { t } from '../i18n/uk';
 import { HabitsCard, WeekCard } from './Progress';
 import { useObservation } from '../app/observation';
 import { scoredDay } from '../domain/observation';
+import { useFeatures } from '../app/features';
+import { habitVisible, visibleWeek } from '../domain/visibility';
 
 const L = t.week;
 
 export function Week() {
+  const { can, context } = useFeatures();
   const { observation, ready: observationReady } = useObservation();
   const plan = usePlan();
   const entries = useAllEntries();
@@ -27,12 +30,13 @@ export function Week() {
   const [goal, setGoal] = useState<string | null>(null);
   if (!entries || !workouts || !foods || !observationReady) return <Loading />;
   const today = todayISO();
-  const summary = weekSummary({ plan, entries, workouts, foods, today, observation });
-  const list = habits({ plan, entries, workouts, foods, today, observation });
+  const summary = visibleWeek(weekSummary({ plan, entries, workouts, foods, today, observation }), context);
+  const list = habits({ plan, entries, workouts, foods, today, observation }).filter((h) => habitVisible(h.key, context));
   const good = list.filter((h) => h.days7 > 0 && h.last7 >= Math.max(1, Math.ceil(h.days7 * 0.7)));
   const weakest = [...list].filter((h) => h.days7 > 0).sort((a, b) => a.last7 / a.days7 - b.last7 / b.days7)[0];
-  const m = motivation(workouts.filter((w) => scoredDay(observation, 'workout', w.date)), today);
-  const suggestions = [...new Set([...(weakest ? [L.goals[weakest.key as HabitKey]] : []), L.goalWorkouts, ...Object.values(L.goals)])].slice(0, 4);
+  const m = motivation(workouts.filter((w) => can('workout.log') && scoredDay(observation, 'workout', w.date)), today);
+  const suggestions = [...new Set([...(weakest ? [L.goals[weakest.key as HabitKey]] : []), ...(can('workout.log') ? [L.goalWorkouts] : []),
+    ...Object.entries(L.goals).filter(([key]) => habitVisible(key as HabitKey, context)).map(([, value]) => value)])].slice(0, 4);
   const current = plan?.weekGoal;
   const saveGoal = async (text: string) => {
     if (!plan) return;

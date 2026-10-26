@@ -2,11 +2,14 @@
 import { Check, Copy } from 'lucide-react';
 import { useState } from 'react';
 import { t } from '../i18n/uk';
+import { useFeatures } from '../app/features';
+import { QUICK_ACTION_FEATURES } from '../app/navigation';
 
 const L = t.quick;
 const ACTIONS = [['voice', t.voice.open], ['water', L.water], ['water?ml=500', L.water500], ['med', L.med], ['symptom', L.symptom], ['meal', L.meal]] as const;
 
 export function QuickLinks() {
+  const { can } = useFeatures();
   const base = `${location.origin}${location.pathname}#/do/`;
   const [copied, setCopied] = useState('');
   const copy = async (url: string) => { try { await navigator.clipboard.writeText(url); setCopied(url); } catch { setCopied(''); } };
@@ -15,7 +18,7 @@ export function QuickLinks() {
       <h1 className="text-2xl font-semibold">{L.title}</h1>
       <p className="text-sm text-muted">{L.hint}</p>
       <ul className="divide-y divide-line rounded-2xl border border-line bg-surface">
-        {ACTIONS.map(([a, label]) => {
+        {ACTIONS.filter(([a]) => can(QUICK_ACTION_FEATURES[a.split('?')[0] as keyof typeof QUICK_ACTION_FEATURES])).map(([a, label]) => {
           const url = base + a;
           return (
             <li key={a} className="flex items-center gap-2 px-3 py-2">

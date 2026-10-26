@@ -1,3 +1,5 @@
+import { useFeatures } from '../app/features';
+import { visibleChecklist } from '../domain/visibility';
 import { format, parseISO } from 'date-fns';
 import { Loading } from '../components/Recovery';
 import { saved } from '../components/Toast';
@@ -16,6 +18,7 @@ const M = t.myday;
 
 /** «Мій день» (SPEC.md §5.4): one tap per item, the time of the tick is kept. */
 export function MyDay() {
+  const { can, context } = useFeatures();
   const { date, shift } = useUi();
   const { observation, ready: observationReady } = useObservation();
   const plan = usePlan();
@@ -26,7 +29,7 @@ export function MyDay() {
   if (!entries || !foods || !workouts || !observationReady) return <Loading />;
 
   const isToday = date === todayISO();
-  const c = buildChecklist({ plan, date, entries, workouts, foods, now: new Date(), observation });
+  const c = visibleChecklist(buildChecklist({ plan, date, entries, workouts, foods, now: new Date(), observation }), context);
   const stamp = (scheduled?: string) => atLocal(date, isToday ? format(new Date(), 'HH:mm') : scheduled ?? '12:00');
 
   const toggle = async (item: CheckItem) => {
@@ -94,9 +97,9 @@ export function MyDay() {
       {c.workoutNote && (
         <p className="mt-3 flex items-start gap-2 rounded-2xl border border-line bg-surface p-3 text-sm"><Info size={18} className="mt-0.5 shrink-0 text-muted" />{c.workoutNote}</p>
       )}
-      <button type="button" onClick={() => navigate('/wellbeing')}
+      {can('wellbeing.log') && <button type="button" onClick={() => navigate('/wellbeing')}
         className="mt-3 flex min-h-tap w-full items-center gap-3 rounded-2xl border border-line bg-surface px-3 font-medium">
-        <Activity size={20} className="text-accent" />{M.wellbeing}</button>
+        <Activity size={20} className="text-accent" />{M.wellbeing}</button>}
     </section>
   );
 }

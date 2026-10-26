@@ -30,6 +30,11 @@ import { Frictions } from '../screens/Frictions';
 import { Week } from '../screens/Week';
 import { Pilot } from '../screens/Pilot';
 import { ROUTES, type RouteId } from './navigation';
+import { FeaturesProvider, useFeatures } from './features';
+import { FeatureUnavailable } from '../components/FeatureUnavailable';
+import { Modules } from '../screens/Modules';
+import { Weight } from '../screens/Weight';
+import type { FeatureId } from '../domain/features';
 
 /** A fresh form for every meal: /meal/new after editing /meal/:id must not keep the old state. */
 function MealRoute() {
@@ -44,8 +49,13 @@ const SCREENS = {
   quickLinks: <QuickLinks />, frictions: <Frictions />, pilot: <Pilot />, week: <Week />, plan: <Plan />,
   onboarding: <Onboarding />, progress: <Progress />, report: <Report />, dishes: <Dishes />, more: <More />,
   about: <About />, conciergeLog: <ConciergeLog />, assistant: <Assistant />, sync: <Sync />, menu: <Menu />,
-  reminders: <Reminders />, shopping: <Shopping />, fallback: <Day />,
+  reminders: <Reminders />, shopping: <Shopping />, modules: <Modules />, weight: <Weight />, fallback: <Day />,
 } satisfies Record<RouteId, ReactNode>;
+
+function FeatureGate({ feature, children }: { feature: FeatureId; children: ReactNode }) {
+  const { can } = useFeatures();
+  return can(feature) ? <>{children}</> : <FeatureUnavailable feature={feature} />;
+}
 
 /** Onboarding opens until it is finished or skipped (SPEC.md §5.9, D17). */
 function OnboardingGate({ children }: { children: ReactNode }) {
@@ -71,18 +81,20 @@ function UpdateBar() {
 export function App() {
   return (
     <HashRouter>
+      <FeaturesProvider>
       <UpdateBar />
       <Layout>
         <OnboardingGate>
           <ScreenBoundary>
           <Routes>
             {(Object.keys(ROUTES) as RouteId[]).map((id) => (
-              <Route key={id} path={ROUTES[id].path} element={SCREENS[id]} />
+              <Route key={id} path={ROUTES[id].path} element={<FeatureGate feature={ROUTES[id].feature}>{SCREENS[id]}</FeatureGate>} />
             ))}
           </Routes>
           </ScreenBoundary>
         </OnboardingGate>
       </Layout>
+      </FeaturesProvider>
     </HashRouter>
   );
 }

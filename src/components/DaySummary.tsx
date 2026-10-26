@@ -1,3 +1,4 @@
+import { useFeatures } from '../app/features';
 // «Уже сьогодні» (SPEC.md §14.1, D53): two or three main numbers chosen by the person (R5: water, medicines, carbs),
 // each with its target or limit from the plan, units and progress; the rest behind «Усі показники». A ring is
 // something to reach; a bar with «межа» is a limit — «межу не потрібно заповнювати». No overall score of the day.
@@ -53,6 +54,7 @@ function metric(key: MetricKey, totals: DayTotals, targets: Targets, meds: { don
 
 export function DaySummary({ totals, targets, meds, streak, food, onComplete, allowed }: { totals: DayTotals; targets: Targets; meds: { done: number; total: number }; streak?: string;
   food?: FoodState; onComplete?: (on: boolean) => void; allowed?: readonly MetricKey[] }) {
+  const { can } = useFeatures();
   const [main, setMain] = useState<MetricKey[]>(loadMain);
   const [all, setAll] = useState(false);
   const [setup, setSetup] = useState(false);
@@ -102,8 +104,8 @@ export function DaySummary({ totals, targets, meds, streak, food, onComplete, al
         </div>
       )}
       {streak && <p className="mt-1 text-sm text-accent">{streak}</p>}
-      <Link to="/assistant" className="mt-1 inline-flex min-h-tap items-center gap-2 text-sm text-accent underline"> {/* D117 */}
-        <MessageCircle size={16} aria-hidden />{t.assistant.link}</Link>
+      {can('assistant.chat') && <Link to="/assistant" className="mt-1 inline-flex min-h-tap items-center gap-2 text-sm text-accent underline"> {/* D117 */}
+        <MessageCircle size={16} aria-hidden />{t.assistant.link}</Link>}
     </section>
   );
 }

@@ -10,9 +10,9 @@ import { t } from '../i18n/uk';
 
 const L = t.day;
 
-export function DayRhythm({ rhythm, foods, onEntry, onDose, onAnytime, onAdd }: {
+export function DayRhythm({ rhythm, foods, onEntry, onDose, onAnytime, onAdd, addLabel = L.addOther }: {
   rhythm: Rhythm; foods?: Map<string, Food>;
-  onEntry: (e: DayEntry) => void; onDose: (i: CheckItem) => void; onAnytime: (i: CheckItem) => void; onAdd: () => void;
+  onEntry: (e: DayEntry) => void; onDose: (i: CheckItem) => void; onAnytime: (i: CheckItem) => void; onAdd: () => void; addLabel?: string;
 }) {
   return (
     <section aria-labelledby="rhythm" className="mb-4">
@@ -30,7 +30,7 @@ export function DayRhythm({ rhythm, foods, onEntry, onDose, onAnytime, onAdd }: 
       {rhythm.nodes.length === 0
         ? <p className="py-4 text-muted">{L.empty}</p>
         : <ol className="relative">{rhythm.nodes.map((n, k) => <Node key={k} node={n} last={k === rhythm.nodes.length - 1} foods={foods} onEntry={onEntry} onDose={onDose} />)}</ol>}
-      <button type="button" onClick={onAdd} className="mt-1 flex min-h-tap items-center gap-2 px-1 text-accent"><Plus size={18} aria-hidden />{L.addOther}</button>
+      <button type="button" onClick={onAdd} className="mt-1 flex min-h-tap items-center gap-2 px-1 text-accent"><Plus size={18} aria-hidden />{addLabel}</button>
     </section>
   );
 }
