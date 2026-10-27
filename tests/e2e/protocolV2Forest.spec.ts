@@ -91,6 +91,7 @@ test('all routed screens fit the four target widths in light and dark themes', a
         if (['meal/new', 'plan', 'progress', 'dishes', 'profiles', 'more/settings'].includes(route)) {
           await expect(page.locator('.protocol-scene-header')).toHaveCount(0);
         }
+        if (route === 'meal/new') await expect(page.locator('.protocol-food-artwork').first()).toBeVisible();
         await page.screenshot({ path: `test-results/mockup-${route.replaceAll('/', '-') || 'today'}-${width}-${colorScheme}.png`, fullPage: true });
       }
     }

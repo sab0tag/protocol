@@ -1,6 +1,7 @@
 import { format, parseISO } from 'date-fns';
 import { uk } from 'date-fns/locale';
 import { Clock3, RotateCcw } from 'lucide-react';
+import { FoodArtwork } from './FoodArtwork';
 import { dateOf } from '../domain/dates';
 import { amountText } from '../domain/foodSearch';
 import type { DayEntry, MealItem } from '../domain/types';
@@ -31,6 +32,7 @@ export function RecentMeals({ entries, date, onAdd }: {
           <li key={e.id}>
             <button type="button" onClick={() => onAdd(JSON.parse(JSON.stringify(e.items)) as MealItem[])}
               className="flex min-h-tap w-full items-start gap-3 rounded-2xl border border-line bg-bg/50 p-3 text-left motion-safe:transition-colors motion-safe:duration-150 hover:border-accent/50">
+              <FoodArtwork name={e.items![0]!.name} />
               <span className="min-w-0 flex-1">
                 <span className="block font-medium">{e.title}</span>
                 <span className="mt-0.5 block line-clamp-2 text-sm text-muted">{e.items!.map((item) => `${item.name} ${amountText(item)}`).join(', ')}</span>

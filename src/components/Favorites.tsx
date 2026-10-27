@@ -2,6 +2,7 @@
 // yesterday may have been anything. A favorite keeps its own copy of the lines — editing a past meal never changes it.
 import { Star } from 'lucide-react';
 import { useState } from 'react';
+import { FoodArtwork } from './FoodArtwork';
 import { db } from '../data/db';
 import { useFavorites } from '../data/queries';
 import { newId } from '../domain/dates';
@@ -34,9 +35,12 @@ export function FavoritesList({ onAdd, limit }: { onAdd: (items: MealItem[]) => 
         {shown.map((f) => (
           <li key={f.id} className="flex items-stretch gap-1">
             <button type="button" onClick={() => onAdd(copy(f.items))}
-              className="flex min-h-tap min-w-0 flex-1 flex-col justify-center rounded-xl border border-line px-3 py-1 text-left">
-              <span className="font-medium">{f.title}</span>
-              <span className="truncate text-sm text-muted">{f.items.map((x) => `${x.name} ${amountText(x)}`).join(', ')}</span>
+              className="flex min-h-tap min-w-0 flex-1 items-center gap-3 rounded-xl border border-line px-3 py-1 text-left">
+              <FoodArtwork name={f.items[0]?.name ?? f.title} />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate font-medium">{f.title}</span>
+                <span className="block truncate text-sm text-muted">{f.items.map((x) => `${x.name} ${amountText(x)}`).join(', ')}</span>
+              </span>
             </button>
             <button type="button" aria-label={t.meal.unpin(f.title)}
               onClick={() => void saved(db.favorites.delete(f.id), t.toast.unpinned(f.title), () => db.favorites.put(f))}

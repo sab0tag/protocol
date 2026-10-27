@@ -12,6 +12,7 @@ import { db } from '../data/db';
 import { useAllRecipes, useFoods, usePlan } from '../data/queries';
 import { harchDishes } from '../data/harchDishes';
 import { amountText } from '../domain/foodSearch';
+import { FoodArtwork } from '../components/FoodArtwork';
 import { mealNutrients, round } from '../domain/nutrition';
 import { sumGrams } from '../domain/recipes';
 import type { Food, Recipe } from '../domain/types';
@@ -93,17 +94,22 @@ function Card({ recipe, foods }: { recipe: Recipe; foods: Parameters<typeof meal
   const n = mealNutrients(recipe.items, foods);
   return (
     <li className="protocol-card rounded-2xl border border-line bg-surface p-3">
-      {recipe.builtIn ? (
-        <p className="font-semibold">{recipe.name} <span className="ml-1 rounded-full bg-bg px-2 text-xs font-normal text-muted">{L.builtIn}</span></p>
-      ) : (
-        <div className="flex items-end gap-2">
-          <label className="flex-1"><span className="text-sm text-muted">{L.rename}</span>
-            <input value={name} onChange={(e) => setName(e.target.value)} onBlur={() => name.trim() && name.trim() !== recipe.name && void saved(db.recipes.put({ ...recipe, name: name.trim() }), t.toast.saved)}
-              className="mt-1 block min-h-tap w-full rounded-xl border border-line bg-bg px-3 font-semibold" /></label>
-          <button type="button" onClick={() => setAsking(true)} aria-label={`${L.delete}: ${recipe.name}`}
-            className="flex min-h-tap min-w-tap items-center justify-center text-warn"><Trash2 size={18} /></button>
+      <div className="flex items-start gap-3">
+        <FoodArtwork name={recipe.items[0]?.name ?? recipe.name} />
+        <div className="min-w-0 flex-1">
+          {recipe.builtIn ? (
+            <p className="font-semibold">{recipe.name} <span className="ml-1 rounded-full bg-bg px-2 text-xs font-normal text-muted">{L.builtIn}</span></p>
+          ) : (
+            <div className="flex items-end gap-2">
+              <label className="min-w-0 flex-1"><span className="text-sm text-muted">{L.rename}</span>
+                <input value={name} onChange={(e) => setName(e.target.value)} onBlur={() => name.trim() && name.trim() !== recipe.name && void saved(db.recipes.put({ ...recipe, name: name.trim() }), t.toast.saved)}
+                  className="mt-1 block min-h-tap w-full rounded-xl border border-line bg-bg px-3 font-semibold" /></label>
+              <button type="button" onClick={() => setAsking(true)} aria-label={`${L.delete}: ${recipe.name}`}
+                className="flex min-h-tap min-w-tap items-center justify-center text-warn"><Trash2 size={18} /></button>
+            </div>
+          )}
         </div>
-      )}
+      </div>
       {recipe.needsMake ? ( /* D123: a draft — a name only, no numbers; its make-up through «Розкласти свою страву» */
         <div className="mt-1 flex flex-wrap items-center gap-2 text-sm">
           <span className="text-warn">{L.list.draftMark}</span>

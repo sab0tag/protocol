@@ -67,9 +67,14 @@ Shared visual systems audited alongside those components: color and type tokens,
 | Screen | Viewport / theme | Observation |
 |---|---|---|
 | Today | 390 px / dark | The woodland header, greeting area, week strip, quick actions, and bottom navigation render without clipping. Detailed comparison below the fold remains pending. |
-| Add food | 320 px / dark | All four input modes fit. Recent meal rows still lack the food imagery shown in the mockup. |
+| Add food | 320 px / dark | All four input modes fit. Recent meal rows now have category illustrations, but not the food photography shown in the mockup. |
 | Doctor plan | 390 px / dark | Shared theme and card styling render consistently. The existing single-plan content and demo-data warning differ from the mockup's multi-plan list; the mockup does not authorize adding new plan-management behavior. |
+| Progress | 390 px / dark | The weight trend is a responsive line chart. The top-level content order and metric summary still differ from the mockup. |
+| Profiles | 390 px / dark | Local profile creation and same-profile device connection are visible. The mockup's shared-access controls and per-person portraits are not implemented. |
+| Settings | 390 px / dark | The local profile-photo upload and settings links are visible. The mockup's consolidated settings controls are distributed across existing routes. |
 
-The expanded E2E matrix found horizontal overflow on Motivation at 320 px. Habit labels and right-hand status text now have explicit shrink/wrap constraints; the fix is awaiting the latest CI rerun.
+The expanded E2E matrix initially found horizontal overflow on Motivation at 320 px. Habit labels and right-hand status text now have explicit shrink/wrap constraints; all checks passed on PR #28.
+
+The CI screenshot artifact contains all 42 routed screens at each of the four requested widths in both themes. A 390 px dark contact sheet was visually inspected as a route overview; the automated matrix verifies visibility and horizontal overflow, not pixel-level equivalence. Food cards now use local category illustrations as image-like thumbnails; matching food photography remains an open asset gap because the app has no food image source.
 
 Still to do: inspect every route's screenshots in all eight viewport/theme combinations against the references; resolve remaining component-level differences; record any deliberate differences caused by functionality/accessibility; run unit, typecheck, build, and the complete E2E suite; and publish/merge only after green CI.
