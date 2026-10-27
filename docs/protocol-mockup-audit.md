@@ -9,7 +9,7 @@
 | Today — `/` | Today / greeting / timeline | Shared shell updated; detailed review pending |
 | Add food — `/meal/new` | Record food | Shared header updated; detailed review pending |
 | Edit meal — `/meal/:id` | Food detail / editing | Shared header updated; detailed review pending |
-| My day — `/my-day` | Daily checklist | Pending |
+| My day — `/my-day` | Daily checklist | Example-data warning order checked; detailed visual review pending |
 | Wellbeing — `/wellbeing` | Daily health tracking | Header updated; detailed review pending |
 | Wellbeing journal — `/wellbeing/journal` | History / trend | Pending |
 | Workout — `/workout` | Activity tracking | Pending |
@@ -62,7 +62,7 @@ Shared visual systems audited alongside those components: color and type tokens,
 - Converted the plan overview and wellbeing date header to regular theme-aware surfaces.
 - Added locally cached header photography for food, movement, care, wellbeing, settings, and assistant routes; Today keeps its existing forest hero.
 - Updated the Today greeting to use the active profile name and exact day-part text without punctuation; recent meals now filter through breakfast/lunch/dinner/snack tabs and can be favorited with a red heart.
-- Moved the existing demo-data warning ahead of the example schedule cards on Today, so the warning appears before sample medication status.
+- Moved the existing demo-data warning ahead of the example schedule cards on Today and added it to My day before its sample checklist, so example medication status is always caveated before action.
 - Expanded browser geometry coverage to all routed screens and the requested 320, 390, 768, and 1024 px widths in both themes. This is a regression gate, not a substitute for visual comparison.
 
 ### Section artwork sources
@@ -97,6 +97,7 @@ Food list thumbnails are cached locally from Unsplash under its [official licens
 | Screen | Viewport / theme | Observation |
 |---|---|---|
 | Today | 320/390/768/1024 px / dark; 390 px / light | The woodland header, greeting, week strip, quick actions, and bottom navigation render without clipping; 768/1024 use the icon rail and centered content column. The example-data warning now precedes the sample missed-item card. The mockup's plan chip and compact metric placement still differ; detailed below-the-fold comparison remains pending. |
+| My day | 320 px / dark | The sample-data warning appears before checklist progress and action rows; the checklist remains within the viewport width. Full width/theme comparison remains pending. |
 | Add food | 320 px / dark; 390 px / light | All four input modes fit with no horizontal overflow at 320 px. Recent meal cards use local photos for all nine supported food categories. |
 | Doctor plan | 390 px / light and dark | The intended care-section photo and safety notice about demo records remain intact. Existing single-plan sections render without clipping; multi-plan status rings and controls are not shown because the new storage model is deliberately not UI-writable until backup/sync compatibility is implemented. |
 | Progress | 390 px / light and dark | Weekly carbohydrate, protein, water, and checklist rings now use compact cards closer to the mockup; workouts remain a plain count without an invented target. The weight trend is a responsive line chart, followed by analysis and insight links; the date-range selector and chart framing still differ. |

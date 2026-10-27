@@ -32,3 +32,15 @@ test('the example-data warning appears before the example schedule', async ({ br
   if (!warningBox || !scheduleBox) throw new Error('The warning and schedule must have visible bounds');
   expect(warningBox.y).toBeLessThan(scheduleBox.y);
 });
+
+test('the example-data warning appears before My Day checklist actions', async ({ browser }) => {
+  const page = await device(browser);
+  await page.goto('./#/my-day');
+  const warning = page.getByRole('status').filter({ hasText: 'Це приклад:' });
+  const checklist = page.getByRole('progressbar', { name: 'Мій день' });
+  await expect(warning).toBeVisible();
+  await expect(checklist).toBeVisible();
+  const [warningBox, checklistBox] = await Promise.all([warning.boundingBox(), checklist.boundingBox()]);
+  if (!warningBox || !checklistBox) throw new Error('The warning and checklist must have visible bounds');
+  expect(warningBox.y).toBeLessThan(checklistBox.y);
+});
