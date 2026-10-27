@@ -30,7 +30,7 @@ test('Food 2.0 repeats at most three distinct completed meals into a checked edi
   await seed(page, rows);
   const before = await records(page);
   await page.goto('./#/meal/new');
-  const recent = page.getByRole('region', { name: 'Нещодавні' });
+  const recent = page.getByRole('region', { name: 'Останні' });
   await expect(recent.getByRole('button')).toHaveCount(3);
   await expect(recent).not.toContainText('Такий самий перекус');
   await expect(recent).not.toContainText('Давній перекус');
@@ -81,7 +81,7 @@ test('Food 2.0 favorites start compact, expand on demand, and editing a repeat k
   await expect(favorites.getByRole('listitem')).toHaveCount(4);
   await favorites.getByRole('button', { name: 'Показати менше' }).click();
   await expect(favorites.getByRole('listitem')).toHaveCount(3);
-  await page.getByRole('region', { name: 'Нещодавні' }).getByRole('button', { name: /Вчорашній кефір/ }).click();
+  await page.getByRole('region', { name: 'Останні' }).getByRole('button', { name: /Вчорашній кефір/ }).click();
   await page.getByRole('region', { name: 'Позиції', exact: true }).getByLabel('Грами').fill('210');
   const original = (await records(page) as { id: string; items: { grams: number }[] }[]).find((e) => e.id === 'original');
   expect(original?.items[0]?.grams).toBe(180);

@@ -1,6 +1,6 @@
 # Protocol 2.0 UI naming
 
-The implemented screens use the labels from the earlier `UX-аудит застосунку «Протокол».png` and the compatible current-screen labels in `Ukrainian Health App UI Showcase.png`. The first mock is the reference for the colored summary and food entry. The second contains future multi-plan/family/integration features; their labels do not imply those features exist in this release.
+`mock2.png` is the primary reference for current UI labels; where it differs from `mock1.png`, use `mock2.png`. `mock1.png` remains a visual reference for the colored summary and single-plan surfaces. Mock2 also depicts future multi-plan, family and integration features; those labels do not imply those features exist in this release.
 
 Canonical labels live in `src/i18n/uk.ts` and are shared by links, headings and accessible controls.
 
@@ -17,7 +17,7 @@ Canonical labels live in `src/i18n/uk.ts` and are shared by links, headings and 
 | Daily checklist | Мій день | Remains distinct from the timeline and summary. |
 | Food entry | Записати їжу | Existing capture/search route. |
 | Food photo action | З фото | Existing image capture; no new mode/tab is fabricated. |
-| Recent meals | Нещодавні | Distinct from «Мої звичні» favorites. |
+| Recent meals | Останні | Distinct from «Мої звичні» favorites; follows mock2 where mock1 uses «Нещодавні». |
 | New meal confirmation | Додати до дня | Creates the meal only after the user's tap. |
 | Existing meal confirmation | Зберегти зміни | Edits the existing record. |
 | Dish catalog | Мої страви | Existing catalog, import and export. |
