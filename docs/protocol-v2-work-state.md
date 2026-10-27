@@ -68,3 +68,11 @@ Still outstanding from document onboarding: persisted recoverable review drafts,
 - Corrected the Progress browser fixture to populate `protocol-demo` when using demo mode; exact seeded weights are now asserted alongside existing ring values.
 - 516 client tests, production build and 3 focused browser tests passed. Retained #25 migration regressions. Remote CI/preview will be recorded in PR #26.
 - Next: integrate verified #24/#25/#26 in order, then #27 optional daily phrases and reactive names; R5/R6 remain open.
+
+## Adapted profile preferences slice (#27)
+
+- Daily phrases can be disabled independently for each local profile; the time-based named greeting remains. Names update in open tabs without reloading their current work. Switching the active person still changes the fixed database through reload.
+- Preserves the current compact header, current greeting wording/punctuation and current layout without reintroducing the removed global profile strip. Updated legacy assertions to use current profile edit controls instead of that removed strip.
+- 517 client tests and production build passed; full 117-case browser suite is running on this complete adapted stack. #24 full local run: 106 passed, 3 conditional skips, 1 photo-preparation timeout during local resource exhaustion; the unchanged failing scenario passed separately in 10.7s. #25 focused browser suite 9/9; #26 focused suite 3/3.
+- Remote PRs #24–#27 are updated sequentially on the new base. Merge only after refreshed CI and review checks pass; obtain preview links from their deployment statuses. The owner authorized tested main merges in this session; separate production operations remain outside scope.
+- Next: complete full regression/CI and integrate this stack, then begin the R5/R6 separate-plan model with migration and source ownership, preserving the existing journal.

@@ -1,6 +1,6 @@
 /** Local profile directory. Medical records stay in a separate database per person.
  * The original database and keys belong to `main`; upgrades never move or copy them. */
-export interface Profile { id: string; name: string; relation: 'self' | 'child' | 'relative' }
+export interface Profile { id: string; name: string; relation: 'self' | 'child' | 'relative'; motivation?: boolean }
 interface Directory { v: 1; active: string; profiles: Profile[] }
 const KEY = 'protocol.profiles.v1';
 const initial = (): Directory => ({ v: 1, active: 'main', profiles: [{ id: 'main', name: '', relation: 'self' }] });
@@ -9,7 +9,7 @@ export function readProfiles(): Directory {
   if (!raw) return initial();
   const d = JSON.parse(raw) as Directory;
   if (d.v !== 1 || !Array.isArray(d.profiles) || !d.profiles.length ||
-    !d.profiles.every(p => typeof p.name === 'string' && p.name.length <= 60 && /^(main|[a-f0-9-]{36})$/.test(p.id) && ['self', 'child', 'relative'].includes(p.relation)) ||
+    !d.profiles.every(p => typeof p.name === 'string' && p.name.length <= 60 && /^(main|[a-f0-9-]{36})$/.test(p.id) && ['self', 'child', 'relative'].includes(p.relation) && (p.motivation === undefined || typeof p.motivation === 'boolean')) ||
     new Set(d.profiles.map(p => p.id)).size !== d.profiles.length || !d.profiles.some(p => p.id === d.active)) throw new Error('Не вдалося прочитати профілі. Дані збережено; спробуйте перезавантажити сторінку.');
   return d;
 }
@@ -32,6 +32,7 @@ export function saveProfile(profile: Profile): void {
   const old = d.profiles.findIndex(p => p.id === profile.id);
   if (old < 0) d.profiles.push({ ...profile, name }); else d.profiles[old] = { ...profile, name };
   localStorage.setItem(KEY, JSON.stringify(d));
+  window.dispatchEvent(new Event('protocol-profiles-changed'));
 }
 export function switchProfile(id: string): void {
   const d = readProfiles();
@@ -41,5 +42,9 @@ export function switchProfile(id: string): void {
 }
 // Keep tabs consistent, including when a different tab switches the active person.
 if (typeof window !== 'undefined') window.addEventListener('storage', e => {
-  if (e.key === KEY) location.reload();
+  if (e.key !== KEY && e.key !== null) return;
+  try {
+    if (readProfiles().active !== activeProfileId) location.reload();
+    else window.dispatchEvent(new Event('protocol-profiles-changed'));
+  } catch { location.reload(); }
 });

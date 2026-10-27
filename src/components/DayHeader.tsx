@@ -7,7 +7,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { ChevronLeft, ChevronRight, Cloud, CloudAlert, CloudCheck, CloudOff, Heart, TreePine } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { activeProfile } from '../data/profiles';
+import { useActiveProfile } from '../app/profiles';
 import { greeting, dailyPhrase } from '../domain/greeting';
 import { db, inDemo } from '../data/db';
 import { todayISO, weekStep } from '../domain/dates';
@@ -30,7 +30,9 @@ export function DayHeader({ date, setDate }: { date: string; setDate: (d: string
     document.addEventListener('visibilitychange', update);
     return () => { clearInterval(timer); window.removeEventListener('focus', update); document.removeEventListener('visibilitychange', update); };
   }, []);
-  const name = inDemo() ? '' : activeProfile().name;
+  const currentProfile = useActiveProfile();
+  const name = inDemo() ? '' : currentProfile.name;
+  const showMotivation = inDemo() || currentProfile.motivation !== false;
   const today = todayISO();
   const monday = startOfISOWeek(parseISO(date));
   const days = Array.from({ length: 7 }, (_, i) => format(addDays(monday, i), 'yyyy-MM-dd'));
@@ -49,7 +51,7 @@ export function DayHeader({ date, setDate }: { date: string; setDate: (d: string
           <button type="button" onClick={() => navigate('/sync')} aria-label={L.syncStatus[status]} className="flex min-h-tap min-w-tap items-center justify-center rounded-full border border-white/30 bg-black/25"><Icon size={20} className="text-white" aria-hidden /></button>
         </div>
         <Link to="/profiles" aria-label={t.profiles.title} className="block break-words text-xl font-semibold" data-testid="greeting">{greeting(now, name)}</Link>
-        <p className="mt-1 flex items-center gap-2 text-sm text-white/85">{dailyPhrase(now)} <Heart size={16} className="fill-emerald-300 text-emerald-300" aria-hidden /></p>
+        {showMotivation && <p data-testid="daily-phrase" className="mt-1 flex items-center gap-2 text-sm text-white/85">{dailyPhrase(now)} <Heart size={16} className="fill-emerald-300 text-emerald-300" aria-hidden /></p>}
       <h1 className="mt-4 text-lg font-semibold">{isToday ? L.todayTitle : format(d, 'EEEE, d MMMM', { locale: uk })}</h1>
       {isToday && <p className="mt-1 text-sm text-white/80">{format(d, 'EEEE, d MMMM', { locale: uk })}</p>}
       <nav aria-label={L.week} className="protocol-calendar mt-2 flex items-center gap-1 rounded-[1.15rem] p-1">
