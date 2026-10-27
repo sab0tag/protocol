@@ -47,6 +47,11 @@ export interface SyncMeta {
   codeCheckedAt?: number; // D40: «код записаний?» asked again a month later
 }
 
+export interface ProfilePhotoRow {
+  key: 'self';
+  jpeg: string;
+}
+
 /** D114: the piece of the doctor's paper a line of the plan was read from, as the person cut and painted it — kept on this
  *  device only (not in sync, not in the backup file): `id` is the line's id in the plan (a medicine, a limit), «checkup». */
 export interface Piece { id: string; url: string; at: string; source: string }
@@ -86,6 +91,7 @@ export class ProtocolDB extends Dexie {
   pilot!: Table<PilotMeta, string>;
   sync!: Table<SyncRow, string>;
   meta!: Table<SyncMeta, string>;
+  profile!: Table<ProfilePhotoRow, string>;
   moduleEvents!: Table<ModuleEvent, string>;
 
   constructor(name = 'protocol') {
@@ -106,6 +112,7 @@ export class ProtocolDB extends Dexie {
     this.version(6).stores({ pieces: 'id' }); // D114: pieces of the doctor's paper — this device only, never synced or exported
     this.version(7).stores({ tally: 'day', pilot: 'key' }); // D119: the pilot — this device only, never synced or exported
     this.version(8).stores({ moduleEvents: 'id, at, kind' }); // D134: immutable preferences/history, encrypted sync + backup
+    this.version(9).stores({ profile: 'key' }); // Local profile image; intentionally excluded from sync and backups.
   }
 }
 

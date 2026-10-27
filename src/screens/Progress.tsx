@@ -6,7 +6,7 @@ import { saved } from '../components/Toast';
 import { AlertTriangle, ChevronRight, FileText, Plus } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Bar, BarChart, CartesianGrid, Cell, LabelList, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { db } from '../data/db';
 import { usePlan, useWeights } from '../data/queries';
 import { todayISO } from '../domain/dates';
@@ -75,31 +75,27 @@ export function Progress() {
 }
 
 function WeeklyChart({ weeks, max }: { weeks: WeekWeight[]; max?: number }) {
-  const data = weeks.filter((w) => w.change !== undefined).map((w) => ({ ...w, label: dm(w.week) }));
+  const data = weeks.map((w) => ({ ...w, label: dm(w.week) }));
   return (
     <figure>
-      <figcaption className="mb-1 text-sm text-muted">{L.chartTitle}{max != null && <> · <span className="text-warn">- - -</span> {L.limit(kg(max))}</>}</figcaption>
+      <figcaption className="mb-1 text-sm text-muted">{L.chartTitle}</figcaption>
       <div role="img" aria-label={L.chartLabel(max)} className="h-48 w-full">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} margin={{ top: 18, right: 4, bottom: 0, left: 0 }} barCategoryGap="30%">
+          <LineChart data={data} margin={{ top: 18, right: 8, bottom: 0, left: 0 }}>
             <CartesianGrid vertical={false} className="stroke-line" strokeDasharray="0" />
             <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ className: 'fill-muted', fontSize: 12 }} />
             <YAxis tickLine={false} axisLine={false} tick={{ className: 'fill-muted', fontSize: 12 }} width={40}
-              domain={[(min: number) => Math.min(min, -(max ?? 0)) - 0.2, (m: number) => Math.max(m, 0) + 0.2]} tickFormatter={(v: number) => signed(Math.round(v * 10) / 10)} />
-            <ReferenceLine y={0} className="stroke-muted" />
-            {max != null && <ReferenceLine y={-max} strokeDasharray="4 4" className="stroke-warn" />}
+              domain={['dataMin - 1', 'dataMax + 1']} tickFormatter={(v: number) => kg(v)} />
             <Tooltip cursor={{ className: 'fill-line', opacity: 0.4 }}
               content={({ active, payload }) => {
                 const w = active && payload?.[0]?.payload as (WeekWeight & { label: string }) | undefined;
                 return w ? <div className="rounded-xl border border-line bg-surface px-3 py-2 text-sm shadow">
-                  <p className="font-medium">{L.weekOf(w.label)}</p><p className="tabular">{kg(w.kg)} {L.kg} · {signed(w.change ?? 0)}</p></div> : null;
+                  <p className="font-medium">{L.weekOf(w.label)}</p>
+                  <p className="tabular">{kg(w.kg)} {L.kg}{w.change !== undefined && ` · ${signed(w.change)} ${L.kg}/${L.weekUnit}`}</p></div> : null;
               }} />
-            <Bar dataKey="change" radius={4} isAnimationActive={false}>
-              {data.map((w) => <Cell key={w.week} className={w.tooFast ? 'fill-warn' : 'fill-accent'} />)}
-              <LabelList dataKey="change" position="bottom" fontSize={12} className="fill-warn"
-                formatter={(v: unknown) => { const w = data.find((x) => x.change === v); return w?.tooFast ? signed(Number(v)) : ''; }} />
-            </Bar>
-          </BarChart>
+            <Line type="monotone" dataKey="kg" stroke="currentColor" className="text-accent" strokeWidth={3}
+              dot={{ r: 4, className: 'fill-accent stroke-surface' }} activeDot={{ r: 6 }} isAnimationActive={false} />
+          </LineChart>
         </ResponsiveContainer>
       </div>
       <details className="mt-1 text-sm">

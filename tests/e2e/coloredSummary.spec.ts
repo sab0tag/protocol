@@ -50,26 +50,36 @@ test('colored rings keep the selected metrics, actual values and working SVG gra
     await expect(ring).toHaveAttribute('aria-valuenow', percent);
     await expect(ring).toHaveAttribute('aria-valuetext', value);
     await expect(summary.getByText(value, { exact: true })).toHaveCount(1);
+    await expect(summary.getByText(`${percent}%`, { exact: true })).toBeVisible();
+    const item = ring.locator('xpath=..');
+    const headingIcon = await item.locator('.protocol-ring-icon').boundingBox();
+    const headingLabel = await item.getByText(label, { exact: true }).boundingBox();
+    const circle = await ring.boundingBox();
+    expect(headingIcon!.x + headingIcon!.width).toBeLessThan(headingLabel!.x);
+    expect(headingLabel!.y + headingLabel!.height).toBeLessThan(circle!.y);
   }
-  for (const [width, height, colorScheme] of [[320, 568, 'dark'], [390, 844, 'dark'], [1024, 768, 'light']] as const) {
-    await page.setViewportSize({ width, height });
-    await page.emulateMedia({ colorScheme });
-    await summary.scrollIntoViewIfNeeded();
-    const colors = await summary.getByRole('progressbar').evaluateAll((rings) => rings.map((ring) => {
-      const path = ring.querySelector('circle[stroke^="url"]')!;
-      const id = path.getAttribute('stroke')!.slice(5, -1);
-      const gradient = document.getElementById(id);
-      const color = getComputedStyle(ring.querySelector('.protocol-ring-icon')!).color.match(/\d+/g)!.map(Number);
-      return { color, gradient: gradient?.tagName.toLowerCase(), id };
-    }));
-    expect(colors.every((x) => x.gradient === 'lineargradient')).toBe(true);
-    expect(new Set(colors.map((x) => x.id)).size).toBe(3);
-    const [orange, green, blue] = colors.map((x) => x.color);
-    expect(orange![0]).toBeGreaterThan(orange![1]!);
-    expect(green![1]).toBeGreaterThan(green![0]!);
-    expect(blue![2]).toBeGreaterThan(blue![0]!);
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    await summary.screenshot({ path: `test-results/colored-summary-${width}-${colorScheme}.png` });
+  for (const width of [320, 390, 768, 1024]) {
+    for (const colorScheme of ['light', 'dark'] as const) {
+      await page.setViewportSize({ width, height: 844 });
+      await page.emulateMedia({ colorScheme });
+      await summary.scrollIntoViewIfNeeded();
+      const colors = await summary.getByRole('listitem').evaluateAll((items) => items.map((item) => {
+        const ring = item.querySelector('[role="progressbar"]')!;
+        const path = ring.querySelector('circle[stroke^="url"]')!;
+        const id = path.getAttribute('stroke')!.slice(5, -1);
+        const gradient = document.getElementById(id);
+        const color = getComputedStyle(item.querySelector('.protocol-ring-icon')!).color.match(/\d+/g)!.map(Number);
+        return { color, gradient: gradient?.tagName.toLowerCase(), id };
+      }));
+      expect(colors.every((x) => x.gradient === 'lineargradient')).toBe(true);
+      expect(new Set(colors.map((x) => x.id)).size).toBe(3);
+      const [orange, green, blue] = colors.map((x) => x.color);
+      expect(orange![0]).toBeGreaterThan(orange![1]!);
+      expect(green![1]).toBeGreaterThan(green![0]!);
+      expect(blue![2]).toBeGreaterThan(blue![0]!);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      await summary.screenshot({ path: `test-results/colored-summary-${width}-${colorScheme}.png` });
+    }
   }
   await page.context().close();
 });

@@ -28,5 +28,16 @@ test('mock-aligned labels distinguish adding food from saving an existing meal',
   await expect(page.getByRole('heading', { name: 'Записати їжу', exact: true, level: 1 })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Додати до дня', exact: true })).toBeDisabled();
   await expect(page.getByRole('button', { name: 'Фото', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Голос', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Текст', exact: true }).click();
+  await expect(page.getByRole('searchbox', { name: /Що з’їли/ })).toBeFocused();
+  await page.getByRole('button', { name: 'Скан етикетки', exact: true }).click();
+  await expect(page.getByRole('button', { name: /Фото етикетки/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Скан етикетки', exact: true })).toHaveAttribute('aria-expanded', 'true');
+  await page.getByRole('button', { name: 'Скан етикетки', exact: true }).click();
+  await page.getByRole('button', { name: 'Голос', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Скажіть, що з’їли чи прийняли' })).toBeVisible();
+  await page.goBack();
+  await expect(page.getByRole('heading', { name: 'Записати їжу', exact: true, level: 1 })).toBeVisible();
   await page.context().close();
 });
