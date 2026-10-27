@@ -5,7 +5,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Tokens (SPEC.md §7) as RGB triples; the dark theme follows the system setting. */
+/* Tokens (SPEC.md §7) as RGB triples; an explicit theme overrides the system setting. */
 :root {
   --bg: 241 244 240; --surface: 253 255 252; --ink: 31 46 37; --muted: 91 108 97; --line: 219 229 220;
   --accent: 45 105 78; --warn: 138 60 16; --warn-bg: 246 227 214; --water: 27 112 168;
@@ -14,13 +14,20 @@
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme]) {
     --bg: 8 13 10; --surface: 18 26 22; --ink: 235 242 233; --muted: 165 183 171; --line: 39 53 45;
     --accent: 113 220 157; --warn: 240 172 130; --warn-bg: 72 42 26; --water: 91 174 236;
     --meter-energy: 248 145 77; --meter-protein: 117 220 160; --meter-meds: 186 160 255;
     --meter-calcium: 235 202 115; --meter-carbs: 227 186 111;
     color-scheme: dark;
   }
+}
+:root[data-theme="dark"] {
+  --bg: 8 13 10; --surface: 18 26 22; --ink: 235 242 233; --muted: 165 183 171; --line: 39 53 45;
+  --accent: 113 220 157; --warn: 240 172 130; --warn-bg: 72 42 26; --water: 91 174 236;
+  --meter-energy: 248 145 77; --meter-protein: 117 220 160; --meter-meds: 186 160 255;
+  --meter-calcium: 235 202 115; --meter-carbs: 227 186 111;
+  color-scheme: dark;
 }
 
 html, body { background: rgb(var(--bg)); color: rgb(var(--ink)); }

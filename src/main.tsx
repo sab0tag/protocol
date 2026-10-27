@@ -8,8 +8,11 @@ import { initialiseModulePreferences, legacyModuleUsage } from './data/modulePre
 import { startSync } from './sync/runner';
 import { pilotTick, sourceFromLink } from './sync/pilot';
 import { useUi } from './store/ui';
+import { initializeTheme } from './store/theme';
 import { Boot, ErrorBoundary, watchResume } from './components/Recovery';
 import './styles/index.css';
+
+initializeTheme();
 
 // A tab left open for days (a computer) never navigates, so the browser never looks for a new version and the old
 // code keeps syncing with a vault it no longer understands. Look again whenever the app comes back to the screen;

@@ -52,7 +52,7 @@ Dynamic meal and action routes are covered by their respective route templates. 
 
 The shared component surface comprises: `AiSpend`, `AiWorkoutPanel`, `AllergenPicker`, `Amount`, `Backup`, `BreakdownEditor`, `ConciergeNotFound`, `ConfirmMeal`, `CrisisCard`, `DangerCard`, `DayHeader`, `DayRhythm`, `DaySummary`, `DietPicker`, `DishBreakdown`, `DishList`, `EntryPreview`, `ExampleNotice`, `ExerciseCard`, `ExerciseFigure`, `ExerciseLibrary`, `Favorites`, `ItemPicker`, `LabelScan`, `LabsScan`, `Layout`, `MarkTime`, `MedFoodPanel`, `MedboxScan`, `NeedsSync`, `NowCard`, `PhotoPrep`, `PilotConsent`, `PlanOverview`, `PlanScan`, `PlanVersions`, `PrnCard`, `ProfilePhotoSettings`, `ProgressRing`, `ProgressTrack`, `QuickDock`, `RecentMeals`, `Recovery`, `SceneHeader`, `Sheet`, `Soon`, `SymptomSheet`, `Toast`, `TopupCard`, and `VoiceSheet`.
 
-Shared visual systems audited alongside those components: color and type tokens, system light/dark mode, card/control radii, form fields, rings and bars, chart framing, navigation, focus treatment, reduced motion, and narrow-screen overflow.
+Shared visual systems audited alongside those components: color and type tokens, system and user-selected light/dark mode, card/control radii, form fields, rings and bars, chart framing, navigation, focus treatment, reduced motion, and narrow-screen overflow.
 
 ## Current pass and open review
 
@@ -71,7 +71,7 @@ Shared visual systems audited alongside those components: color and type tokens,
 | Doctor plan | 390 px / dark | Shared theme and card styling render consistently. The existing single-plan content and demo-data warning differ from the mockup's multi-plan list; the mockup does not authorize adding new plan-management behavior. |
 | Progress | 390 px / dark | The weight trend is a responsive line chart. The top-level content order and metric summary still differ from the mockup. |
 | Profiles | 390 px / dark | Local profile creation and same-profile device connection are visible. The mockup's shared-access controls and per-person portraits are not implemented. |
-| Settings | 390 px / dark | The local profile-photo upload and settings links are visible. The mockup's consolidated settings controls are distributed across existing routes. |
+| Settings | 390 px / dark | The local profile-photo upload and settings links are visible. A theme toggle now supports light/dark overrides and return to the device setting. The mockup's other consolidated settings controls remain distributed across existing routes. |
 
 The expanded E2E matrix initially found horizontal overflow on Motivation at 320 px. Habit labels and right-hand status text now have explicit shrink/wrap constraints; all checks passed on PR #28.
 
