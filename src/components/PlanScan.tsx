@@ -8,10 +8,11 @@ import { format, parseISO } from 'date-fns';
 import { uk } from 'date-fns/locale';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { FileScan, ShieldCheck } from 'lucide-react';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { db, inDemo, type PlanRow } from '../data/db';
 import { useMedIndex } from '../data/medsIndex';
 import { applyLines, changes, closeFromToday, draftLines, missing, notOnPaper, sameConstraint, sourceOf, timingProblem, withDraftTimes, type Change, type DraftLine } from '../domain/conclusion';
+import { discardReview, REVIEW_ID, reviewBase, storeReview, type ReviewDraft, type ReviewContent } from '../data/reviewDraft';
 import { newId, sinceNow, todayISO } from '../domain/dates';
 import { t } from '../i18n/uk';
 import { ApiError, conclusion as readConclusion } from '../sync/api';
@@ -45,12 +46,49 @@ export function PlanScan({ plan, onDone, onboarding }: { plan: PlanRow; onDone?:
   const [close, setClose] = useState<Set<string>>(new Set()); // D115: medicines of the plan the new paper does not name, to close
   const [source, setSource] = useState('');
   const [note, setNote] = useState('');
+  const [recovery, setRecovery] = useState<ReviewDraft | null>();
+  const [draftStatus, setDraftStatus] = useState<'saving' | 'saved' | 'failed' | 'conflict'>('saving');
+  const revision = useRef<string>();
+  const draftTail = useRef<Promise<unknown>>(Promise.resolve());
+  const base = useRef(reviewBase(plan));
+  const enqueueDraft = (content: ReviewContent) => {
+    setDraftStatus('saving');
+    const next = draftTail.current.catch(() => undefined).then(async () => {
+      revision.current = await storeReview(db, content, revision.current);
+      setDraftStatus('saved');
+    });
+    draftTail.current = next;
+    void next.catch(e => setDraftStatus(e instanceof Error && e.message === 'review_conflict' ? 'conflict' : 'failed'));
+    return next;
+  };
+  useEffect(() => {
+    let mounted = true;
+    void db.reviewDrafts.get(REVIEW_ID).then(d => { if (mounted) setRecovery(d ?? null); }).catch(() => { if (mounted) { setRecovery(null); setError(L.draftFailed); } });
+    return () => { mounted = false; };
+  }, []);
+  useEffect(() => {
+    if (state === 'form' && lines.length && !savingRef.current) void enqueueDraft({ lines, cuts, source, note });
+  }, [state, lines, cuts, source, note]);
+  const resume = () => {
+    if (!recovery || recovery.v !== 1) { setError(L.draftFailed); return; }
+    revision.current = recovery.revision; base.current = reviewBase(plan);
+    setLines(recovery.lines); setCuts(recovery.cuts); setSource(recovery.source); setNote(recovery.note);
+    setOn(new Set()); setSkip(new Set()); setClose(new Set()); setRecovery(null); setState('form');
+  };
+  const discard = async () => {
+    if (!recovery) return;
+    try { await discardReview(db, recovery.revision); setRecovery(null); revision.current = undefined; setError(''); } catch { setError(L.draftConflict); }
+  };
+  const pause = async () => {
+    try { await enqueueDraft({ lines, cuts, source, note }); setRecovery((await db.reviewDrafts.get(REVIEW_ID)) ?? null); setState('none'); setLines([]); setCuts({}); } catch { /* visible persistence status; keep the form */ }
+  };
   const index = useMedIndex(state === 'busy' || state === 'form');
   const indexRef = useRef(index);
   indexRef.current = index;
 
   const pick = () => {
     setError('');
+    if (recovery !== null) return; // unresolved recovery cannot be silently overwritten
     if (inDemo()) { setState('demo'); return; } // D98: nothing of the example goes to the server
     if (!meta?.conclusionConsent && !localConsent()) { setState('consent'); return; }
     input.current?.click();
@@ -74,6 +112,7 @@ export function PlanScan({ plan, onDone, onboarding }: { plan: PlanRow; onDone?:
       if (!r.readable) { setError(r.note ?? L.unreadable); setState('none'); return; }
       const ls = draftLines(r, newId, { pages: pages.length, ...(indexRef.current ? { index: indexRef.current } : {}) });
       if (!ls.length) { setError(r.note ?? L.nothing); setState('none'); return; }
+      base.current = reviewBase(plan); revision.current = undefined;
       setLines(ls); setOn(new Set()); setSkip(new Set()); setClose(new Set()); setSource(sourceOf(r)); setNote(r.note ?? ''); setCuts({}); setState('form'); // nothing ticked for the person
       for (const l of ls) {
         if (l.from) void cut(pages[l.from.page - 1]!, l.from.box).then((u) => setCuts((c) => ({ ...c, [l.key]: u }))).catch(() => undefined);
@@ -87,6 +126,10 @@ export function PlanScan({ plan, onDone, onboarding }: { plan: PlanRow; onDone?:
     if (savingRef.current || (!on.size && !close.size) || undecided > 0 || lines.some((l) => on.has(l.key) && missing(l))) return;
     savingRef.current = true; setSaving(true);
     try {
+      await draftTail.current.catch(() => undefined);
+      if (reviewBase(plan) !== base.current) {
+        setOn(new Set()); setSkip(new Set()); setClose(new Set()); base.current = reviewBase(plan); setError(L.planChanged); return;
+      }
       const picked = lines.filter((l) => on.has(l.key));
       const before = { constraints: plan.constraints, prescriptions: plan.prescriptions, targets: plan.targets, nextCheckup: plan.nextCheckup };
       // D114: the pieces of paper stay with the lines they came from — on this device only
@@ -94,13 +137,19 @@ export function PlanScan({ plan, onDone, onboarding }: { plan: PlanRow; onDone?:
       const applied = applyLines(plan, picked, sinceNow(), placed);
       const next = { ...applied, prescriptions: closeFromToday(applied.prescriptions, close, todayISO()) }; // D115
       const pieces = picked.flatMap((l) => (cuts[l.key] && placed.get(l.key) ? [{ id: placed.get(l.key)!, url: cuts[l.key]!, at: new Date().toISOString(), source }] : []));
-      const result = await saved(db.transaction('rw', db.plan, db.pieces, async () => { await db.plan.update('main', next); await db.pieces.bulkPut(pieces); return true; }), L.saved(picked.length + close.size),
+      const result = await saved(db.transaction('rw', db.plan, db.pieces, db.reviewDrafts, async () => {
+        const current = await db.plan.get('main');
+        if (!current || reviewBase(current) !== base.current) throw new Error('plan_changed');
+        await discardReview(db, revision.current);
+        await db.plan.update('main', next); await db.pieces.bulkPut(pieces); return true;
+      }), L.saved(picked.length + close.size),
         () => db.transaction('rw', db.plan, db.pieces, async () => { await db.plan.update('main', before); await db.pieces.bulkDelete(pieces.map((x) => x.id)); }));
       if (!result) return; // Keep the checked draft open so a failed write can be retried.
       // D120, D122: rows read off the paper and, of them, not put in (unticked, put aside, unreadable) — a bad reading must not look
       // good; a later visit's medicine «без змін» is already in the plan and counts in neither
       const read = lines.filter((l) => diff.get(l.key)?.kind !== 'same');
       if (read.length) { void count('photo_rows', read.length); void count('photo_unchecked', read.filter((l) => !on.has(l.key)).length); }
+      revision.current = undefined; setRecovery(null);
       setState('none'); setLines([]); setCuts({});
       onDone?.();
     } finally { savingRef.current = false; setSaving(false); }
@@ -122,7 +171,7 @@ export function PlanScan({ plan, onDone, onboarding }: { plan: PlanRow; onDone?:
   const undecided = onboarding ? lines.filter((l) => isMed(l) && !on.has(l.key) && !skip.has(l.key)).length : 0;
   const flip = (key: string) => setSkip((x) => { const n = new Set(x); if (n.has(key)) n.delete(key); else n.add(key); return n; });
 
-  const step = state === 'form' ? 2 : state === 'prep' || state === 'busy' ? 1 : 0;
+  const step = state === 'form' || (state === 'none' && recovery) ? 2 : state === 'prep' || state === 'busy' ? 1 : 0;
   const reviewCount = lines.filter((l) => l.status !== 'sure' || missing(l)).length;
   return (
     <div className="space-y-4">
@@ -135,10 +184,14 @@ export function PlanScan({ plan, onDone, onboarding }: { plan: PlanRow; onDone?:
           </li>
         ))}
       </ol>
+      {state === 'none' && recovery && <section aria-label={L.recoverTitle} className="protocol-card space-y-3 p-4">
+        <h2 className="font-semibold">{L.recoverTitle}</h2><p className="text-sm text-muted">{L.recoverHint}</p>
+        <div className="flex flex-wrap gap-2"><button type="button" className="protocol-action" onClick={resume}>{L.resumeDraft}</button><button type="button" className="protocol-action-secondary" onClick={() => void discard()}>{L.discardDraft}</button></div>
+      </section>}
       {state === 'prep' && <PhotoPrep pages={raw} onDone={(p) => void send(p)} onCancel={() => { setRaw([]); setState('none'); }} />}
-      {state !== 'form' && state !== 'prep' && (
+      {state !== 'form' && state !== 'prep' && recovery === null && (
         <>
-          <button type="button" onClick={pick} disabled={state === 'busy'} className="protocol-action w-full disabled:opacity-40">
+          <button type="button" onClick={pick} disabled={state === 'busy' || recovery !== null} className="protocol-action w-full disabled:opacity-40">
             <FileScan size={20} aria-hidden />{state === 'busy' ? L.busy : L.button}</button>
           {state === 'none' && <p className="px-1 text-sm leading-relaxed text-muted">{L.hint}</p>}
         </>
@@ -159,6 +212,8 @@ export function PlanScan({ plan, onDone, onboarding }: { plan: PlanRow; onDone?:
             <p className="text-sm text-muted">{L.from(source)}</p>
             <p className="text-sm leading-relaxed text-muted">{L.reviewHint}</p>
             {reviewCount > 0 && <p className="rounded-xl bg-warn-bg p-3 text-sm text-warn">{L.reviewCount(reviewCount)}</p>}
+            <p role="status" aria-label={L.persistenceStatus} className={`text-sm ${draftStatus === 'failed' || draftStatus === 'conflict' ? 'text-warn' : 'text-muted'}`}>{draftStatus === 'saving' ? L.draftSaving : draftStatus === 'saved' ? L.draftSaved : draftStatus === 'conflict' ? L.draftConflict : L.draftFailed}</p>
+            {draftStatus === 'failed' && <button type="button" className="min-h-tap text-accent underline" onClick={() => void enqueueDraft({ lines, cuts, source, note })}>{L.retryDraft}</button>}
             {note && <p className="text-sm text-warn">{note}</p>}
           </div>
           <fieldset disabled={saving} className="min-w-0 space-y-4">
@@ -235,13 +290,13 @@ export function PlanScan({ plan, onDone, onboarding }: { plan: PlanRow; onDone?:
               </div>
             )}
           </fieldset>
-          {undecided > 0 && <p role="status" className="text-sm text-warn">{L.undecided(undecided)}</p>}
+          {undecided > 0 && <p role="status" aria-label={L.decisionStatus} className="text-sm text-warn">{L.undecided(undecided)}</p>}
           <div data-testid="plan-review-actions" className="sticky bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-10 protocol-card rounded-2xl border border-line bg-surface p-3 shadow-lg md:bottom-4">
             <p aria-live="polite" aria-atomic="true" className="mb-2 text-sm text-muted">{L.selected(on.size, close.size)}</p>
             <div className="flex flex-wrap gap-2">
               <button type="button" disabled={saving || (!on.size && !close.size) || undecided > 0} onClick={() => void save()}
                 className="protocol-action flex-1 disabled:opacity-40">{saving ? L.saving : onboarding ? L.start(on.size) : L.save(on.size + close.size)}</button>
-              <button type="button" disabled={saving} onClick={() => { setState('none'); setLines([]); setCuts({}); }} className="protocol-action-secondary disabled:opacity-40">{t.meal.cancel}</button>
+              <button type="button" disabled={saving} onClick={() => void pause()} className="protocol-action-secondary disabled:opacity-40">{L.pauseDraft}</button>
             </div>
           </div>
         </section>

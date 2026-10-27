@@ -1,4 +1,5 @@
 // IndexedDB through Dexie (SPEC.md §4). Everything stays on the device.
+import type { ReviewDraft } from './reviewDraft';
 import { activeProfileId, profileDatabase } from './profiles';
 import Dexie, { type Table } from 'dexie';
 import type { ReminderSettings } from '../domain/reminders';
@@ -93,6 +94,7 @@ export class ProtocolDB extends Dexie {
   sync!: Table<SyncRow, string>;
   meta!: Table<SyncMeta, string>;
   profile!: Table<ProfilePhotoRow, string>;
+  reviewDrafts!: Table<ReviewDraft, string>;
   moduleEvents!: Table<ModuleEvent, string>;
 
   constructor(name = 'protocol') {
@@ -113,7 +115,10 @@ export class ProtocolDB extends Dexie {
     this.version(6).stores({ pieces: 'id' }); // D114: pieces of the doctor's paper — this device only, never synced or exported
     this.version(7).stores({ tally: 'day', pilot: 'key' }); // D119: the pilot — this device only, never synced or exported
     this.version(8).stores({ moduleEvents: 'id, at, kind' }); // D134: immutable preferences/history, encrypted sync + backup
-    this.version(9).stores({ profile: 'key' }); // Local profile image; intentionally excluded from sync and backups.
+    // Two branches shipped different v9 definitions. Dexie revisits that schema during upgrade:
+    // keep the union here so neither existing store is deleted before v10 is applied.
+    this.version(9).stores({ profile: 'key', reviewDrafts: 'id' });
+    this.version(10).stores({ profile: 'key', reviewDrafts: 'id' }); // Preserve both independent v9 histories; local-only review.
   }
 }
 

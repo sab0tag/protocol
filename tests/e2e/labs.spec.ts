@@ -144,7 +144,7 @@ test('onboarding starts from the doctor’s paper: photo → hide what is person
   const form = page.getByRole('region', { name: /^Ось що я прочитав/ });
   await form.getByRole('textbox', { name: 'Час прийому: Метформін', exact: true }).fill('08:15, 20:30');
   await form.getByRole('checkbox', { name: 'Метформін 500 мг' }).check();
-  await expect(form.getByRole('status')).toContainText('Ліки без рішення: 1'); // the Каптоприл without its dose
+  await expect(form.getByRole('status', { name: 'Рішення щодо ліків' })).toContainText('Ліки без рішення: 1'); // the Каптоприл without its dose
   await expect(form.getByRole('button', { name: 'Почати (1)' })).toBeDisabled();
   await form.getByRole('button', { name: 'Не вносити' }).click();
   await form.getByRole('button', { name: 'Почати (1)' }).click();
