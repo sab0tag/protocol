@@ -79,7 +79,7 @@ describe('module storage and migration', () => {
     old.close();
     await d.open();
     await initialiseModulePreferences(d, LATER);
-    expect(d.verno).toBe(10);
+    expect(d.verno).toBe(11);
     expect(await d.profile.count()).toBe(0);
     expect(await d.reviewDrafts.count()).toBe(0);
     expect(await d.plan.get('main')).toEqual(plan);
