@@ -1,6 +1,21 @@
 import { expect, test } from '@playwright/test';
 import { device, seed, ymd, kyivOffset } from './helpers';
 
+test('settings menu exposes profiles and code-based sync with a privacy boundary', async ({ browser }) => {
+  const page = await device(browser);
+  await page.goto('./#/more/settings');
+  await expect(page.getByRole('link', { name: 'Сім’я та профілі', exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Синхронізація', exact: true })).toBeVisible();
+  await page.getByRole('link', { name: 'Сім’я та профілі', exact: true }).click();
+  await expect(page.getByRole('link', { name: 'Підключити цей профіль кодом' })).toBeVisible();
+  await expect(page.getByText(/не надає іншій людині доступу/)).toBeVisible();
+  await page.getByRole('link', { name: 'Підключити цей профіль кодом' }).click();
+  await expect(page).toHaveURL(/#\/sync\?back=%2Fprofiles$/);
+  await page.getByRole('button', { name: 'У мене вже є код', exact: true }).click();
+  await expect(page.getByLabel('Код з іншого пристрою')).toBeVisible();
+  await page.context().close();
+});
+
 test('family profiles isolate records and drafts; greeting follows the selected person', async ({ browser }) => {
   const page = await device(browser);
   await seed(page, [{ store: 'entries', value: { id: 'own-water', kind: 'water', status: 'done', at: `${ymd(new Date())}T12:00:00${kyivOffset()}`, waterMl: 250 } }]);
@@ -76,7 +91,7 @@ test('greeting updates across time boundaries and a new phrase appears at local 
   await page.reload();
   const greeting = page.getByTestId('greeting');
   const phrase = page.locator('.protocol-day-hero p').filter({ has: page.locator('svg') });
-  await expect(greeting).toHaveText('Доброго ранку!');
+  await expect(greeting).toHaveText('Добрий ранок!');
   await page.clock.runFor(30000);
   await expect(greeting).toHaveText('Добрий день!');
   const text = await phrase.textContent();

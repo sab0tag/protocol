@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Check, Pencil, Plus, UserRound } from 'lucide-react';
+import { Check, Link2, Pencil, Plus, UserRound } from 'lucide-react';
 import { SceneHeader } from '../components/SceneHeader';
 import { activeProfileId, readProfiles, saveProfile, switchProfile, type Profile } from '../data/profiles';
 import { inDemo } from '../data/db';
 import { t } from '../i18n/uk';
+import { Link } from 'react-router-dom';
 const L = t.profiles;
 export function Profiles() {
   const [profiles, setProfiles] = useState(() => readProfiles().profiles);
@@ -13,7 +14,13 @@ export function Profiles() {
   return <section className="space-y-4 pt-4">
     <SceneHeader title={L.title} description={inDemo() ? L.demo : L.local} />
     {!inDemo() && <>
-      <button type="button" className="protocol-action-secondary flex items-center gap-2" onClick={() => { setError(''); setEditing({ id: crypto.randomUUID(), name: '', relation: 'relative' }); }}><Plus size={18} aria-hidden />{L.add}</button>
+      <div className="flex flex-wrap gap-2">
+        <button type="button" className="protocol-action-secondary flex items-center gap-2" onClick={() => { setError(''); setEditing({ id: crypto.randomUUID(), name: '', relation: 'relative' }); }}><Plus size={18} aria-hidden />{L.add}</button>
+        <Link to="/sync?back=%2Fprofiles" className="protocol-action-secondary flex items-center gap-2">
+          <Link2 size={18} aria-hidden />{L.connectDevice}
+        </Link>
+      </div>
+      <p className="text-sm text-muted">{L.connectHint}</p>
       <ul className="protocol-card divide-y divide-line">
         {profiles.map(p => <li key={p.id} className="flex items-center gap-3 p-4">
           <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-accent/10 text-accent" aria-hidden>{p.name ? Array.from(p.name)[0]?.toLocaleUpperCase('uk') : <UserRound />}</span>
