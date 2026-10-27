@@ -53,3 +53,10 @@ Still outstanding from document onboarding: persisted recoverable review drafts,
 - #24 explicit medication times adapted to current main, preserving current photography, theme controls, meal tabs and weekly rings. 494 client unit tests and 66 server tests passed; production build passed. Full browser regression currently running; remote CI/preview to be recorded in PR #24.
 - #25 recovery is being adapted separately with schema v10. Preserve both independent v9 stores (`profile` and `reviewDrafts`), including in the compatibility v9 declaration because Dexie revisits it during upgrade. The new migration test caught draft loss with the old photo-only v9 declaration; the corrected union passes all three v9 histories and a reopen.
 - #26 weight review and #27 motivation preferences must retain the latest Progress rings, line chart and section assets. Next: complete #24 browser/CI/preview; publish and verify adapted #25, then #26/#27. R5/R6 architecture remains open in the acceptance map.
+
+## Adapted recovery slice (#25)
+
+- Recovery now targets the upgraded UI and both v9 storage histories. Schema v10 retains profile photos and recoverable review drafts; v9 compatibility definition keeps their union to avoid deletion during Dexie's upgrade.
+- 501 client unit tests, production build and server typecheck passed. Migration/recovery/module tests: 25 passed. Focused browser review/retry/concurrency/import tests running; remote CI/preview will be recorded in PR #25.
+- Failed local browser startup (exit 137) was resource exhaustion while multiple builds/unit pools ran; no assertion or timeout was relaxed. Browser checks are rerun after reducing local unit worker concurrency.
+- Next: verify CI/preview and integrate #24/#25 in order; continue #26 weight quality and #27 profile display preferences without reverting current art or ring summary.
