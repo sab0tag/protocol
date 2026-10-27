@@ -168,7 +168,7 @@ export function AddMeal() {
 
   return (
     <section className="space-y-4 pt-4">
-      <SceneHeader eyebrow={t.meal.foodLabel} title={id ? t.meal.editTitle : t.meal.title} description={id ? t.meal.editHint : t.meal.entryHint} />
+      <SceneHeader title={id ? t.meal.editTitle : t.meal.title} description={id ? t.meal.editHint : t.meal.entryHint} />
       <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); void save(); }}>
         <section aria-label={t.meal.addFood} className="protocol-card p-4 sm:p-5">
           <div role="group" aria-label={t.meal.entryModes} className="mb-3 grid grid-cols-4 gap-2">
@@ -176,14 +176,14 @@ export function AddMeal() {
               className="flex min-h-[4.25rem] min-w-0 flex-col items-center justify-center gap-1 rounded-xl border border-accent bg-accent px-1 py-2 text-center text-xs font-medium text-surface disabled:opacity-40">
               <Camera size={20} aria-hidden />{t.meal.photo}</button>
             <button type="button" onClick={() => navigate('/?open=voice')}
-              className="flex min-h-[4.25rem] min-w-0 flex-col items-center justify-center gap-1 rounded-xl border border-line bg-blue-500/5 px-1 py-2 text-center text-xs font-medium">
-              <Mic size={20} className="text-blue-500" aria-hidden />{t.meal.modeVoice}</button>
+              className="flex min-h-[4.25rem] min-w-0 flex-col items-center justify-center gap-1 rounded-xl border border-line bg-bg/70 px-1 py-2 text-center text-xs font-medium text-muted">
+              <Mic size={20} aria-hidden />{t.meal.modeVoice}</button>
             <button type="button" onClick={() => searchInput.current?.focus()}
-              className="flex min-h-[4.25rem] min-w-0 flex-col items-center justify-center gap-1 rounded-xl border border-line bg-violet-500/5 px-1 py-2 text-center text-xs font-medium">
-              <Type size={20} className="text-violet-500" aria-hidden />{t.meal.modeText}</button>
+              className="flex min-h-[4.25rem] min-w-0 flex-col items-center justify-center gap-1 rounded-xl border border-line bg-bg/70 px-1 py-2 text-center text-xs font-medium text-muted">
+              <Type size={20} aria-hidden />{t.meal.modeText}</button>
             <button type="button" aria-expanded={labelOpen} onClick={() => setLabelOpen((open) => !open)}
-              className="flex min-h-[4.25rem] min-w-0 flex-col items-center justify-center gap-1 rounded-xl border border-line bg-amber-500/5 px-1 py-2 text-center text-xs font-medium">
-              <ScanText size={20} className="text-amber-500" aria-hidden />{t.meal.modeLabel}</button>
+              className="flex min-h-[4.25rem] min-w-0 flex-col items-center justify-center gap-1 rounded-xl border border-line bg-bg/70 px-1 py-2 text-center text-xs font-medium text-muted">
+              <ScanText size={20} aria-hidden />{t.meal.modeLabel}</button>
           </div>
           <label htmlFor="meal-search" className="block text-sm text-muted">{t.meal.search}</label>
           <div className="mt-1 flex items-end gap-2">
