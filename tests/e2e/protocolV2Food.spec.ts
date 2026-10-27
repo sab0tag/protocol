@@ -131,3 +131,34 @@ test('recent meals switch by meal type and heart buttons add and remove favorite
   await expect(page.getByRole('region', { name: 'Мої звичні' })).toHaveCount(0);
   await page.context().close();
 });
+
+test('recent meals use local food photos for the dishes shown in the mockup', async ({ browser }) => {
+  const page = await device(browser, 'skip');
+  const date = addDays(new Date(), -1);
+  const at = (time: string) => `${ymd(date)}T${time}:00${kyivOffset(date)}`;
+  await seed(page, [
+    { store: 'entries', value: { id: 'photo-oatmeal', at: at('08:00'), kind: 'meal', status: 'done', title: 'Вівсянка на воді', items: [{ name: 'Вівсянка на воді', grams: 250 }] } },
+    { store: 'entries', value: { id: 'photo-wrap', at: at('13:00'), kind: 'meal', status: 'done', title: 'Лаваш-рол з куркою', items: [{ name: 'Лаваш-рол', grams: 200 }] } },
+    { store: 'entries', value: { id: 'photo-salad', at: at('21:30'), kind: 'meal', status: 'done', title: 'Салат овочевий', items: [{ name: 'Салат овочевий', grams: 150 }] } },
+    { store: 'entries', value: { id: 'photo-chicken', at: at('19:00'), kind: 'meal', status: 'done', title: 'Куряче філе запечене', items: [{ name: 'Куряче філе', grams: 180 }] } },
+  ]);
+  await page.goto('./#/meal/new');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.emulateMedia({ colorScheme: 'dark' });
+  const recent = page.getByRole('region', { name: 'Останні' });
+  for (const [category, asset] of [
+    ['Сніданок', 'food-oatmeal'],
+    ['Обід', 'food-wrap'],
+    ['Вечеря', 'food-chicken'],
+    ['Перекус', 'food-salad'],
+  ]) {
+    await recent.getByRole('tab', { name: category }).click();
+    await expect(recent.locator('.protocol-food-artwork img')).toHaveAttribute('src', new RegExp(asset));
+  }
+  const photo = recent.locator('.protocol-food-artwork img');
+  await photo.scrollIntoViewIfNeeded();
+  await expect(photo).toHaveJSProperty('naturalWidth', 192);
+  await page.evaluate(() => window.scrollBy(0, 300));
+  await page.screenshot({ path: 'test-results/food-photo-thumbnails-390-dark.png' });
+  await page.context().close();
+});
