@@ -2,13 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { greeting, dailyPhrase } from '../../src/domain/greeting';
 describe('personal day greeting', () => {
   it.each([[4, 'Тихої ночі'], [5, 'Добрий ранок'], [11, 'Добрий ранок'], [12, 'Добрий день'], [17, 'Добрий день'], [18, 'Добрий вечір'], [22, 'Добрий вечір'], [23, 'Тихої ночі']])('uses local hour %s', (hour, text) => {
-    expect(greeting(new Date(2026, 9, 27, Number(hour)), 'Олена')).toBe(`${text}, Олена!`);
+    expect(greeting(new Date(2026, 9, 27, Number(hour)), 'Олена')).toBe(`${text}, Олена`);
   });
   it('uses the profile name in the morning greeting', () => {
-    expect(greeting(new Date(2026, 9, 27, 8), 'Ігор')).toBe('Добрий ранок, Ігор!');
+    expect(greeting(new Date(2026, 9, 27, 8), 'Ігор')).toBe('Добрий ранок, Ігор');
   });
   it('keeps unnamed users anonymous and rotates at local midnight across DST', () => {
-    expect(greeting(new Date(2026, 9, 27, 12), '  ')).toBe('Добрий день!');
+    expect(greeting(new Date(2026, 9, 27, 12), '  ')).toBe('Добрий день');
     for (const day of [24, 25, 26, 27, 31]) {
       expect(dailyPhrase(new Date(2026, 9, day, 0))).toBe(dailyPhrase(new Date(2026, 9, day, 23, 59)));
       expect(dailyPhrase(new Date(2026, 9, day))).not.toBe(dailyPhrase(new Date(2026, 9, day + 1)));

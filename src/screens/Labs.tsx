@@ -33,7 +33,7 @@ export function Labs() {
   return (
     <section className="space-y-4 pt-4">
       <Link to="/progress" className="inline-flex min-h-tap items-center text-sm text-muted">{t.progress.title}</Link>
-      <header className="flex items-center justify-between gap-2">
+      <header className="protocol-scene-header flex items-center justify-between gap-2">
         <h1 className="text-2xl font-semibold">{L.labs}</h1>
         <button type="button" onClick={() => setOpen(!open)} className="flex min-h-tap items-center gap-1 px-2 text-accent"><Plus size={18} />{L.addLab}</button>
       </header>

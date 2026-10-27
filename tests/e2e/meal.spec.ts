@@ -23,7 +23,7 @@ test('«Записати їжу» shows four input modes before search; the meal
   await page.getByRole('button', { name: 'Додати до дня', exact: true }).click();
   await expect(toast(page)).toContainText('Перекус');
 
-  await page.getByRole('button', { name: /^Перекус,/ }).click();
+  await page.getByRole('button', { name: /^Перекус, Виконано/ }).click();
   await page.getByRole('button', { name: 'У звичні' }).click();
   await expect(toast(page)).toContainText('«Перекус» — у звичних');
 

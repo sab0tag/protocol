@@ -96,6 +96,32 @@ body { background-image: radial-gradient(ellipse at 10% 0%, rgb(var(--accent) / 
   background: linear-gradient(180deg, rgb(4 19 14 / .08) 25%, rgb(4 19 14 / .68) 100%);
 }
 .protocol-day-hero .protocol-calendar { background: rgb(6 24 17 / .28); border: 1px solid rgb(255 255 255 / .12); backdrop-filter: blur(10px); }
+main[data-scene="food"] { --protocol-scene-image: url('../assets/section-food.webp'); }
+main[data-scene="movement"] { --protocol-scene-image: url('../assets/section-movement.webp'); }
+main[data-scene="assistant"] { --protocol-scene-image: url('../assets/section-assistant.webp'); }
+main[data-scene="care"] { --protocol-scene-image: url('../assets/section-care.webp'); }
+main[data-scene="wellness"] { --protocol-scene-image: url('../assets/section-wellness.webp'); }
+main[data-scene="settings"] { --protocol-scene-image: url('../assets/section-settings.webp'); }
+.protocol-scene-header {
+  isolation: isolate;
+  min-height: 7rem;
+  padding: 1rem;
+  overflow: hidden;
+  border: 1px solid rgb(255 255 255 / .12);
+  border-radius: 1.125rem;
+  background-color: #12251e;
+  background-image: linear-gradient(90deg, rgb(5 18 14 / .9) 0%, rgb(6 20 15 / .7) 48%, rgb(6 20 15 / .12) 100%), var(--protocol-scene-image);
+  background-position: center, right 42%;
+  background-size: cover;
+  box-shadow: 0 14px 36px -24px rgb(0 0 0 / .42);
+  color: #fff;
+}
+.protocol-scene-header h1 { color: #fff; }
+.protocol-scene-header p,
+.protocol-scene-header .text-muted { color: rgb(255 255 255 / .84); }
+.protocol-scene-header .protocol-eyebrow { color: rgb(255 255 255 / .78); }
+.protocol-scene-header [class~="border-line"] { border-color: rgb(255 255 255 / .32); }
+.protocol-scene-header .bg-surface { color: rgb(var(--ink)); }
 .protocol-card { border-radius: var(--protocol-radius-card); border-color: rgb(var(--line) / .8); }
 .protocol-card > h2, .protocol-card > div > h2 { letter-spacing: -.02em; }
 .protocol-toggle-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 1rem; padding-block: .65rem; }

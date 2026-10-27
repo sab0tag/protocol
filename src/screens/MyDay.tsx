@@ -48,7 +48,7 @@ export function MyDay() {
 
   return (
     <section className="space-y-4 pt-4">
-      <header className="mb-3 flex items-center gap-2">
+      <header className="protocol-scene-header mb-3 flex items-center gap-2">
         <button type="button" onClick={() => shift(-1)} aria-label={t.day.prev}
           className="flex min-h-tap min-w-tap items-center justify-center rounded-xl border border-line bg-surface"><ChevronLeft size={20} /></button>
         <div className="flex-1 text-center">
