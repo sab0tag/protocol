@@ -10,7 +10,7 @@ This is an acceptance map, not a claim that complete releases have shipped. Repo
 | R1 design | Shared tokens/components, both themes, accessibility, loading/error/offline | Woodland system across working screens; continued visual QA required |
 | R2 Today | Adaptive action feed, nearest action, honest statuses | Working single-plan Today; latest ordering/labels in #22 |
 | R3 Food | Fast repeat, favorites, editor, deduplication, sticky save | Current compact entry/3 recent meals; no claim of all acceptance cases |
-| R4 quality | Invalid dates/units/weight, anomalous values quarantined until reviewed | Weight aggregation and editing still need the explicit quarantine slice |
+| R4 quality | Invalid dates/units/weight, anomalous values quarantined until reviewed | Weight quarantine/editing and actual-value chart slice under validation; other measurement types remain |
 | R5 core | Separate plans/items, migration, versions, status and provenance | Legacy single `main` plan; source plans must never be merged into one instruction |
 | R6 plan UX | Parallel plans, clinician filter, unified feed, conflicts/archive | Not implemented; duplicates must not create double obligations |
 | R7 documents | Photo/PDF, recoverable OCR draft, field verification before activation | Photo review works; explicit-time follow-up under validation; PDF, durable draft and full verification remain |

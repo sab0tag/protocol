@@ -253,6 +253,10 @@ export interface Workout {
 export interface WeightLog {
   date: ISODate;
   kg: number;
+  /** Explicitly reviewed exact value; editing the value invalidates this acknowledgement. */
+  reviewedKg?: number;
+  reviewedAt?: string;
+  corrections?: { date: ISODate; kg: number; at: string }[];
   demo?: true; // D79
 }
 export interface LabResult {

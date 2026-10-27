@@ -1,28 +1,27 @@
+import { WeightReview } from '../components/WeightReview';
+import { weightQuality } from '../domain/weightQuality';
 import { SceneHeader } from '../components/SceneHeader';
 import { format, parseISO } from 'date-fns';
 import { ExampleNotice } from '../components/ExampleNotice';
 import { Loading } from '../components/Recovery';
-import { saved } from '../components/Toast';
-import { AlertTriangle, ChevronRight, FileText, Plus } from 'lucide-react';
-import { useState } from 'react';
+import { AlertTriangle, ChevronRight, FileText } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { db } from '../data/db';
 import { useAllEntries, useFoods, usePlan, useWeights, useWorkouts } from '../data/queries';
 import { todayISO } from '../domain/dates';
 import { weekSummary } from '../domain/habits';
 import { pace, tooFastTwoWeeks, weeklyWeights, weightSummary, type WeekWeight } from '../domain/progress';
+import type { WeightLog } from '../domain/types';
 import { t } from '../i18n/uk';
 import { useObservation } from '../app/observation';
 import { WeekCard } from './Motivation';
 
 const L = t.progress;
-const field = 'mt-1 block min-h-tap w-full rounded-xl border border-line bg-bg px-3';
 const dm = (d: string) => format(parseISO(d), 'dd.MM');
 const kg = (n: number) => n.toLocaleString('uk-UA', { maximumFractionDigits: 1 });
 const signed = (n: number) => `${n > 0 ? '+' : n < 0 ? '−' : ''}${kg(Math.abs(n))}`;
 
-/** «Прогрес» (SPEC.md §5.7). The chart shows the weekly change (honest from zero) against the plan's limit;
+/** «Прогрес» (SPEC.md §5.7). The charts show accepted measurements and weekly averages against the plan's limit;
  *  the current weight and the change since the start are numbers above it (D23). */
 export function Progress() {
   const plan = usePlan();
@@ -37,6 +36,7 @@ export function Progress() {
   const weeks = weeklyWeights(weights, max);
   const sum = weightSummary(weights);
   const weekly = weekSummary({ plan, entries, workouts, foods, today: todayISO(), observation });
+  const quality = weightQuality(weights);
 
   return (
     <section className="space-y-4 pt-4">
@@ -60,6 +60,7 @@ export function Progress() {
 
       <section className="protocol-card rounded-2xl border border-line bg-surface p-3">
         <h2 className="mb-2 font-semibold">{L.weight}</h2>
+        {quality.pending.length > 0 && <p className="mb-3 rounded-xl bg-warn-bg p-3 text-sm text-warn">{t.weightQuality.needsReview(quality.pending.length)}</p>}
         {sum.now ? (
           <dl className="mb-3 grid grid-cols-2 gap-3 tabular">
             <div><dt className="text-sm text-muted">{L.now}</dt><dd className="text-3xl font-semibold">{kg(sum.now.kg)} <span className="text-base font-normal text-muted">{L.kg}</span></dd></div>
@@ -76,8 +77,9 @@ export function Progress() {
           <p className={`mb-2 text-sm ${max != null && -pace(weeks)! > max ? 'text-warn' : 'text-muted'}`}>
             {L.pace(signed(pace(weeks)!))}{max != null ? L.paceLimit(kg(max)) : ''}</p>
         )}
-        {weeks.length > 1 && <WeeklyChart weeks={weeks} max={max} />}
-        <AddWeight />
+        {quality.accepted.length > 1 && <WeightChart weights={quality.accepted} />}
+        {weeks.length > 1 && <details className="mt-3"><summary className="min-h-tap cursor-pointer py-2 text-sm text-muted">{t.weightQuality.weekly}</summary><WeeklyChart weeks={weeks} max={max} /></details>}
+        <WeightReview weights={weights} />
       </section>
     </section>
   );
@@ -120,20 +122,22 @@ function WeeklyChart({ weeks, max }: { weeks: WeekWeight[]; max?: number }) {
   );
 }
 
-function AddWeight() {
-  const [date, setDate] = useState(todayISO());
-  const [value, setValue] = useState('');
-  const save = async () => {
-    const n = Number(value.replace(',', '.'));
-    if (n > 0) { const v = Math.round(n * 10) / 10; await saved(db.weights.put({ date, kg: v }), t.toast.weight(kg(v))); setValue(''); }
-  };
-  return (
-    <form className="mt-4 grid grid-cols-2 items-end gap-3 border-t border-line pt-4 sm:grid-cols-[1fr_1fr_auto]" onSubmit={(e) => { e.preventDefault(); void save(); }}>
-      <label className="block"><span className="text-sm text-muted">{L.date}</span>
-        <input type="date" value={date} max={todayISO()} onChange={(e) => setDate(e.target.value)} className={field} /></label>
-      <label className="block"><span className="text-sm text-muted">{L.weight}, {L.kg}</span>
-        <input inputMode="decimal" value={value} onChange={(e) => setValue(e.target.value)} className={field} /></label>
-      <button type="submit" className="protocol-action col-span-2 sm:col-span-1" aria-label={L.addWeight}><Plus size={18} /></button>
-    </form>
-  );
+/** Actual accepted measurements on a continuous time axis; no generated points or quarantined values. */
+function WeightChart({ weights }: { weights: WeightLog[] }) {
+  const data = weights.map(row => ({ ...row, at: new Date(`${row.date}T12:00:00`).getTime() }));
+  const label = (at: number) => format(new Date(at), 'd.MM');
+  return <figure aria-label={t.weightQuality.chart}>
+    <figcaption className="mb-2 text-sm text-muted">{t.weightQuality.chart}</figcaption>
+    <div className="h-44 w-full min-w-0 text-xs">
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart data={data} margin={{ top: 12, right: 12, left: 0, bottom: 0 }}>
+          <CartesianGrid stroke="rgb(var(--line))" vertical={false} />
+          <XAxis dataKey="at" type="number" domain={['dataMin', 'dataMax']} tickFormatter={label} minTickGap={30} stroke="rgb(var(--muted))" />
+          <YAxis domain={['auto', 'auto']} width={42} tickFormatter={kg} stroke="rgb(var(--muted))" />
+          <Tooltip labelFormatter={at => label(Number(at))} formatter={value => [`${kg(Number(value))} ${L.kg}`, L.weight]} contentStyle={{ background: 'rgb(var(--surface))', borderColor: 'rgb(var(--line))', borderRadius: 12 }} />
+          <Line dataKey="kg" type="linear" stroke="rgb(var(--accent))" strokeWidth={2} dot={{ r: 3, fill: 'rgb(var(--accent))' }} isAnimationActive={false} />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  </figure>;
 }

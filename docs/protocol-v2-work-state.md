@@ -60,3 +60,11 @@ Still outstanding from document onboarding: persisted recoverable review drafts,
 - 501 client unit tests, production build and server typecheck passed. Migration/recovery/module tests: 25 passed. Focused browser review/retry/concurrency/import tests running; remote CI/preview will be recorded in PR #25.
 - Failed local browser startup (exit 137) was resource exhaustion while multiple builds/unit pools ran; no assertion or timeout was relaxed. Browser checks are rerun after reducing local unit worker concurrency.
 - Next: verify CI/preview and integrate #24/#25 in order; continue #26 weight quality and #27 profile display preferences without reverting current art or ring summary.
+
+## Adapted weight quality slice (#26)
+
+- Preserves current weekly rings, section artwork and weekly line chart; adds actual accepted measurement points and review/history controls. Weekly averages remain available under «Тижневі середні та темп».
+- Suspicious >10% entry changes await human review and stay out of aggregates/reports. This is an input-quality rule, not a diagnosis. Invalid/future dates and invalid units/values remain excluded. Corrections keep history; delete can be undone with concurrency guards.
+- Corrected the Progress browser fixture to populate `protocol-demo` when using demo mode; exact seeded weights are now asserted alongside existing ring values.
+- 516 client tests, production build and 3 focused browser tests passed. Retained #25 migration regressions. Remote CI/preview will be recorded in PR #26.
+- Next: integrate verified #24/#25/#26 in order, then #27 optional daily phrases and reactive names; R5/R6 remain open.
