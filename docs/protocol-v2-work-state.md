@@ -39,7 +39,7 @@ See `protocol-v2-plan-core.md` for contracts/boundaries and `protocol-v2-roadmap
 
 ## Next actions
 
-1. #26/#27 are merged after green CI. Core PR #35 is retargeted to main; finish its CI/review.
+1. #26/#27 are merged after green CI. Core PR #35 passed CI run 40574749672 and merged as `08a0908`.
 2. Complete the core PR CI/preview and review; merge only if green.
 3. Implement expand-only transactional plan/item storage migration and recovery. Preserve v9/v10 local tables and the original journal; prove idempotence and rollback.
 4. Add compatible encrypted sync, backup/import and restore before enabling multi-plan writes. New writable data must not silently disappear from backups.
@@ -57,3 +57,12 @@ Branch `feat/protocol-plan-storage`, parent `feat/protocol-plan-core` (PR #35, h
 - Focused storage/migration/module regressions 27 passed; additional old-code reopening test 6/6. Production build/typecheck passed before that test-only refinement. Native Chromium v10 upgrade + recovery/profile/theme regressions 7/7 passed. Full client suite 528 passed; final old-code reopen refinement passed the 6 focused storage tests and final build. CI/preview will be recorded in the PR.
 - Native browser test verifies original plan, photo, review and weights survive schema 11 while normalized stores remain empty. No new UI or clinical activation is exposed.
 - Next: finish core/storage CI, then implement compatible ownership-aware sync/backup/import/restore before flagged consumers. See `protocol-v2-plan-storage.md` for scope and constraints.
+
+## R5 third boundary — source-plan JSON recovery
+
+Branch `feat/protocol-plan-backup`, stacked on storage PR #36 (head `dad4cc8`). Normalized records remain non-authoritative preparation data; no multi-plan editor or Today consumer is enabled.
+
+- Ordinary journals keep format 2. Prepared plans require format 3, with plans/items/recovery snapshots exported in a consistent transaction. Explicit one-person restore rebinds device-local ownership without changing source ids; invalid/mixed-owner graphs fail before writes. Old-format replacement cannot drop existing prepared plans. A late failure rolls back both representations.
+- Retained older identity format is supported; new legacy ids are owner-independent because local profile ids differ between devices. This is not cross-person sharing or server authorization.
+- 534 client tests, build/typecheck and 55 focused backup/domain/storage/legacy cases passed. Browser backup/upgrade/preference cases 3/3 passed. Confirmation visually checked 320/1024 light/dark; no personal screenshots or medical records published.
+- Next: complete #36/#37 CI/review; implement encrypted sync compatibility and old-client write protection before enabling live multi-plan consumers. New source data must never be silently omitted by a claimed complete backup/sync.

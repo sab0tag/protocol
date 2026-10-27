@@ -46,10 +46,12 @@ const required = (s: string) => { if (typeof s !== 'string' || !s.trim()) throw 
 
 /** Deterministic, lossless preparation for a future transactional migration. No storage is changed.
  * The single legacy record is one source of unknown authorship; source strings never imply separate clinicians. */
-export function expandLegacyPlan(record: Plan, personId: string): LegacyPlanExpansion {
+export function expandLegacyPlan(record: Plan, personId: string, retainedPlanId?: string): LegacyPlanExpansion {
   required(personId);
   const snapshot = structuredClone(record);
-  const planId = identity('legacy-plan', personId, 'main');
+  // IDs belong to a per-person vault; local profile ids can differ on another device.
+  const planId = retainedPlanId ?? identity('legacy-plan', 'main');
+  required(planId);
   const plan: CarePlan = { id: planId, personId, title: 'Поточний план', status: 'active', version: 1,
     source: { kind: 'legacy', recordId: 'main' } };
   const items: CarePlanItem[] = [];
