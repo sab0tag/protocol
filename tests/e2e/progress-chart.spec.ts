@@ -10,6 +10,7 @@ test('weight history is a responsive line chart of weekly averages, not bars', a
   }));
   await page.goto('./#/progress');
 
+  await expect(page.getByRole('heading', { name: /Останні 7 днів/ })).toBeVisible();
   const chart = page.getByRole('img', { name: /Середня вага за тижнями/ });
   await expect(chart).toBeVisible();
   await expect(chart.locator('.recharts-line-curve')).toHaveCount(1);
