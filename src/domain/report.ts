@@ -1,4 +1,5 @@
 // «Звіт для лікаря» (SPEC.md §5.8). Pure: everything comes in, numbers come out.
+import { weightQuality } from './weightQuality';
 import { addDays, differenceInCalendarDays, format, parseISO } from 'date-fns';
 import { buildChecklist } from './checklist';
 import { dateOf, isPast } from './dates';
@@ -18,6 +19,7 @@ export interface Report {
   to: ISODate;
   days: number;
   checklistPct?: number; // ticks done / due over the days that had a checklist
+  weightPending?: number;
   weightStart?: number;
   weightNow?: number;
   workouts: number;
@@ -108,7 +110,9 @@ export function buildReport(args: {
   }
   const menuMeals = entries.filter((e) => e.menu && e.kind === 'meal' && inside(dateOf(e.at)) && isPast(e.at)
     && observedPlannedEntry(observation, e)); // recorded facts remain; proposals need observed food + menu
-  const w = weights.filter((x) => inside(x.date)).sort((a, b) => a.date.localeCompare(b.date));
+  const quality = weightQuality(weights, format(now, 'yyyy-MM-dd'));
+  const w = quality.accepted.filter((x) => inside(x.date));
+  const weightPending = quality.pending.filter((x) => inside(x.record.date)).length;
   const scored = wellbeing.filter((x) => inside(x.date) && x.energy != null);
   const counts = new Map<string, number>();
   for (const x of wellbeing.filter((y) => inside(y.date))) for (const s of x.symptoms) counts.set(s, (counts.get(s) ?? 0) + 1);
@@ -135,6 +139,7 @@ export function buildReport(args: {
       weight: w.length > 0, wellbeing: scored.length > 0 } } : {}),
     ...(unscoredMedMarks ? { unscoredMedMarks } : {}),
     ...(total ? { checklistPct: Math.round((done / total) * 100) } : {}),
+    ...(weightPending ? { weightPending } : {}),
     ...(w.length ? { weightStart: w[0]!.kg, weightNow: w.at(-1)!.kg } : {}),
     // D81: weekly averages over the period — the same count as «Прогрес», not first-to-last weighing
     ...(pace(weeklyWeights(w), Infinity) !== undefined ? { weightPace: pace(weeklyWeights(w), Infinity)! } : {}),
@@ -200,6 +205,7 @@ export function reportText(r: Report, dm: (d: ISODate) => string): string {
     r.dietQuestions.length ? r.dietQuestions.map((q) => `• ${q}`).join('\n') : '',
     r.labs.length ? `${t.report.labs}:\n${r.labs.map((l) => `• ${dm(l.date)} ${l.name}: ${dec(l.value)} ${l.unit}${l.target ? ` (ціль ${l.target})` : ''}`).join('\n')}` : '',
     r.checklistPct != null ? `План дня виконано: ${r.checklistPct} %` : '',
+    r.weightPending ? t.weightQuality.reportPending(r.weightPending) : '',
     r.weightStart != null ? `Вага: ${dec(r.weightStart)} → ${dec(r.weightNow!)} кг` : '',
     r.weightPace != null ? `Темп за період, за тижневими середніми: ${signedKg(r.weightPace)} кг на тиждень${r.maxLossPerWeek != null ? ` (межа — не швидше ${dec(r.maxLossPerWeek)})` : ''}` : '',
     r.habits.length ? `Дні з записами, коли виконано:\n${r.habits.map((h) => `• ${HABIT[h.key]}: ${h.met} з ${h.of}`).join('\n')}` : '',

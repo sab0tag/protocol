@@ -1,4 +1,5 @@
 // «Прогрес» (SPEC.md §5.7, §6.4): weekly weight, too-fast loss, lab table, noticed patterns. Pure.
+import { weightQuality } from './weightQuality';
 import { addDays, differenceInCalendarDays, format, parseISO, startOfISOWeek } from 'date-fns';
 import { BEFORE_HOURS, coincidences, coincidenceText } from './symptoms';
 import { flatItems } from './rules';
@@ -18,7 +19,7 @@ const r1 = (n: number) => Math.round(n * 10) / 10;
 
 export function weeklyWeights(logs: WeightLog[], maxLossPerWeek?: number): WeekWeight[] {
   const byWeek = new Map<string, number[]>();
-  for (const l of [...logs].sort((a, b) => a.date.localeCompare(b.date))) {
+  for (const l of weightQuality(logs).accepted) {
     const w = format(startOfISOWeek(parseISO(l.date)), 'yyyy-MM-dd');
     byWeek.set(w, [...(byWeek.get(w) ?? []), l.kg]);
   }
@@ -49,7 +50,7 @@ export function pace(weeks: WeekWeight[], last = 2): number | undefined {
 }
 
 export function weightSummary(logs: WeightLog[]): { start?: WeightLog; now?: WeightLog; delta?: number } {
-  const sorted = [...logs].sort((a, b) => a.date.localeCompare(b.date));
+  const sorted = weightQuality(logs).accepted;
   const start = sorted[0], now = sorted.at(-1);
   return { ...(start ? { start } : {}), ...(now ? { now } : {}), ...(start && now ? { delta: r1(now.kg - start.kg) } : {}) };
 }

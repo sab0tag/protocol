@@ -1,3 +1,4 @@
+import { validWeightDate } from '../domain/weightQuality';
 import { addDays, format, parseISO } from 'date-fns';
 import { ExampleNotice } from '../components/ExampleNotice';
 import { Loading } from '../components/Recovery';
@@ -34,7 +35,7 @@ export function Report() {
   const [shared, setShared] = useState('');
   if (!plan || !entries || !wellbeing || !workouts || !weights || !foods || !labs || !observationReady) return <Loading />;
 
-  const first = [entries[0] && dateOf(entries[0].at), weights[0]?.date].filter(Boolean).sort()[0];
+  const first = [entries[0] && dateOf(entries[0].at), weights.find(w => validWeightDate(w.date))?.date].filter(Boolean).sort()[0];
   const from = range.from ?? plan.lastVisit ?? first ?? format(addDays(new Date(), -13), 'yyyy-MM-dd');
   const r = buildReport({ from, to: range.to, plan, entries, workouts, wellbeing, weights, foods, labs, observation });
   const questions = plan.questions ?? [];
@@ -103,6 +104,7 @@ export function Report() {
         </dl>
       )}
 
+      {!!r.weightPending && <p className="rounded-xl border border-warn/30 bg-warn-bg p-3 text-sm text-warn">{t.weightQuality.reportPending(r.weightPending)}</p>}
       {(r.weightPace != null || r.habits.length > 0 || r.menu) && (
         <section className="protocol-card rounded-2xl border border-line bg-surface p-3">
           <h2 className="mb-2 font-semibold">{L.howPlan}</h2>
