@@ -72,8 +72,8 @@ export function Plan({ section = 'home' }: { section?: PlanSection }) {
 
   return (
     <section className="space-y-4 pt-4">
-      {section === 'home' ? <h1 className="text-2xl font-semibold">{P.title}</h1> : (
-        <header className="space-y-2">
+      {section === 'home' ? <header className="protocol-scene-header"><h1 className="text-2xl font-semibold">{P.title}</h1></header> : (
+        <header className="protocol-scene-header space-y-2">
           <Link to="/plan" className="inline-flex min-h-tap items-center gap-1 text-sm text-muted">
             <ChevronLeft size={18} aria-hidden />{P.title}
           </Link>

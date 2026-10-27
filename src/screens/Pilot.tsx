@@ -16,7 +16,7 @@ export function Pilot() {
   const m = useLiveQuery(async () => (await db.pilot.get('pilot')) ?? { key: 'pilot' as const }, []);
   const [asking, setAsking] = useState(false);
   const [erasing, setErasing] = useState(false);
-  if (inDemo()) return <section className="pt-6"><h1 className="mb-3 text-2xl font-semibold">{L.title}</h1><p className="text-sm text-muted">{L.demo}</p></section>;
+  if (inDemo()) return <section className="pt-6"><header className="protocol-scene-header"><h1 className="text-2xl font-semibold">{L.title}</h1><p className="mt-1 text-sm text-muted">{L.demo}</p></header></section>;
   if (!m) return null;
   const on = consented(m);
   const sent = Object.values(m.sent ?? {}) as Summary[];
@@ -26,7 +26,7 @@ export function Pilot() {
   };
   return (
     <section className="space-y-4 pt-6">
-      <h1 className="text-2xl font-semibold">{L.title}</h1>
+      <header className="protocol-scene-header"><h1 className="text-2xl font-semibold">{L.title}</h1></header>
       <p className="text-sm">{on && m.consent ? L.on(format(parseISO(m.consent.at), 'd MMMM yyyy', { locale: uk })) : L.off}</p>
       {!on && (asking ? <PilotConsent onDone={() => setAsking(false)} />
         : <button type="button" onClick={() => setAsking(true)} className="min-h-tap w-full rounded-xl bg-accent px-4 font-medium text-surface">{L.join}</button>)}

@@ -1,9 +1,10 @@
 import { CalendarDays, ClipboardList, LineChart, MoreHorizontal, UtensilsCrossed, type LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import { t } from '../i18n/uk';
 import { Toaster } from './Toast';
 import { ROUTES, TAB_ROUTES, type TabRouteId } from '../app/navigation';
+import { sceneArtworkForPath } from '../domain/sceneArtwork';
 
 const TABS = {
   day: { label: t.nav.day, Icon: CalendarDays },
@@ -15,6 +16,7 @@ const TABS = {
 
 /** Bottom tab bar on phones, an icon rail from 768 px — same icons and routes (SPEC.md §5). */
 export function Layout({ children }: { children: ReactNode }) {
+  const artwork = sceneArtworkForPath(useLocation().pathname);
   return (
     <div className="min-h-dvh md:flex">
       <nav aria-label="Розділи"
@@ -33,7 +35,7 @@ export function Layout({ children }: { children: ReactNode }) {
         </ul>
       </nav>
       <Toaster />
-      <main className="mx-auto w-full max-w-2xl px-4 pb-28 pt-safe md:pb-10 print:max-w-none print:pb-0">
+      <main data-scene={artwork ?? 'day'} className="mx-auto w-full max-w-2xl px-4 pb-28 pt-safe md:pb-10 print:max-w-none print:pb-0">
         {children}</main>
     </div>
   );

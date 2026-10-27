@@ -1,10 +1,10 @@
 import type { ReactNode } from 'react';
 
-/** Compact page heading; the woodland image is reserved for the Today screen. */
+/** Section heading with the route-specific image treatment supplied by the page shell. */
 export function SceneHeader({ title, description, eyebrow, children }: {
   title: string; description?: string; eyebrow?: string; children?: ReactNode;
 }) {
-  return <header className="flex flex-col items-start gap-3 border-b border-line pb-3 sm:flex-row sm:items-end sm:pb-4">
+  return <header className="protocol-scene-header flex flex-col items-start gap-3 sm:flex-row sm:items-end">
     <div className="w-full min-w-0 flex-1 sm:w-auto">
       {eyebrow && <p className="protocol-eyebrow mb-1">{eyebrow}</p>}
       <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>

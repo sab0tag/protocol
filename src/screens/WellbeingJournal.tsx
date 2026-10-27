@@ -25,7 +25,7 @@ export function WellbeingJournal() {
 
   return (
     <section className="space-y-4 pt-4">
-      <header className="flex items-center justify-between gap-3">
+      <header className="protocol-scene-header flex items-center justify-between gap-3">
         <div>
           <Link to="/wellbeing" className="inline-flex min-h-tap items-center text-sm text-muted">{t.well.title}</Link>
           <h1 className="text-2xl font-semibold">{t.well.journal}</h1>

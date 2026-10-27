@@ -89,8 +89,9 @@ function Steps({ plan, start, onScanned }: { plan: PlanRow; start: number; onSca
 
   if (step === 0) return (
     <section className="space-y-4 pt-6">
-      <h1 className="text-2xl font-semibold">{L.s0}</h1>
-      <p className="text-sm text-muted">{L.s0hint}</p>
+      <header className="protocol-scene-header">
+        <div><h1 className="text-2xl font-semibold">{L.s0}</h1><p className="mt-1 text-sm text-muted">{L.s0hint}</p></div>
+      </header>
       <PlanScan plan={plan} onboarding onDone={() => void started()} />
       <button type="button" onClick={() => setStep(1)} className="min-h-tap w-full rounded-xl border border-accent px-4 font-medium text-accent">{L.manual}</button>
       <PilotStart />
@@ -104,10 +105,10 @@ function Steps({ plan, start, onScanned }: { plan: PlanRow; start: number; onSca
 
   return (
     <section className="space-y-4 pt-6">
-      <div>
+      <header className="protocol-scene-header">
         <p className="text-sm text-muted">{L.step(step)}</p>
         <h1 className="text-2xl font-semibold">{[L.s1, L.s2, L.s3][step - 1]}</h1>
-      </div>
+      </header>
 
       {step === 1 && <p className="text-sm text-muted">{L.about}</p>}
       {step === 1 && (
