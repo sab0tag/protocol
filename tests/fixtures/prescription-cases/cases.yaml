@@ -5,6 +5,7 @@
 # pages — файли поруч; medicines — що має бути прочитано (dose рівно як на папері); perDay / durationDays / asNeeded /
 # withFood — якщо задано, перевіряються; visit — дата огляду, окремим рядком від аналізів; tests — скільки аналізів
 # без дати (число або [від, до]); diet — код пресету; absent — чого не має бути ніде у відповіді (ПІБ, дата народження, діагноз, лікарі).
+# times — лише годинник на папері; [] забороняє підставляти час із частоти або «ввечері» (R7).
 # status: fixed | open; рядки не видаляються.
 
 - id: printed-01-endo-discharge
@@ -13,9 +14,9 @@
   note: "Вигадана виписка аналітика 19.10: ендокринологія, 4 препарати, стіл №5, сіль і смажене, контроль через 3 місяці поруч з оглядом 15.01.2027"
   date: 2026-10-16
   medicines:
-    - { title: Метформін, dose: "500 мг", perDay: 2, withFood: true, durationDays: null }
-    - { title: Аторвастатин, dose: "20 мг", perDay: 1, suggested: ["20:00"] }
-    - { title: Омепразол, dose: "20 мг", perDay: 1, durationDays: 14, withFood: false, until: 2026-10-29 }
+    - { title: Метформін, dose: "500 мг", perDay: 2, times: [], withFood: true, durationDays: null }
+    - { title: Аторвастатин, dose: "20 мг", perDay: 1, times: [] }
+    - { title: Омепразол, dose: "20 мг", perDay: 1, times: [], durationDays: 14, withFood: false, until: 2026-10-29 }
     - { title: Парацетамол, dose: "500 мг", asNeeded: true }
   diet: ЩД
   limits: [sodium]

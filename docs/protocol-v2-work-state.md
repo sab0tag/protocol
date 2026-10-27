@@ -2,7 +2,7 @@
 
 Latest review: `docs/protocol-upgrade-review-2026-10-27.md`. The #23 checkpoint below is historical; current main is `9acb16f` and #22/#23 are merged.
 
-Updated 2026-10-27. Continue autonomously through implementation, validation, PR, CI and preview. Never merge main or update production without a separate instruction.
+Updated 2026-10-27. Continue autonomously through implementation, validation, PR, CI and preview. Owner authorized merging tested ready PRs into main on 27 October 2026. Continue through reviewed stages; do not deploy production separately without authorization.
 
 ## Base and PR stack
 
@@ -46,3 +46,10 @@ Still outstanding from document onboarding: persisted recoverable review drafts,
 - 483 client unit tests, typecheck/build and browser regression 106 passed / 3 conditional skips. Final focused regressions: 2/2; module-policy-enabled checks: 6/6. PR #34: https://github.com/sab0tag/protocol/pull/34. Code commit 82725b9 passed remote CI run 40565385637 (check, server, e2e); Vercel preview ready at https://protocol-git-fix-theme-controls-and-meal-tabs-beyondthesignal.vercel.app. Subsequent documentation clarification does not change application code.
 - #24–#27 remain a separate unmerged stack. Integration requires a forward IndexedDB migration above v9 preserving both `profile` and `reviewDrafts`, plus adapting Progress without losing the weekly summary. Do not resolve competing v9 definitions by dropping either store. Dexie can patch missing stores at the same declared version; an isolated experiment confirmed this, so no current-main data-loss claim is made.
 - Next: finish this fix's CI/preview, then adapt the old import/quality/preference stack to the current main before proceeding with R5/R6. No main merge or production update from this review.
+
+## Continuation after upgrade review
+
+- Owner authorized main merges. #34 merged as `69cb083`; #33 rings merged as `5a9d65f`, the current base for this slice. Both PR heads passed CI before merging.
+- #24 explicit medication times adapted to current main, preserving current photography, theme controls, meal tabs and weekly rings. 494 client unit tests and 66 server tests passed; production build passed. Full browser regression currently running; remote CI/preview to be recorded in PR #24.
+- #25 recovery is being adapted separately with schema v10. Preserve both independent v9 stores (`profile` and `reviewDrafts`), including in the compatibility v9 declaration because Dexie revisits it during upgrade. The new migration test caught draft loss with the old photo-only v9 declaration; the corrected union passes all three v9 histories and a reopen.
+- #26 weight review and #27 motivation preferences must retain the latest Progress rings, line chart and section assets. Next: complete #24 browser/CI/preview; publish and verify adapted #25, then #26/#27. R5/R6 architecture remains open in the acceptance map.

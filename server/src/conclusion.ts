@@ -1,8 +1,8 @@
 // A photo of a doctor's conclusion (one or several pages) → a draft of the plan (SPEC.md D80, D101). The model copies
 // what is written — limits, medicines with their doses exactly as on paper, how often and how long, targets, tests, the
 // next visit — and for every line says where on which page it is and how sure it is; what it cannot read it returns as
-// raw text. It never advises, never reads between the lines, never puts a time that is not on the paper (the app may
-// *suggest* one, marked so). The diagnosis comes apart and is not kept. Names and personal data are not copied.
+// raw text. It never advises, never reads between the lines, never puts a time that is not on the paper.
+// Missing clock values are entered explicitly during review (R7). The diagnosis comes apart and is not kept. Names and personal data are not copied.
 import Anthropic from '@anthropic-ai/sdk';
 import { z } from 'zod';
 import { structured, type Effort, type Usage } from './claude.ts';
