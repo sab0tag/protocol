@@ -5,7 +5,8 @@ import { habits, weekSummary, type Habit } from '../domain/habits';
 import { todayISO } from '../domain/dates';
 import { t } from '../i18n/uk';
 import { Link } from 'react-router-dom';
-import { ProgressTrack } from '../components/ProgressTrack';
+import { ProgressTrack, type ProgressTone } from '../components/ProgressTrack';
+import { ProgressRing } from '../components/ProgressRing';
 import { SceneHeader } from '../components/SceneHeader';
 import { useObservation } from '../app/observation';
 
@@ -54,7 +55,51 @@ export function HabitsCard({ list, showEmpty = false }: { list: Habit[]; showEmp
   );
 }
 
-export function WeekCard({ summary }: { summary: ReturnType<typeof weekSummary> }) {
+export function WeekCard({ summary, variant = 'tiles' }: { summary: ReturnType<typeof weekSummary>; variant?: 'tiles' | 'rings' }) {
+  if (variant === 'rings') {
+    type Metric = { label: string; count: number; total: number; tone: ProgressTone; percent?: boolean };
+    const metrics: Metric[] = [];
+    if (summary.carbsOk !== undefined) metrics.push({
+      label: L.weekCarbs, count: summary.carbsOk, total: summary.knownDays?.carbs ?? summary.days, tone: 'carbs',
+    });
+    if (summary.proteinOk !== undefined) metrics.push({
+      label: L.weekProtein, count: summary.proteinOk, total: summary.knownDays?.protein ?? summary.days, tone: 'protein',
+    });
+    if (summary.waterOk !== undefined) metrics.push({
+      label: L.weekWater, count: summary.waterOk, total: summary.knownDays?.water ?? summary.days, tone: 'water',
+    });
+    if (summary.checklistPct !== undefined) metrics.push({
+      label: L.weekChecklist, count: summary.checklistPct, total: 100, tone: 'accent', percent: true,
+    });
+
+    return (
+      <section className="protocol-card rounded-2xl border border-line bg-surface p-3 sm:p-5">
+        <h2 className="mb-2 font-semibold">{L.week} <span className="text-sm font-normal text-muted">· {format(parseISO(summary.from), 'dd.MM')}–{format(parseISO(summary.to), 'dd.MM')}</span></h2>
+        {summary.days === 0 ? <p className="text-muted">{L.weekNoData}</p> : (
+          <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+            {metrics.filter((metric) => metric.total > 0).map((metric) => {
+              const ratio = metric.count / metric.total;
+              const value = metric.percent ? `${metric.count} %` : L.ofDays(metric.count, metric.total);
+              return (
+                <li key={metric.label} className={`protocol-metric flex min-w-0 flex-col items-center gap-2 text-center protocol-progress-${metric.tone}`}>
+                  <span className="min-h-10 text-sm text-muted">{metric.label}</span>
+                  <ProgressRing ratio={ratio} tone={metric.tone} label={metric.label} valueText={value}>
+                    <span className="tabular text-base font-semibold">{Math.round(ratio * 100)}%</span>
+                  </ProgressRing>
+                  <span className="text-sm tabular">{value}</span>
+                </li>
+              );
+            })}
+            <li className="protocol-metric flex min-w-0 flex-col items-center justify-center gap-2 text-center">
+              <span className="min-h-10 text-sm text-muted">{L.weekWorkouts}</span>
+              <span className="tabular text-3xl font-semibold">{summary.workouts}</span>
+            </li>
+          </ul>
+        )}
+      </section>
+    );
+  }
+
   const tiles: [string, string][] = [];
   if (summary.carbsOk !== undefined) tiles.push([L.weekCarbs, L.ofDays(summary.carbsOk, summary.knownDays?.carbs ?? summary.days)]);
   if (summary.proteinOk !== undefined) tiles.push([L.weekProtein, L.ofDays(summary.proteinOk, summary.knownDays?.protein ?? summary.days)]);

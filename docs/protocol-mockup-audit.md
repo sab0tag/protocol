@@ -27,7 +27,7 @@
 | Scan plan — `/plan/scan` | Photograph prescription | Pending |
 | Plan history — `/plan/history` | Plan versions | Pending |
 | Onboarding — `/welcome` | First-run setup | Pending |
-| Progress — `/progress` | Progress / trends | Header and existing seven-day indicators surfaced; date-range/chart layout still differs |
+| Progress — `/progress` | Progress / trends | Header, seven-day ring indicators, and weight line chart; date-range selector and chart framing still differ |
 | Insights — `/progress/insights` | Key indicators | Shared header updated; detailed review pending |
 | Motivation — `/progress/motivation` | Motivation | Shared header updated; detailed review pending |
 | Lab results — `/progress/labs` | Results and trends | Shared header updated; detailed review pending |
@@ -98,7 +98,7 @@ Food list thumbnails are cached locally from Unsplash under its [official licens
 | Today | 390 px / dark | The woodland header, greeting area, week strip, quick actions, and bottom navigation render without clipping. Detailed comparison below the fold remains pending. |
 | Add food | 320 px / dark | All four input modes fit. Recent meal cards use local photos for all nine supported food categories. |
 | Doctor plan | 390 px / dark | Shared theme and card styling render consistently. The existing single-plan content and demo-data warning differ from the mockup's multi-plan list; the mockup does not authorize adding new plan-management behavior. |
-| Progress | 390 px / dark | The weight trend is a responsive line chart. The top-level content order and metric summary still differ from the mockup. |
+| Progress | 390 px / dark | Existing carbohydrate, protein, water, and checklist results render as accessible rings; workouts remain a plain count without an invented target. The weight trend is a responsive line chart; the date-range selector and chart framing still differ from the mockup. |
 | Profiles | 390 px / dark | Local profile creation and same-profile device connection are visible. The mockup's shared-access controls and per-person portraits are not implemented. |
 | Settings | 390 px / dark | The local profile-photo upload and settings links are visible. A theme toggle now supports light/dark overrides and return to the device setting. The mockup's other consolidated settings controls remain distributed across existing routes. |
 | Add food | 320 px / light | The photo, voice, text, and label-scan actions remain visible below the photographic header; no horizontal overflow. |
@@ -116,6 +116,7 @@ The expanded E2E matrix initially found horizontal overflow on Motivation at 320
 - The supplied mockups depict only a subset of the existing routes. On the represented flows, current content and behavior differ where noted above: the app has a single-plan model rather than the mockup's multi-plan controls, and local profiles rather than shared family access. These are product-capability differences, not permission to invent clinical or sharing behavior.
 - On the empty assistant screen, the composer now sits near the bottom navigation instead of directly below suggestion chips, matching the mockup's chat layout; an E2E geometry assertion guards the spacing.
 - The Progress screen now surfaces the existing seven-day carbohydrate, protein, water, workout, and checklist summary before the weight section. It reuses the established data-coverage rules; date-range selection and the mockup's chart framing remain different.
+- The Progress screen's carbohydrate, protein, water, and checklist indicators now use the existing accessible ring component. Workouts remain a plain count because there is no target to justify a completion percentage; the shared Motivation card retains its prior tile layout.
 - Keep the intentionally added section and food photography unchanged. The screenshot matrix checks responsive layout, theme selection, navigation, header-art presence, and horizontal overflow; it does not establish pixel-level equivalence.
 
 The browser matrix captures the 41 visual screens at 320, 390, 768, and 1024 px in both themes. Food cards use local category illustrations as image-like thumbnails; the section header photos do not replace the per-food photographs shown in mockups.
