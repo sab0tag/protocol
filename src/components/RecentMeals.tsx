@@ -25,7 +25,8 @@ export function RecentMeals({ entries, date, initialTitle, onAdd }: {
     .sort((a, b) => Date.parse(b.at) - Date.parse(a.at) || b.id.localeCompare(a.id))
     .filter((e) => {
       // Keep amounts, cooking, units, nutrients and recipe snapshots in the identity.
-      const key = stable(e.items!.map((item) => stable(item)).sort());
+      // Deduplicate within a meal tab; the same food can belong to breakfast and a snack.
+      const key = stable([mealCategoryFor(e.title, e.at), e.items!.map((item) => stable(item)).sort()]);
       if (seen.has(key)) return false;
       seen.add(key); return true;
     });

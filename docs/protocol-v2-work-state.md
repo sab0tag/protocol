@@ -1,4 +1,6 @@
-# Protocol 2.0 — active work state
+# Protocol 2.0 — work state
+
+Latest review: `docs/protocol-upgrade-review-2026-10-27.md`. The #23 checkpoint below is historical; current main is `9acb16f` and #22/#23 are merged.
 
 Updated 2026-10-27. Continue autonomously through implementation, validation, PR, CI and preview. Never merge main or update production without a separate instruction.
 
@@ -36,3 +38,11 @@ Still outstanding from document onboarding: persisted recoverable review drafts,
 - The module-policy-enabled browser suite also passed (6/6).
 - PR #23 CI is running. Vercel deployment succeeded. No main merge or production update.
 - Next: resolve any remote CI failures, then integrate the explicit-time import slice on this tested stack.
+
+## Upgrade review — current checkpoint
+
+- Current base: main `9acb16f2434a9c8e7b88c4c0e5662a94b647d537`, including #28–#32 shared artwork, meal tabs/favorites, theme preference and weekly Progress summary.
+- Branch `fix/theme-controls-and-meal-tabs` fixes category-local meal deduplication and theme-dependent checkbox/switch/shadow styles. New regressions failed on original main; updated source retains the new artwork and layout.
+- 483 client unit tests, typecheck/build and browser regression 106 passed / 3 conditional skips. Final focused regressions: 2/2; module-policy-enabled checks: 6/6. Remote CI/preview pending.
+- #24–#27 remain a separate unmerged stack. Integration requires a forward IndexedDB migration above v9 preserving both `profile` and `reviewDrafts`, plus adapting Progress without losing the weekly summary. Do not merge competing v9 store definitions.
+- Next: finish this fix's CI/preview, then adapt the old import/quality/preference stack to the current main before proceeding with R5/R6. No main merge or production update from this review.
