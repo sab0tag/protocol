@@ -42,6 +42,8 @@ body { font-family: 'Golos Text', system-ui, -apple-system, sans-serif; -webkit-
 
 /* Protocol 2.0 — additive semantic design layer. Existing tokens stay compatible. */
 :root {
+  --protocol-checkmark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='m5 10 3 3 7-7' fill='none' stroke='white' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  --protocol-switch-thumb: var(--surface);
   --protocol-radius-card: 1.125rem;
   --protocol-radius-control: 0.875rem;
   --protocol-space-page: clamp(1rem, 3vw, 1.5rem);
@@ -128,12 +130,12 @@ main[data-scene="settings"] { --protocol-scene-image: url('../assets/section-set
 .protocol-toggle-row > .protocol-switch { grid-column: 2; grid-row: 1; }
 .protocol-toggle-row > span { grid-column: 1; grid-row: 1; }
 input[type=checkbox] { appearance: none; width: 1.25rem; height: 1.25rem; flex-shrink: 0; border: 1.5px solid rgb(var(--muted) / .6); border-radius: .375rem; background-color: rgb(var(--bg)); cursor: pointer; }
-input[type=checkbox]:checked { background-color: rgb(var(--accent)); border-color: rgb(var(--accent)); background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='m5 10 3 3 7-7' fill='none' stroke='white' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); }
+input[type=checkbox]:checked { background-color: rgb(var(--accent)); border-color: rgb(var(--accent)); background-image: var(--protocol-checkmark); }
 input[type=checkbox]:disabled { cursor: default; opacity: .4; }
 input[type=checkbox].protocol-switch { position: relative; width: 2.875rem; height: 1.75rem; border-radius: 999px; border-color: rgb(var(--line)); background-image: none; background-color: rgb(var(--line)); }
 input[type=checkbox].protocol-switch::after { content: ''; position: absolute; width: 1.25rem; height: 1.25rem; left: .1875rem; top: .1875rem; border-radius: 50%; background: rgb(var(--surface)); box-shadow: 0 2px 5px rgb(0 0 0 / .15); }
 input[type=checkbox].protocol-switch:checked { background-color: rgb(var(--accent)); border-color: rgb(var(--accent)); }
-input[type=checkbox].protocol-switch:checked::after { transform: translateX(1.125rem); }
+input[type=checkbox].protocol-switch:checked::after { transform: translateX(1.125rem); background: rgb(var(--protocol-switch-thumb)); }
 .protocol-progress-track, .protocol-ring { --progress-color: var(--accent); }
 .protocol-progress-track { height: .625rem; overflow: hidden; border-radius: 999px; background: rgb(var(--line) / .72); }
 .protocol-progress-fill { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, rgb(var(--progress-color) / .65), rgb(var(--progress-color))); }
@@ -165,9 +167,16 @@ main :where(summary)::-webkit-details-marker { display: none; }
 main :where(summary)::after { content: '⌄'; float: right; margin-left: .75rem; color: rgb(var(--muted)); }
 main :where(details[open] > summary)::after { transform: rotate(180deg); }
 @media (prefers-color-scheme: dark) {
-  :root { --protocol-shadow-card: 0 18px 48px -30px rgb(0 0 0 / .65); }
-  input[type=checkbox]:checked:not(.protocol-switch) { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='m5 10 3 3 7-7' fill='none' stroke='%23131f18' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); }
-  input[type=checkbox].protocol-switch:checked::after { background: rgb(var(--bg)); }
+  :root:not([data-theme]) {
+    --protocol-shadow-card: 0 18px 48px -30px rgb(0 0 0 / .65);
+    --protocol-checkmark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='m5 10 3 3 7-7' fill='none' stroke='%23131f18' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    --protocol-switch-thumb: var(--bg);
+  }
+}
+:root[data-theme="dark"] {
+  --protocol-shadow-card: 0 18px 48px -30px rgb(0 0 0 / .65);
+  --protocol-checkmark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='m5 10 3 3 7-7' fill='none' stroke='%23131f18' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  --protocol-switch-thumb: var(--bg);
 }
 @media (prefers-reduced-motion: no-preference) {
   .protocol-progress-fill, .protocol-switch, .protocol-switch::after { transition: width 180ms ease, background-color 180ms ease, transform 180ms ease; }
