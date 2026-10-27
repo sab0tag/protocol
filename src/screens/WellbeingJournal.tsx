@@ -2,13 +2,15 @@ import { format, parseISO } from 'date-fns';
 import { uk } from 'date-fns/locale';
 import { Link, useNavigate } from 'react-router-dom';
 import { Loading } from '../components/Recovery';
-import { useAllWellbeing } from '../data/queries';
+import { useAllWellbeing, usePlan } from '../data/queries';
 import { useUi } from '../store/ui';
 import { t } from '../i18n/uk';
 import { todayISO } from '../domain/dates';
+import { ExampleNotice } from '../components/ExampleNotice';
 
 export function WellbeingJournal() {
   const records = useAllWellbeing();
+  const plan = usePlan();
   const setDate = useUi((state) => state.setDate);
   const navigate = useNavigate();
   if (!records) return <Loading />;
@@ -35,6 +37,7 @@ export function WellbeingJournal() {
           {t.well.addToday}
         </button>
       </header>
+      <ExampleNotice plan={plan} />
       {ordered.length === 0
         ? <p className="protocol-card rounded-2xl border border-line bg-surface p-4 text-muted">{t.well.noJournal}</p>
         : <ul className="divide-y divide-line overflow-hidden protocol-card rounded-2xl border border-line bg-surface">

@@ -1,4 +1,4 @@
-// D73: a plan that came from the example says so wherever it acts — on «День» and «План» — with one way out.
+// Keep example data visibly separate wherever it is shown or edited.
 import { useNavigate } from 'react-router-dom';
 import { db, inDemo, leaveDemo, type PlanRow } from '../data/db';
 import { restoreDemo, takeDemo } from '../data/demoStore';
