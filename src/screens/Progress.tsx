@@ -45,7 +45,7 @@ export function Progress() {
           <FileText size={18} aria-hidden />{L.report}</Link>
       </SceneHeader>
       <ExampleNotice plan={plan} />
-      <WeekCard summary={weekly} />
+      <WeekCard summary={weekly} variant="rings" />
       <nav aria-label={L.details} className="grid grid-cols-2 gap-2">
         {[
           { to: '/progress/labs', label: L.labs },

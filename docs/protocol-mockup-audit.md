@@ -27,7 +27,7 @@
 | Scan plan — `/plan/scan` | Photograph prescription | Pending |
 | Plan history — `/plan/history` | Plan versions | Pending |
 | Onboarding — `/welcome` | First-run setup | Pending |
-| Progress — `/progress` | Progress / trends | Header and existing seven-day indicators surfaced; date-range/chart layout still differs |
+| Progress — `/progress` | Progress / trends | Header, seven-day ring indicators, and weight line chart; date-range selector and chart framing still differ |
 | Insights — `/progress/insights` | Key indicators | Shared header updated; detailed review pending |
 | Motivation — `/progress/motivation` | Motivation | Shared header updated; detailed review pending |
 | Lab results — `/progress/labs` | Results and trends | Shared header updated; detailed review pending |
@@ -116,6 +116,7 @@ The expanded E2E matrix initially found horizontal overflow on Motivation at 320
 - The supplied mockups depict only a subset of the existing routes. On the represented flows, current content and behavior differ where noted above: the app has a single-plan model rather than the mockup's multi-plan controls, and local profiles rather than shared family access. These are product-capability differences, not permission to invent clinical or sharing behavior.
 - On the empty assistant screen, the composer now sits near the bottom navigation instead of directly below suggestion chips, matching the mockup's chat layout; an E2E geometry assertion guards the spacing.
 - The Progress screen now surfaces the existing seven-day carbohydrate, protein, water, workout, and checklist summary before the weight section. It reuses the established data-coverage rules; date-range selection and the mockup's chart framing remain different.
+- The Progress screen's carbohydrate, protein, water, and checklist indicators now use the existing accessible ring component. Workouts remain a plain count because there is no target to justify a completion percentage; the shared Motivation card retains its prior tile layout.
 - Keep the intentionally added section and food photography unchanged. The screenshot matrix checks responsive layout, theme selection, navigation, header-art presence, and horizontal overflow; it does not establish pixel-level equivalence.
 
 The browser matrix captures the 41 visual screens at 320, 390, 768, and 1024 px in both themes. Food cards use local category illustrations as image-like thumbnails; the section header photos do not replace the per-food photographs shown in mockups.
