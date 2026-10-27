@@ -413,7 +413,7 @@ export function AddMeal() {
             </>
           ) : (
             <button type="submit" disabled={items.length === 0}
-              className="protocol-action flex-1 disabled:opacity-40"><Check size={18} aria-hidden />{t.meal.save}</button>
+              className="protocol-action flex-1 disabled:opacity-40"><Check size={18} aria-hidden />{id ? t.meal.saveChanges : t.meal.save}</button>
           )}
           <button type="button" onClick={() => { if (id === undefined) keep(DRAFT, undefined); navigate(-1); }} className="protocol-action-secondary">{t.meal.cancel}</button>
           </div>

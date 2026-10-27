@@ -95,7 +95,7 @@ test('a meal 45 minutes ahead does not preselect «Щойно» for confirmation
       items: [{ foodId: 'kefir', name: 'Кефір 2,5 %', grams: 250 }] },
   }]);
 
-  const rhythm = page.getByRole('region', { name: 'Ритм дня' });
+  const rhythm = page.getByRole('region', { name: 'Найближче' });
   await rhythm.getByRole('button', { name: /^Обід, Заплановано/ }).click();
   const sheet = page.getByRole('dialog', { name: 'Підтвердити: Обід' });
   await expect(sheet.getByRole('button', { name: /^Щойно/ })).toHaveAttribute('aria-pressed', 'false');

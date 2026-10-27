@@ -6,7 +6,7 @@ test('two devices: a short pairing code connects the second; a meal and its dele
   await phone.goto('./#/meal/new');
   await phone.getByRole('searchbox').fill('2 варених яйця');
   await phone.locator('form ul button').first().click();
-  await phone.getByRole('button', { name: 'Записати', exact: true }).click();
+  await phone.getByRole('button', { name: 'Додати до дня', exact: true }).click();
   await expect(toast(phone)).toContainText('записано');
   await syncOn(phone);
 

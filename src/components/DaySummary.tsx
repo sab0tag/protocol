@@ -60,7 +60,7 @@ function metric(key: MetricKey, totals: DayTotals, targets: Targets, meds: { don
   }
 }
 
-export function DaySummary({ totals, targets, meds, streak, food, onComplete, allowed }: { totals: DayTotals; targets: Targets; meds: { done: number; total: number }; streak?: string;
+export function DaySummary({ totals, targets, meds, streak, food, onComplete, allowed, title = L.title }: { totals: DayTotals; targets: Targets; meds: { done: number; total: number }; streak?: string; title?: string;
   food?: FoodState; onComplete?: (on: boolean) => void; allowed?: readonly MetricKey[] }) {
   const [main, setMain] = useState<MetricKey[]>(loadMain);
   const [all, setAll] = useState(false);
@@ -85,7 +85,7 @@ export function DaySummary({ totals, targets, meds, streak, food, onComplete, al
   return (
     <section aria-labelledby="summary" className="protocol-card mb-4 p-5">
       <div className="mb-3 flex items-baseline justify-between gap-2">
-        <h2 id="summary" className="text-lg font-semibold">{L.title}</h2>
+        <h2 id="summary" className="text-lg font-semibold">{title}</h2>
         <button type="button" onClick={() => setSetup((v) => !v)} aria-expanded={setup} className="min-h-tap px-1 text-sm text-accent">{setup ? L.done : L.setup}</button>
       </div>
       {setup ? (

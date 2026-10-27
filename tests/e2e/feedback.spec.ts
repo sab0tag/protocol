@@ -57,7 +57,7 @@ test('a patient’s phrase: «чай з цукром, 2 куски хліба» 
 test('«Ще» shows four categories; the exercise library is inside «Тренування»; reminders without sync offer to turn it on (D78)', async ({ browser }) => {
   const page = await device(browser);
   await page.goto('./#/more');
-  for (const category of [/^Їжа /, /^Здоров’я і рух /, /^Налаштування та дані /, /^Про застосунок /]) {
+  for (const category of [/^Їжа /, /^Здоров’я і рух /, /^Налаштування /, /^Про застосунок /]) {
     await expect(page.getByRole('link', { name: category })).toBeVisible();
   }
   await expect(page.getByRole('link', { name: 'Вправи з гирею' })).toHaveCount(0);
@@ -69,15 +69,16 @@ test('«Ще» shows four categories; the exercise library is inside «Трен�
   await expect(page).toHaveURL(/#\/sync\?back=%2Freminders/);
 });
 
-test('the medicine button hides while the quick tiles are on screen; water stays (D82)', async ({ browser }) => {
+test('floating medicine and water actions stay off the first screen and return after scrolling', async ({ browser }) => {
   const page = await device(browser);
   const dock = page.getByRole('group', { name: 'Ліки й вода' });
-  await expect(page.getByRole('navigation', { name: 'Швидко' })).toBeInViewport();
-  await expect(dock.getByRole('button', { name: /Додати 250 мл води/ })).toBeVisible();
+  await expect(page.getByRole('navigation', { name: 'Швидкі дії' })).toBeInViewport();
+  await expect(dock.getByRole('button', { name: /Додати 250 мл води/ })).not.toBeVisible();
   await expect(dock.getByRole('button', { name: /^Відмітити прийнятим|^Ліки на сьогодні/ })).toHaveCount(0);
   await page.setViewportSize({ width: 375, height: 600 }); // a small phone
   await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight)); // the tiles go off the top
   await expect(dock.getByRole('button', { name: /^Відмітити прийнятим: Вітамін D/ })).toBeVisible();
+  await expect(dock.getByRole('button', { name: /Додати 250 мл води/ })).toBeVisible();
 });
 
 test('a word alone: the list line says what a tap adds; a cooked food has no «Як приготовано» (D88)', async ({ browser }) => {

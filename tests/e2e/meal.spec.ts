@@ -19,7 +19,7 @@ test('«Записати їжу»: the food first, the meal line folded; a meal 
   await line.click();
   await page.getByRole('button', { name: 'Перекус', exact: true }).click();
   await expect(line).toContainText('Перекус');
-  await page.getByRole('button', { name: 'Записати', exact: true }).click();
+  await page.getByRole('button', { name: 'Додати до дня', exact: true }).click();
   await expect(toast(page)).toContainText('Перекус');
 
   await page.getByRole('button', { name: /^Перекус,/ }).click();
@@ -39,8 +39,8 @@ test('«Записати їжу»: the food first, the meal line folded; a meal 
 test('a confirmed allergy entered in «План»: marked in search, «Прибрати» in the check (D58)', async ({ browser }) => {
   const page = await device(browser);
   await page.goto('./#/plan/constraints');
-  await page.locator('section.rounded-2xl').filter({ has: page.getByRole('heading', { name: 'Обмеження', exact: true }) }).getByRole('button', { name: 'Додати' }).click();
-  const form = page.getByRole('dialog', { name: 'Обмеження' });
+  await page.locator('section.rounded-2xl').filter({ has: page.getByRole('heading', { name: 'Дієта й обмеження', exact: true }) }).getByRole('button', { name: 'Додати' }).click();
+  const form = page.getByRole('dialog', { name: 'Дієта й обмеження' });
   await form.getByRole('combobox', { name: 'Що це за обмеження' }).selectOption('allergy');
   await form.getByRole('button', { name: 'горіхи', exact: true }).click();
   await form.getByRole('textbox', { name: 'Джерело' }).fill('Алерголог, 2026');
@@ -68,8 +68,8 @@ test('a new meal not yet written survives a reload; once written, the next form 
   await page.getByRole('button', { name: /^Кефір 2,5 %/ }).first().click();
   await page.reload();
   await expect(page.getByText('Кефір 2,5 %').first()).toBeVisible();
-  await page.getByRole('button', { name: 'Записати', exact: true }).click();
+  await page.getByRole('button', { name: 'Додати до дня', exact: true }).click();
   await expect(page.getByRole('heading', { level: 1, name: 'Сьогодні' })).toBeVisible();
   await page.goto('./#/meal/new');
-  await expect(page.getByRole('button', { name: 'Записати', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Додати до дня', exact: true })).toBeDisabled();
 });

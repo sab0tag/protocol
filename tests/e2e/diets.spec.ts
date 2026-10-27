@@ -4,8 +4,8 @@ import { device } from './helpers';
 test('a diet of Наказ №931: «стіл 5» suggests ЩД to confirm, its rules not set up said plainly, norms fill only empty targets after a preview and marked, a doctor\'s target outside the norm is a question (D90, R02)', async ({ browser }) => {
   const page = await device(browser, 'skip');
   await page.goto('./#/plan/constraints');
-  await page.locator('section.rounded-2xl').filter({ has: page.getByRole('heading', { name: 'Обмеження', exact: true }) }).getByRole('button', { name: 'Додати' }).click();
-  const form = page.getByRole('dialog', { name: 'Обмеження' });
+  await page.locator('section.rounded-2xl').filter({ has: page.getByRole('heading', { name: 'Дієта й обмеження', exact: true }) }).getByRole('button', { name: 'Додати' }).click();
+  const form = page.getByRole('dialog', { name: 'Дієта й обмеження' });
   await form.getByRole('combobox', { name: 'Що це за обмеження' }).selectOption('diet');
   await form.getByRole('textbox', { name: 'Дієта або номер столу' }).fill('стіл 5');
   await expect(form.getByText('Стіл №5 тепер — ЩД. Підтвердіть, що лікар призначив саме це.')).toBeVisible();

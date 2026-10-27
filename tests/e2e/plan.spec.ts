@@ -19,7 +19,7 @@ test('«План лікаря» overview previews its saved items without openin
   await page.goto('./#/plan');
   const sections = page.getByRole('navigation', { name: 'Розділи плану' });
   await expect(sections.getByRole('link', { name: /Призначення/ })).toContainText('Вітамін D');
-  await expect(sections.getByRole('link', { name: /Обмеження/ })).toContainText('Діють: Оксалатні камені');
+  await expect(sections.getByRole('link', { name: /Дієта й обмеження/ })).toContainText('Діють: Оксалатні камені');
   await expect(sections.getByRole('link', { name: /Цілі й режими/ })).toContainText('2100 ккал');
   await expect(sections.getByRole('link', { name: /Цілі й режими/ })).toContainText('Підготовка до ОГТТ');
 });
@@ -115,9 +115,9 @@ test('the day\'s own records are there after a look at the example — the examp
 test('the plan history opens separately and explains that sync is required', async ({ browser }) => {
   const page = await device(browser, 'skip');
   await page.goto('./#/plan');
-  await page.getByRole('link', { name: 'Історія попередніх версій' }).click();
+  await page.getByRole('link', { name: 'Історія змін' }).click();
   await expect(page).toHaveURL(/#\/plan\/history$/);
-  await expect(page.getByRole('heading', { name: 'Попередні версії плану', level: 1 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Історія змін', level: 1 })).toBeVisible();
   await expect(page.getByText(/спершу увімкніть синхронізацію/)).toBeVisible();
   await page.getByRole('link', { name: 'Налаштувати синхронізацію' }).click();
   await expect(page).toHaveURL(/#\/sync$/);

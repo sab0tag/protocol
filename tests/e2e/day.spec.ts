@@ -22,6 +22,7 @@ test('«Зараз»: «Нагадати за 15 хв» hides it for 15 min; wat
   await expect(toast(page)).toContainText('Нагадаю через 15 хв');
   if (/Обід/.test(first)) await expect(card.getByText('Обід')).toHaveCount(0);
   await page.reload();
+  await page.getByRole('region', { name: 'Сьогодні', exact: true }).scrollIntoViewIfNeeded();
   const dock = page.getByRole('group', { name: 'Ліки й вода' });
   await dock.getByRole('button', { name: /Додати 250 мл води/ }).click();
   await expect(dock.getByRole('status')).toContainText('+250 мл');
@@ -53,6 +54,7 @@ test('«Не відмічено» is folded and asks when — or «не пам�
   await expect(missed.getByText('Сніданок')).toHaveCount(0);
   await expect(page.getByRole('button', { name: /^Сніданок, Виконано, час невідомий/ })).toContainText('—');
 
+  await page.getByRole('region', { name: 'Сьогодні', exact: true }).scrollIntoViewIfNeeded();
   const dock = page.getByRole('group', { name: 'Ліки й вода' });
   const water = dock.getByRole('button', { name: /Додати 250 мл води/ });
   await water.click();
@@ -64,14 +66,14 @@ test('«Не відмічено» is folded and asks when — or «не пам�
 
 test('the new «День»: the plan on an empty day, a dose asks when, main numbers by choice, the week strip (D53)', async ({ browser }) => {
   const page = await device(browser);
-  const rhythm = page.getByRole('region', { name: 'Ритм дня' });
+  const rhythm = page.getByRole('region', { name: 'Найближче' });
   await expect(rhythm.getByRole('button', { name: 'Вітамін D, Заплановано' })).toBeVisible(); // nothing recorded, the plan is there
   await rhythm.getByRole('button', { name: 'Вітамін D, Заплановано' }).click();
   await page.getByRole('dialog', { name: 'Вітамін D — коли прийняли?' }).getByRole('button', { name: /^Щойно/ }).click();
   await expect(toast(page)).toContainText(/Вітамін D — відмічено о \d\d:\d\d/);
   await expect(rhythm.getByRole('button', { name: /^Вітамін D, Виконано/ })).toBeVisible();
 
-  const summary = page.getByRole('region', { name: 'Уже сьогодні' });
+  const summary = page.getByRole('region', { name: 'Сьогодні' });
   await expect(summary.getByText('Білок')).toHaveCount(0);
   for (const label of ['Вода', 'Ліки', 'Вуглеводи']) {
     const progress = summary.getByRole('progressbar', { name: new RegExp(label) });
@@ -96,7 +98,7 @@ test('the new «День»: the plan on an empty day, a dose asks when, main num
   await expect(summary.locator('input[type="checkbox"]:checked')).toHaveCount(3);
   await summary.getByRole('button', { name: 'Готово' }).click();
   await page.reload();
-  await expect(page.getByRole('region', { name: 'Уже сьогодні' }).getByText('Білок')).toBeVisible(); // kept on this device
+  await expect(page.getByRole('region', { name: 'Сьогодні' }).getByText('Білок')).toBeVisible(); // kept on this device
 
   const week = page.getByRole('navigation', { name: 'Тиждень' });
   const weekdays = week.locator('ol > li button span:first-child');
@@ -121,15 +123,15 @@ test('«Як учора» stays on «День» and copies a prior meal to today
       items: [{ foodId: 'kefir', name: 'Кефір 2,5 %', grams: 250 }] },
   }]);
 
-  const quick = page.getByRole('navigation', { name: 'Швидко' });
+  const quick = page.getByRole('navigation', { name: 'Швидкі дії' });
   await expect(quick.getByRole('button')).toHaveCount(4);
-  const rhythm = page.getByRole('region', { name: 'Ритм дня' });
+  const rhythm = page.getByRole('region', { name: 'Найближче' });
   await rhythm.getByRole('button', { name: 'Як учора' }).click();
   const sheet = page.getByRole('dialog', { name: 'Повторити з учора' });
   await expect(sheet.getByText('Кефір 2,5 % 250 г')).toBeVisible();
   await sheet.getByRole('button', { name: /13:00 · Обід/ }).click();
   await expect(toast(page)).toContainText('Обід');
-  await expect(page.getByRole('region', { name: 'Ритм дня' })).toContainText('Обід');
+  await expect(page.getByRole('region', { name: 'Найближче' })).toContainText('Обід');
 
   await page.goto('./#/meal/new');
   await expect(page.getByText(/^Як раніше ·/)).toHaveCount(0);
@@ -137,7 +139,7 @@ test('«Як учора» stays on «День» and copies a prior meal to today
 
 test('an empty Day rhythm keeps one explanation and leaves food recording as the action', async ({ browser }) => {
   const page = await device(browser, 'skip');
-  const rhythm = page.getByRole('region', { name: 'Ритм дня' });
+  const rhythm = page.getByRole('region', { name: 'Найближче' });
   await expect(rhythm.getByText('На цей день ще нічого немає.')).toBeVisible();
   await expect(rhythm.getByRole('button', { name: 'Як учора' })).toBeVisible();
   await expect(rhythm.getByRole('button', { name: 'Додати інше — ліки, тренування, нотатку' })).toHaveCount(0);
@@ -163,7 +165,7 @@ test('a once-daily medicine without a time is not followed by the empty-rhythm m
   });
   await page.reload();
 
-  const rhythm = page.getByRole('region', { name: 'Ритм дня' });
+  const rhythm = page.getByRole('region', { name: 'Найближче' });
   await expect(rhythm.getByText('Сьогодні, будь-коли:')).toBeVisible();
   await expect(rhythm.getByRole('button', { name: 'Вітамін D' })).toBeVisible();
   await expect(rhythm.getByText('На цей день ще нічого немає.')).toHaveCount(0);
@@ -181,7 +183,7 @@ test('«Нічого з цього» skips the planned meal and undo restores th
       items: [{ foodId: 'kefir', name: 'Кефір 2,5 %', grams: 250 }], menu: {} },
   }]);
 
-  const rhythm = page.getByRole('region', { name: 'Ритм дня' });
+  const rhythm = page.getByRole('region', { name: 'Найближче' });
   await rhythm.getByRole('button', { name: /^Обід, Заплановано/ }).click();
   await page.getByRole('dialog', { name: 'Підтвердити: Обід' }).getByRole('button', { name: 'Нічого з цього' }).click();
   await expect(toast(page)).toContainText('Обід — пропущено');
@@ -212,7 +214,7 @@ test('«Мені погано»: a symptom with its time, what was eaten before 
   await sheet.getByRole('button', { name: 'Помірно' }).click();
   await sheet.getByRole('button', { name: 'Записати' }).click();
   await expect(toast(page)).toContainText('Здуття — записано');
-  const node = page.getByRole('region', { name: 'Ритм дня' }).getByRole('button', { name: 'Здуття, Симптом' });
+  const node = page.getByRole('region', { name: 'Найближче' }).getByRole('button', { name: 'Здуття, Симптом' });
   await expect(node).toContainText('Симптом · помірно');
   await node.click();
   await expect(page.getByRole('dialog', { name: 'Здуття' })).toContainText('Кефір 2,5 %');

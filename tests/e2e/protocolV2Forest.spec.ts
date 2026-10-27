@@ -19,14 +19,14 @@ test('forest stays available offline; primary action and honest meters remain us
   const carbs = summary.getByRole('progressbar', { name: t.summary.carbs });
   await expect(carbs).toHaveAttribute('aria-valuenow', '100');
   await expect(carbs).toHaveAttribute('aria-valuetext', /230 г.*190.*40/);
-  const boxes = await Promise.all([summary.boundingBox(), page.getByRole('region', { name: 'Ритм дня' }).boundingBox()]);
-  expect(boxes[0]!.y).toBeLessThan(boxes[1]!.y);
+  const boxes = await Promise.all([summary.boundingBox(), page.getByRole('region', { name: 'Найближче' }).boundingBox()]);
+  expect(boxes[1]!.y).toBeLessThan(boxes[0]!.y);
   const background = await page.locator('.protocol-day-hero').evaluate((el) => getComputedStyle(el).backgroundImage);
   const asset = /url\("?([^"\)]+\.webp)"?\)/.exec(background)?.[1];
   expect(asset).toBeTruthy();
   await page.context().setOffline(true);
   await page.reload();
-  await expect(page.getByRole('heading', { name: 'Сьогодні', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'Сьогодні', exact: true })).toBeVisible();
   expect(await page.evaluate(async (url) => (await fetch(url!)).ok, asset)).toBe(true);
   await page.screenshot({ path: 'test-results/forest-today-320-dark.png', fullPage: true });
   await page.context().close();

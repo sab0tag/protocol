@@ -20,10 +20,8 @@ interface Props {
   water: { ml: number; target?: number };
   onMed: () => Promise<Undo | undefined>;
   onWater: () => Promise<Undo | undefined>;
-  /** D82: hide the medicine while quick actions are visible; water remains available in its reserved row. */
-  hideMed?: boolean;
-  /** While the quick actions are visible, water lives in a reserved row instead of covering them. */
-  inline?: boolean;
+  /** Keep the first screen clear; the floating actions return after the quick tiles leave view. */
+  hidden?: boolean;
 }
 
 /** D82: whether an element is on screen now (for the dock — hidden while the quick tiles are in view). */
@@ -41,7 +39,7 @@ export function useOnScreen<T extends Element>(): [(el: T | null) => void, boole
 
 let seq = 0;
 
-export function QuickDock({ med, meds, water, onMed, onWater, hideMed, inline }: Props) {
+export function QuickDock({ med, meds, water, onMed, onWater, hidden }: Props) {
   const [note, setNote] = useState<Note | null>(null);
   useEffect(() => {
     if (!note) return;
@@ -69,8 +67,8 @@ export function QuickDock({ med, meds, water, onMed, onWater, hideMed, inline }:
 
   return (
     <div role="group" aria-label={L.label}
-      className={inline ? 'relative flex min-h-tap justify-end gap-3 print:hidden' : 'fixed bottom-[calc(8.75rem+env(safe-area-inset-bottom))] right-4 z-20 flex flex-col gap-3 print:hidden md:bottom-8 md:right-8'}>
-      {meds.total > 0 && !hideMed && (
+      className={`fixed bottom-[calc(8.75rem+env(safe-area-inset-bottom))] right-4 z-20 flex-col gap-3 print:hidden md:bottom-8 md:right-8 ${hidden ? 'hidden' : 'flex'}`}>
+      {meds.total > 0 && (
         <div className="relative">
           {bubble('med')}
           <Round progress={meds.done / meds.total} tone={med?.missed ? 'warn' : 'meds'} done={!med}
@@ -84,22 +82,20 @@ export function QuickDock({ med, meds, water, onMed, onWater, hideMed, inline }:
       )}
       <div className="relative">
         {bubble('water')}
-        <Round compact={inline} progress={water.target ? water.ml / water.target : undefined} tone="water" onClick={() => void run('water', onWater, '')} label={L.water(water.ml, water.target)}>
+        <Round progress={water.target ? water.ml / water.target : undefined} tone="water" onClick={() => void run('water', onWater, '')} label={L.water(water.ml, water.target)}>
           <Droplet size={22} className="text-water" aria-hidden />
-          {inline && <span>{L.addWater}</span>}
         </Round>
       </div>
     </div>
   );
 }
 
-function Round({ progress, tone, done, label, onClick, children, compact }:
-  { progress?: number; tone: 'meds' | 'warn' | 'water'; done?: boolean; label: string; onClick: () => void; children: ReactNode; compact?: boolean }) {
+function Round({ progress, tone, done, label, onClick, children }:
+  { progress?: number; tone: 'meds' | 'warn' | 'water'; done?: boolean; label: string; onClick: () => void; children: ReactNode }) {
   return (
     <button type="button" onClick={onClick} disabled={done} aria-label={label} title={label}
-      className={compact ? 'flex min-h-tap items-center justify-center gap-2 rounded-full border border-water/30 bg-water/10 px-4 text-sm font-medium text-water'
-        : `relative flex h-14 w-14 items-center justify-center rounded-full border shadow-lg shadow-ink/15 transition-transform active:scale-95 ${done ? 'border-accent bg-accent text-surface' : 'border-line bg-surface'}`}>
-      {compact || done ? children : <ProgressRing ratio={progress} tone={tone} label={label} valueText={label} decorative className="protocol-ring-dock">{children}</ProgressRing>}
+      className={`relative flex h-14 w-14 items-center justify-center rounded-full border shadow-lg shadow-ink/15 transition-transform active:scale-95 ${done ? 'border-accent bg-accent text-surface' : 'border-line bg-surface'}`}>
+      {done ? children : <ProgressRing ratio={progress} tone={tone} label={label} valueText={label} decorative className="protocol-ring-dock">{children}</ProgressRing>}
     </button>
   );
 }

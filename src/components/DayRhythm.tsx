@@ -10,15 +10,15 @@ import { t } from '../i18n/uk';
 
 const L = t.day;
 
-export function DayRhythm({ rhythm, foods, onEntry, onDose, onAnytime, onAdd, onYesterday }: {
-  rhythm: Rhythm; foods?: Map<string, Food>;
+export function DayRhythm({ rhythm, foods, onEntry, onDose, onAnytime, onAdd, onYesterday, title = L.rhythm }: {
+  rhythm: Rhythm; foods?: Map<string, Food>; title?: string;
   onEntry: (e: DayEntry) => void; onDose: (i: CheckItem) => void; onAnytime: (i: CheckItem) => void; onAdd: () => void; onYesterday: () => void;
 }) {
   const empty = rhythm.nodes.length === 0 && rhythm.anytime.length === 0;
   return (
     <section aria-labelledby="rhythm" className="protocol-card mb-4 p-4 sm:p-5">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <h2 id="rhythm" className="text-xl font-semibold">{L.rhythm}</h2>
+        <h2 id="rhythm" className="text-xl font-semibold">{title}</h2>
         <button type="button" onClick={onYesterday} className="flex min-h-tap shrink-0 items-center gap-1 rounded-xl px-2 text-sm font-medium text-accent">
           <Undo2 size={16} aria-hidden />{L.likeYesterday}
         </button>

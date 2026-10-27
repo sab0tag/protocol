@@ -185,15 +185,13 @@ export function Day() {
             <span className="relative flex h-12 w-12 items-center justify-center rounded-2xl bg-surface shadow-sm"><Icon size={22} className="text-accent" aria-hidden />
               {badge && <span className="tabular absolute -right-2 -top-1.5 rounded-full bg-accent px-1.5 text-xs font-medium text-surface">{badge}</span>}
               {done && <span className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full border-2 border-bg bg-accent text-surface" aria-hidden><Check size={11} strokeWidth={3} /></span>}</span>
-            <span className="text-xs leading-tight">{label}</span>
+            <span className="max-w-full break-words text-[11px] leading-tight min-[380px]:text-xs">{label}</span>
           </button>
         ))}
       </nav>
-      {checklist && <div className="mb-4 min-h-tap">
-        <QuickDock meds={{ done: meds.filter((i) => i.done).length, total: meds.length }} water={checklist.water}
+      {checklist && <QuickDock meds={{ done: meds.filter((i) => i.done).length, total: meds.length }} water={checklist.water}
           med={nextMed && { title: nextMed.title, ...(nextMed.time ? { time: nextMed.time } : {}), missed: medMissed }}
-          onMed={dockMed} onWater={dockWater} hideMed={tilesOnScreen} inline={tilesOnScreen} />
-      </div>}
+          onMed={dockMed} onWater={dockWater} hidden={tilesOnScreen} />}
 
       {entries && <NowCard entries={entries} plan={plan} date={date} observation={observation} onConfirm={setConfirming} />}
 
@@ -253,11 +251,11 @@ export function Day() {
       )}
 
       {isToday && plan && entries && <PrnCard plan={plan} date={date} entries={entries} /> /* D118 */}
-      {totals && <DaySummary totals={totals} targets={targets} allowed={allowedMetrics} meds={{ done: meds.filter((i) => i.done).length, total: meds.length }}
+      {rhythm && <DayRhythm title={isToday ? t.day.upcoming : t.day.rhythm} rhythm={rhythm} foods={foods} onYesterday={() => setYesterday(true)} onEntry={(e) => (e.kind === 'meal' && e.status === 'planned' && e.items?.length ? setConfirming(e) : setRowFor(e))} onDose={setAskMed} onAdd={() => setAdding(true)}
+        onAnytime={(i) => (i.kind === 'workout' ? navigate('/workout') : setAskMed(i))} />}
+      {totals && <DaySummary title={isToday ? t.summary.title : t.summary.forDay} totals={totals} targets={targets} allowed={allowedMetrics} meds={{ done: meds.filter((i) => i.done).length, total: meds.length }}
         {...(isToday && best ? { streak: t.day.streak(t.progress.habit[best.key], best.streak) } : {})}
         {...(entries ? { food: foodState(entries), onComplete: (on: boolean) => void markComplete(on) } : {})} />}
-      {rhythm && <DayRhythm rhythm={rhythm} foods={foods} onYesterday={() => setYesterday(true)} onEntry={(e) => (e.kind === 'meal' && e.status === 'planned' && e.items?.length ? setConfirming(e) : setRowFor(e))} onDose={setAskMed} onAdd={() => setAdding(true)}
-        onAnytime={(i) => (i.kind === 'workout' ? navigate('/workout') : setAskMed(i))} />}
 
       {tips.length > 0 && (
         <details className="mb-4 protocol-card rounded-2xl border border-line bg-surface p-3">

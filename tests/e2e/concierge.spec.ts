@@ -24,7 +24,7 @@ test('scenario 1 (model stubbed): only names of the base, nothing written withou
   await like.locator('[data-item="Вареники з картоплею"]').click();
   await expect(page.getByText('Вареники з картоплею')).toBeVisible();
   await page.getByRole('spinbutton', { name: 'Кількість' }).first().fill('8'); // 8 pieces instead of a portion
-  await page.getByRole('button', { name: 'Записати', exact: true }).click();
+  await page.getByRole('button', { name: 'Додати до дня', exact: true }).click();
   await expect(toast(page)).toContainText('записано');
   await expect.poll(() => outcomes.length).toBe(1);
   expect(outcomes[0]).toMatchObject({ id: 'c-2026-10-18-abc123', outcome: 'edited', edit: { field: 'grams' } });
