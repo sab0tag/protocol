@@ -21,3 +21,14 @@ test('Protocol 2.0 Today hero retains accessible date navigation and actionable 
   await expect(hero.getByRole('heading', { level: 1 })).toHaveText('Сьогодні');
   await page.screenshot({ path: 'test-results/protocol-v2-today-mobile.png', fullPage: true });
 });
+
+test('the example-data warning appears before the example schedule', async ({ browser }) => {
+  const page = await device(browser);
+  const warning = page.getByRole('status').filter({ hasText: 'Це приклад:' });
+  const schedule = page.getByRole('region', { name: /^(Зараз|Не відмічено|Найближче)$/ }).first();
+  await expect(warning).toBeVisible();
+  await expect(schedule).toBeVisible();
+  const [warningBox, scheduleBox] = await Promise.all([warning.boundingBox(), schedule.boundingBox()]);
+  if (!warningBox || !scheduleBox) throw new Error('The warning and schedule must have visible bounds');
+  expect(warningBox.y).toBeLessThan(scheduleBox.y);
+});
