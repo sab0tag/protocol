@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { Check, Link2, Pencil, Plus, UserRound } from 'lucide-react';
 import { SceneHeader } from '../components/SceneHeader';
-import { activeProfileId, readProfiles, saveProfile, switchProfile, type Profile } from '../data/profiles';
+import { useProfileDirectory } from '../app/profiles';
+import { activeProfileId, saveProfile, switchProfile, type Profile } from '../data/profiles';
 import { inDemo } from '../data/db';
 import { t } from '../i18n/uk';
 import { Link } from 'react-router-dom';
 const L = t.profiles;
 export function Profiles() {
-  const [profiles, setProfiles] = useState(() => readProfiles().profiles);
+  const profiles = useProfileDirectory().profiles;
   const [editing, setEditing] = useState<Profile>();
   const [error, setError] = useState('');
   const labels = { self: L.self, child: L.child, relative: L.relative };
@@ -30,10 +31,11 @@ export function Profiles() {
         </li>)}
       </ul>
       {editing && <form aria-label={L.edit} className="protocol-card space-y-4 p-4" onSubmit={e => {
-        e.preventDefault(); try { saveProfile(editing); setProfiles(readProfiles().profiles); setEditing(undefined); setError(''); } catch { setError(L.error); }
+        e.preventDefault(); try { saveProfile(editing); setEditing(undefined); setError(''); } catch { setError(L.error); }
       }}>
         <label className="block">{L.name}<input autoFocus required maxLength={60} value={editing.name} onChange={e => setEditing({ ...editing, name: e.target.value })} className="mt-1 block min-h-tap w-full rounded-xl border border-line bg-surface px-3" /></label>
         <label className="block">{L.relation}<select value={editing.relation} onChange={e => setEditing({ ...editing, relation: e.target.value as Profile['relation'] })} className="mt-1 block min-h-tap w-full rounded-xl border border-line bg-surface px-3">{Object.entries(labels).map(([v, name]) => <option key={v} value={v}>{name}</option>)}</select></label>
+        <label className="protocol-toggle-row min-h-tap"><span>{L.motivation}</span><input type="checkbox" className="protocol-switch" checked={editing.motivation !== false} onChange={e => setEditing({ ...editing, motivation: e.target.checked })} /></label>
         <div className="flex flex-wrap gap-2"><button disabled={!editing.name.trim()} className="protocol-action disabled:opacity-40">{L.save}</button><button type="button" className="protocol-action-secondary" onClick={() => setEditing(undefined)}>{L.cancel}</button></div>
       </form>}
     </>}

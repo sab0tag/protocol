@@ -13,7 +13,7 @@ This is an acceptance map, not a claim that complete releases have shipped. Repo
 | R4 quality | Invalid dates/units/weight, anomalous values quarantined until reviewed | Weight quarantine/editing and actual-value chart slice under validation; other measurement types remain |
 | R5 core | Separate plans/items, migration, versions, status and provenance | Legacy single `main` plan; source plans must never be merged into one instruction |
 | R6 plan UX | Parallel plans, clinician filter, unified feed, conflicts/archive | Not implemented; duplicates must not create double obligations |
-| R7 documents | Photo/PDF, recoverable OCR draft, field verification before activation | Photo review works; explicit-time follow-up under validation; PDF, durable draft and full verification remain |
+| R7 documents | Photo/PDF, recoverable OCR draft, field verification before activation | Explicit times (#24) and durable local review recovery (#25) prepared; PDF and full field verification remain |
 | R8 adherence | Reasons, unknown vs missed, gentle reminders | Existing explicit status/reminder behavior; complete intelligence not claimed |
 | R9 access | Profiles, invitations, consent, server scopes and access audit | #23 provides local profiles only; no shared account permissions |
 | R10 family | Children/older relatives, accessibility, delegation and immediate revocation | Local relationship labels only; remote delegation remains open |
@@ -30,6 +30,6 @@ This is an acceptance map, not a claim that complete releases have shipped. Repo
 - Unknown is different from missed. No clinical success, obligation or missed dose is invented from an absent record.
 - Document activation requires human verification. Missing clock values stay missing. Repeat imports need comparison/versioning rather than silent duplication.
 - Schema changes follow expand/migrate/contract behind flags when changing existing semantics. Keep migration, API and UI boundaries reviewable.
-- Motivational messages are localized, supportive and optional. Per-profile opt-out remains to be added to the initial daily-phrase implementation.
+- Motivational messages are localized, supportive and optional. Per-profile opt-out is implemented in the display-preference follow-up, under final validation.
 
 Critical path: R0 → R1 → R5 → R6 → R7 → R9 → R10. R2/R3/R4 can progress after the visual foundation. Reporting and assistant expansion follow stable plans; commercial rollout follows privacy/reliability work.

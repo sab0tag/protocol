@@ -42,3 +42,12 @@ describe('local profile directory', () => {
     expect(localStorage.getItem(KEY)).toBe(old);
   });
 });
+
+it('keeps the optional daily-phrase setting per person and does not inherit a disabled setting', () => {
+  saveProfile({ id: 'main', name: 'Олена', relation: 'self', motivation: false });
+  saveProfile({ id, name: 'Данило', relation: 'child' });
+  expect(readProfiles().profiles.map(p => p.motivation)).toEqual([false, undefined]);
+  saveProfile({ id: 'main', name: 'Оленка', relation: 'self', motivation: true });
+  expect(readProfiles().profiles[0]).toMatchObject({ name: 'Оленка', motivation: true });
+  expect(readProfiles().profiles).toHaveLength(2);
+});
