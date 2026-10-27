@@ -134,7 +134,10 @@ export function createApp(deps: Deps) {
   app.put('/v1/vaults/:id/reminder-policy', bodyLimit({ maxSize: 30_000 }), async (c) => {
     const id = authed(c);
     if (typeof id !== 'string') return id;
-    const policy = parseReminderPolicy(await c.req.json().catch(() => null));
+    const body = await c.req.json().catch(() => null) as { protocol?: unknown } | null;
+    const denied = compatible(c, id, body?.protocol); if (denied) return denied;
+    const { protocol: _protocol, ...policyBody } = body ?? {};
+    const policy = parseReminderPolicy(policyBody);
     if (!policy) return c.json({ error: 'bad_request' }, 400);
     if (policy.days.some((d) => d.from > now().getTime() + 33 * 86_400_000)) return c.json({ error: 'bad_request' }, 400);
     store.setReminderPolicy(id, policy, now().getTime());
@@ -147,7 +150,8 @@ export function createApp(deps: Deps) {
     if (typeof id !== 'string') return id;
     const dev = c.req.param('dev');
     if (!store.hasDevice(id, dev)) return c.json({ error: 'not_found' }, 404);
-    const b = await c.req.json().catch(() => null) as { items?: unknown; done?: unknown; repeatEvery?: unknown; repeats?: unknown; policyVersion?: unknown } | null;
+    const b = await c.req.json().catch(() => null) as { items?: unknown; done?: unknown; repeatEvery?: unknown; repeats?: unknown; policyVersion?: unknown; protocol?: unknown } | null;
+    const denied = compatible(c, id, b?.protocol); if (denied) return denied;
     if (!Array.isArray(b?.items) || b.items.length > 500) return c.json({ error: 'bad_request' }, 400);
     if (b.policyVersion !== undefined && b.policyVersion !== 1) return c.json({ error: 'bad_request' }, 400);
     const items: { rid: string; at: number; payload: string; once?: boolean }[] = [];
@@ -531,6 +535,25 @@ export function createApp(deps: Deps) {
     return id;
   };
 
+  // Missing capability is legacy protocol 1. Never advance an old client's pull cursor past unknown source plans.
+  const compatible = (c: Context, id: string, value: unknown): Response | undefined => {
+    const protocol = value === undefined ? 1 : value;
+    if (typeof protocol !== 'number' || !Number.isInteger(protocol) || protocol < 1 || protocol > 2) return c.json({ error: 'bad_request' }, 400);
+    const minimum = store.minimumWriteProtocol(id);
+    return protocol < minimum ? c.json({ error: 'client_upgrade_required', requiredProtocol: minimum }, 409) : undefined;
+  };
+  app.get('/v1/vaults/:id/write-protocol', c => {
+    const id = authed(c); if (typeof id !== 'string') return id;
+    return c.json({ minimum: store.minimumWriteProtocol(id), supported: 2 });
+  });
+  app.put('/v1/vaults/:id/write-protocol', bodyLimit({ maxSize: 1000 }), async c => {
+    const id = authed(c); if (typeof id !== 'string') return id;
+    const body = await c.req.json().catch(() => null) as { minimum?: unknown; protocol?: unknown } | null;
+    if (body?.minimum !== 2 || body.protocol !== 2) return c.json({ error: 'bad_request' }, 400);
+    store.raiseWriteProtocol(id, 2);
+    return c.json({ minimum: 2, supported: 2 });
+  });
+
   app.put('/v1/vaults/:id', (c) => {
     const id = c.req.param('id');
     const t = token(c);
@@ -547,6 +570,9 @@ export function createApp(deps: Deps) {
   app.get('/v1/vaults/:id/records', (c) => {
     const id = authed(c);
     if (typeof id !== 'string') return id;
+    const rawProtocol = c.req.query('protocol');
+    const denied = compatible(c, id, rawProtocol === undefined ? undefined : /^[12]$/.test(rawProtocol) ? Number(rawProtocol) : null);
+    if (denied) return denied;
     const since = Number(c.req.query('since') ?? 0);
     if (!Number.isInteger(since) || since < 0) return c.json({ error: 'bad_request' }, 400);
     const records = store.since(id, since, PAGE);
@@ -556,7 +582,8 @@ export function createApp(deps: Deps) {
   app.post('/v1/vaults/:id/records', bodyLimit({ maxSize: 4_000_000, onError: (c) => c.json({ error: 'too_large' }, 413) }), async (c) => {
     const id = authed(c);
     if (typeof id !== 'string') return id;
-    const body = await c.req.json().catch(() => null) as { records?: unknown } | null;
+    const body = await c.req.json().catch(() => null) as { records?: unknown; protocol?: unknown } | null;
+    const denied = compatible(c, id, body?.protocol); if (denied) return denied;
     const records = body?.records;
     if (!Array.isArray(records) || records.length === 0 || records.length > 500) return c.json({ error: 'bad_request' }, 400);
     let add = 0;

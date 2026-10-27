@@ -66,3 +66,18 @@ Branch `feat/protocol-plan-backup`, stacked on storage PR #36 (head `dad4cc8`). 
 - Retained older identity format is supported; new legacy ids are owner-independent because local profile ids differ between devices. This is not cross-person sharing or server authorization.
 - 534 client tests, build/typecheck and 55 focused backup/domain/storage/legacy cases passed. Browser backup/upgrade/preference cases 3/3 passed. Confirmation visually checked 320/1024 light/dark; no personal screenshots or medical records published.
 - Next: complete #36/#37 CI/review; implement encrypted sync compatibility and old-client write protection before enabling live multi-plan consumers. New source data must never be silently omitted by a claimed complete backup/sync.
+
+## R5 fourth boundary — old-client server gate
+
+Branch `feat/protocol-sync-write-gate`, stacked on backup PR #37. API adds a persistent authenticated per-vault minimum protocol, default 1. The current client still advertises 1. Only an explicit capable-client request opts a vault into 2; no startup/UI code does so.
+
+- Opted-in vaults reject old record reads/writes and stale reminder/policy submissions before advancing cursors or changing records. Transition clears old queued schedules atomically, preserves ciphertext/history/preferences, and protects fresh schedules from obsolete asynchronous push snapshots.
+- 73 server tests, server typecheck; 534 client tests and build/typecheck passed. Three focused Chromium sync/backup cases passed, including actual server opt-in with an unchanged old client's cursor/ciphertext and an upgrade message.
+- Next deployment boundary: independent Hetzner API container, not Vercel. No server deployment or real-vault opt-in performed. Deploy only with the owner's separate production command; keep default floor 1. See `protocol-v2-sync-protocol.md` for the concrete rollout/rollback sequence.
+- Normalized encrypted transport and conflict/version recovery remain to implement before protocol 2 is advertised by a real client or live multi-plan consumers are enabled.
+
+## Integration blocker / latest checkpoint
+
+- #35 merged `08a0908` after CI run 40574749672 passed. #36 merged `62d912c` after CI run 40575971243 passed.
+- #37 head `181fe016989bd37c4abb0ea2612973cea98ab473` passed all CI jobs (run 40577370600), review threads empty, marked ready. Automatic approval review rejected its main merge, stating that a separate main-merge command was missing, despite the owner's current instruction authorizing needed merges. No workaround/alternate merge path is used. PR remains open and ready pending explicit resolution of that rejection.
+- The sync-gate branch is published as a separate PR stacked on #37; it can be reviewed and checked while the merge is blocked. Do not claim either #37 or the gate is merged. No Hetzner deployment or real-vault upgrade has occurred.

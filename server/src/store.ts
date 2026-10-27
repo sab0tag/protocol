@@ -13,6 +13,7 @@ export class Store {
     this.db.exec(`
       PRAGMA journal_mode = WAL;
       CREATE TABLE IF NOT EXISTS vaults (id TEXT PRIMARY KEY, auth TEXT NOT NULL, created TEXT NOT NULL, bytes INTEGER NOT NULL DEFAULT 0);
+      CREATE TABLE IF NOT EXISTS vault_protocols (vault TEXT PRIMARY KEY, minimum INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS records (vault TEXT NOT NULL, k TEXT NOT NULL, v TEXT, seq INTEGER NOT NULL, PRIMARY KEY (vault, k));
       CREATE INDEX IF NOT EXISTS records_seq ON records (vault, seq);
       CREATE TABLE IF NOT EXISTS counters (day TEXT NOT NULL, scope TEXT NOT NULL, n INTEGER NOT NULL, PRIMARY KEY (day, scope));
@@ -53,6 +54,25 @@ export class Store {
   createVault(id: string, authHash: string, now: Date): boolean {
     const r = this.db.prepare('INSERT OR IGNORE INTO vaults (id, auth, created) VALUES (?, ?, ?)').run(id, authHash, now.toISOString());
     return r.changes === 1;
+  }
+
+  minimumWriteProtocol(vault: string): number {
+    return (this.db.prepare('SELECT minimum FROM vault_protocols WHERE vault = ?').get(vault) as { minimum: number } | undefined)?.minimum ?? 1;
+  }
+
+  /** Explicit per-vault opt-in only. No default change. Retire old queued schedules once; retain ciphertext/history. */
+  raiseWriteProtocol(vault: string, minimum: number): boolean {
+    if (!Number.isInteger(minimum) || minimum < 1 || minimum > 2) throw new Error('unsupported_write_protocol');
+    const before = this.minimumWriteProtocol(vault);
+    if (minimum < before) return false;
+    if (minimum === before) return true;
+    this.db.exec('BEGIN');
+    try {
+      this.db.prepare('INSERT INTO vault_protocols (vault, minimum) VALUES (?, ?) ON CONFLICT (vault) DO UPDATE SET minimum = excluded.minimum').run(vault, minimum);
+      this.db.prepare('DELETE FROM reminders WHERE vault = ?').run(vault);
+      this.db.exec('COMMIT');
+    } catch (e) { this.db.exec('ROLLBACK'); throw e; }
+    return true;
   }
 
   bytes(id: string): number {
