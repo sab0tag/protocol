@@ -79,7 +79,8 @@ describe('module storage and migration', () => {
     old.close();
     await d.open();
     await initialiseModulePreferences(d, LATER);
-    expect(d.verno).toBe(8);
+    expect(d.verno).toBe(9);
+    expect(await d.profile.count()).toBe(0);
     expect(await d.plan.get('main')).toEqual(plan);
     expect((await d.entries.get('water'))?.waterMl).toBe(250);
     expect(moduleChoiceAt(await d.moduleEvents.toArray(), 'water')).toMatchObject({ reason: 'records', before: 'unknown' });

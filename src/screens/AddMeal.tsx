@@ -15,7 +15,7 @@ import { LabelScan } from '../components/LabelScan';
 import { Loading } from '../components/Recovery';
 import { saved } from '../components/Toast';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Camera, Check, ChevronDown, Plus, Search, Star, Trash2 } from 'lucide-react';
+import { Camera, Check, ChevronDown, Mic, Plus, ScanText, Search, Star, Trash2, Type } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { db } from '../data/db';
@@ -35,7 +35,6 @@ import { dietCoverage } from '../domain/diets';
 import { evaluate, safeSwaps } from '../domain/evaluate';
 import { currentKeys } from '../sync/runner';
 import { shrink } from '../sync/shrink';
-import { Mic } from 'lucide-react';
 import type { Cooking, DayEntry, Food, MealItem, Nutrients, Plan } from '../domain/types';
 import { t } from '../i18n/uk';
 import { CrisisCard } from '../components/CrisisCard';
@@ -77,6 +76,8 @@ export function AddMeal() {
   const suggested = useRef<Suggested[]>([]); // D91: what the concierge offered and was tapped — its outcome is told on save
   const concierge = (s: Suggested) => { setItems((xs) => [...xs, s.item]); suggested.current.push(s); };
   const [query, setQuery] = useState('');
+  const searchInput = useRef<HTMLInputElement>(null);
+  const [labelOpen, setLabelOpen] = useState(false);
   const [free, setFree] = useState(false);
   const [metaOpen, setMetaOpen] = useState(false);
   const [pinName, setPinName] = useState<string | null>(null);
@@ -170,16 +171,27 @@ export function AddMeal() {
       <SceneHeader eyebrow={t.meal.foodLabel} title={id ? t.meal.editTitle : t.meal.title} description={id ? t.meal.editHint : t.meal.entryHint} />
       <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); void save(); }}>
         <section aria-label={t.meal.addFood} className="protocol-card p-4 sm:p-5">
+          <div role="group" aria-label={t.meal.entryModes} className="mb-3 grid grid-cols-4 gap-2">
+            <button type="button" onClick={pickPhoto} disabled={photo.state === 'busy'}
+              className="flex min-h-[4.25rem] min-w-0 flex-col items-center justify-center gap-1 rounded-xl border border-accent bg-accent px-1 py-2 text-center text-xs font-medium text-surface disabled:opacity-40">
+              <Camera size={20} aria-hidden />{t.meal.photo}</button>
+            <button type="button" onClick={() => navigate('/?open=voice')}
+              className="flex min-h-[4.25rem] min-w-0 flex-col items-center justify-center gap-1 rounded-xl border border-line bg-blue-500/5 px-1 py-2 text-center text-xs font-medium">
+              <Mic size={20} className="text-blue-500" aria-hidden />{t.meal.modeVoice}</button>
+            <button type="button" onClick={() => searchInput.current?.focus()}
+              className="flex min-h-[4.25rem] min-w-0 flex-col items-center justify-center gap-1 rounded-xl border border-line bg-violet-500/5 px-1 py-2 text-center text-xs font-medium">
+              <Type size={20} className="text-violet-500" aria-hidden />{t.meal.modeText}</button>
+            <button type="button" aria-expanded={labelOpen} onClick={() => setLabelOpen((open) => !open)}
+              className="flex min-h-[4.25rem] min-w-0 flex-col items-center justify-center gap-1 rounded-xl border border-line bg-amber-500/5 px-1 py-2 text-center text-xs font-medium">
+              <ScanText size={20} className="text-amber-500" aria-hidden />{t.meal.modeLabel}</button>
+          </div>
           <label htmlFor="meal-search" className="block text-sm text-muted">{t.meal.search}</label>
           <div className="mt-1 flex items-end gap-2">
             <div className="relative min-w-0 flex-1">
               <Search size={18} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" aria-hidden />
-              <input id="meal-search" type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t.meal.searchHint}
-                className={`${field} min-w-0 pl-10`} autoComplete="off" autoFocus={!id} />
+              <input ref={searchInput} id="meal-search" type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t.meal.searchHint}
+                className={`${field} min-w-0 pl-10`} autoComplete="off" />
             </div>
-            <button type="button" onClick={pickPhoto} disabled={photo.state === 'busy'} aria-label={t.meal.photo}
-              className="flex min-h-tap items-center gap-1 rounded-xl border border-accent px-3 font-medium text-accent disabled:opacity-40">
-              <Camera size={18} aria-hidden /><span className="hidden min-[380px]:inline">{t.meal.photo}</span></button>
             <input ref={photoInput} type="file" accept="image/*" className="hidden" onChange={(e) => void onPhoto(e.target.files?.[0])} />
           </div>
           {photo.state === 'consent' && (
@@ -251,7 +263,7 @@ export function AddMeal() {
           })()}
           <button type="button" onClick={() => setFree((v) => !v)} aria-expanded={free} className="mt-2 min-h-tap text-accent underline">{t.meal.free}</button>
           {free && <FreeItemForm onAdd={(it) => { setItems((xs) => [...xs, it]); setFree(false); }} />}
-          <LabelScan onAdd={(it) => setItems((xs) => [...xs, it])} />
+          {labelOpen && <LabelScan onAdd={(it) => setItems((xs) => [...xs, it])} />}
         </section>
 
         {!id && !query && !free && photo.state === 'none' && items.length === 0 && all && <RecentMeals entries={all} date={date} onAdd={(xs) => setItems((ys) => [...ys, ...xs])} />}

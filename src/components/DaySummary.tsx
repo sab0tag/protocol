@@ -131,11 +131,14 @@ function Metrics({ list }: { list: [MetricKey, Metric][] }) {
       {rings.length > 0 && (
         <ul className="protocol-metric-rings" data-count={rings.length}>
           {rings.map(([k, m]) => (
-            <li key={k} className="flex min-w-0 flex-col items-center gap-2 text-center">
+            <li key={k} className={`protocol-progress-${m.tone} flex min-w-0 flex-col items-center gap-2 text-center`}>
+              <span className="flex w-full min-w-0 items-center gap-2 text-left text-sm font-medium">
+                <m.Icon size={18} className="protocol-ring-icon shrink-0" aria-hidden />
+                <span className="truncate text-muted">{m.label}</span>
+              </span>
               <ProgressRing ratio={m.progressTarget ? m.progress : undefined} tone={m.tone} label={m.label} valueText={m.value}>
-                <m.Icon size={27} className="protocol-ring-icon" aria-hidden />
+                <span className="tabular text-lg font-bold">{m.progressTarget ? `${Math.round(m.progress * 100)}%` : '—'}</span>
               </ProgressRing>
-              <span className="text-sm text-muted">{m.label}</span>
               <span className="protocol-ring-value tabular">{m.value}</span>
             </li>
           ))}

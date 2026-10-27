@@ -48,7 +48,7 @@ export const MORE_GROUPS = MORE_ROUTE_GROUPS.map(({ id, routes }) => ({
 export function More() {
   return (
     <section className="space-y-4 pt-4">
-      <SceneHeader title={t.nav.more} description={t.visual.moreHint} />
+      <SceneHeader title={t.more.title} description={t.visual.moreHint} />
       <ul className="grid gap-3 sm:grid-cols-2">
         {MORE_GROUPS.map(({ id, title, hint, Icon }) => (
           <li key={id}>

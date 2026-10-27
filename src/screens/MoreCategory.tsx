@@ -3,6 +3,7 @@ import { Link, Navigate, useParams } from 'react-router-dom';
 import { MORE_GROUPS } from './More';
 import { t } from '../i18n/uk';
 import { SceneHeader } from '../components/SceneHeader';
+import { ProfilePhotoSettings } from '../components/ProfilePhotoSettings';
 
 export function MoreCategory() {
   const { category } = useParams();
@@ -15,6 +16,7 @@ export function MoreCategory() {
         <ChevronLeft size={18} aria-hidden />{t.nav.more}
       </Link>
       <SceneHeader title={group.title} description={group.hint} />
+      {category === 'settings' && <ProfilePhotoSettings />}
       <ul className="divide-y divide-line overflow-hidden protocol-card rounded-2xl border border-line bg-surface">
         {group.links.map(({ to, Icon, title }) => (
           <li key={to}>
