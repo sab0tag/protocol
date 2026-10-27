@@ -1,5 +1,7 @@
 # Protocol 2.0 — forest design pass
 
+> Historical design checkpoint. The later mockup-alignment pass in [protocol-mockup-audit.md](./protocol-mockup-audit.md) supersedes its shared forest-header treatment: the forest now belongs to Today, while working-screen headers use theme-aware surfaces.
+
 Branch: `ui-ux/protocol-v2-forest-system`, based on the locally validated food slice (`fcc31e1`) above PR #18. This checkpoint is local; it does not describe a production deployment.
 
 The user's visual correction was explicit: recognizable fir trees, the shared toggle/progress treatment, and less crowded working screens in the mood of the earlier forest mock.

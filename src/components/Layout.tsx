@@ -1,23 +1,20 @@
 import { CalendarDays, ClipboardList, LineChart, MoreHorizontal, UtensilsCrossed, type LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { activeProfile } from '../data/profiles';
-import { inDemo } from '../data/db';
-import { Link, NavLink } from 'react-router-dom';
+import { NavLink } from 'react-router-dom';
 import { t } from '../i18n/uk';
 import { Toaster } from './Toast';
 import { ROUTES, TAB_ROUTES, type TabRouteId } from '../app/navigation';
 
 const TABS = {
-  day: { label: t.nav.day, Icon: CalendarDays, tone: 'bg-emerald-500/10 text-emerald-500' },
-  mealNew: { label: t.nav.food, Icon: UtensilsCrossed, tone: 'bg-rose-500/10 text-rose-500' },
-  plan: { label: t.nav.plan, Icon: ClipboardList, tone: 'bg-amber-500/10 text-amber-500' },
-  progress: { label: t.nav.progress, Icon: LineChart, tone: 'bg-sky-500/10 text-sky-500' },
-  more: { label: t.nav.more, Icon: MoreHorizontal, tone: 'bg-violet-500/10 text-violet-500' },
+  day: { label: t.nav.day, Icon: CalendarDays, tone: 'text-emerald-500' },
+  mealNew: { label: t.nav.food, Icon: UtensilsCrossed, tone: 'text-rose-500' },
+  plan: { label: t.nav.plan, Icon: ClipboardList, tone: 'text-amber-500' },
+  progress: { label: t.nav.progress, Icon: LineChart, tone: 'text-sky-500' },
+  more: { label: t.nav.more, Icon: MoreHorizontal, tone: 'text-violet-500' },
 } satisfies Record<TabRouteId, { label: string; Icon: LucideIcon; tone: string }>;
 
 /** Bottom tab bar on phones, an icon rail from 768 px — same icons and routes (SPEC.md §5). */
 export function Layout({ children }: { children: ReactNode }) {
-  const profile = inDemo() ? undefined : activeProfile();
   return (
     <div className="min-h-dvh md:flex">
       <nav aria-label="Розділи"
@@ -27,10 +24,8 @@ export function Layout({ children }: { children: ReactNode }) {
             <li key={id} className="flex-1 md:flex-none">
               <NavLink to={ROUTES[id].path} end={id === 'day'} aria-label={label}
                 className={({ isActive }) =>
-                  `flex min-h-tap flex-col items-center justify-center gap-1 rounded-2xl py-2 text-xs ${isActive ? 'bg-accent/10 text-accent font-semibold' : 'text-muted'}`}>
-                <span className={`flex h-8 w-9 items-center justify-center rounded-xl ${tone}`}>
-                  <Icon size={20} aria-hidden />
-                </span>
+                  `flex min-h-tap flex-col items-center justify-center gap-1 rounded-2xl py-2 text-xs ${isActive ? 'bg-accent/10 font-semibold' : 'text-muted'}`}>
+                <Icon size={21} className={tone} aria-hidden />
                 <span>{label}</span>
               </NavLink>
             </li>
@@ -39,7 +34,6 @@ export function Layout({ children }: { children: ReactNode }) {
       </nav>
       <Toaster />
       <main className="mx-auto w-full max-w-2xl px-4 pb-28 pt-safe md:pb-10 print:max-w-none print:pb-0">
-        {profile?.name && <Link to="/profiles" className="mt-3 flex min-h-tap items-center gap-2 text-sm text-accent print:hidden" aria-label={`${t.profiles.active}: ${profile.name}`}><span className="h-2 w-2 shrink-0 rounded-full bg-accent" aria-hidden /><span className="break-words">{profile.name}</span></Link>}
         {children}</main>
     </div>
   );

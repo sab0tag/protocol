@@ -65,23 +65,33 @@ test('metrics without plan targets show values without a made-up completion perc
   await page.context().close();
 });
 
-test('working screens fit phone and desktop in both themes', async ({ browser }) => {
-  test.setTimeout(120_000);
-  const page = await device(browser, 'demo');
-  const routes = ['', 'meal/new', 'plan', 'plan/prescriptions', 'plan/constraints', 'plan/goals', 'plan/checkup', 'plan/scan', 'plan/history', 'progress', 'progress/motivation', 'progress/insights', 'progress/labs', 'more', 'more/health', 'more/settings', 'wellbeing', 'wellbeing/journal', 'my-day', 'week', 'assistant', 'reminders', 'sync', 'dishes', 'shopping', 'workout', 'exercises', 'menu', 'foods', 'data', 'quick', 'about', 'frictions', 'pilot', 'concierge-log'];
-  for (const [width, height, colorScheme] of [[320, 568, 'dark'], [390, 844, 'light'], [1024, 768, 'dark']] as const) {
-    await page.setViewportSize({ width, height });
-    await page.emulateMedia({ colorScheme });
-    for (const route of routes) {
-      await page.goto(`./#/${route}`);
-      // A fresh document avoids accidentally inspecting the previous route while React changes screens.
-      await page.reload();
-      await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-      await page.getByRole('heading', { level: 1 }).scrollIntoViewIfNeeded();
-      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${route || 'today'} at ${width}`).toBe(true);
-      await expect(page.getByRole('navigation', { name: 'Розділи', exact: true })).toBeVisible();
-      if (['', 'meal/new', 'plan', 'progress', 'more', 'wellbeing', 'assistant'].includes(route)) {
-        await page.screenshot({ path: `test-results/forest-${route.replaceAll('/', '-') || 'today'}-${width}-${colorScheme}.png`, fullPage: true });
+test('all routed screens fit the four target widths in light and dark themes', async ({ browser }) => {
+  test.setTimeout(300_000);
+  const page = await device(browser);
+  const routes = ['', 'meal/new', 'meal/visual-matrix-meal', 'plan', 'plan/prescriptions', 'plan/constraints', 'plan/goals', 'plan/checkup',
+    'plan/scan', 'plan/history', 'welcome', 'progress', 'progress/motivation', 'progress/insights', 'progress/labs', 'report', 'more',
+    'more/food', 'more/health', 'more/settings', 'more/app', 'profiles', 'wellbeing', 'wellbeing/journal', 'my-day', 'week', 'assistant',
+    'reminders', 'sync', 'dishes', 'shopping', 'workout', 'exercises', 'menu', 'foods', 'data', 'quick', 'do/water', 'about',
+    'frictions', 'pilot', 'concierge-log'];
+  await seed(page, [{ store: 'entries', value: {
+    id: 'visual-matrix-meal', at: `${ymd(new Date())}T08:00:00${kyivOffset()}`, kind: 'meal', status: 'done',
+    title: 'Тестовий сніданок', items: [{ foodId: 'egg-boiled', name: 'Яйце варене', grams: 50 }],
+  } }]);
+  for (const [width, height] of [[320, 568], [390, 844], [768, 900], [1024, 768]] as const) {
+    for (const colorScheme of ['light', 'dark'] as const) {
+      await page.setViewportSize({ width, height });
+      await page.emulateMedia({ colorScheme });
+      for (const route of routes) {
+        await page.goto(`./#/${route}`);
+        await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+        await page.getByRole('heading', { level: 1 }).scrollIntoViewIfNeeded();
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${route || 'today'} at ${width}`).toBe(true);
+        expect(await page.evaluate(() => getComputedStyle(document.documentElement).colorScheme), `${route || 'today'} ${colorScheme}`).toBe(colorScheme);
+        await expect(page.getByRole('navigation', { name: 'Розділи', exact: true })).toBeVisible();
+        if (['meal/new', 'plan', 'progress', 'dishes', 'profiles', 'more/settings'].includes(route)) {
+          await expect(page.locator('.protocol-scene-header')).toHaveCount(0);
+        }
+        await page.screenshot({ path: `test-results/mockup-${route.replaceAll('/', '-') || 'today'}-${width}-${colorScheme}.png`, fullPage: true });
       }
     }
   }

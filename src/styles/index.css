@@ -15,9 +15,9 @@
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: 15 22 19; --surface: 27 37 31; --ink: 235 242 233; --muted: 165 183 171; --line: 47 65 54;
-    --accent: 157 224 185; --warn: 240 172 130; --warn-bg: 72 42 26; --water: 111 199 251;
-    --meter-energy: 255 155 102; --meter-protein: 132 231 173; --meter-meds: 186 160 255;
+    --bg: 8 13 10; --surface: 18 26 22; --ink: 235 242 233; --muted: 165 183 171; --line: 39 53 45;
+    --accent: 113 220 157; --warn: 240 172 130; --warn-bg: 72 42 26; --water: 91 174 236;
+    --meter-energy: 248 145 77; --meter-protein: 117 220 160; --meter-meds: 186 160 255;
     --meter-calcium: 235 202 115; --meter-carbs: 227 186 111;
     color-scheme: dark;
   }
@@ -35,10 +35,10 @@ body { font-family: 'Golos Text', system-ui, -apple-system, sans-serif; -webkit-
 
 /* Protocol 2.0 — additive semantic design layer. Existing tokens stay compatible. */
 :root {
-  --protocol-radius-card: 1.5rem;
+  --protocol-radius-card: 1.125rem;
   --protocol-radius-control: 0.875rem;
   --protocol-space-page: clamp(1rem, 3vw, 1.5rem);
-  --protocol-shadow-card: 0 16px 46px -30px rgb(27 61 41 / .25);
+  --protocol-shadow-card: 0 12px 32px -28px rgb(27 61 41 / .24);
 }
 @layer components {
   .protocol-card {
@@ -74,23 +74,21 @@ body { font-family: 'Golos Text', system-ui, -apple-system, sans-serif; -webkit-
   .protocol-card-interactive { transition: none; }
 }
 
-/* Protocol Woodland: the scene is a local, offline-cached asset. */
-body { background-image: radial-gradient(ellipse at 10% 0%, rgb(var(--accent) / .055), transparent 45rem); }
-.protocol-day-hero, .protocol-scene-header {
+/* Protocol Woodland: the scene is a local, offline-cached asset, used on Today only. */
+body { background-image: radial-gradient(ellipse at 10% 0%, rgb(var(--accent) / .035), transparent 45rem); }
+.protocol-day-hero {
   isolation: isolate;
   background-color: #12251e;
   background-image: linear-gradient(90deg, rgb(5 22 17 / .72), rgb(7 24 18 / .16)), url('../assets/forest-dusk.webp');
   background-size: cover;
   background-position: 100% 61%;
-  box-shadow: 0 18px 46px -25px rgb(0 0 0 / .48);
+  box-shadow: 0 14px 36px -24px rgb(0 0 0 / .42);
 }
-.protocol-day-hero { min-height: 20rem; }
-.protocol-day-hero::after, .protocol-scene-header::after {
+.protocol-day-hero::after {
   content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none;
   background: linear-gradient(180deg, rgb(4 19 14 / .08) 25%, rgb(4 19 14 / .68) 100%);
 }
 .protocol-day-hero .protocol-calendar { background: rgb(6 24 17 / .28); border: 1px solid rgb(255 255 255 / .12); backdrop-filter: blur(10px); }
-.protocol-scene-header { background-position: center 58%; }
 .protocol-card { border-radius: var(--protocol-radius-card); border-color: rgb(var(--line) / .8); }
 .protocol-card > h2, .protocol-card > div > h2 { letter-spacing: -.02em; }
 .protocol-toggle-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 1rem; padding-block: .65rem; }
@@ -115,7 +113,7 @@ input[type=checkbox].protocol-switch:checked::after { transform: translateX(1.12
 .protocol-progress-carbs { --progress-color: var(--meter-carbs); }
 .protocol-progress-warn { --progress-color: var(--warn); }
 .protocol-progress-neutral { --progress-color: var(--muted); }
-.protocol-ring { position: relative; display: flex; width: 4.75rem; height: 4.75rem; flex-shrink: 0; align-items: center; justify-content: center; border-radius: 50%; background: rgb(var(--progress-color) / .04); }
+.protocol-ring { position: relative; display: flex; width: 4rem; height: 4rem; flex-shrink: 0; align-items: center; justify-content: center; border-radius: 50%; background: rgb(var(--progress-color) / .04); }
 .protocol-ring-dock { width: 3.5rem; height: 3.5rem; }
 .protocol-meter-start { stop-color: rgb(var(--progress-color) / .65); }
 .protocol-meter-end { stop-color: rgb(var(--progress-color)); }

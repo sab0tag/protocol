@@ -36,15 +36,15 @@ export function Wellbeing() {
 
   return (
     <section className="space-y-4 pt-4">
-      <header className="protocol-scene-header relative flex items-center gap-2 overflow-hidden rounded-[1.75rem] p-4 py-7 text-white">
+      <header className="flex items-center gap-2 border-b border-line pb-3">
         <button type="button" onClick={() => shift(-1)} aria-label={t.day.prev}
-          className="flex min-h-tap min-w-tap items-center justify-center rounded-xl border border-white/20 bg-black/20"><ChevronLeft size={20} /></button>
+          className="flex min-h-tap min-w-tap items-center justify-center rounded-xl border border-line text-muted"><ChevronLeft size={20} /></button>
         <div className="flex-1 text-center">
           <h1 className="text-xl font-semibold">{L.title}</h1>
-          <p className="mt-2 text-sm text-white/80 first-letter:uppercase">{format(parseISO(date), 'EEEE, d MMMM', { locale: uk })}</p>
+          <p className="mt-1 text-sm text-muted first-letter:uppercase">{format(parseISO(date), 'EEEE, d MMMM', { locale: uk })}</p>
         </div>
         <button type="button" onClick={() => shift(1)} aria-label={t.day.next}
-          className="flex min-h-tap min-w-tap items-center justify-center rounded-xl border border-white/20 bg-black/20"><ChevronRight size={20} /></button>
+          className="flex min-h-tap min-w-tap items-center justify-center rounded-xl border border-line text-muted"><ChevronRight size={20} /></button>
       </header>
       <p role="status" className="flex items-center justify-center gap-1 text-sm text-muted">
         {savedAt?.date === date ? <><Check size={16} className="text-accent" aria-hidden />{L.savedAt(savedAt.hm)}</> : L.autosave}</p>

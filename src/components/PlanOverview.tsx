@@ -23,15 +23,15 @@ export function PlanOverview({ prescriptions, constraints, goals, checkups, pres
   ];
   return (
     <div className="space-y-4">
-      <div className="protocol-scene-header relative overflow-hidden rounded-[1.75rem] p-5 text-white">
-        <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-emerald-200">
+      <div className="protocol-card p-4 sm:p-5">
+        <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-accent">
           <ShieldCheck size={16} aria-hidden /> Ваш план
         </div>
         <h2 className="text-xl font-semibold">Призначення — під вашим контролем</h2>
-        <p className="mt-2 text-sm leading-relaxed text-white/80">
+        <p className="mt-2 text-sm leading-relaxed text-muted">
           Перевіряйте рекомендації лікаря, терміни та обмеження. Щоденні відмітки залишаються у розділі «Сьогодні».
         </p>
-        <Link to="/plan/scan" className="mt-4 flex min-h-tap items-center justify-between rounded-2xl bg-accent px-4 font-semibold text-surface">
+        <Link to="/plan/scan" className="protocol-action mt-4 flex justify-between">
           <span className="inline-flex items-center gap-2"><FilePlus2 size={20} aria-hidden />{t.conclusion.button}</span>
           <ArrowRight size={20} aria-hidden />
         </Link>
