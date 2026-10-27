@@ -85,13 +85,18 @@ Food list thumbnails are cached locally from Unsplash under its [official licens
 | Chicken dishes | [Unsplash photo](https://images.unsplash.com/photo-1532550907401-a500c9a57435) |
 | Vegetable dishes | [Unsplash photo](https://images.unsplash.com/photo-1512621776951-a57141f2eefd) |
 | Lavash and sandwiches | [Unsplash photo](https://images.unsplash.com/photo-1671572578870-1fcac451899b) |
+| Eggs and omelettes | [Unsplash photo](https://images.unsplash.com/photo-1518569656558-1f25e69d93d7) |
+| Fish | [Unsplash photo](https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2) |
+| Dairy | [Unsplash photo](https://images.unsplash.com/photo-1550583724-b2692b85b150) |
+| Fruit | [Unsplash photo](https://images.unsplash.com/photo-1610832958506-aa56368176cf) |
+| Soup | [Unsplash photo](https://images.unsplash.com/photo-1476718406336-bb5a9690ee2a) |
 
 ### Manual visual checks
 
 | Screen | Viewport / theme | Observation |
 |---|---|---|
 | Today | 390 px / dark | The woodland header, greeting area, week strip, quick actions, and bottom navigation render without clipping. Detailed comparison below the fold remains pending. |
-| Add food | 320 px / dark | All four input modes fit. Recent meal cards use local photos for oatmeal/grains, chicken, vegetables, and wraps; the remaining categories still use illustrations. |
+| Add food | 320 px / dark | All four input modes fit. Recent meal cards use local photos for all nine supported food categories. |
 | Doctor plan | 390 px / dark | Shared theme and card styling render consistently. The existing single-plan content and demo-data warning differ from the mockup's multi-plan list; the mockup does not authorize adding new plan-management behavior. |
 | Progress | 390 px / dark | The weight trend is a responsive line chart. The top-level content order and metric summary still differ from the mockup. |
 | Profiles | 390 px / dark | Local profile creation and same-profile device connection are visible. The mockup's shared-access controls and per-person portraits are not implemented. |
@@ -100,7 +105,7 @@ Food list thumbnails are cached locally from Unsplash under its [official licens
 | Assistant | 390 px / dark | The image is part of the rounded header, with the title and description legible on the darkened left. |
 | Settings | 768 px / dark | The profile-photo card and settings links render beneath the integrated header; no clipping or horizontal overflow. |
 | Workout | 1024 px / light | The image is integrated into the header; the previous/next controls remain legible against their surface buttons. |
-| Add food | 390 px / light and dark | Recent meal categories and favorite controls are present. Oatmeal, chicken, vegetable, and wrap rows now use cached food photographs; eggs, fish, dairy, fruit, and soup still use category illustrations. |
+| Add food | 390 px / light and dark | Recent meal categories and favorite controls are present. All nine supported food categories use cached local photographs. |
 
 The expanded E2E matrix initially found horizontal overflow on Motivation at 320 px. Habit labels and right-hand status text now have explicit shrink/wrap constraints; all checks passed on PR #28.
 

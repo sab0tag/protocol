@@ -132,32 +132,39 @@ test('recent meals switch by meal type and heart buttons add and remove favorite
   await page.context().close();
 });
 
-test('recent meals use local food photos for the dishes shown in the mockup', async ({ browser }) => {
+test('recent meals use local food photos across all mockup food categories', async ({ browser }) => {
   const page = await device(browser, 'skip');
   const date = addDays(new Date(), -1);
   const at = (time: string) => `${ymd(date)}T${time}:00${kyivOffset(date)}`;
   await seed(page, [
     { store: 'entries', value: { id: 'photo-oatmeal', at: at('08:00'), kind: 'meal', status: 'done', title: 'Вівсянка на воді', items: [{ name: 'Вівсянка на воді', grams: 250 }] } },
+    { store: 'entries', value: { id: 'photo-eggs', at: at('08:20'), kind: 'meal', status: 'done', title: 'Яйце варене', items: [{ name: 'Яйце варене', grams: 50 }] } },
     { store: 'entries', value: { id: 'photo-wrap', at: at('13:00'), kind: 'meal', status: 'done', title: 'Лаваш-рол з куркою', items: [{ name: 'Лаваш-рол', grams: 200 }] } },
+    { store: 'entries', value: { id: 'photo-fish', at: at('13:20'), kind: 'meal', status: 'done', title: 'Лосось запечений', items: [{ name: 'Лосось запечений', grams: 150 }] } },
     { store: 'entries', value: { id: 'photo-salad', at: at('21:30'), kind: 'meal', status: 'done', title: 'Салат овочевий', items: [{ name: 'Салат овочевий', grams: 150 }] } },
+    { store: 'entries', value: { id: 'photo-fruit', at: at('21:45'), kind: 'meal', status: 'done', title: 'Яблуко', items: [{ name: 'Яблуко', grams: 180 }] } },
     { store: 'entries', value: { id: 'photo-chicken', at: at('19:00'), kind: 'meal', status: 'done', title: 'Куряче філе запечене', items: [{ name: 'Куряче філе', grams: 180 }] } },
+    { store: 'entries', value: { id: 'photo-dairy', at: at('18:30'), kind: 'meal', status: 'done', title: 'Молоко 2,5 %', items: [{ name: 'Молоко 2,5 %', grams: 200 }] } },
+    { store: 'entries', value: { id: 'photo-soup', at: at('20:00'), kind: 'meal', status: 'done', title: 'Суп овочевий', items: [{ name: 'Суп овочевий', grams: 300 }] } },
   ]);
   await page.goto('./#/meal/new');
   await page.setViewportSize({ width: 390, height: 844 });
   await page.emulateMedia({ colorScheme: 'dark' });
   const recent = page.getByRole('region', { name: 'Останні' });
-  for (const [category, asset] of [
-    ['Сніданок', 'food-oatmeal'],
-    ['Обід', 'food-wrap'],
-    ['Вечеря', 'food-chicken'],
-    ['Перекус', 'food-salad'],
+  for (const [category, meals] of [
+    ['Сніданок', [['Вівсянка на воді', 'food-oatmeal'], ['Яйце варене', 'food-eggs']]],
+    ['Обід', [['Лаваш-рол з куркою', 'food-wrap'], ['Лосось запечений', 'food-fish']]],
+    ['Вечеря', [['Куряче філе запечене', 'food-chicken'], ['Молоко 2,5 %', 'food-dairy'], ['Суп овочевий', 'food-soup']]],
+    ['Перекус', [['Салат овочевий', 'food-salad'], ['Яблуко', 'food-fruit']]],
   ]) {
     await recent.getByRole('tab', { name: category }).click();
-    await expect(recent.locator('.protocol-food-artwork img')).toHaveAttribute('src', new RegExp(asset));
+    for (const [title, asset] of meals) {
+      const photo = recent.getByTestId('recent-meal-add').filter({ hasText: title }).locator('.protocol-food-artwork img');
+      await expect(photo).toHaveAttribute('src', new RegExp(asset));
+      await photo.scrollIntoViewIfNeeded();
+      await expect(photo).toHaveJSProperty('naturalWidth', 192);
+    }
   }
-  const photo = recent.locator('.protocol-food-artwork img');
-  await photo.scrollIntoViewIfNeeded();
-  await expect(photo).toHaveJSProperty('naturalWidth', 192);
   await page.evaluate(() => window.scrollBy(0, 300));
   await page.screenshot({ path: 'test-results/food-photo-thumbnails-390-dark.png' });
   await page.context().close();
