@@ -15,7 +15,7 @@ const draft: ReviewDraft = { id: REVIEW_ID, v: 1, revision: 'synthetic-revision'
   lines: [{ key: 'source', kind: 'unread', status: 'unread', text: 'Synthetic source' }],
   cuts: { source: 'data:image/png;base64,AA==' }, source: 'Synthetic document', note: 'Keep review' };
 
-it.each(['photo', 'review', 'both'] as const)('preserves records when upgrading the %s v9 history to v10 and reopening', async history => {
+it.each(['photo', 'review', 'both'] as const)('preserves records when upgrading the %s v9 history to the current schema and reopening', async history => {
   const name = `migration-review-${crypto.randomUUID()}`; names.push(name);
   const old = new Dexie(name);
   old.version(8).stores(stores);
@@ -31,7 +31,7 @@ it.each(['photo', 'review', 'both'] as const)('preserves records when upgrading 
   try {
     for (let open = 0; open < 2; open++) {
       await current.open();
-      expect(current.verno).toBe(10);
+      expect(current.verno).toBe(11);
       expect(await current.plan.get('main')).toEqual(plan);
       expect((await current.entries.get('water'))?.waterMl).toBe(250);
       expect((await current.pieces.get('source'))?.source).toBe('Synthetic');

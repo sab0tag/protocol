@@ -1,5 +1,7 @@
 // IndexedDB through Dexie (SPEC.md §4). Everything stays on the device.
 import type { ReviewDraft } from './reviewDraft';
+import type { CarePlan, CarePlanItem } from '../domain/carePlans';
+import type { PlanMigration } from './carePlans';
 import { activeProfileId, profileDatabase } from './profiles';
 import Dexie, { type Table } from 'dexie';
 import type { ReminderSettings } from '../domain/reminders';
@@ -95,6 +97,9 @@ export class ProtocolDB extends Dexie {
   meta!: Table<SyncMeta, string>;
   profile!: Table<ProfilePhotoRow, string>;
   reviewDrafts!: Table<ReviewDraft, string>;
+  carePlans!: Table<CarePlan, string>;
+  carePlanItems!: Table<CarePlanItem, string>;
+  planMigrations!: Table<PlanMigration, string>;
   moduleEvents!: Table<ModuleEvent, string>;
 
   constructor(name = 'protocol') {
@@ -119,6 +124,7 @@ export class ProtocolDB extends Dexie {
     // keep the union here so neither existing store is deleted before v10 is applied.
     this.version(9).stores({ profile: 'key', reviewDrafts: 'id' });
     this.version(10).stores({ profile: 'key', reviewDrafts: 'id' }); // Preserve both independent v9 histories; local-only review.
+    this.version(11).stores({ carePlans: 'id, personId, status', carePlanItems: 'id, personId, [personId+planId]', planMigrations: 'id' }); // R5 expand only; no UI writes yet.
   }
 }
 

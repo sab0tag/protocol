@@ -10,8 +10,8 @@ Updated 27 October 2026. Owner authorized merging tested ready PRs into main in 
 | #34 | Explicit-theme controls and category-local meal deduplication | Merged `69cb083`; CI passed including final docs commit |
 | #24 | Explicit medication times; no inferred clock values | Adapted and merged `4225134`; CI run 40572857062 passed |
 | #25 | Recoverable local document review and revision guards | Adapted and merged `a4f2944`; CI run 40573406988 passed |
-| #26 | Weight input review, correction history, chart/report exclusion | Updated head `e07e422`; CI run 40573597702 running; retargeted main after #25 |
-| #27 | Optional daily phrase and immediate cross-tab name updates | Updated head `386b175`; CI run 40573800588 running; awaiting #26 |
+| #26 | Weight input review, correction history, chart/report exclusion | Merged `89ef1dc`; CI run 40573597702 passed |
+| #27 | Optional daily phrase and immediate cross-tab name updates | Merged `41294f6`; CI run 40573800588 passed |
 
 PR links: https://github.com/sab0tag/protocol/pull/24 through /27, /33 and /34. Refreshed heads preserve current section/food photos, compact header, greeting copy, meal tabs, explicit themes and weekly rings. Removed global profile strip is not reintroduced.
 
@@ -39,7 +39,7 @@ See `protocol-v2-plan-core.md` for contracts/boundaries and `protocol-v2-roadmap
 
 ## Next actions
 
-1. Finish CI and merge #26/#27 in order; mark #27 ready only after checks pass. Retarget the core PR to main after its parent merges.
+1. #26/#27 are merged after green CI. Core PR #35 is retargeted to main; finish its CI/review.
 2. Complete the core PR CI/preview and review; merge only if green.
 3. Implement expand-only transactional plan/item storage migration and recovery. Preserve v9/v10 local tables and the original journal; prove idempotence and rollback.
 4. Add compatible encrypted sync, backup/import and restore before enabling multi-plan writes. New writable data must not silently disappear from backups.
@@ -48,3 +48,12 @@ See `protocol-v2-plan-core.md` for contracts/boundaries and `protocol-v2-roadmap
 ## Remaining product boundaries
 
 Local profiles are not accounts or caregiver permissions. Additional-profile push, family backup/restore, invitations/scopes/consent/audit and remote authorization remain open. PDF/source document lifecycle and full critical-field verification remain open R7 work. R0/R1 full audit/accessibility, R5/R6 separate plans, R9/R10 caregiver access and later reporting/assistant/pilot releases remain subject to their acceptance criteria. Do not claim the full TZ is complete.
+
+## R5 second boundary — storage preparation
+
+Branch `feat/protocol-plan-storage`, parent `feat/protocol-plan-core` (PR #35, head `6c55cac`). Schema 11 expands the database with empty plan/item/migration stores; preparation is not called by app startup or UI. The old journal remains authoritative.
+
+- Transactional preparation preserves the original plan and retained snapshot, rolls back on failure, rejects wrong profile databases and detects stale source data or partial/corrupt preparation. Concurrent connections serialize rather than duplicate instructions.
+- Focused storage/migration/module regressions 27 passed; additional old-code reopening test 6/6. Production build/typecheck passed before that test-only refinement. Native Chromium v10 upgrade + recovery/profile/theme regressions 7/7 passed. Full client suite 528 passed; final old-code reopen refinement passed the 6 focused storage tests and final build. CI/preview will be recorded in the PR.
+- Native browser test verifies original plan, photo, review and weights survive schema 11 while normalized stores remain empty. No new UI or clinical activation is exposed.
+- Next: finish core/storage CI, then implement compatible ownership-aware sync/backup/import/restore before flagged consumers. See `protocol-v2-plan-storage.md` for scope and constraints.

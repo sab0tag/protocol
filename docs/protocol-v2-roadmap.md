@@ -10,10 +10,10 @@ This is an acceptance map, not a claim that complete releases have shipped. Repo
 | R1 design | Shared tokens/components, both themes, accessibility, loading/error/offline | Woodland system across working screens; continued visual QA required |
 | R2 Today | Adaptive action feed, nearest action, honest statuses | Working single-plan Today; latest ordering/labels in #22 |
 | R3 Food | Fast repeat, favorites, editor, deduplication, sticky save | Current compact entry/3 recent meals; no claim of all acceptance cases |
-| R4 quality | Invalid dates/units/weight, anomalous values quarantined until reviewed | Weight quarantine/editing and actual-value chart slice under validation; other measurement types remain |
-| R5 core | Separate plans/items, migration, versions, status and provenance | Legacy single `main` plan; source plans must never be merged into one instruction |
+| R4 quality | Invalid dates/units/weight, anomalous values quarantined until reviewed | Weight quarantine/editing and actual-value chart #26 merged; other measurement types remain |
+| R5 core | Separate plans/items, migration, versions, status and provenance | Source-plan contracts in #35; expand-only storage preparation follows; legacy journal remains active pending sync/backup compatibility |
 | R6 plan UX | Parallel plans, clinician filter, unified feed, conflicts/archive | Not implemented; duplicates must not create double obligations |
-| R7 documents | Photo/PDF, recoverable OCR draft, field verification before activation | Explicit times (#24) and durable local review recovery (#25) prepared; PDF and full field verification remain |
+| R7 documents | Photo/PDF, recoverable OCR draft, field verification before activation | Explicit times (#24) and durable local review recovery (#25) merged; PDF and full field verification remain |
 | R8 adherence | Reasons, unknown vs missed, gentle reminders | Existing explicit status/reminder behavior; complete intelligence not claimed |
 | R9 access | Profiles, invitations, consent, server scopes and access audit | #23 provides local profiles only; no shared account permissions |
 | R10 family | Children/older relatives, accessibility, delegation and immediate revocation | Local relationship labels only; remote delegation remains open |
