@@ -8,7 +8,7 @@ test('settings menu exposes profiles and code-based sync with a privacy boundary
   await expect(page.getByRole('link', { name: 'Синхронізація', exact: true })).toBeVisible();
   await page.getByRole('link', { name: 'Сім’я та профілі', exact: true }).click();
   await expect(page.getByRole('link', { name: 'Підключити цей профіль кодом' })).toBeVisible();
-  await expect(page.getByText(/не надає іншій людині доступу/)).toBeVisible();
+  await expect(page.getByText(/не надає іншій людині доступ до цих записів/)).toBeVisible();
   await page.getByRole('link', { name: 'Підключити цей профіль кодом' }).click();
   await expect(page).toHaveURL(/#\/sync\?back=%2Fprofiles$/);
   await page.getByRole('button', { name: 'У мене вже є код', exact: true }).click();
