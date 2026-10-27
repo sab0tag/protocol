@@ -1,6 +1,18 @@
 import { expect, test } from '@playwright/test';
 import { device, toast } from './helpers';
 
+test('empty assistant suggestions stay beside the daily context instead of leaving a blank chat area', async ({ browser }) => {
+  const page = await device(browser);
+  await page.goto('./#/assistant');
+  const context = page.locator('section > p.protocol-card');
+  const suggestion = page.getByRole('button', { name: 'Що добрати до вечора?' });
+  await expect(context).toBeVisible();
+  await expect(suggestion).toBeVisible();
+  const contextBox = await context.boundingBox();
+  const suggestionBox = await suggestion.boundingBox();
+  expect(suggestionBox!.y - (contextBox!.y + contextBox!.height)).toBeLessThan(120);
+});
+
 test('the assistant: the code answers «що добрати», the model the rest — a food failing the plan is never shown, medicines get the app’s words, a danger sign the 103 card (D117)', async ({ browser }) => {
   const page = await device(browser); // the example plan: lactose, glycemia, oxalate; Вітамін D; no sync — the device token
   let calls = 0, sent: { text: string; names: string[]; context: { day: { kcal: number } } } | undefined;

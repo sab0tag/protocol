@@ -102,7 +102,7 @@ Food list thumbnails are cached locally from Unsplash under its [official licens
 | Profiles | 390 px / dark | Local profile creation and same-profile device connection are visible. The mockup's shared-access controls and per-person portraits are not implemented. |
 | Settings | 390 px / dark | The local profile-photo upload and settings links are visible. The mockup's consolidated settings controls are distributed across existing routes. |
 | Add food | 320 px / light | The photo, voice, text, and label-scan actions remain visible below the photographic header; no horizontal overflow. |
-| Assistant | 390 px / dark | The image is part of the rounded header, with the title and description legible on the darkened left. |
+| Assistant | 390 px / dark | The image is part of the rounded header; when no conversation exists, prompt chips now sit directly below the daily context instead of leaving a large empty chat area. |
 | Settings | 768 px / dark | The profile-photo card and settings links render beneath the integrated header; no clipping or horizontal overflow. |
 | Workout | 1024 px / light | The image is integrated into the header; the previous/next controls remain legible against their surface buttons. |
 | Add food | 390 px / light and dark | Recent meal categories and favorite controls are present. All nine supported food categories use cached local photographs. |
