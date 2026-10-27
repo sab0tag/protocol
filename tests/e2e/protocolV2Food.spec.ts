@@ -40,7 +40,7 @@ test('Food 2.0 repeats at most three distinct completed meals into a checked edi
   await expect(recent).not.toContainText('Майбутній запис');
   await page.setViewportSize({ width: 390, height: 844 });
   await page.screenshot({ path: 'test-results/protocol-v2-food-empty-390.png', fullPage: true });
-  await recent.getByRole('button', { name: /Недавній перекус/ }).click(); // first interaction
+  await recent.getByTestId('recent-meal-add').filter({ hasText: 'Недавній перекус' }).click(); // first interaction
   await expect(recent).toHaveCount(0);
   await expect(page.getByRole('region', { name: 'Позиції', exact: true }).getByLabel('Грами')).toHaveValue('180');
   await expect(page.locator('section[aria-live]')).toContainText('Лактоза'); // evaluated against the current plan
@@ -84,7 +84,7 @@ test('Food 2.0 favorites start compact, expand on demand, and editing a repeat k
   await expect(favorites.getByRole('listitem')).toHaveCount(3);
   const recent = page.getByRole('region', { name: 'Останні' });
   await recent.getByRole('tab', { name: 'Сніданок' }).click();
-  await recent.getByRole('button', { name: /Вчорашній кефір/ }).click();
+  await recent.getByTestId('recent-meal-add').filter({ hasText: 'Вчорашній кефір' }).click();
   await page.getByRole('region', { name: 'Позиції', exact: true }).getByLabel('Грами').fill('210');
   const original = (await records(page) as { id: string; items: { grams: number }[] }[]).find((e) => e.id === 'original');
   expect(original?.items[0]?.grams).toBe(180);
@@ -127,7 +127,7 @@ test('recent meals switch by meal type and heart buttons add and remove favorite
 
   const unheart = recent.getByRole('button', { name: 'Прибрати з улюблених: Сніданок' });
   await unheart.click();
-  await expect(unheart).toHaveAttribute('aria-pressed', 'false');
+  await expect(recent.getByRole('button', { name: 'Додати до улюблених: Сніданок' })).toHaveAttribute('aria-pressed', 'false');
   await expect(page.getByRole('region', { name: 'Мої звичні' })).toHaveCount(0);
   await page.context().close();
 });

@@ -36,7 +36,6 @@ export function Layout({ children }: { children: ReactNode }) {
       </nav>
       <Toaster />
       <main data-scene={artwork ?? 'day'} className="mx-auto w-full max-w-2xl px-4 pb-28 pt-safe md:pb-10 print:max-w-none print:pb-0">
-        {artwork && <div aria-hidden="true" className={`protocol-scene-art protocol-scene-art-${artwork} -mx-4 mb-4 mt-2 h-24 rounded-2xl sm:h-32`} />}
         {children}</main>
     </div>
   );

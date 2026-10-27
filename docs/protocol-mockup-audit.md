@@ -56,17 +56,17 @@ Shared visual systems audited alongside those components: color and type tokens,
 
 ## Current pass and open review
 
-- Updated the shared non-Today page header to remove the forest image, reduce vertical overhead, and use theme-aware text; the forest remains on Today.
+- Integrated each section's locally cached image into its page header, with a left-side dark gradient and the photo visible on the right; the woodland hero remains on Today.
 - Removed the repeated active-profile strip from the global shell; the active person's name remains in the Today greeting and in profile management.
 - Reduced the shared card radius and ring diameter, refined dark-theme colors toward the mockup, and simplified the tab icon treatment.
 - Converted the plan overview and wellbeing date header to regular theme-aware surfaces.
-- Added locally cached section-cover photography for food, movement, care, wellbeing, settings, and assistant routes; Today keeps its existing forest hero.
+- Added locally cached header photography for food, movement, care, wellbeing, settings, and assistant routes; Today keeps its existing forest hero.
 - Updated the Today greeting to use the active profile name and exact day-part text without punctuation; recent meals now filter through breakfast/lunch/dinner/snack tabs and can be favorited with a red heart.
 - Expanded browser geometry coverage to all routed screens and the requested 320, 390, 768, and 1024 px widths in both themes. This is a regression gate, not a substitute for visual comparison.
 
 ### Section artwork sources
 
-The decorative covers are downloaded and cached locally (WebP), so route views do not make third-party image requests. Images are from Unsplash under its [official license](https://unsplash.com/license), which permits free commercial and non-commercial use without required attribution:
+The header photos are downloaded and cached locally (WebP), so route views do not make third-party image requests. Images are from Unsplash under its [official license](https://unsplash.com/license), which permits free commercial and non-commercial use without required attribution:
 
 | Section | Image |
 |---|---|
@@ -87,9 +87,13 @@ The decorative covers are downloaded and cached locally (WebP), so route views d
 | Progress | 390 px / dark | The weight trend is a responsive line chart. The top-level content order and metric summary still differ from the mockup. |
 | Profiles | 390 px / dark | Local profile creation and same-profile device connection are visible. The mockup's shared-access controls and per-person portraits are not implemented. |
 | Settings | 390 px / dark | The local profile-photo upload and settings links are visible. The mockup's consolidated settings controls are distributed across existing routes. |
+| Add food | 320 px / light | The photo, voice, text, and label-scan actions remain visible below the photographic header; no horizontal overflow. |
+| Assistant | 390 px / dark | The image is part of the rounded header, with the title and description legible on the darkened left. |
+| Settings | 768 px / dark | The profile-photo card and settings links render beneath the integrated header; no clipping or horizontal overflow. |
+| Workout | 1024 px / light | The image is integrated into the header; the previous/next controls remain legible against their surface buttons. |
 
 The expanded E2E matrix initially found horizontal overflow on Motivation at 320 px. Habit labels and right-hand status text now have explicit shrink/wrap constraints; all checks passed on PR #28.
 
-The CI screenshot artifact contains all 42 routed screens at each of the four requested widths in both themes. A 390 px dark contact sheet was visually inspected as a route overview; the automated matrix verifies visibility and horizontal overflow, not pixel-level equivalence. Food cards use local category illustrations as image-like thumbnails; the new section covers do not replace the per-food photographs shown in mockups.
+The browser matrix captured every routed screen at 320, 390, 768, and 1024 px in both themes. It verifies header-image presence, visibility, and horizontal overflow; it is not a pixel-level comparison against every mockup. Food cards use local category illustrations as image-like thumbnails; the section header photos do not replace the per-food photographs shown in mockups.
 
-Still to do: inspect every route's screenshots in all eight viewport/theme combinations against the references; resolve remaining component-level differences; record any deliberate differences caused by functionality/accessibility; run unit, typecheck, build, and the complete E2E suite; and publish/merge only after green CI.
+Still to do: inspect every route's screenshots in all eight viewport/theme combinations against the references; resolve remaining component-level differences; record any deliberate differences caused by functionality/accessibility; and wait for green PR CI before merging. Local typecheck, unit, production build, and full E2E have passed.
