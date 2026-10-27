@@ -1,3 +1,4 @@
+import { profileKey } from '../data/profiles';
 // D110: «Розкласти страву» — a dish described in words, its ingredients with grams like a canteen's breakdown card. The
 // model proposes the lines; every number on screen is counted here (a base food — from the base, the rest — the model's
 // estimate per 100 g, marked); the person corrects the grams, takes lines out, sets the portions and saves the dish for
@@ -15,7 +16,7 @@ import { currentKeys } from '../sync/runner';
 import { saved } from './Toast';
 
 const L = t.dishes.breakdown;
-const CONSENT = 'protocol.dishConsent';
+const CONSENT = profileKey('protocol.dishConsent');
 export const dishConsented = () => { try { return localStorage.getItem(CONSENT) === '1'; } catch { return false; } };
 export const allowDishes = () => { try { localStorage.setItem(CONSENT, '1'); } catch { /* private mode */ } };
 const field = 'block min-h-tap w-full rounded-xl border border-line bg-bg px-3';

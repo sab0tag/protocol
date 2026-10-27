@@ -1,4 +1,5 @@
 // IndexedDB through Dexie (SPEC.md §4). Everything stays on the device.
+import { activeProfileId, profileDatabase } from './profiles';
 import Dexie, { type Table } from 'dexie';
 import type { ReminderSettings } from '../domain/reminders';
 import type { SurveyKind, SurveyState } from '../domain/pilot';
@@ -115,7 +116,7 @@ export class ProtocolDB extends Dexie {
 export const DEMO_DB = 'protocol-demo';
 const DEMO_FLAG = 'protocol.demo';
 export const inDemo = (): boolean => { try { return localStorage.getItem(DEMO_FLAG) === '1'; } catch { return false; } };
-export const db = new ProtocolDB(inDemo() ? DEMO_DB : 'protocol');
+export const db = new ProtocolDB(inDemo() ? DEMO_DB : profileDatabase(activeProfileId));
 export function enterDemo(): void { try { localStorage.setItem(DEMO_FLAG, '1'); } catch { /* private mode — stays */ } location.hash = '#/'; location.reload(); }
 export async function leaveDemo(): Promise<void> {
   try { localStorage.removeItem(DEMO_FLAG); } catch { /* private mode */ }
@@ -144,7 +145,7 @@ export async function ensureSeeded(target: ProtocolDB = db): Promise<void> {
     if (!(await target.plan.get('main'))) {
       const local = import.meta.glob<{ localPlan?: () => Plan }>('./seed.local.ts', { eager: true });
       const today = todayISO();
-      const plan = target.name === DEMO_DB ? { ...examplePlan(), onboardedAt: today } : Object.values(local)[0]?.localPlan?.() ?? emptyPlan();
+      const plan = target.name === DEMO_DB ? { ...examplePlan(), onboardedAt: today } : (target.name === 'protocol' ? Object.values(local)[0]?.localPlan?.() : undefined) ?? emptyPlan();
       await target.plan.put({ id: 'main', ...plan });
     }
   });

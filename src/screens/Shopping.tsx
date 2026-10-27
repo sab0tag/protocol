@@ -1,3 +1,4 @@
+import { profileKey } from '../data/profiles';
 import { SceneHeader } from '../components/SceneHeader';
 import { addDays, format } from 'date-fns';
 import { Loading } from '../components/Recovery';
@@ -11,7 +12,7 @@ import { t } from '../i18n/uk';
 
 const L = t.shop;
 const field = 'mt-1 block min-h-tap w-full rounded-xl border border-line bg-bg px-3';
-const STORE = 'protocol.shopping'; // per-device ticks — a convenience, fine to lose
+const STORE = profileKey('protocol.shopping'); // per-device ticks — a convenience, fine to lose
 
 function loadTicks(): Set<string> {
   try { return new Set(JSON.parse(localStorage.getItem(STORE) ?? '[]') as string[]); } catch { return new Set(); }

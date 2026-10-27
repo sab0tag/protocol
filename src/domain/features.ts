@@ -16,6 +16,7 @@ export type FeatureDefinition = {
 } & ({ readonly safety: true; readonly tier: 'free' } | { readonly safety?: false; readonly tier: Tier });
 
 export const FEATURES = {
+  'profiles': { module: null, tier: 'free' },
   'day':                  { module: null,        tier: 'free' },
   'day.checklist':        { module: null,        tier: 'free' },
   'day.light':            { module: null,        tier: 'free' },

@@ -1,3 +1,4 @@
+import { profileKey } from '../data/profiles';
 // D80, D101: «Фото висновку лікаря» — up to 4 pages; Claude copies the limits, the diet, medicines, targets and the next
 // visit off the paper, each line with where it was read and how sure. The app checks every line and shows it with the
 // piece of paper it came from and ✓ / ? / ✗; nothing is ticked for the person, medicines are ticked one by one (there is
@@ -26,7 +27,7 @@ const GROUPS = ['meds', 'limits', 'targets', 'checks', 'unread'] as const;
 const groupOf = (l: DraftLine): (typeof GROUPS)[number] => l.kind === 'unread' ? 'unread' : l.kind === 'constraint' ? 'limits' : l.kind === 'target' ? 'targets'
   : l.kind === 'checkup' || (l.kind === 'prescription' && l.prescription.kind === 'test') ? 'checks' : 'meds';
 const isMed = (l: DraftLine) => groupOf(l) === 'meds';
-const CONSENT = 'protocol.conclusionConsent';
+const CONSENT = profileKey('protocol.conclusionConsent');
 const localConsent = () => { try { return localStorage.getItem(CONSENT) === '1'; } catch { return false; } };
 
 export function PlanScan({ plan, onDone, onboarding }: { plan: PlanRow; onDone?: () => void; onboarding?: boolean }) {

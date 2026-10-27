@@ -1,9 +1,10 @@
 // D87: unsaved work that must survive the page being reloaded behind the person's back — a locked phone (iOS drops
 // the page or its database connection, D42), a new version taking over (D47). A model's menu costs money and a
 // minute; sets typed between sets are the workout itself. Kept on this device only, until saved, dropped or a day old.
+import { profileKey } from './profiles';
 import { inDemo } from './db';
 
-const PREFIX = `protocol.kept.${inDemo() ? 'demo.' : ''}`; // D98: the example's drafts never show up in the own data
+const PREFIX = `${profileKey('protocol.kept')}.${inDemo() ? 'demo.' : ''}`; // D98: the example's drafts never show up in the own data
 const DAY = 86_400_000;
 
 export function keep<T>(key: string, value: T | undefined): void {

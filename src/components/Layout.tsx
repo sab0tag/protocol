@@ -1,6 +1,8 @@
 import { CalendarDays, ClipboardList, LineChart, MoreHorizontal, UtensilsCrossed, type LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { NavLink } from 'react-router-dom';
+import { activeProfile } from '../data/profiles';
+import { inDemo } from '../data/db';
+import { Link, NavLink } from 'react-router-dom';
 import { t } from '../i18n/uk';
 import { Toaster } from './Toast';
 import { ROUTES, TAB_ROUTES, type TabRouteId } from '../app/navigation';
@@ -15,6 +17,7 @@ const TABS = {
 
 /** Bottom tab bar on phones, an icon rail from 768 px — same icons and routes (SPEC.md §5). */
 export function Layout({ children }: { children: ReactNode }) {
+  const profile = inDemo() ? undefined : activeProfile();
   return (
     <div className="min-h-dvh md:flex">
       <nav aria-label="Розділи"
@@ -33,7 +36,9 @@ export function Layout({ children }: { children: ReactNode }) {
         </ul>
       </nav>
       <Toaster />
-      <main className="mx-auto w-full max-w-2xl px-4 pb-28 pt-safe md:pb-10 print:max-w-none print:pb-0">{children}</main>
+      <main className="mx-auto w-full max-w-2xl px-4 pb-28 pt-safe md:pb-10 print:max-w-none print:pb-0">
+        {profile?.name && <Link to="/profiles" className="mt-3 flex min-h-tap items-center gap-2 text-sm text-accent print:hidden" aria-label={`${t.profiles.active}: ${profile.name}`}><span className="h-2 w-2 shrink-0 rounded-full bg-accent" aria-hidden /><span className="break-words">{profile.name}</span></Link>}
+        {children}</main>
     </div>
   );
 }

@@ -39,3 +39,16 @@ There is no water button, indicator or empty reserved row between quick actions 
 ## Validation
 
 Based on main `0f3da33`, preserving PR #20 plan previews and pilot persistence, module observation/reminder policy, allowed metrics, and the 2–3 metric selection rule. Client: 444 unit tests; server: 66 unit tests and typecheck; client typecheck and production build pass. Standard browser build: 95 passed, 3 conditionally skipped. The separate module-policy-enabled browser build passes all 6 selected observation/preferences/reminder-policy scenarios. The first-screen water action remains absent, adding/undo still works after scrolling, timeline precedes summary, dated labels remain accurate, and editing a meal updates its original record.
+
+## Profile naming — 2026-10-27
+
+| Purpose | Label |
+| --- | --- |
+| Profile directory | Сім’я та профілі |
+| Create / edit | Додати профіль / Редагувати профіль |
+| Name / relationship | Ім’я / Ким доводиться |
+| Relationships | Мій профіль · Дитина · Родич |
+| Selected person | Активний профіль |
+| Save | Зберегти профіль |
+
+The name on Today comes from the active local profile. Greetings follow local time; motivational text changes by local calendar day. No medical success is inferred from a greeting.

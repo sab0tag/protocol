@@ -1,5 +1,6 @@
 // Reminders on this device (SPEC.md D34): subscribe to Web Push and keep the server's schedule in step with the
 // day's plan. Called after every sync round, so a tick on another device stops the repeats here too.
+import { activeProfileId } from '../data/profiles';
 import { addDays, format } from 'date-fns';
 import { db, normalizePlan } from '../data/db';
 import { DEFAULT_REMINDERS, reminders, type ReminderSettings } from '../domain/reminders';
@@ -12,7 +13,7 @@ import { recordKey, type Keys } from './crypto';
 import { MODULE_POLICY_ENABLED } from '../domain/rollout';
 import { policyFromEvents, type ReminderPolicy } from '../../server/src/reminderPolicy';
 
-export const pushSupported = () => typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+export const pushSupported = () => activeProfileId === 'main' && typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
 /** iPhone: push only for a Протокол added to the home screen and opened from there. */
 export const needsHomeScreen = () => /iPhone|iPad|iPod/.test(navigator.userAgent)
   && !(window.matchMedia?.('(display-mode: standalone)').matches || (navigator as { standalone?: boolean }).standalone);
@@ -41,6 +42,7 @@ export async function enablePush(keys: Keys, settings?: ReminderSettings) {
 }
 
 export async function disablePush(keys: Keys | undefined) {
+  if (activeProfileId !== 'main') return; // secondary profiles must never unsubscribe the original person's push
   const meta = await db.meta.get('sync');
   try { await (await navigator.serviceWorker.ready).pushManager.getSubscription().then((s) => s?.unsubscribe()); } catch { /* none */ }
   if (keys && meta?.device) await dropDevice(keys, meta.device).catch(() => undefined);

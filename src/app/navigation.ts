@@ -2,6 +2,7 @@
 import type { FeatureId } from '../domain/features';
 
 export const ROUTES = {
+  profiles: { path: '/profiles', feature: 'profiles' },
   day:          { path: '/',               feature: 'day' },
   mealNew:      { path: '/meal/new',       feature: 'food.log' },
   mealEdit:     { path: '/meal/:id',       feature: 'food.log' },
@@ -52,7 +53,7 @@ export type TabRouteId = (typeof TAB_ROUTES)[number];
 export const MORE_ROUTE_GROUPS = [
   { id: 'food', routes: ['assistant', 'menu', 'shopping', 'dishes', 'foods'] },
   { id: 'health', routes: ['wellbeing', 'wellbeingJournal', 'progressLabs', 'progressMotivation', 'progressInsights', 'workout', 'week', 'report'] },
-  { id: 'settings', routes: ['reminders', 'sync', 'quickLinks', 'data'] },
+  { id: 'settings', routes: ['profiles', 'reminders', 'sync', 'quickLinks', 'data'] },
   { id: 'app', routes: ['frictions', 'pilot', 'onboarding', 'conciergeLog', 'about'] },
 ] as const satisfies readonly { readonly id: string; readonly routes: readonly StaticRouteId[] }[];
 export type MoreGroupId = (typeof MORE_ROUTE_GROUPS)[number]['id'];

@@ -1,3 +1,4 @@
+import { profileKey } from '../data/profiles';
 // D117: «Помічник» — ask in words or by voice, the answer comes at once. «Що добрати до вечора?» is answered by the code
 // (the day against the plan, three things that pass it); anything else goes to the model with the day's numbers and the
 // plan's rules — its words come back without numbers, every food it names is turned into a line of the base, checked
@@ -34,7 +35,7 @@ import { currentKeys } from '../sync/runner';
 import { SceneHeader } from '../components/SceneHeader';
 
 const L = t.assistant;
-const CONSENT = 'protocol.assistantConsent';
+const CONSENT = profileKey('protocol.assistantConsent');
 const consented = () => { try { return localStorage.getItem(CONSENT) === '1'; } catch { return false; } };
 interface Msg { id: string; role: 'user' | 'assistant'; text: string; items?: MealItem[]; card?: 'danger' | 'crisis'; danger?: true; error?: true
   notOffered?: { name: string; reason: string; instead?: string }[] }

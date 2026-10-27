@@ -1,3 +1,4 @@
+import { profileKey } from '../data/profiles';
 import { ProgressTrack, type ProgressTone } from './ProgressTrack';
 import { ProgressRing } from './ProgressRing';
 // «Уже сьогодні» (SPEC.md §14.1, D53): two or three main numbers chosen by the person (R5: water, medicines, carbs),
@@ -18,7 +19,7 @@ const ALL: MetricKey[] = ['water', 'meds', 'carbs', 'protein', 'calcium', 'kcal'
 const DEFAULT: MetricKey[] = ['water', 'meds', 'carbs'];
 const MIN_MAIN = 2;
 const MAX_MAIN = 3;
-const STORE = 'protocol.mainMetrics'; // this device's choice — a view setting, not data
+const STORE = profileKey('protocol.mainMetrics'); // this device's choice — a view setting, not data
 
 function loadMain(): MetricKey[] {
   try {

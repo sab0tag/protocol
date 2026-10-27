@@ -1,3 +1,4 @@
+import { profileKey } from '../data/profiles';
 // «Скласти тренування з ІІ» (SPEC.md D63): the level and the time are the person's; the model proposes a session
 // from the library, the app checks it (draftFromAi) and puts it in the form as a draft with the model's advice —
 // nothing is recorded until «Записати тренування». Needs sync (the server key) and a one-time consent.
@@ -16,7 +17,7 @@ import { aiWorkout, ApiError } from '../sync/api';
 import { currentKeys } from '../sync/runner';
 
 const L = t.aiWorkout;
-const STORE = 'protocol.workoutLevels';
+const STORE = profileKey('protocol.workoutLevels');
 const CHOICES: { label: string; levels: Level[] }[] = [{ label: L.base, levels: [1] }, { label: L.baseMid, levels: [1, 2] }];
 
 function loadLevels(): Level[] {

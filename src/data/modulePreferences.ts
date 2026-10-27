@@ -1,4 +1,5 @@
 // D134: storage commands. No UI filtering or changes to the doctor's plan in this preparation release.
+import { profileKey } from './profiles';
 import type { ProtocolDB } from './db';
 import { MODULE_IDS, type ModuleId } from '../domain/features';
 import { newId } from '../domain/dates';
@@ -51,7 +52,7 @@ export async function setWeightEnabled(target: ProtocolDB, enabled: boolean,
 export function legacyModuleUsage(demo = false, storage?: Storage): Partial<Record<ModuleId, boolean>> {
   const used: Partial<Record<ModuleId, boolean>> = {};
   try {
-    const s = storage ?? globalThis.localStorage, prefix = `protocol.kept.${demo ? 'demo.' : ''}`;
+    const s = storage ?? globalThis.localStorage, prefix = `${profileKey('protocol.kept')}.${demo ? 'demo.' : ''}`;
     for (let i = 0; i < s.length; i++) {
       const key = s.key(i);
       if (!key || (!key.startsWith(prefix + 'assistant:') && key !== prefix + 'menu')) continue;

@@ -1,3 +1,4 @@
+import { activeProfileId } from '../data/profiles';
 import { SceneHeader } from '../components/SceneHeader';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Loading } from '../components/Recovery';
@@ -46,7 +47,7 @@ export function Reminders() {
       <div className="space-y-3 protocol-card rounded-2xl border border-line bg-surface p-3">
         <p>{L.text}</p>
         <p className="text-sm text-muted">{L.privacy}</p>
-        {!meta || !keys ? <NeedsSync text={L.needsSync} />
+        {activeProfileId !== 'main' ? <p className="text-sm text-muted">{t.profiles.pushPrimary}</p> : !meta || !keys ? <NeedsSync text={L.needsSync} />
           : !pushSupported() ? <p className="text-sm text-warn">{needsHomeScreen() ? L.homeScreen : L.unsupported}</p>
           : on ? (
             <>

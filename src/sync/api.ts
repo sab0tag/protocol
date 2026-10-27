@@ -1,3 +1,4 @@
+import { profileKey } from '../data/profiles';
 // The Протокол API over fetch (server/: SPEC.md D31, D32).
 import type { MenuResult } from '../domain/menu';
 import type { AiWorkout, WorkoutBody } from '../domain/aiWorkout';
@@ -53,7 +54,7 @@ export interface LabsResult { readable: boolean; date: string | null; items: { n
 export const labs = (keys: Keys, image: string, names: string[]) => call<LabsResult>(keys, 'POST', '/labs', { image, names });
 // D80, D101: up to 4 pages; with sync through the vault, without it through this device's token (the first screen of
 // onboarding needs no account). The token lives on this device only; a lost or unknown one is asked for again, once.
-const DEVICE = 'protocol.deviceToken';
+const DEVICE = profileKey('protocol.deviceToken');
 let deviceMem: string | undefined;
 async function deviceToken(fresh: boolean): Promise<string> {
   if (!fresh) { try { deviceMem ??= localStorage.getItem(DEVICE) ?? undefined; } catch { /* private mode — kept in memory */ } }

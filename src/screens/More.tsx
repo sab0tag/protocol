@@ -7,6 +7,7 @@ import { t } from '../i18n/uk';
 import { MORE_ROUTE_GROUPS, ROUTES, type MoreGroupId, type MoreRouteId } from '../app/navigation';
 
 const LINKS = {
+  profiles: { Icon: UserRound, title: t.profiles.title },
   assistant: { Icon: MessageCircle, title: t.assistant.title },
   menu: { Icon: Sparkles, title: t.menu.quick },
   shopping: { Icon: ShoppingCart, title: t.shop.title },

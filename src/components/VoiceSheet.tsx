@@ -1,3 +1,4 @@
+import { profileKey } from '../data/profiles';
 // D95: the voice window (M5) — one place to say a meal, a medicine or water. It listens as soon as it opens, shows a
 // draft (the same reading and plan check as everywhere), asks the quantities nobody said, takes commands on the draft
 // («прибери каву», «хліба було 40 грамів», «як учора»), and writes it all with one tap — the same records the day's
@@ -27,7 +28,7 @@ import { countOnce } from '../data/tally';
 
 const L = t.voice;
 const C = t.voice.cmd;
-const OK_KEY = 'protocol.voice.ok', METRIC_KEY = `protocol.metrics.voice${inDemo() ? '.demo' : ''}`; // D98: the pilot's measure from own use only
+const OK_KEY = profileKey('protocol.voice.ok'), METRIC_KEY = profileKey(`protocol.metrics.voice${inDemo() ? '.demo' : ''}`); // D98: the pilot's measure from own use only
 const okGiven = () => { try { return localStorage.getItem(OK_KEY) === '1'; } catch { return false; } };
 
 /** D95: seconds from opening the window to writing — the pilot's measure; the last 50, on this device only. */

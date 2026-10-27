@@ -201,7 +201,9 @@ self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   // D94: only a page of this app opens — a payload's absolute address to another site is ignored
   const asked = new URL((event.notification.data && event.notification.data.url) || './', self.registration.scope);
-  const url = asked.origin === self.location.origin ? asked.href : self.registration.scope;
+  const target = new URL(asked.origin === self.location.origin ? asked.href : self.registration.scope);
+  target.searchParams.set('protocol-profile', 'main');
+  const url = target.href;
   event.waitUntil((async () => {
     if (event.notification.tag !== 'test') await tally('rem_open');
     const all = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
