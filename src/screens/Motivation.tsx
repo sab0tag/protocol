@@ -81,17 +81,17 @@ export function WeekCard({ summary, variant = 'tiles' }: { summary: ReturnType<t
               const ratio = metric.count / metric.total;
               const value = metric.percent ? `${metric.count} %` : L.ofDays(metric.count, metric.total);
               return (
-                <li key={metric.label} className={`protocol-metric flex min-w-0 flex-col items-center gap-2 text-center protocol-progress-${metric.tone}`}>
-                  <span className="min-h-10 text-sm text-muted">{metric.label}</span>
-                  <ProgressRing ratio={ratio} tone={metric.tone} label={metric.label} valueText={value}>
+                <li key={metric.label} className={`protocol-metric protocol-week-metric flex min-w-0 flex-col items-center text-center protocol-progress-${metric.tone}`}>
+                  <span className="min-h-8 text-sm text-muted">{metric.label}</span>
+                  <ProgressRing ratio={ratio} tone={metric.tone} label={metric.label} valueText={value} className="protocol-week-ring">
                     <span className="tabular text-base font-semibold">{Math.round(ratio * 100)}%</span>
                   </ProgressRing>
                   <span className="text-sm tabular">{value}</span>
                 </li>
               );
             })}
-            <li className="protocol-metric flex min-w-0 flex-col items-center justify-center gap-2 text-center">
-              <span className="min-h-10 text-sm text-muted">{L.weekWorkouts}</span>
+            <li className="protocol-metric protocol-week-metric flex min-w-0 flex-col items-center justify-center text-center">
+              <span className="min-h-8 text-sm text-muted">{L.weekWorkouts}</span>
               <span className="tabular text-3xl font-semibold">{summary.workouts}</span>
             </li>
           </ul>
