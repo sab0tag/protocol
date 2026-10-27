@@ -138,7 +138,7 @@ export function Assistant() {
     targets.carbsG?.max !== undefined ? L.carbs(fmt(totals.carbs), targets.carbsG.max) : ''].filter(Boolean);
 
   return (
-    <section className="flex min-h-[calc(100dvh-9rem)] flex-col gap-3 pt-4">
+    <section className="flex min-h-[calc(100dvh-5.5rem)] flex-col gap-3 pt-4">
       <SceneHeader title={L.title} description={L.hint}>
         {msgs.length > 0 && <button type="button" onClick={() => setMsgs([])} className="min-h-tap rounded-xl border border-white/25 px-3 text-sm text-white">{L.newTalk}</button> /* D130 */}
       </SceneHeader>
@@ -182,7 +182,7 @@ export function Assistant() {
           ))}
         </div>
       )}
-      <form className="sticky bottom-[calc(4.5rem+env(safe-area-inset-bottom))] flex gap-2 bg-bg py-2 md:bottom-0" onSubmit={(e) => { e.preventDefault(); void ask(text); }}>
+      <form className="sticky bottom-[calc(4.5rem+env(safe-area-inset-bottom))] mt-auto flex gap-2 bg-bg py-2 md:bottom-0" onSubmit={(e) => { e.preventDefault(); void ask(text); }}>
         {speechSupported() && (
           <button type="button" onClick={mic} aria-label={listening ? L.stop : L.speak}
             className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full ${listening ? 'animate-pulse bg-warn' : 'bg-accent'} text-surface`}>

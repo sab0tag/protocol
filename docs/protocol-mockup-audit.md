@@ -39,7 +39,7 @@
 | More category — `/more/:category` | Settings / integrations | Shared header updated; detailed review pending |
 | About — `/about` | About the app | Shared header updated; detailed review pending |
 | Concierge log — `/concierge-log` | Assistant history | Shared header updated; detailed review pending |
-| Assistant — `/assistant` | Contextual assistant | Shared header updated; detailed review pending |
+| Assistant — `/assistant` | Contextual assistant | Header updated; empty-state composer aligned above mobile navigation |
 | Sync — `/sync` | Device synchronization | Shared header updated; detailed review pending |
 | Menu — `/menu` | Meal suggestions | Shared header updated; detailed review pending |
 | Reminders — `/reminders` | Settings | Shared header updated; detailed review pending |
@@ -114,6 +114,7 @@ The expanded E2E matrix initially found horizontal overflow on Motivation at 320
 - Reviewed the contact sheets for all 42 previously captured routes at 320, 390, 768, and 1024 px in both light and dark themes. This is a layout-level visual triage, not a pixel-level comparison of every screen against a mockup.
 - `/do/water` is an action deep link, not a screen: opening it records water and shows an undo notification. It was removed from the visual screenshot loop so it cannot change the seeded day or leave a transient notification over later screenshots. Its behavior remains covered by `tests/e2e/quick.spec.ts`; the visual matrix now covers 41 screens (328 screenshots).
 - The supplied mockups depict only a subset of the existing routes. On the represented flows, current content and behavior differ where noted above: the app has a single-plan model rather than the mockup's multi-plan controls, and local profiles rather than shared family access. These are product-capability differences, not permission to invent clinical or sharing behavior.
+- On the empty assistant screen, the composer now sits near the bottom navigation instead of directly below suggestion chips, matching the mockup's chat layout; an E2E geometry assertion guards the spacing.
 - Keep the intentionally added section and food photography unchanged. The screenshot matrix checks responsive layout, theme selection, navigation, header-art presence, and horizontal overflow; it does not establish pixel-level equivalence.
 
 The browser matrix captures the 41 visual screens at 320, 390, 768, and 1024 px in both themes. Food cards use local category illustrations as image-like thumbnails; the section header photos do not replace the per-food photographs shown in mockups.

@@ -11,6 +11,9 @@ test('empty assistant suggestions stay beside the daily context instead of leavi
   const contextBox = await context.boundingBox();
   const suggestionBox = await suggestion.boundingBox();
   expect(suggestionBox!.y - (contextBox!.y + contextBox!.height)).toBeLessThan(120);
+  const composerBox = await page.locator('form').boundingBox();
+  const navigationBox = await page.getByRole('navigation', { name: 'Розділи' }).boundingBox();
+  expect(navigationBox!.y - (composerBox!.y + composerBox!.height)).toBeLessThan(48);
 });
 
 test('the assistant: the code answers «що добрати», the model the rest — a food failing the plan is never shown, medicines get the app’s words, a danger sign the 103 card (D117)', async ({ browser }) => {
