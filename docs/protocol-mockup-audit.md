@@ -98,7 +98,7 @@ Food list thumbnails are cached locally from Unsplash under its [official licens
 | Today | 390 px / dark | The woodland header, greeting area, week strip, quick actions, and bottom navigation render without clipping. Detailed comparison below the fold remains pending. |
 | Add food | 320 px / dark | All four input modes fit. Recent meal cards use local photos for all nine supported food categories. |
 | Doctor plan | 390 px / dark | Shared theme and card styling render consistently. The existing single-plan content and demo-data warning differ from the mockup's multi-plan list; the mockup does not authorize adding new plan-management behavior. |
-| Progress | 390 px / dark | The weight trend is a responsive line chart. The top-level content order and metric summary still differ from the mockup. |
+| Progress | 390 px / dark | Existing carbohydrate, protein, water, and checklist results render as accessible rings; workouts remain a plain count without an invented target. The weight trend is a responsive line chart; the date-range selector and chart framing still differ from the mockup. |
 | Profiles | 390 px / dark | Local profile creation and same-profile device connection are visible. The mockup's shared-access controls and per-person portraits are not implemented. |
 | Settings | 390 px / dark | The local profile-photo upload and settings links are visible. A theme toggle now supports light/dark overrides and return to the device setting. The mockup's other consolidated settings controls remain distributed across existing routes. |
 | Add food | 320 px / light | The photo, voice, text, and label-scan actions remain visible below the photographic header; no horizontal overflow. |
