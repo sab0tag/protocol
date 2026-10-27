@@ -6,7 +6,7 @@ Updated 2026-10-27. Continue autonomously through implementation, validation, PR
 
 - Verified main: `0f3da33f5d691b292bd0ed202b4f9568f0b0cc94` (module-aware reminders).
 - PR #22, `fix/protocol-day-order-labels`: top water action removed, timeline before summary, mock terminology. CI run 40436755987 passed; Vercel preview ready. This is the parent of the profile slice, not a main merge.
-- `feat/protocol-family-profiles`: local family profiles and personal Today header. Intended PR base: `fix/protocol-day-order-labels`.
+- `feat/protocol-family-profiles`: local family profiles and personal Today header. PR #23: https://github.com/sab0tag/protocol/pull/23. Base: `fix/protocol-day-order-labels`.
 
 ## Delivered profile behavior
 
@@ -30,4 +30,9 @@ Still outstanding from document onboarding: persisted recoverable review drafts,
 
 ## Validation
 
-Pending final browser regression and remote CI. See the profile PR for its exact tested tree, counts, limitations and preview. Do not mark this slice complete until checks finish.
+- 460 client unit tests and 66 server unit tests passed; both typechecks and production build passed.
+- Full browser regression: 96 passed / 3 conditional skips. Additional stronger profile-write isolation, original-record preservation and live greeting/midnight scenarios: 2/2 passed.
+- Profiles and personalized Today visually checked at 320 and 1024 px, light/dark. No horizontal overflow. Synthetic names only; no user screenshots published.
+- The module-policy-enabled browser suite also passed (6/6).
+- PR #23 CI is running. Vercel deployment succeeded. No main merge or production update.
+- Next: resolve any remote CI failures, then integrate the explicit-time import slice on this tested stack.

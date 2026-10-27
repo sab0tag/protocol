@@ -179,7 +179,7 @@ export function Day() {
           <span className="hidden min-[385px]:inline" aria-hidden>{t.addKinds.symptom}</span><span className="hidden min-[340px]:inline min-[385px]:hidden" aria-hidden>{t.day.unwellShort}</span></button>
       </div>
 
-      <nav ref={tilesRef} aria-label={t.day.quick} className="mb-5 grid grid-cols-4 gap-1">
+      <nav ref={tilesRef} aria-label={t.day.quick} className="mb-5 grid grid-cols-[0.8fr_1.2fr_1.2fr_0.8fr] gap-1 min-[380px]:grid-cols-4">
         {quick.map(({ label, Icon, go, badge, done }) => (
           <button key={label} type="button" onClick={go} aria-label={[label, done ? t.myday.workoutDone : badge].filter(Boolean).join(', ')} className="flex min-h-tap flex-col items-center gap-1 text-center">
             <span className="relative flex h-12 w-12 items-center justify-center rounded-2xl bg-surface shadow-sm"><Icon size={22} className="text-accent" aria-hidden />
