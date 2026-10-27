@@ -19,7 +19,7 @@
 | Frictions — `/frictions` | Feedback | Shared header updated; detailed review pending |
 | Pilot — `/pilot` | Additional capability | Pending |
 | Week — `/week` | Weekly progress | Shared header updated; detailed review pending |
-| Doctor plan — `/plan` | Doctor's plan | Overview card updated; detailed review pending |
+| Doctor plan — `/plan` | Doctor's plan | Visually reviewed at 390 px in light and dark; intentionally retains the section photo and demo-data warning; multi-plan controls remain unavailable |
 | Prescriptions — `/plan/prescriptions` | Doctor's plan | Pending |
 | Restrictions — `/plan/constraints` | Doctor's plan | Pending |
 | Goals and modes — `/plan/goals` | Doctor's plan | Pending |
@@ -27,7 +27,7 @@
 | Scan plan — `/plan/scan` | Photograph prescription | Pending |
 | Plan history — `/plan/history` | Plan versions | Pending |
 | Onboarding — `/welcome` | First-run setup | Pending |
-| Progress — `/progress` | Progress / trends | Header, seven-day ring indicators, and weight line chart; date-range selector and chart framing still differ |
+| Progress — `/progress` | Progress / trends | Visually reviewed at 390 px in light and dark; weekly rings compacted toward the mockup; workout remains an honest count; data-detail links follow the weight chart; date-range selector and chart framing still differ |
 | Insights — `/progress/insights` | Key indicators | Shared header updated; detailed review pending |
 | Motivation — `/progress/motivation` | Motivation | Shared header updated; detailed review pending |
 | Lab results — `/progress/labs` | Results and trends | Shared header updated; detailed review pending |
@@ -97,8 +97,8 @@ Food list thumbnails are cached locally from Unsplash under its [official licens
 |---|---|---|
 | Today | 390 px / dark | The woodland header, greeting area, week strip, quick actions, and bottom navigation render without clipping. Detailed comparison below the fold remains pending. |
 | Add food | 320 px / dark | All four input modes fit. Recent meal cards use local photos for all nine supported food categories. |
-| Doctor plan | 390 px / dark | Shared theme and card styling render consistently. The existing single-plan content and demo-data warning differ from the mockup's multi-plan list; the mockup does not authorize adding new plan-management behavior. |
-| Progress | 390 px / dark | Existing carbohydrate, protein, water, and checklist results render as accessible rings; workouts remain a plain count without an invented target. The weight trend is a responsive line chart; the date-range selector and chart framing still differ from the mockup. |
+| Doctor plan | 390 px / light and dark | The intended care-section photo and safety notice about demo records remain intact. Existing single-plan sections render without clipping; multi-plan status rings and controls are not shown because the new storage model is deliberately not UI-writable until backup/sync compatibility is implemented. |
+| Progress | 390 px / light and dark | Weekly carbohydrate, protein, water, and checklist rings now use compact cards closer to the mockup; workouts remain a plain count without an invented target. The weight trend is a responsive line chart, followed by analysis and insight links; the date-range selector and chart framing still differ. |
 | Profiles | 390 px / dark | Local profile creation and same-profile device connection are visible. The mockup's shared-access controls and per-person portraits are not implemented. |
 | Settings | 390 px / dark | The local profile-photo upload and settings links are visible. A theme toggle now supports light/dark overrides and return to the device setting. The mockup's other consolidated settings controls remain distributed across existing routes. |
 | Add food | 320 px / light | The photo, voice, text, and label-scan actions remain visible below the photographic header; no horizontal overflow. |
@@ -113,12 +113,12 @@ The expanded E2E matrix initially found horizontal overflow on Motivation at 320
 
 - Reviewed the contact sheets for all 42 previously captured routes at 320, 390, 768, and 1024 px in both light and dark themes. This is a layout-level visual triage, not a pixel-level comparison of every screen against a mockup.
 - `/do/water` is an action deep link, not a screen: opening it records water and shows an undo notification. It was removed from the visual screenshot loop so it cannot change the seeded day or leave a transient notification over later screenshots. Its behavior remains covered by `tests/e2e/quick.spec.ts`; the visual matrix now covers 41 screens (328 screenshots).
-- The supplied mockups depict only a subset of the existing routes. On the represented flows, current content and behavior differ where noted above: the app has a single-plan model rather than the mockup's multi-plan controls, and local profiles rather than shared family access. These are product-capability differences, not permission to invent clinical or sharing behavior.
+- The supplied mockups depict only a subset of the existing routes. On the represented flows, current content and behavior differ where noted above: the active journal UI still uses the legacy single-plan model, and the prepared multi-plan storage is not yet writable; profiles remain local rather than providing shared family access. These are product-capability differences, not permission to invent clinical or sharing behavior.
 - On the empty assistant screen, the composer now sits near the bottom navigation instead of directly below suggestion chips, matching the mockup's chat layout; an E2E geometry assertion guards the spacing.
 - The Progress screen now surfaces the existing seven-day carbohydrate, protein, water, workout, and checklist summary before the weight section. It reuses the established data-coverage rules; date-range selection and the mockup's chart framing remain different.
-- The Progress screen's carbohydrate, protein, water, and checklist indicators now use the existing accessible ring component. Workouts remain a plain count because there is no target to justify a completion percentage; the shared Motivation card retains its prior tile layout.
+- The Progress screen's carbohydrate, protein, water, and checklist indicators use the existing accessible ring component in compact mock-scale cards. Workouts remain a plain count because there is no target to justify a completion percentage; the shared Motivation card retains its prior tile layout.
 - Keep the intentionally added section and food photography unchanged. The screenshot matrix checks responsive layout, theme selection, navigation, header-art presence, and horizontal overflow; it does not establish pixel-level equivalence.
 
 The browser matrix captures the 41 visual screens at 320, 390, 768, and 1024 px in both themes. Food cards use local category illustrations as image-like thumbnails; the section header photos do not replace the per-food photographs shown in mockups.
 
-Still to do: complete detailed, screen-by-screen comparison for the screens represented in the mockups; resolve confirmed presentation differences without changing the intended artwork or adding product capabilities; record any deliberate differences caused by functionality/accessibility; and wait for green PR CI before merging. Local typecheck, unit, production build, and full E2E have passed before the screenshot-matrix correction; rerun the targeted matrix and applicable checks after this change.
+Still to do: complete detailed, screen-by-screen comparison for the screens represented in the mockups; resolve confirmed presentation differences without changing the intended artwork or adding product capabilities; and record deliberate differences caused by functionality/accessibility. PR #38 is merged after green CI. The compact-ring update passes local typecheck, 528 unit tests, production build, and focused Playwright coverage at 320/390/768/1024 px in both themes; full PR CI is pending.

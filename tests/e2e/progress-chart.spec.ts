@@ -23,12 +23,23 @@ test('progress summary uses honest weekly rings and weight history remains a lin
   await expect(page.getByRole('progressbar', { name: 'Вода — норма' })).toHaveAttribute('aria-valuetext', '4 з 6 дн.');
   await expect(page.getByRole('progressbar', { name: 'План дня' })).toHaveAttribute('aria-valuetext', '64 %');
   await expect(page.getByRole('progressbar', { name: 'Тренувань' })).toHaveCount(0);
+  const weeklyMetric = page.locator('.protocol-week-metric').first();
+  await expect(weeklyMetric).toHaveCSS('padding', '8px');
+  await expect(weeklyMetric.getByRole('progressbar')).toHaveCSS('width', '56px');
+  await expect(weeklyMetric.getByRole('progressbar')).toHaveCSS('height', '56px');
   await expect(page.getByRole('figure', { name: 'Виміри ваги, кг', exact: true })).toBeVisible();
   await page.getByText('Тижневі середні та темп', { exact: true }).click();
   const chart = page.getByRole('img', { name: /Середня вага за тижнями/ });
   await expect(chart).toBeVisible();
   await expect(chart.locator('.recharts-line-curve')).toHaveCount(1);
   await expect(chart.locator('.recharts-bar')).toHaveCount(0);
+  const weightSection = page.locator('section.protocol-card').filter({ has: page.getByRole('heading', { name: 'Вага', exact: true }) });
+  const progressNav = page.getByRole('navigation', { name: 'Розділи прогресу' });
+  const weightBox = await weightSection.boundingBox();
+  const navBox = await progressNav.boundingBox();
+  expect(weightBox).not.toBeNull();
+  expect(navBox).not.toBeNull();
+  expect(navBox!.y).toBeGreaterThanOrEqual(weightBox!.y + weightBox!.height);
 
   await page.getByText('Таблицею', { exact: true }).click();
   for (const weight of weights) await expect(page.getByRole('cell', { name: `${weight.kg} кг`, exact: true })).toBeVisible();

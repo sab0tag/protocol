@@ -160,6 +160,8 @@ input[type=checkbox].protocol-switch:checked::after { transform: translateX(1.12
   .protocol-metric-rings[data-count="3"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 .protocol-metric { min-width: 0; border-radius: 1.125rem; background: rgb(var(--bg) / .7); padding: .875rem; }
+.protocol-week-metric { gap: .25rem; padding: .5rem; }
+.protocol-week-ring { width: 3.5rem; height: 3.5rem; }
 .protocol-metric-value { font-size: clamp(1rem, 3.5vw, 1.25rem); font-weight: 600; letter-spacing: -.025em; }
 main :where(input:not([type=checkbox]):not([type=radio]), select, textarea) { font-size: 1rem; border-radius: .875rem; }
 main :where(summary) { list-style: none; }
