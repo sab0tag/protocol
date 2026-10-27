@@ -8,10 +8,13 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { db } from '../data/db';
-import { usePlan, useWeights } from '../data/queries';
+import { useAllEntries, useFoods, usePlan, useWeights, useWorkouts } from '../data/queries';
 import { todayISO } from '../domain/dates';
+import { weekSummary } from '../domain/habits';
 import { pace, tooFastTwoWeeks, weeklyWeights, weightSummary, type WeekWeight } from '../domain/progress';
 import { t } from '../i18n/uk';
+import { useObservation } from '../app/observation';
+import { WeekCard } from './Motivation';
 
 const L = t.progress;
 const field = 'mt-1 block min-h-tap w-full rounded-xl border border-line bg-bg px-3';
@@ -24,11 +27,16 @@ const signed = (n: number) => `${n > 0 ? '+' : n < 0 ? '−' : ''}${kg(Math.abs(
 export function Progress() {
   const plan = usePlan();
   const weights = useWeights();
-  if (!weights) return <Loading />;
+  const entries = useAllEntries();
+  const workouts = useWorkouts();
+  const foods = useFoods();
+  const { observation, ready: observationReady } = useObservation();
+  if (!weights || !entries || !workouts || !foods || !observationReady) return <Loading />;
 
   const max = plan?.targets.maxWeightLossKgPerWeek;
   const weeks = weeklyWeights(weights, max);
   const sum = weightSummary(weights);
+  const weekly = weekSummary({ plan, entries, workouts, foods, today: todayISO(), observation });
 
   return (
     <section className="space-y-4 pt-4">
@@ -37,6 +45,7 @@ export function Progress() {
           <FileText size={18} aria-hidden />{L.report}</Link>
       </SceneHeader>
       <ExampleNotice plan={plan} />
+      <WeekCard summary={weekly} />
       <nav aria-label={L.details} className="grid grid-cols-2 gap-2">
         {[
           { to: '/progress/labs', label: L.labs },
