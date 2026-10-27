@@ -29,6 +29,13 @@ test('progress summary uses honest weekly rings and weight history remains a lin
   await expect(chart).toBeVisible();
   await expect(chart.locator('.recharts-line-curve')).toHaveCount(1);
   await expect(chart.locator('.recharts-bar')).toHaveCount(0);
+  const weightSection = page.locator('section.protocol-card').filter({ has: page.getByRole('heading', { name: 'Вага', exact: true }) });
+  const progressNav = page.getByRole('navigation', { name: 'Розділи прогресу' });
+  const weightBox = await weightSection.boundingBox();
+  const navBox = await progressNav.boundingBox();
+  expect(weightBox).not.toBeNull();
+  expect(navBox).not.toBeNull();
+  expect(navBox!.y).toBeGreaterThanOrEqual(weightBox!.y + weightBox!.height);
 
   await page.getByText('Таблицею', { exact: true }).click();
   for (const weight of weights) await expect(page.getByRole('cell', { name: `${weight.kg} кг`, exact: true })).toBeVisible();

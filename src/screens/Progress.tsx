@@ -46,18 +46,6 @@ export function Progress() {
       </SceneHeader>
       <ExampleNotice plan={plan} />
       <WeekCard summary={weekly} variant="rings" />
-      <nav aria-label={L.details} className="grid grid-cols-2 gap-2">
-        {[
-          { to: '/progress/labs', label: L.labs },
-          { to: '/progress/motivation', label: L.motivationTitle },
-          { to: '/progress/insights', label: L.insightsTitle },
-        ].map(({ to, label }) => (
-          <Link key={to} to={to} className="flex min-h-tap items-center justify-between gap-2 rounded-xl border border-line bg-surface px-3 font-medium">
-            <span>{label}</span><ChevronRight size={18} className="shrink-0 text-muted" aria-hidden />
-          </Link>
-        ))}
-      </nav>
-
       <section className="protocol-card rounded-2xl border border-line bg-surface p-3">
         <h2 className="mb-2 font-semibold">{L.weight}</h2>
         {quality.pending.length > 0 && <p className="mb-3 rounded-xl bg-warn-bg p-3 text-sm text-warn">{t.weightQuality.needsReview(quality.pending.length)}</p>}
@@ -81,6 +69,17 @@ export function Progress() {
         {weeks.length > 1 && <details className="mt-3"><summary className="min-h-tap cursor-pointer py-2 text-sm text-muted">{t.weightQuality.weekly}</summary><WeeklyChart weeks={weeks} max={max} /></details>}
         <WeightReview weights={weights} />
       </section>
+      <nav aria-label={L.details} className="grid grid-cols-2 gap-2">
+        {[
+          { to: '/progress/labs', label: L.labs },
+          { to: '/progress/motivation', label: L.motivationTitle },
+          { to: '/progress/insights', label: L.insightsTitle },
+        ].map(({ to, label }) => (
+          <Link key={to} to={to} className="flex min-h-tap items-center justify-between gap-2 rounded-xl border border-line bg-surface px-3 font-medium">
+            <span>{label}</span><ChevronRight size={18} className="shrink-0 text-muted" aria-hidden />
+          </Link>
+        ))}
+      </nav>
     </section>
   );
 }
