@@ -65,6 +65,7 @@ export function Backup({ alwaysOpen = false }: { alwaysOpen?: boolean }) {
       {pending && (
         <div role="alertdialog" aria-label={L.restore} className="mt-3 rounded-xl border border-warn/40 bg-warn-bg p-3">
           <p className="mb-2 text-warn">{L.confirm(dmy(pending.exportedAt.slice(0, 10)))}</p>
+          {pending.sourcePlans && <p className="mb-2 text-sm text-warn">{L.sourcePlans(pending.sourcePlans.plans.length)}</p>}
           <p className="mb-2 text-sm text-muted">{pending.version >= 2 ? L.moduleHistory : L.legacyModuleHistory}</p>
           <div className="flex gap-2">
             <button type="button" onClick={async () => {

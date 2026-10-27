@@ -25,7 +25,7 @@ export async function prepareLegacyPlanCore(target: ProtocolDB, personId: string
     if (marker) {
       if (marker.personId !== personId || marker.legacySnapshot.personId !== personId) throw new Error('plan_database_owner_mismatch');
       const prepared = await target.carePlans.get(marker.legacySnapshot.planId);
-      const expected = expandLegacyPlan(marker.legacySnapshot.record, personId);
+      const expected = expandLegacyPlan(marker.legacySnapshot.record, personId, marker.legacySnapshot.planId);
       const items = await target.carePlanItems.bulkGet(expected.items.map(item => item.id));
       if (!prepared || prepared.personId !== personId || expected.plans[0]!.id !== marker.legacySnapshot.planId ||
         items.some(item => !item || item.personId !== personId || item.planId !== prepared.id)) throw new Error('plan_migration_inconsistent');
