@@ -38,8 +38,8 @@ export function HabitsCard({ list, showEmpty = false }: { list: Habit[]; showEmp
       <ul className="divide-y divide-line">
         {list.map((habit) => (
           <li key={habit.key} className="space-y-3 py-4">
-            <div className="flex items-start justify-between gap-4"><span className="font-medium">{L.habit[habit.key]}</span>
-            <span className="shrink-0 text-right text-sm tabular">
+            <div className="flex items-start justify-between gap-4"><span className="min-w-0 flex-1 break-words font-medium">{L.habit[habit.key]}</span>
+            <span className="max-w-[55%] shrink-0 break-words text-right text-sm tabular">
               <span className={habit.streak >= 2 ? 'font-semibold text-accent' : ''}>
                 {habit.streak >= 2 ? `🌱 ${L.streak(habit.streak)}` : L.ofWeek(habit.last7, habit.days7)}
               </span>
