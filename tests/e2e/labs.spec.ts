@@ -50,7 +50,10 @@ test('a doctor’s conclusion, two pages, no account (model stubbed) → «Ос�
   expect(auth).toMatch(/^Device [A-Za-z0-9_-]{43}$/); // no sync, no account
   expect(pages).toBe(2);
   await expect(form).not.toContainText('Предіабет'); // the diagnosis is not kept
-  await expect(form).toContainText('08:00, 20:00 (час запропоновано)'); // a suggested time is said to be one
+  const times = form.getByRole('textbox', { name: 'Час прийому: Метформін', exact: true });
+  await expect(times).toHaveValue(''); // frequency is not a clock time
+  await expect(form.getByRole('checkbox', { name: 'Метформін 500 мг', exact: true })).toBeDisabled();
+  await times.fill('08:15, 20:30');
   await expect(form).toContainText('? перевірте з папером');
   await expect(form).toContainText('✗ не прочитано');
   await expect(form.getByRole('img', { name: 'Фрагмент висновку, звідки взято рядок' }).first()).toBeVisible();
@@ -65,7 +68,7 @@ test('a doctor’s conclusion, two pages, no account (model stubbed) → «Ос�
   await expect(toast(page)).toContainText('Внесено в план: 5');
   await page.goto('./#/plan/prescriptions');
   await expect(page.getByText('Метформін')).toBeVisible();
-  await expect(page.getByText(/Вкажіть час прийому/)).toHaveCount(0); // the times are in, marked suggested when they were
+  await expect(page.getByText(/Вкажіть час прийому/)).toHaveCount(0); // the person entered the clocks explicitly
   await page.goto('./#/plan/constraints');
   await expect(page.getByText('Порушена глікемія')).toBeVisible();
   await page.goto('./#/plan/goals');
@@ -139,16 +142,17 @@ test('onboarding starts from the doctor’s paper: photo → hide what is person
   await chooser.setFiles({ name: 'p.png', mimeType: 'image/png', buffer: PNG });
   await page.getByRole('region', { name: 'Приховайте особисте перед надсиланням' }).getByRole('button', { name: 'Надіслати', exact: true }).click();
   const form = page.getByRole('region', { name: /^Ось що я прочитав/ });
+  await form.getByRole('textbox', { name: 'Час прийому: Метформін', exact: true }).fill('08:15, 20:30');
   await form.getByRole('checkbox', { name: 'Метформін 500 мг' }).check();
   await expect(form.getByRole('status')).toContainText('Ліки без рішення: 1'); // the Каптоприл without its dose
   await expect(form.getByRole('button', { name: 'Почати (1)' })).toBeDisabled();
   await form.getByRole('button', { name: 'Не вносити' }).click();
   await form.getByRole('button', { name: 'Почати (1)' }).click();
   await expect(page).toHaveURL(/#\/$/);
-  await expect(page.getByText('Метформін').first()).toBeVisible(); // «День» — its doses at the suggested times
+  await expect(page.getByText('Метформін').first()).toBeVisible(); // «День» — its doses at the explicitly entered times
   await page.goto('./#/plan/prescriptions');
   await expect(page.getByText('Каптоприл')).toHaveCount(0);
-  await expect(page.getByText(/08:00, 20:00/)).toBeVisible();
+  await expect(page.getByText(/08:15, 20:30/)).toBeVisible();
 });
 
 test('a later visit: the new paper against the plan — new, and a medicine it does not name is closed only when asked (D115)', async ({ browser }) => {

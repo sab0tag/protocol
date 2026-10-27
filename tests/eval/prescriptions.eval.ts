@@ -10,7 +10,7 @@ import { fold } from '../../src/domain/meds';
 import { conclusion, createVault } from '../../src/sync/api';
 import { deriveKeys, newCode, parseCode } from '../../src/sync/crypto';
 
-interface Med { title: string; dose: string; perDay?: number; durationDays?: number | null; asNeeded?: boolean; withFood?: boolean; suggested?: string[]; until?: string }
+interface Med { title: string; dose: string; perDay?: number; durationDays?: number | null; asNeeded?: boolean; withFood?: boolean; times?: string[]; until?: string }
 interface Row { id: string; pages: string[]; date?: string; medicines: Med[]; diet?: string; limits?: string[]; visit?: string; tests?: number | [number, number];
   absent?: string[]; status: 'fixed' | 'open' }
 const RUNS = 3;
@@ -30,10 +30,11 @@ function check(row: Row, lines: DraftLine[], raw: string): string[] {
     const l = meds.find((x) => fold(x.prescription.title).startsWith(fold(m.title)));
     if (!l) { bad.push(`не прочитано: ${m.title}`); continue; }
     const p = l.prescription;
+    // R7: absence of clock values on paper must never produce invented slots, even on a doubtful line.
+    if (m.times && JSON.stringify(p.schedule?.times ?? []) !== JSON.stringify(m.times)) bad.push(`${m.title}: час ${p.schedule?.times.join(', ') ?? '—'}`);
     if (l.status === 'check') continue; // «?» — the person checks it
     if (m.asNeeded !== undefined && !!p.asNeeded !== m.asNeeded) bad.push(`${m.title}: за потреби ${!!p.asNeeded}`);
     if (m.withFood !== undefined && p.schedule?.withFood !== m.withFood) bad.push(`${m.title}: їжа ${p.schedule?.withFood}`);
-    if (m.suggested && JSON.stringify(p.schedule?.times) !== JSON.stringify(m.suggested)) bad.push(`${m.title}: час ${p.schedule?.times.join(', ')}`);
     if (m.until !== undefined && p.until !== m.until) bad.push(`${m.title}: курс до ${p.until}`);
     if (m.durationDays === null && p.until) bad.push(`${m.title}: курс до ${p.until}, а строку немає`);
   }

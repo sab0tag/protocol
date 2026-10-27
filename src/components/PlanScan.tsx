@@ -11,7 +11,7 @@ import { FileScan, ShieldCheck } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
 import { db, inDemo, type PlanRow } from '../data/db';
 import { useMedIndex } from '../data/medsIndex';
-import { applyLines, changes, closeFromToday, draftLines, missing, notOnPaper, sameConstraint, sourceOf, type Change, type DraftLine } from '../domain/conclusion';
+import { applyLines, changes, closeFromToday, draftLines, missing, notOnPaper, sameConstraint, sourceOf, timingProblem, withDraftTimes, type Change, type DraftLine } from '../domain/conclusion';
 import { newId, sinceNow, todayISO } from '../domain/dates';
 import { t } from '../i18n/uk';
 import { ApiError, conclusion as readConclusion } from '../sync/api';
@@ -84,7 +84,7 @@ export function PlanScan({ plan, onDone, onboarding }: { plan: PlanRow; onDone?:
     }
   };
   const save = async () => {
-    if (savingRef.current || (!on.size && !close.size) || undecided > 0) return;
+    if (savingRef.current || (!on.size && !close.size) || undecided > 0 || lines.some((l) => on.has(l.key) && missing(l))) return;
     savingRef.current = true; setSaving(true);
     try {
       const picked = lines.filter((l) => on.has(l.key));
@@ -104,6 +104,12 @@ export function PlanScan({ plan, onDone, onboarding }: { plan: PlanRow; onDone?:
       setState('none'); setLines([]); setCuts({});
       onDone?.();
     } finally { savingRef.current = false; setSaving(false); }
+  };
+  const editTimes = (key: string, input: string) => {
+    setLines((ls) => ls.map((l) => l.key === key ? withDraftTimes(l, input) : l));
+    // A prior confirmation never covers edited instructions.
+    setOn((xs) => { const next = new Set(xs); next.delete(key); return next; });
+    setSkip((xs) => { const next = new Set(xs); next.delete(key); return next; });
   };
   const toggle = (key: string) => setOn((s) => { const n = new Set(s); if (n.has(key)) n.delete(key); else n.add(key); return n; });
   // «all» never covers medicines (each is confirmed by its own tap) nor a line marked «?» — that one is checked by hand (D103)
@@ -174,7 +180,7 @@ export function PlanScan({ plan, onDone, onboarding }: { plan: PlanRow; onDone?:
                         <span className="min-w-0 flex-1">
                           <LineText line={l} plan={plan} known={!!index} change={diff.get(l.key)} />
                           <Status line={l} />
-                          {lack && <span className="block text-sm text-warn">{lack === 'dose' ? L.needDose : L.needTime}</span>}
+                          {lack && <span className="block text-sm text-warn">{lack === 'dose' ? L.needDose : L.timeProblems[timingProblem(l) ?? 'required']}</span>}
                           {cuts[l.key] && <img src={cuts[l.key]} alt={L.piece} className="mt-2 max-h-32 max-w-full rounded-xl border border-line" />}
                         </span>
                       );
@@ -186,6 +192,21 @@ export function PlanScan({ plan, onDone, onboarding }: { plan: PlanRow; onDone?:
                                 className="mt-0.5 h-5 w-5 shrink-0 accent-[rgb(var(--accent))] disabled:opacity-40" />
                               {body}
                             </label>
+                          )}
+                          {l.kind === 'prescription' && isMed(l) && !l.prescription.asNeeded && (
+                            <div className="mb-3 ml-8 space-y-1">
+                              <label className="block text-sm">
+                                <span className="text-muted">{L.reviewTimes(l.prescription.title)}</span>
+                                <input value={l.timing?.input ?? l.prescription.schedule?.times.join(', ') ?? ''}
+                                  onChange={(e) => editTimes(l.key, e.target.value)} placeholder="напр. 08:30, 19:00"
+                                  aria-invalid={!!timingProblem(l)} aria-describedby={`timing-${l.key}`}
+                                  className="mt-1 block min-h-tap w-full rounded-xl border border-line bg-bg px-3" />
+                              </label>
+                              <p id={`timing-${l.key}`} className={`text-xs ${timingProblem(l) ? 'text-warn' : 'text-muted'}`}>
+                                {timingProblem(l) ? L.timeProblems[timingProblem(l)!] : l.timing?.entered ? L.timesEntered : L.timesFromPaper}
+                                {l.timing?.perDay != null && ` · ${L.timesPerDay(l.timing.perDay)}`}
+                              </p>
+                            </div>
                           )}
                           {onboarding && isMed(l) && !on.has(l.key) && (
                             <button type="button" onClick={() => flip(l.key)} aria-pressed={skip.has(l.key)}
@@ -262,7 +283,7 @@ function LineText({ line: l, plan, known, change }: { line: DraftLine; plan: Pla
     const drug = p.kind === 'medication' || p.kind === 'supplement';
     if (p.kind === 'test') return <span><span className="font-medium">{p.title}</span>{exists && updates}
       <span className="block text-sm text-muted">{[P.kinds.test, p.dueDate ? L.dueBy(day(p.dueDate)) + (l.suggestedDate ? ` (${L.suggestedDate})` : '') : ''].filter(Boolean).join(' · ')}</span></span>;
-    const when = !drug ? '' : [p.asNeeded ? L.asNeeded : p.schedule?.times.length ? p.schedule.times.join(', ') + (l.suggested ? ` (${L.suggested})` : '') : '',
+    const when = !drug ? '' : [p.asNeeded ? L.asNeeded : p.schedule?.times.length ? p.schedule.times.join(', ') + (l.timing?.entered ? ` (${L.timesEntered})` : '') : '',
       p.schedule?.withFood === true ? L.withFood : p.schedule?.withFood === false ? L.empty : '',
       p.until ? L.until(format(parseISO(p.until), 'd.MM')) : ''].filter(Boolean).join(' · ');
     const badge = change?.kind === 'new' ? <span className="text-xs text-accent"> · {L.isNew}</span> // D115

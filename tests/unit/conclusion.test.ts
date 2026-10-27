@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { examplePlan } from '../../src/data/seed.example';
-import { applyLines, changes, closeFromToday, draftLines, dueIn, missing, notOnPaper, sourceOf, timesToSet, unfinished, type ConclusionResult, type DraftLine } from '../../src/domain/conclusion';
+import { applyLines, changes, closeFromToday, draftLines, dueIn, missing, notOnPaper, sourceOf, timesToSet, timingProblem, withDraftTimes, unfinished, type ConclusionResult, type DraftLine } from '../../src/domain/conclusion';
 import type { MedIndex } from '../../src/domain/meds';
 
 let n = 0;
@@ -19,7 +19,7 @@ const R: ConclusionResult = {
     { tag: 'weird', title: 'Менше смаженого', reason: '', allergens: [], ...at() },
   ],
   prescriptions: [
-    rx({ kind: 'supplement', title: 'Вітамін D', dose: '2000 МО', times: ['8:00', '08:30', 'вранці'], frequency: '1 раз на день', withFood: true }),
+    rx({ kind: 'supplement', title: 'Вітамін D', dose: '2000 МО', times: ['08:30'], frequency: '1 раз на день', withFood: true }),
     rx({ title: 'Метформін', dose: '500 мг', perDay: 2, frequency: '2 рази на день', durationDays: 14 }),
     rx({ title: 'Ібупрофен', dose: '200 мг', asNeeded: true, frequency: 'при болю' }),
     rx({ title: 'Каптоприл', dose: null, perDay: 1, ...at('check') }), // the dose not read
@@ -50,18 +50,19 @@ describe('a doctor’s conclusion → the plan (D80, D101)', () => {
     expect(JSON.stringify(lines)).not.toContain('Предіабет');
   });
 
-  it('«2 рази на день» suggests 08:00 and 20:00 and says so; a course ends after its days from the paper’s date; «за потреби» needs no time', () => {
+  it('frequency and parts of day never create clock times; course dates and PRN are preserved', () => {
     const [, metf, ibu] = meds(lines);
-    expect(metf).toMatchObject({ suggested: true, prescription: { schedule: { times: ['08:00', '20:00'] }, until: '2026-10-25', med: { name: 'Метформін-Тева', atc: 'A10BA02' } } });
-    expect(meds(lines)[0]!.suggested).toBeUndefined(); // the time is the doctor's
+    expect(metf).toMatchObject({ timing: { input: '', perDay: 2 }, prescription: { until: '2026-10-25', med: { name: 'Метформін-Тева', atc: 'A10BA02' } } });
+    expect(metf!.prescription.schedule?.times ?? []).toEqual([]);
     expect(meds(lines)[0]!.prescription.med).toBeUndefined(); // «Вітамін D» is not «Вітамін Е»
     expect(ibu!.prescription).toMatchObject({ asNeeded: true });
     expect(ibu!.prescription.schedule).toBeUndefined();
     expect(ibu!.prescription.med).toBeUndefined(); // not in the register — «не з реєстру»
-    expect(meds(lines).slice(0, 5).map(missing)).toEqual([undefined, undefined, undefined, 'dose', 'time']);
+    expect(meds(lines).slice(0, 5).map(missing)).toEqual([undefined, 'time', undefined, 'dose', 'time']);
     const once = meds(draftLines({ ...R, prescriptions: [rx({ title: 'А', perDay: 1, frequency: 'по 1 табл. 1 раз на день ввечері' }),
       rx({ title: 'О', perDay: null, frequency: 'вранці натщесерце — 14 днів' }), rx({ title: 'Н', perDay: 1, frequency: 'на ніч' })] }, id));
-    expect(once.slice(0, 3).map((l) => [l.prescription.schedule?.times, l.suggested])).toEqual([[['20:00'], true], [['08:00'], true], [['22:00'], true]]);
+    expect(once.slice(0, 3).map((l) => l.prescription.schedule?.times ?? [])).toEqual([[], [], []]);
+    expect(once.slice(0, 3).map(missing)).toEqual(['time', 'time', 'time']);
   });
 
   it('✓ only for a line read clearly with its dose; ? otherwise; ✗ for the unread, with the piece of paper it came from', () => {
@@ -102,7 +103,7 @@ describe('the visit and the tests next to it stay two things; a medicine counts 
   it('each line put in says the id it has in the plan — the piece of paper goes with it (D114)', () => {
     const plan = examplePlan(new Date('2026-10-17T12:00:00'));
     const ls = draftLines(R, id, { today: '2026-10-19' }).filter((l) => (l.kind === 'prescription' && ['Вітамін D', 'Метформін'].includes(l.prescription.title))
-      || (l.kind === 'constraint' && l.constraint.tag === 'lactose'));
+      || (l.kind === 'constraint' && l.constraint.tag === 'lactose')).map((l) => l.kind === 'prescription' && l.prescription.title === 'Метформін' ? withDraftTimes(l, '08:00, 20:00') : l);
     const placed = new Map<string, string>();
     const out = applyLines(plan, ls, undefined, placed);
     const key = (title: string) => ls.find((l) => l.kind === 'prescription' && l.prescription.title === title)!.key;
@@ -112,7 +113,7 @@ describe('the visit and the tests next to it stay two things; a medicine counts 
   });
   it('a new medicine gets the moment it was put in; one already in the plan keeps its own start', () => {
     const plan = examplePlan(new Date('2026-10-17T12:00:00'));
-    const ls = meds(draftLines(R, id, { today: '2026-10-19' })).filter((l) => ['Вітамін D', 'Метформін'].includes(l.prescription.title));
+    const ls = meds(draftLines(R, id, { today: '2026-10-19' })).filter((l) => ['Вітамін D', 'Метформін'].includes(l.prescription.title)).map((l) => l.prescription.title === 'Метформін' ? withDraftTimes(l, '08:00, 20:00') : l);
     const out = applyLines(plan, ls, { since: '2026-10-19', sinceTime: '10:10' });
     expect(out.prescriptions.find((p) => p.title === 'Метформін')).toMatchObject({ since: '2026-10-19', sinceTime: '10:10' });
     const vitd = out.prescriptions.find((p) => p.title === 'Вітамін D')!;
@@ -171,5 +172,71 @@ describe('doses a day still to be timed (D80)', () => {
     expect(timesToSet(p('3 р. на день'))).toBe(3);
     expect(timesToSet(p('1 раз на день'))).toBeUndefined();
     expect(timesToSet(p('2 рази на день', ['08:00', '20:00']))).toBeUndefined();
+  });
+});
+
+
+describe('R7: explicit clock review before activation', () => {
+  const draft = (patch: Partial<ConclusionResult['prescriptions'][number]> = {}) => draftLines({
+    ...R, prescriptions: [rx({ perDay: 2, frequency: 'двічі на день', withFood: false, ...patch })],
+    constraints: [], diet: null, targets: [], tests: [], nextVisit: null, unread: [],
+  }, id, { today: '2026-10-26' })[0]!;
+  const empty = { ...examplePlan(), prescriptions: [] };
+
+  it.each([
+    { times: [], perDay: 2, issue: 'required' },
+    { times: ['08:00'], perDay: 2, issue: 'count' },
+    { times: ['08:00', '08:00'], perDay: 2, issue: 'invalid' },
+    { times: ['08:00', '25:00'], perDay: 2, issue: 'invalid' },
+    { times: ['08:00', 'ввечері'], perDay: 2, issue: 'invalid' },
+    { times: ['08:00'], perDay: 1.5, issue: 'frequency' },
+    { times: ['08:00'], perDay: 25, issue: 'frequency' },
+  ])('blocks incomplete/inconsistent source schedule: $issue ($times, $perDay)', ({ times, perDay, issue }) => {
+    const l = draft({ times, perDay });
+    expect(timingProblem(l)).toBe(issue);
+    expect(missing(l)).toBe('time');
+    expect(applyLines(empty, [l]).prescriptions).toEqual([]);
+  });
+
+  it('manual clocks keep dose/source/course/food instructions; re-editing invalidates readiness', () => {
+    const original = draft({ durationDays: 30 });
+    const edited = withDraftTimes(original, '20:30, 08:15');
+    expect(timingProblem(edited)).toBeUndefined();
+    expect(original).toMatchObject({ timing: { input: '' } }); // pure; source draft is not mutated
+    expect(edited).toMatchObject({ timing: { input: '20:30, 08:15', entered: true, perDay: 2 } });
+    const p = applyLines(empty, [edited]).prescriptions[0]!;
+    expect(p).toMatchObject({ dose: '1 таб.', source: sourceOf(R), until: '2026-11-10', schedule: { times: ['08:15', '20:30'], withFood: false } });
+    expect(p).not.toHaveProperty('timing'); // review metadata is not a new persisted prescription schema
+    for (const raw of ['', '08:15,', '08:15, 08:15', '08:15;20:30', '24:00, 08:15', '08:15']) {
+      expect(missing(withDraftTimes(edited, raw))).toBe('time');
+      expect(applyLines(empty, [withDraftTimes(edited, raw)]).prescriptions).toEqual([]);
+    }
+  });
+
+  it('a blocked re-import leaves an existing medicine unchanged', () => {
+    const plan = examplePlan();
+    const l = draft({ title: 'Вітамін D', dose: '4000 МО', times: ['08:00', 'нерозбірливо'] });
+    const placed = new Map<string, string>();
+    const out = applyLines(plan, [l], { since: '2026-10-26', sinceTime: '10:00' }, placed);
+    expect(out.prescriptions).toEqual(plan.prescriptions);
+    expect(placed.size).toBe(0);
+  });
+
+  it('does not let stale raw input approve different schedule values', () => {
+    const l = withDraftTimes(draft(), '08:00, 20:00');
+    if (l.kind !== 'prescription') throw new Error('prescription expected');
+    const changed = { ...l, prescription: { ...l.prescription, schedule: { times: ['09:00', '21:00'] } } };
+    expect(applyLines(empty, [changed]).prescriptions).toEqual([]);
+  });
+
+  it('keeps explicit source clocks ready; PRN never acquires regular times', () => {
+    const fromPaper = draft({ times: ['20:00', '08:00'] });
+    expect(timingProblem(fromPaper)).toBeUndefined();
+    expect(applyLines(empty, [fromPaper]).prescriptions[0]?.schedule?.times).toEqual(['08:00', '20:00']);
+    const prn = draft({ asNeeded: true, perDay: null });
+    expect(timingProblem(prn)).toBeUndefined();
+    expect(withDraftTimes(prn, '09:00')).toEqual(prn);
+    expect(applyLines(empty, [prn]).prescriptions[0]).toMatchObject({ asNeeded: true });
+    expect(applyLines(empty, [prn]).prescriptions[0]?.schedule?.times).toEqual([]); // food instruction retained, no slots
   });
 });

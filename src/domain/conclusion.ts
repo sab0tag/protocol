@@ -2,7 +2,7 @@
 // every line is checked here (times, numbers in sane ranges, known tags), carries where on which page it was read and how
 // sure the reading is — ✓ read clearly, ? check it, ✗ not read (raw text to add by hand or skip) — and goes into the plan
 // only when the person ticks it after comparing with the paper. A medicine goes in only with its dose and time (D100);
-// a time the paper does not give is *suggested* from «2 рази на день» and said so. The diagnosis is never kept.
+// a time absent from the paper stays absent until the person enters it. Frequency is not a clock time. The diagnosis is never kept.
 // Nothing of the person's is removed: a line for a limit or a medicine already in the plan updates it.
 import { addDays, addMonths, format, parseISO } from 'date-fns';
 import { findDiets } from './diets';
@@ -36,7 +36,7 @@ interface Common { key: string; status: Status; from?: From }
 
 export type DraftLine = Common & (
   | { kind: 'constraint'; constraint: Constraint }
-  | { kind: 'prescription'; prescription: Prescription; frequency?: string; suggested?: true; suggestedDate?: true }
+  | { kind: 'prescription'; prescription: Prescription; frequency?: string; timing?: { input: string; perDay: number | null; entered?: true }; suggestedDate?: true }
   | { kind: 'target'; target: Exclude<keyof Targets, 'fromDiet'>; value: Targets[Exclude<keyof Targets, 'fromDiet'>] }
   | { kind: 'checkup'; date: string; title: string }
   | { kind: 'unread'; text: string });
@@ -45,9 +45,6 @@ const TAGS: ConstraintTag[] = ['oxalate', 'gallbladder', 'lactose', 'glycemic', 
 const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const within = (v: number | undefined, lo: number, hi: number) => (v != null && Number.isFinite(v) && v >= lo && v <= hi ? v : undefined);
-/** D101: the times the app suggests for «N разів на день» — always marked «час запропоновано», never passed for the doctor's */
-export const SUGGESTED: Record<number, string[]> = { 1: ['08:00'], 2: ['08:00', '20:00'], 3: ['08:00', '14:00', '20:00'], 4: ['08:00', '12:00', '16:00', '20:00'] };
-
 const COUNT: Record<string, number> = { пів: 0.5, півтора: 1.5, один: 1, одну: 1, два: 2, дві: 2, три: 3, чотири: 4, 'п’ять': 5, "п'ять": 5, пять: 5, шість: 6 };
 /** D104: «через 3 місяці», «через місяць», «через пів року», «через 2 тижні» → the date from `from`; nothing for other words. */
 export function dueIn(words: string, from: string): string | undefined {
@@ -61,13 +58,6 @@ export function dueIn(words: string, from: string): string | undefined {
     : addDays(d, Math.round(u.startsWith('тиж') ? n * 7 : n));
   const out = format(date, 'yyyy-MM-dd');
   return out > from && out <= format(addMonths(d, 24), 'yyyy-MM-dd') ? out : undefined;
-}
-
-/** The part of the day the doctor named — the time to suggest for a dose once a day. */
-function partOfDay(words: string): string | undefined {
-  const w = words.toLocaleLowerCase('uk');
-  return /на ніч|перед сном/u.test(w) ? '22:00' : /ввечері|увечері|вечор/u.test(w) ? '20:00' : /в обід|вдень|удень/u.test(w) ? '13:00'
-    : /вранці|уранці|зранку|вранц/u.test(w) ? '08:00' : undefined;
 }
 
 /** D100 for what older versions let in: a medicine of the plan, still taken, kept without its dose or time (not «за потреби»). */
@@ -120,12 +110,9 @@ export function draftLines(r: ConclusionResult, newId: () => string, opts: Draft
     const title = p.title.trim();
     if (!title) continue;
     const kind = p.kind === 'medication' ? 'medication' : 'supplement';
-    const said = [...new Set(p.times.filter((x) => HHMM.test(x)))].sort();
-    const part = partOfDay(p.frequency ?? '');
-    const perDay = p.perDay != null && Number.isInteger(p.perDay) ? p.perDay : part ? 1 : undefined;
-    // «1 раз ввечері» → 20:00, not the morning default; still a suggestion, marked so
-    const suggest = !said.length && !p.asNeeded && perDay ? (perDay === 1 && part ? [part] : SUGGESTED[perDay]) : undefined;
-    const times = said.length ? said : suggest ?? [];
+    // R7: preserve what was read, including malformed values. Never turn a frequency or part of day into times.
+    const timing = p.asNeeded ? undefined : { input: p.times.join(', '), perDay: p.perDay };
+    const times = readTimes(p.times.join(', ')) ?? [];
     const dose = p.dose?.trim() || undefined;
     // the course runs from the day of the conclusion; doses count from the day it enters the plan (D97)
     const start = r.date && DATE.test(r.date) && r.date <= today ? r.date : today;
@@ -136,7 +123,7 @@ export function draftLines(r: ConclusionResult, newId: () => string, opts: Draft
     out.push({ kind: 'prescription', key: key('p'), ...base,
       // ✓ only for a dose read clearly: a wrong dose shown as sure is the one failure the reading must never make
       status: base.status === 'sure' && dose ? 'sure' : 'check',
-      ...(p.frequency?.trim() ? { frequency: p.frequency.trim() } : {}), ...(suggest ? { suggested: true as const } : {}),
+      ...(p.frequency?.trim() ? { frequency: p.frequency.trim() } : {}), ...(timing ? { timing } : {}),
       prescription: { id: newId(), kind, title, source, since: today, ...(dose ? { dose } : {}),
         ...(times.length || p.withFood != null ? { schedule: { times, ...(p.withFood != null ? { withFood: p.withFood } : {}) } } : {}),
         ...(p.asNeeded ? { asNeeded: true as const } : {}), ...(until ? { until } : {}),
@@ -193,11 +180,40 @@ function registered(index: MedIndex, title: string): Prescription['med'] | undef
   return e ? { name: e.name, ...(e.inn ? { inn: e.inn } : {}), ...(e.atc ? { atc: e.atc } : {}) } : undefined;
 }
 
-/** D100: what still keeps a line of a medicine out of the plan — its dose, its time; nothing for other lines. */
+/** Strict clock values: do not silently drop an unreadable slot or merge duplicate doses. */
+function readTimes(input: string): string[] | undefined {
+  if (!input.trim()) return undefined;
+  const times = input.split(',').map((x) => x.trim());
+  if (times.length > 24 || times.some((x) => !HHMM.test(x)) || new Set(times).size !== times.length) return undefined;
+  return times.sort();
+}
+
+export type TimingProblem = 'required' | 'invalid' | 'count' | 'frequency';
+/** R7: the same activation guard for source values, manual edits, UI and applyLines. */
+export function timingProblem(l: DraftLine): TimingProblem | undefined {
+  if (l.kind !== 'prescription' || !['medication', 'supplement'].includes(l.prescription.kind) || l.prescription.asNeeded) return undefined;
+  const p = l.prescription;
+  const input = l.timing?.input ?? p.schedule?.times.join(', ') ?? '';
+  const count = l.timing?.perDay;
+  if (count != null && (!Number.isInteger(count) || count < 1 || count > 24)) return 'frequency';
+  if (!input.trim()) return 'required';
+  const times = readTimes(input), scheduled = readTimes(p.schedule?.times.join(', ') ?? '');
+  if (!times || !scheduled || times.join(',') !== scheduled.join(',')) return 'invalid';
+  if (count != null && times.length !== count) return 'count';
+  return undefined;
+}
+
+/** Only explicitly entered clock values change the draft. This does not confirm the medicine. */
+export function withDraftTimes(l: DraftLine, input: string): DraftLine {
+  if (l.kind !== 'prescription' || !['medication', 'supplement'].includes(l.prescription.kind) || l.prescription.asNeeded) return l;
+  return { ...l, timing: { ...l.timing, perDay: l.timing?.perDay ?? null, input, entered: true },
+    prescription: { ...l.prescription, schedule: { ...l.prescription.schedule, times: readTimes(input) ?? [] } } };
+}
+
+/** D100/R7: a medicine without a dose or a complete validated schedule cannot enter the plan. */
 export function missing(l: DraftLine): 'dose' | 'time' | undefined {
   if (l.kind !== 'prescription' || (l.prescription.kind !== 'medication' && l.prescription.kind !== 'supplement')) return undefined;
-  const p = l.prescription;
-  return !p.dose?.trim() ? 'dose' : !p.schedule?.times.length && !p.asNeeded ? 'time' : undefined;
+  return !l.prescription.dose?.trim() ? 'dose' : timingProblem(l) ? 'time' : undefined;
 }
 
 const WORDS: Record<string, number> = { двічі: 2, два: 2, дві: 2, тричі: 3, три: 3, чотири: 4 };
