@@ -22,6 +22,16 @@ export async function pinMeal(title: string, items: MealItem[]) {
   await saved(db.favorites.put(f), t.toast.pinned(f.title), () => db.favorites.delete(f.id));
 }
 
+export async function toggleMealFavorite(title: string, items: MealItem[]): Promise<void> {
+  const same = (await db.favorites.toArray()).find((f) => stable(f.items) === stable(items));
+  if (same) {
+    await saved(db.favorites.delete(same.id), t.toast.unpinned(same.title), () => db.favorites.put(same));
+    return;
+  }
+  const favorite: Favorite = { id: newId(), title: title.trim(), items: copy(items) };
+  await saved(db.favorites.put(favorite), t.toast.pinned(favorite.title), () => db.favorites.delete(favorite.id));
+}
+
 /** Under the search in «Записати їжу»: a tap adds the favorite's lines; the star unpins it (with «Скасувати»). */
 export function FavoritesList({ onAdd, limit }: { onAdd: (items: MealItem[]) => void; limit?: number }) {
   const favorites = useFavorites();

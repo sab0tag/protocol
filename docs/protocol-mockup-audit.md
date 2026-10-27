@@ -60,7 +60,22 @@ Shared visual systems audited alongside those components: color and type tokens,
 - Removed the repeated active-profile strip from the global shell; the active person's name remains in the Today greeting and in profile management.
 - Reduced the shared card radius and ring diameter, refined dark-theme colors toward the mockup, and simplified the tab icon treatment.
 - Converted the plan overview and wellbeing date header to regular theme-aware surfaces.
+- Added locally cached section-cover photography for food, movement, care, wellbeing, settings, and assistant routes; Today keeps its existing forest hero.
+- Updated the Today greeting to use the active profile name and exact day-part text without punctuation; recent meals now filter through breakfast/lunch/dinner/snack tabs and can be favorited with a red heart.
 - Expanded browser geometry coverage to all routed screens and the requested 320, 390, 768, and 1024 px widths in both themes. This is a regression gate, not a substitute for visual comparison.
+
+### Section artwork sources
+
+The decorative covers are downloaded and cached locally (WebP), so route views do not make third-party image requests. Images are from Unsplash under its [official license](https://unsplash.com/license), which permits free commercial and non-commercial use without required attribution:
+
+| Section | Image |
+|---|---|
+| Food | [Fresh vegetables and fruit meal](https://unsplash.com/photos/fresh-vegetables-and-fruit-meal-k3DmHnnAH3M) |
+| Movement | [Woman lifting weights in a gym](https://unsplash.com/photos/woman-lifting-weights-in-a-gym-IYLLF511aOY) |
+| Care plan and report | [Doctor wearing a stethoscope at a desk](https://unsplash.com/photos/doctor-wearing-a-stethoscope-sits-at-a-desk-JJEOuvnY1Tw) |
+| Wellbeing and progress | [Sunlight filtering through green leaves](https://unsplash.com/photos/sunlight-filtering-through-green-leaves-with-bokeh-effect-rYYFOBEkGM0) |
+| Settings and profile | [Potted plant by a sunlit wall](https://unsplash.com/photos/potted-plant-by-sunlit-wall-jV8ViVM_piA) |
+| Assistant | [Abstract network of dots](https://unsplash.com/photos/an-abstract-image-of-a-network-of-dots-s5C_4tMY8fA) |
 
 ### Manual visual checks
 
@@ -75,6 +90,6 @@ Shared visual systems audited alongside those components: color and type tokens,
 
 The expanded E2E matrix initially found horizontal overflow on Motivation at 320 px. Habit labels and right-hand status text now have explicit shrink/wrap constraints; all checks passed on PR #28.
 
-The CI screenshot artifact contains all 42 routed screens at each of the four requested widths in both themes. A 390 px dark contact sheet was visually inspected as a route overview; the automated matrix verifies visibility and horizontal overflow, not pixel-level equivalence. Food cards now use local category illustrations as image-like thumbnails; matching food photography remains an open asset gap because the app has no food image source.
+The CI screenshot artifact contains all 42 routed screens at each of the four requested widths in both themes. A 390 px dark contact sheet was visually inspected as a route overview; the automated matrix verifies visibility and horizontal overflow, not pixel-level equivalence. Food cards use local category illustrations as image-like thumbnails; the new section covers do not replace the per-food photographs shown in mockups.
 
 Still to do: inspect every route's screenshots in all eight viewport/theme combinations against the references; resolve remaining component-level differences; record any deliberate differences caused by functionality/accessibility; run unit, typecheck, build, and the complete E2E suite; and publish/merge only after green CI.

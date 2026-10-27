@@ -88,6 +88,13 @@ test('all routed screens fit the four target widths in light and dark themes', a
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${route || 'today'} at ${width}`).toBe(true);
         expect(await page.evaluate(() => getComputedStyle(document.documentElement).colorScheme), `${route || 'today'} ${colorScheme}`).toBe(colorScheme);
         await expect(page.getByRole('navigation', { name: 'Розділи', exact: true })).toBeVisible();
+        if (route) {
+          const sceneArt = page.locator('.protocol-scene-art');
+          await expect(sceneArt).toBeVisible();
+          expect(await sceneArt.evaluate((el) => getComputedStyle(el).backgroundImage), `${route} has section artwork`).toContain('url(');
+        } else {
+          await expect(page.locator('.protocol-scene-art')).toHaveCount(0);
+        }
         if (['meal/new', 'plan', 'progress', 'dishes', 'profiles', 'more/settings'].includes(route)) {
           await expect(page.locator('.protocol-scene-header')).toHaveCount(0);
         }

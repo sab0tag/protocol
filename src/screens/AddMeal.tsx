@@ -266,7 +266,8 @@ export function AddMeal() {
           {labelOpen && <LabelScan onAdd={(it) => setItems((xs) => [...xs, it])} />}
         </section>
 
-        {!id && !query && !free && photo.state === 'none' && items.length === 0 && all && <RecentMeals entries={all} date={date} onAdd={(xs) => setItems((ys) => [...ys, ...xs])} />}
+        {!id && !query && !free && photo.state === 'none' && items.length === 0 && all && <RecentMeals entries={all} date={date} initialTitle={title}
+          onAdd={(xs, mealTitle) => { setItems((ys) => [...ys, ...xs]); setTitle(mealTitle); }} />}
 
         <section aria-label={t.meal.items} className={`protocol-card p-4 sm:p-5 ${items.length ? '' : 'hidden'}`}>{/* D78: appears with the first line */}
           <h2 className="mb-2 font-semibold">{t.meal.items}</h2>

@@ -89,6 +89,19 @@ body { background-image: radial-gradient(ellipse at 10% 0%, rgb(var(--accent) / 
   background: linear-gradient(180deg, rgb(4 19 14 / .08) 25%, rgb(4 19 14 / .68) 100%);
 }
 .protocol-day-hero .protocol-calendar { background: rgb(6 24 17 / .28); border: 1px solid rgb(255 255 255 / .12); backdrop-filter: blur(10px); }
+.protocol-scene-art {
+  background-color: rgb(var(--surface));
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  box-shadow: 0 14px 36px -24px rgb(0 0 0 / .34);
+}
+.protocol-scene-art-food { background-image: linear-gradient(90deg, rgb(24 27 20 / .14), rgb(24 27 20 / .04)), url('../assets/section-food.webp'); }
+.protocol-scene-art-movement { background-image: linear-gradient(90deg, rgb(8 22 17 / .16), rgb(8 22 17 / .04)), url('../assets/section-movement.webp'); }
+.protocol-scene-art-assistant { background-image: linear-gradient(90deg, rgb(8 13 30 / .2), rgb(8 13 30 / .02)), url('../assets/section-assistant.webp'); }
+.protocol-scene-art-care { background-image: linear-gradient(90deg, rgb(16 34 31 / .18), rgb(16 34 31 / .04)), url('../assets/section-care.webp'); }
+.protocol-scene-art-wellness { background-image: linear-gradient(90deg, rgb(17 39 29 / .18), rgb(17 39 29 / .03)), url('../assets/section-wellness.webp'); }
+.protocol-scene-art-settings { background-image: linear-gradient(90deg, rgb(34 29 22 / .14), rgb(34 29 22 / .03)), url('../assets/section-settings.webp'); }
 .protocol-card { border-radius: var(--protocol-radius-card); border-color: rgb(var(--line) / .8); }
 .protocol-card > h2, .protocol-card > div > h2 { letter-spacing: -.02em; }
 .protocol-toggle-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 1rem; padding-block: .65rem; }

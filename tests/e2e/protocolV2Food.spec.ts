@@ -31,9 +31,10 @@ test('Food 2.0 repeats at most three distinct completed meals into a checked edi
   const before = await records(page);
   await page.goto('./#/meal/new');
   const recent = page.getByRole('region', { name: 'Останні' });
-  await expect(recent.getByRole('button')).toHaveCount(3);
+  await recent.getByRole('tab', { name: 'Перекус' }).click();
+  await expect(recent.getByTestId('recent-meal-add')).toHaveCount(2);
   await expect(recent).not.toContainText('Такий самий перекус');
-  await expect(recent).not.toContainText('Давній перекус');
+  await expect(recent).toContainText('Давній перекус');
   await expect(recent).not.toContainText('Лише заплановано');
   await expect(recent).not.toContainText('Пропущена їжа');
   await expect(recent).not.toContainText('Майбутній запис');
@@ -81,7 +82,9 @@ test('Food 2.0 favorites start compact, expand on demand, and editing a repeat k
   await expect(favorites.getByRole('listitem')).toHaveCount(4);
   await favorites.getByRole('button', { name: 'Показати менше' }).click();
   await expect(favorites.getByRole('listitem')).toHaveCount(3);
-  await page.getByRole('region', { name: 'Останні' }).getByRole('button', { name: /Вчорашній кефір/ }).click();
+  const recent = page.getByRole('region', { name: 'Останні' });
+  await recent.getByRole('tab', { name: 'Сніданок' }).click();
+  await recent.getByRole('button', { name: /Вчорашній кефір/ }).click();
   await page.getByRole('region', { name: 'Позиції', exact: true }).getByLabel('Грами').fill('210');
   const original = (await records(page) as { id: string; items: { grams: number }[] }[]).find((e) => e.id === 'original');
   expect(original?.items[0]?.grams).toBe(180);
@@ -91,4 +94,40 @@ test('Food 2.0 favorites start compact, expand on demand, and editing a repeat k
   await expect(page.getByRole('heading', { name: 'Сьогодні', level: 1 })).toBeVisible();
   await page.goto('./#/meal/new');
   await expect(page.getByRole('region', { name: 'Позиції', exact: true })).toHaveCount(0);
+});
+
+test('recent meals switch by meal type and heart buttons add and remove favorites', async ({ browser }) => {
+  const page = await device(browser, 'skip');
+  const date = addDays(new Date(), -1);
+  const at = (time: string) => `${ymd(date)}T${time}:00${kyivOffset(date)}`;
+  await seed(page, [
+    { store: 'entries', value: { id: 'tab-breakfast', at: at('08:00'), kind: 'meal', status: 'done', title: 'Сніданок', items: [{ foodId: 'egg-boiled', name: 'Яйце варене', grams: 50 }] } },
+    { store: 'entries', value: { id: 'tab-lunch', at: at('13:00'), kind: 'meal', status: 'done', title: 'Обід', items: [{ foodId: 'buckwheat-boiled', name: 'Гречка варена', grams: 120 }] } },
+    { store: 'entries', value: { id: 'tab-dinner', at: at('19:00'), kind: 'meal', status: 'done', title: 'Вечеря', items: [{ foodId: 'kefir', name: 'Кефір 2,5 %', grams: 180 }] } },
+    { store: 'entries', value: { id: 'tab-snack', at: at('16:00'), kind: 'meal', status: 'done', title: 'Перекус', items: [{ foodId: 'apple', name: 'Яблуко', grams: 100 }] } },
+  ]);
+  await page.goto('./#/meal/new');
+  const recent = page.getByRole('region', { name: 'Останні' });
+  await expect(recent.getByRole('tab')).toHaveCount(4);
+  const breakfast = recent.getByRole('tab', { name: 'Сніданок' });
+  await recent.getByRole('tab', { name: 'Обід' }).focus();
+  await page.keyboard.press('ArrowLeft');
+  await expect(breakfast).toHaveAttribute('aria-selected', 'true');
+  await recent.getByRole('tab', { name: 'Обід' }).click();
+  await expect(recent.getByTestId('recent-meal-add')).toHaveCount(1);
+  await expect(recent).toContainText('Гречка варена');
+  await expect(recent).not.toContainText('Яйце варене');
+
+  await recent.getByRole('tab', { name: 'Сніданок' }).click();
+  const heart = recent.locator('button[aria-pressed]');
+  await heart.click();
+  await expect(heart).toHaveAttribute('aria-pressed', 'true');
+  await expect(heart).toHaveClass(/text-red-600/);
+  await expect(page.getByRole('region', { name: 'Мої звичні' })).toContainText('Сніданок');
+
+  const unheart = recent.getByRole('button', { name: 'Прибрати з улюблених: Сніданок' });
+  await unheart.click();
+  await expect(unheart).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.getByRole('region', { name: 'Мої звичні' })).toHaveCount(0);
+  await page.context().close();
 });
