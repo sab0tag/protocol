@@ -17,7 +17,7 @@ Both regressions were reproduced on the original main before source fixes. Secti
 
 Main uses IndexedDB schema 9 for the local `profile` photo table. The older, unmerged review-recovery stack (#25 onward) independently uses schema 9 for `reviewDrafts`. A merge check of current main with the weight-review branch reports conflicts in `src/data/db.ts`, `src/screens/Progress.tsx` and the module migration test.
 
-Before integrating that stack, add a new forward migration above version 9 that preserves both tables, and test upgrades from both v9 histories. Simply resolving the source to one v9 definition, or adding another store at the same version, is insufficient for a database already opened at version 9. Preserve the new photos, weekly summary and actual latest UI when adapting the old PRs. This review fix does not merge those branches or change the database schema.
+Before integrating that stack, add a new forward migration above version 9 that preserves both tables, and test upgrades from both v9 histories. Do not resolve the source conflict by dropping either table. Dexie 4.4.6 can patch missing stores at the same declared version: an isolated fake-indexeddb experiment from each v9 history created both stores at native version 91. Therefore this is an integration/test requirement, not evidence that the current main loses data; prefer an explicit forward version and test retained records from both histories. Preserve the new photos, weekly summary and actual latest UI when adapting the old PRs. This review fix does not merge those branches or change the database schema.
 
 ## Validation
 
