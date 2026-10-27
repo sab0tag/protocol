@@ -55,6 +55,38 @@ test('native toggles work by keyboard and preserve plan and reminder settings af
   await page.context().close();
 });
 
+test('theme preference overrides the device and returns to the system setting', async ({ browser }) => {
+  const page = await device(browser, 'skip');
+  await page.emulateMedia({ colorScheme: 'light' });
+  await page.goto('./#/more/settings');
+  const root = page.locator('html');
+  const dark = page.getByRole('checkbox', { name: t.theme.dark });
+
+  await expect(dark).not.toBeChecked();
+  await expect(root).toHaveCSS('color-scheme', 'light');
+  await dark.check();
+  await expect(root).toHaveAttribute('data-theme', 'dark');
+  await expect(root).toHaveCSS('color-scheme', 'dark');
+  await page.reload();
+  await expect(dark).toBeChecked();
+  await expect(root).toHaveCSS('color-scheme', 'dark');
+
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await dark.uncheck();
+  await expect(root).toHaveAttribute('data-theme', 'light');
+  await expect(root).toHaveCSS('color-scheme', 'light');
+  await page.reload();
+  await expect(dark).not.toBeChecked();
+
+  await page.getByRole('button', { name: t.theme.system }).click();
+  await expect(root).not.toHaveAttribute('data-theme');
+  await expect(root).toHaveCSS('color-scheme', 'dark');
+  await page.emulateMedia({ colorScheme: 'light' });
+  await expect(root).toHaveCSS('color-scheme', 'light');
+  await expect(dark).not.toBeChecked();
+  await page.context().close();
+});
+
 test('metrics without plan targets show values without a made-up completion percentage', async ({ browser }) => {
   const page = await device(browser, 'skip');
   const summary = page.getByRole('region', { name: t.summary.title });
