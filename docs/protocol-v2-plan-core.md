@@ -7,7 +7,7 @@ This is the domain-contract/legacy-expansion slice, not completion of R5 or R6. 
 - Source plans have independent ids, person ownership, version, lifecycle state, optional clinician/date metadata and a source reference. Items belong to exactly one plan for exactly one person.
 - One legacy `main` record expands into one source plan, not inferred clinician plans. Existing free-text source labels are retained per item; clinician, validity dates, dose/strength/unit and missing clocks are not inferred.
 - Prescription, constraint, target, temporary-mode and follow-up payloads retain the current typed legacy structures. Diet-reference annotations remain target provenance, not a new instruction. A full cloned legacy snapshot retains remaining journal metadata and unknown extension fields for the later migration.
-- Item ids are deterministic JSON tuples, with a category namespace so a prescription and constraint may retain equal legacy ids. Repeating the conversion produces the same identities; duplicate identities fail rather than discarding a row.
+- New legacy plan ids are independent of device-local profile ids for portability; retained existing ids remain supported. Item ids are deterministic JSON tuples, with a category namespace so a prescription and constraint may retain equal legacy ids. Repeating the conversion produces the same identities; duplicate identities fail rather than discarding a row.
 - A person-scoped read projection preserves both plans, including same-named instructions and all lifecycle states. It does not activate a draft, resolve a conflict, create a schedule occurrence, infer missed actions or grant remote authorization. Returned objects are detached from the source catalog.
 
 ## Next boundaries
