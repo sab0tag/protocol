@@ -44,3 +44,11 @@ test('the example-data warning appears before My Day checklist actions', async (
   if (!warningBox || !checklistBox) throw new Error('The warning and checklist must have visible bounds');
   expect(warningBox.y).toBeLessThan(checklistBox.y);
 });
+
+test('example-data warning is shown on screens that edit or summarize sample data', async ({ browser }) => {
+  const page = await device(browser);
+  for (const route of ['/meal/new', '/workout', '/week', '/progress/insights', '/progress/motivation']) {
+    await page.goto(`./#${route}`);
+    await expect(page.getByRole('status').filter({ hasText: 'Це приклад:' }), route).toBeVisible();
+  }
+});

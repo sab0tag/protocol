@@ -2,6 +2,7 @@ import { SceneHeader } from '../components/SceneHeader';
 import { RecentMeals } from '../components/RecentMeals';
 import { MedFoodPanel } from '../components/MedFoodPanel';
 import { DangerCard } from '../components/DangerCard';
+import { ExampleNotice } from '../components/ExampleNotice';
 import { crisisInText, dangerInText } from '../domain/symptoms';
 import { medFoodNotes } from '../domain/medFood';
 import { ConciergeNotFound, type Suggested } from '../components/ConciergeNotFound';
@@ -169,6 +170,7 @@ export function AddMeal() {
   return (
     <section className="space-y-4 pt-4">
       <SceneHeader title={id ? t.meal.editTitle : t.meal.title} description={id ? t.meal.editHint : t.meal.entryHint} />
+      <ExampleNotice plan={plan} />
       <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); void save(); }}>
         <section aria-label={t.meal.addFood} className="protocol-card p-4 sm:p-5">
           <div role="group" aria-label={t.meal.entryModes} className="mb-3 grid grid-cols-4 gap-2">

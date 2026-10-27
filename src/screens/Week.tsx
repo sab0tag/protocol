@@ -16,6 +16,7 @@ import { HabitsCard, WeekCard } from './Motivation';
 import { useObservation } from '../app/observation';
 import { scoredDay } from '../domain/observation';
 import { SceneHeader } from '../components/SceneHeader';
+import { ExampleNotice } from '../components/ExampleNotice';
 
 const L = t.week;
 
@@ -46,6 +47,7 @@ export function Week() {
   return (
     <section className="space-y-4 pt-4">
       <SceneHeader title={L.title} />
+      <ExampleNotice plan={plan} />
       <WeekCard summary={summary} />
 
       <section aria-label={L.went} className="rounded-2xl border border-accent/30 bg-accent/10 p-3">
