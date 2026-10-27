@@ -27,6 +27,6 @@ test('mock-aligned labels distinguish adding food from saving an existing meal',
   await page.goto('./#/meal/new');
   await expect(page.getByRole('heading', { name: 'Записати їжу', exact: true, level: 1 })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Додати до дня', exact: true })).toBeDisabled();
-  await expect(page.getByRole('button', { name: 'З фото', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Фото', exact: true })).toBeVisible();
   await page.context().close();
 });
