@@ -14,7 +14,7 @@
 | Wellbeing journal — `/wellbeing/journal` | History / trend | Pending |
 | Workout — `/workout` | Activity tracking | Pending |
 | Exercises — `/exercises` | Exercise library | Shared header updated; detailed review pending |
-| Quick action — `/do/:action` | Action state | Pending |
+| Quick action — `/do/:action` | Action state | Behavior tested separately; action links are not visual screens |
 | Quick links — `/quick` | Additional actions | Shared header updated; detailed review pending |
 | Frictions — `/frictions` | Feedback | Shared header updated; detailed review pending |
 | Pilot — `/pilot` | Additional capability | Pending |
@@ -109,6 +109,13 @@ Food list thumbnails are cached locally from Unsplash under its [official licens
 
 The expanded E2E matrix initially found horizontal overflow on Motivation at 320 px. Habit labels and right-hand status text now have explicit shrink/wrap constraints; all checks passed on PR #28.
 
-The browser matrix captured every routed screen at 320, 390, 768, and 1024 px in both themes. It verifies header-image presence, visibility, and horizontal overflow; it is not a pixel-level comparison against every mockup. Food cards use local category illustrations as image-like thumbnails; the section header photos do not replace the per-food photographs shown in mockups.
+### Latest screenshot review
 
-Still to do: inspect every route's screenshots in all eight viewport/theme combinations against the references; resolve remaining component-level differences; record any deliberate differences caused by functionality/accessibility; and wait for green PR CI before merging. Local typecheck, unit, production build, and full E2E have passed.
+- Reviewed the contact sheets for all 42 previously captured routes at 320, 390, 768, and 1024 px in both light and dark themes. This is a layout-level visual triage, not a pixel-level comparison of every screen against a mockup.
+- `/do/water` is an action deep link, not a screen: opening it records water and shows an undo notification. It was removed from the visual screenshot loop so it cannot change the seeded day or leave a transient notification over later screenshots. Its behavior remains covered by `tests/e2e/quick.spec.ts`; the visual matrix now covers 41 screens (328 screenshots).
+- The supplied mockups depict only a subset of the existing routes. On the represented flows, current content and behavior differ where noted above: the app has a single-plan model rather than the mockup's multi-plan controls, and local profiles rather than shared family access. These are product-capability differences, not permission to invent clinical or sharing behavior.
+- Keep the intentionally added section and food photography unchanged. The screenshot matrix checks responsive layout, theme selection, navigation, header-art presence, and horizontal overflow; it does not establish pixel-level equivalence.
+
+The browser matrix captures the 41 visual screens at 320, 390, 768, and 1024 px in both themes. Food cards use local category illustrations as image-like thumbnails; the section header photos do not replace the per-food photographs shown in mockups.
+
+Still to do: complete detailed, screen-by-screen comparison for the screens represented in the mockups; resolve confirmed presentation differences without changing the intended artwork or adding product capabilities; record any deliberate differences caused by functionality/accessibility; and wait for green PR CI before merging. Local typecheck, unit, production build, and full E2E have passed before the screenshot-matrix correction; rerun the targeted matrix and applicable checks after this change.

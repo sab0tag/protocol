@@ -68,10 +68,11 @@ test('metrics without plan targets show values without a made-up completion perc
 test('all routed screens fit the four target widths in light and dark themes', async ({ browser }) => {
   test.setTimeout(300_000);
   const page = await device(browser);
+  // Action deep links such as /do/water write data on mount; quick.spec covers them separately.
   const routes = ['', 'meal/new', 'meal/visual-matrix-meal', 'plan', 'plan/prescriptions', 'plan/constraints', 'plan/goals', 'plan/checkup',
     'plan/scan', 'plan/history', 'welcome', 'progress', 'progress/motivation', 'progress/insights', 'progress/labs', 'report', 'more',
     'more/food', 'more/health', 'more/settings', 'more/app', 'profiles', 'wellbeing', 'wellbeing/journal', 'my-day', 'week', 'assistant',
-    'reminders', 'sync', 'dishes', 'shopping', 'workout', 'exercises', 'menu', 'foods', 'data', 'quick', 'do/water', 'about',
+    'reminders', 'sync', 'dishes', 'shopping', 'workout', 'exercises', 'menu', 'foods', 'data', 'quick', 'about',
     'frictions', 'pilot', 'concierge-log'];
   await seed(page, [{ store: 'entries', value: {
     id: 'visual-matrix-meal', at: `${ymd(new Date())}T08:00:00${kyivOffset()}`, kind: 'meal', status: 'done',
@@ -88,7 +89,7 @@ test('all routed screens fit the four target widths in light and dark themes', a
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${route || 'today'} at ${width}`).toBe(true);
         expect(await page.evaluate(() => getComputedStyle(document.documentElement).colorScheme), `${route || 'today'} ${colorScheme}`).toBe(colorScheme);
         await expect(page.getByRole('navigation', { name: 'Розділи', exact: true })).toBeVisible();
-        if (route && route !== 'do/water') {
+        if (route) {
           const sceneHeader = page.locator('.protocol-scene-header').first();
           await expect(sceneHeader, `${route} at ${width}px ${colorScheme}`).toBeVisible();
           expect(await sceneHeader.evaluate((el) => getComputedStyle(el).backgroundImage), `${route} has header artwork`).toContain('url(');
