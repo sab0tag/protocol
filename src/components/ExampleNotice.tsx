@@ -11,7 +11,7 @@ export function ExampleNotice({ plan }: { plan: PlanRow | undefined }) {
   if (inDemo()) return ( // D98: the example's own database — leaving it opens the person's own, untouched
     <div role="status" className="mb-3 space-y-2 rounded-2xl border border-warn/30 bg-warn-bg p-3 text-sm text-warn">
       <p>{t.example.demoNotice}</p>
-      <button type="button" onClick={() => void leaveDemo()} className="min-h-tap rounded-xl bg-warn px-3 font-medium text-surface">{t.example.leave}</button>
+      <button type="button" onClick={() => void leaveDemo()} className="min-h-tap rounded-xl bg-warn px-3 font-medium text-surface print:hidden">{t.example.leave}</button>
     </div>
   );
   if (!plan || !hasExample(plan)) return null; // an example put into the own plan by an older version — taken out item by item
@@ -25,7 +25,7 @@ export function ExampleNotice({ plan }: { plan: PlanRow | undefined }) {
   return (
     <div role="status" className="mb-3 space-y-2 rounded-2xl border border-warn/30 bg-warn-bg p-3 text-sm text-warn">
       <p>{t.example.notice}</p>
-      <button type="button" onClick={() => void start()} className="min-h-tap rounded-xl bg-warn px-3 font-medium text-surface">{t.example.start}</button>
+      <button type="button" onClick={() => void start()} className="min-h-tap rounded-xl bg-warn px-3 font-medium text-surface print:hidden">{t.example.start}</button>
     </div>
   );
 }

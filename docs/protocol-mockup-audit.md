@@ -63,7 +63,7 @@ Shared visual systems audited alongside those components: color and type tokens,
 - Added locally cached header photography for food, movement, care, wellbeing, settings, and assistant routes; Today keeps its existing forest hero.
 - Updated the Today greeting to use the active profile name and exact day-part text without punctuation; recent meals now filter through breakfast/lunch/dinner/snack tabs and can be favorited with a red heart.
 - Moved the existing demo-data warning ahead of the example schedule cards on Today and added it to My day before its sample checklist, so example medication status is always caveated before action.
-- Extended the same warning to Add food, Workout, Week, Insights, Motivation, Wellbeing, and the Wellbeing journal, where sample records can be edited or summarized; browser coverage verifies the warning on each route. This is a data-safety check, not a completed visual review of those screens.
+- Extended the same warning to Add food, Workout, Week, Insights, Motivation, Wellbeing, its journal, Assistant, Menu, Dishes, My foods, Labs, Plan history, Plan scan, and Data/backup, where sample records can be edited, exported, or summarized. Printed reports retain the example label but omit its action button. Browser coverage verifies these safeguards; this is not a completed visual review of those screens.
 - Expanded browser geometry coverage to all routed screens and the requested 320, 390, 768, and 1024 px widths in both themes. This is a regression gate, not a substitute for visual comparison.
 
 ### Section artwork sources

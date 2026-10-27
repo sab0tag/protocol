@@ -1,7 +1,8 @@
 import { LabsScan } from '../components/LabsScan';
+import { ExampleNotice } from '../components/ExampleNotice';
 import { Loading } from '../components/Recovery';
 import { saved } from '../components/Toast';
-import { useLabs } from '../data/queries';
+import { useLabs, usePlan } from '../data/queries';
 import { db } from '../data/db';
 import { labRows } from '../domain/progress';
 import { todayISO } from '../domain/dates';
@@ -18,6 +19,7 @@ const num = (value: number) => value.toLocaleString('uk-UA', { maximumFractionDi
 
 export function Labs() {
   const labs = useLabs();
+  const plan = usePlan();
   const [open, setOpen] = useState(false);
   const [lab, setLab] = useState({ date: todayISO(), name: '', value: '', unit: '', target: '' });
   if (!labs) return <Loading />;
@@ -37,6 +39,7 @@ export function Labs() {
         <h1 className="text-2xl font-semibold">{L.labs}</h1>
         <button type="button" onClick={() => setOpen(!open)} className="flex min-h-tap items-center gap-1 px-2 text-accent"><Plus size={18} />{L.addLab}</button>
       </header>
+      <ExampleNotice plan={plan} />
       <LabsScan known={rows} />
       {open && (
         <form className="grid grid-cols-2 gap-2 protocol-card rounded-2xl border border-line bg-surface p-3" onSubmit={(e) => { e.preventDefault(); void save(); }}>

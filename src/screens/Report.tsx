@@ -53,7 +53,7 @@ export function Report() {
   return (
     <section className="space-y-4 pt-4 print:pt-0">
       <header className="protocol-scene-header"><h1 className="text-2xl font-semibold">{L.title}</h1></header>
-      <div className="print:hidden"><ExampleNotice plan={plan} /></div>
+      <ExampleNotice plan={plan} />
       <div className="grid grid-cols-2 gap-3 print:hidden">
         <label className="block"><span className="text-sm text-muted">{L.from}</span>
           <input type="date" value={from} max={range.to} onChange={(e) => setRange({ ...range, from: e.target.value })} className={field} /></label>

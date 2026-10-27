@@ -47,8 +47,19 @@ test('the example-data warning appears before My Day checklist actions', async (
 
 test('example-data warning is shown on screens that edit or summarize sample data', async ({ browser }) => {
   const page = await device(browser);
-  for (const route of ['/meal/new', '/workout', '/week', '/progress/insights', '/progress/motivation', '/wellbeing', '/wellbeing/journal']) {
+  for (const route of ['/meal/new', '/workout', '/week', '/progress/insights', '/progress/motivation', '/wellbeing',
+    '/wellbeing/journal', '/assistant', '/menu', '/dishes', '/foods', '/progress/labs', '/plan/history', '/plan/scan', '/data', '/report']) {
     await page.goto(`./#${route}`);
     await expect(page.getByRole('status').filter({ hasText: 'Це приклад:' }), route).toBeVisible();
   }
+});
+
+test('printed reports keep the example-data label but omit its action button', async ({ browser }) => {
+  const page = await device(browser);
+  await page.goto('./#/report');
+  const warning = page.getByRole('status').filter({ hasText: 'Це приклад:' });
+  await expect(warning).toBeVisible();
+  await page.emulateMedia({ media: 'print' });
+  await expect(warning).toBeVisible();
+  await expect(warning.getByRole('button')).toBeHidden();
 });

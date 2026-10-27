@@ -21,6 +21,7 @@ import { dishItem } from '../domain/recipes';
 import type { MealItem } from '../domain/types';
 import { t } from '../i18n/uk';
 import { SceneHeader } from '../components/SceneHeader';
+import { ExampleNotice } from '../components/ExampleNotice';
 import { useUi } from '../store/ui';
 import { ApiError, menu as askMenu } from '../sync/api';
 import { currentKeys } from '../sync/runner';
@@ -144,6 +145,7 @@ export function Menu() {
         <Link to={`/shopping?from=${date}&to=${last}`} className="inline-flex min-h-tap items-center gap-2 rounded-xl border border-white/25 px-3 text-white">
           <ShoppingCart size={18} aria-hidden />{t.shop.title}</Link>
       </SceneHeader>
+      <ExampleNotice plan={plan} />
 
       <div className="space-y-3 protocol-card rounded-2xl border border-line bg-surface p-3">
         <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">

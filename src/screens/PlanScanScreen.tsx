@@ -2,6 +2,7 @@ import { ChevronLeft } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Loading } from '../components/Recovery';
 import { PlanScan } from '../components/PlanScan';
+import { ExampleNotice } from '../components/ExampleNotice';
 import { usePlan } from '../data/queries';
 import { t } from '../i18n/uk';
 
@@ -19,6 +20,7 @@ export function PlanScanScreen() {
         <h1 className="text-2xl font-semibold">{t.conclusion.button}</h1>
         <p className="mt-1 text-sm text-muted">{t.conclusion.hint}</p>
       </header>
+      <ExampleNotice plan={plan} />
       <PlanScan plan={plan} onDone={() => navigate('/plan')} />
     </section>
   );
