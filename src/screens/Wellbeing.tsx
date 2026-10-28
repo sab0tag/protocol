@@ -1,11 +1,12 @@
 import { format, parseISO } from 'date-fns';
 import { Loading } from '../components/Recovery';
+import { ExampleNotice } from '../components/ExampleNotice';
 import { saved } from '../components/Toast';
 import { uk } from 'date-fns/locale';
 import { Check, ChevronLeft, ChevronRight, Moon, Plus, Smile, Zap } from 'lucide-react';
 import { useState } from 'react';
 import { db } from '../data/db';
-import { useWellbeing } from '../data/queries';
+import { usePlan, useWellbeing } from '../data/queries';
 import type { Wellbeing as W } from '../domain/types';
 import { t } from '../i18n/uk';
 import { useUi } from '../store/ui';
@@ -24,6 +25,7 @@ const scoreWords: Record<'energy' | 'mood' | 'sleep', readonly [string, string, 
 export function Wellbeing() {
   const { date, shift } = useUi();
   const rec = useWellbeing(date);
+  const plan = usePlan();
   const [own, setOwn] = useState('');
   const [note, setNote] = useState<{ date: string; text: string } | null>(null); // a note being typed, not yet saved
   const [savedAt, setSavedAt] = useState<{ date: string; hm: string } | null>(null);
@@ -51,6 +53,7 @@ export function Wellbeing() {
         <button type="button" onClick={() => shift(1)} aria-label={t.day.next}
           className="flex min-h-tap min-w-tap items-center justify-center rounded-xl border border-line text-muted"><ChevronRight size={20} /></button>
       </header>
+      <ExampleNotice plan={plan} />
       <p role="status" className="flex items-center justify-center gap-1 text-sm text-muted">
         {savedAt?.date === date ? <><Check size={16} className="text-accent" aria-hidden />{L.savedAt(savedAt.hm)}</> : L.autosave}</p>
       <Link to="/wellbeing/journal" className="flex min-h-tap items-center justify-between rounded-xl border border-line bg-surface px-3 font-medium">
