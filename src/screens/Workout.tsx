@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { saved as withToast } from '../components/Toast';
 import { keep, kept } from '../data/kept';
 import { uk } from 'date-fns/locale';
-import { Check, ChevronLeft, ChevronRight, Info, Plus, RefreshCw, Save, X } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, Clock3, Dumbbell, Info, Plus, RefreshCw, Save, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { db } from '../data/db';
 import { usePlan, useWorkouts } from '../data/queries';
@@ -30,6 +30,9 @@ export function Workout() {
   const plan = usePlan();
   const workouts = useWorkouts();
   const [draft, setDraft] = useState<W | null>(null);
+  const exercisesHeading = useRef<HTMLHeadingElement>(null);
+  const [focused, setFocused] = useState(false);
+  const [activeAt, setActiveExercise] = useState(0);
   const base0 = useRef(''); // D87: the day's draft as it started — what counts as «nothing typed yet»
 
   const existing = workouts?.find((w) => w.date === date);
@@ -45,6 +48,7 @@ export function Workout() {
     base0.current = JSON.stringify(base);
     const k = kept<{ draft: W; advice: string }>(`workout:${date}`); // D87: sets typed before a locked phone reloaded the page
     setDraft(k?.draft ?? base);
+    setActiveExercise(0); // a new day starts at its first exercise — the last day's index may not exist here
     if (k?.advice) setAiAdvice(k.advice);
   }, [date, workouts === undefined]); // eslint-disable-line react-hooks/exhaustive-deps
   const [card, setCard] = useState<Exercise | null>(null);
@@ -60,10 +64,11 @@ export function Workout() {
   shownDate.current = date; // a reply for a day no longer on screen is dropped, never written over another day's draft
 
   if (!workouts || !draft) return <Loading />;
+  const activeExercise = Math.min(activeAt, Math.max(0, draft.exercises.length - 1)); // an AI draft may bring fewer exercises
   const schedule = workoutDay(plan, workouts.filter((w) => w.date !== date), date);
   const add = (e: Exercise) => { setDraft({ ...draft, exercises: [...draft.exercises, blankExercise(e)] }); setPicking(null); };
   const replace = (i: number, e: Exercise) => { setDraft({ ...draft, exercises: draft.exercises.map((x, j) => (j === i ? blankExercise(e) : x)) }); setPicking(null); };
-  const remove = (i: number) => setDraft({ ...draft, exercises: draft.exercises.filter((_, j) => j !== i) });
+  const remove = (i: number) => { setDraft({ ...draft, exercises: draft.exercises.filter((_, j) => j !== i) }); setActiveExercise(Math.max(0, Math.min(activeExercise, draft.exercises.length - 2))); };
 
   const setEx = (i: number, ex: WorkoutExercise) => setDraft({ ...draft, exercises: draft.exercises.map((x, j) => (j === i ? ex : x)) });
   // D76: unsaved = the draft differs from what is stored (a new day's draft is unsaved until recorded)
@@ -91,6 +96,40 @@ export function Workout() {
           className="flex min-h-tap min-w-tap items-center justify-center rounded-xl border border-line bg-surface"><ChevronRight size={20} /></button>
       </header>
       <ExampleNotice plan={plan} />
+
+      <section aria-label="Огляд тренування" className="protocol-card space-y-4 p-5">
+        <div className="flex items-center justify-between gap-3">
+          <span className="protocol-eyebrow">{existing ? 'Записане тренування' : 'Ваш план на сьогодні'}</span>
+          <span className="rounded-full bg-accent/10 px-3 py-1 text-xs font-semibold text-accent">{L.week(week)}</span>
+        </div>
+        <div>
+          <h2 className="text-2xl font-semibold tracking-tight">{existing ? 'Ваш результат' : 'Рух у своєму темпі'}</h2>
+          <p className="mt-1 text-sm text-muted">{existing ? 'Перегляньте або відредагуйте виконані вправи.' : 'План можна змінювати під свій стан. Почніть із комфортного навантаження.'}</p>
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          <div className="rounded-2xl bg-bg p-3"><Dumbbell size={18} className="mb-2 text-accent" aria-hidden /><p className="text-xl font-semibold tabular">{draft.exercises.length}</p><p className="text-xs text-muted">Вправ</p></div>
+          <div className="rounded-2xl bg-bg p-3"><Check size={18} className="mb-2 text-accent" aria-hidden /><p className="text-xl font-semibold tabular">{draft.exercises.reduce((n, ex) => n + ex.sets.length, 0)}</p><p className="text-xs text-muted">{existing ? 'Підходів у записі' : 'Підходів у плані'}</p></div>
+          <div className="rounded-2xl bg-bg p-3"><Clock3 size={18} className="mb-2 text-accent" aria-hidden /><p className="text-xl font-semibold tabular">{existing ? existing.durationMin : '—'}</p><p className="text-xs text-muted">{existing ? 'Записано, хв' : 'Хвилин — після запису'}</p></div>
+        </div>
+        <button type="button" onClick={() => { exercisesHeading.current?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth', block: 'start' }); exercisesHeading.current?.focus({ preventScroll: true }); }} className="flex min-h-tap items-center justify-center rounded-xl bg-accent px-4 font-semibold text-surface">{existing ? 'Переглянути вправи' : 'Перейти до вправ'}</button>
+      </section>
+
+      {draft.exercises.length > 0 && (
+        <div className="rounded-2xl border border-line bg-surface p-3">
+          <button type="button" aria-pressed={focused} onClick={() => setFocused((v) => !v)}
+            className="flex min-h-tap w-full items-center justify-center rounded-xl border border-accent px-4 font-semibold text-accent">
+            {focused ? 'Показати всі вправи' : 'Тренуватися по одній вправі'}
+          </button>
+          {focused && <div role="group" className="mt-3 flex items-center justify-between gap-2" aria-label="Навігація вправами">
+            <button type="button" disabled={activeExercise === 0} onClick={() => setActiveExercise(activeExercise - 1)}
+              className="min-h-tap rounded-xl border border-line px-3 disabled:opacity-40">← Назад</button>
+            <span role="status" className="text-sm font-medium tabular">Вправа {activeExercise + 1} з {draft.exercises.length}</span>
+            <button type="button" disabled={activeExercise >= draft.exercises.length - 1} onClick={() => setActiveExercise(activeExercise + 1)}
+              className="min-h-tap rounded-xl border border-line px-3 disabled:opacity-40">Далі →</button>
+          </div>}
+          {focused && <p className="mt-2 text-center text-xs text-muted">Заповнюйте підходи у своєму темпі. Дані залишаються в чернетці до збереження.</p>}
+        </div>
+      )}
 
       {(() => { // D61: the week in numbers, personal bests of the last workout
         const m = motivation(workouts, date);
@@ -123,7 +162,9 @@ export function Workout() {
         </p>
       )}
 
+      <h2 ref={exercisesHeading} tabIndex={-1} id="workout-exercises" className="scroll-mt-6 text-lg font-semibold">Вправи тренування</h2>
       {draft.exercises.map((ex, i) => {
+        if (focused && i !== activeExercise) return null;
         const lib = exerciseOf(ex);
         const timed = lib?.timed ?? ex.name === 'Планка';
         const hint = pressHint(ex);

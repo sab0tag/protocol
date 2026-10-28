@@ -45,10 +45,14 @@ export class ClinicDirectory {
     const n = name.trim(), a = adminName.trim();
     if (!n || !a || n.length > 200 || a.length > 200) throw new ClinicError('bad_request');
     const orgId = randomUUID(), adminId = randomUUID(), token = newToken();
-    this.db.prepare('INSERT INTO clinic_orgs (id, name, created) VALUES (?, ?, ?)').run(orgId, n, this.now());
-    this.db.prepare('INSERT INTO clinic_members (id, org, name, role, token_hash, created) VALUES (?, ?, ?, ?, ?, ?)')
-      .run(adminId, orgId, a, 'admin', hash(token), this.now());
-    this.audit(orgId, adminId, 'org.create', orgId);
+    this.db.exec('BEGIN'); // never an organization without its admin
+    try {
+      this.db.prepare('INSERT INTO clinic_orgs (id, name, created) VALUES (?, ?, ?)').run(orgId, n, this.now());
+      this.db.prepare('INSERT INTO clinic_members (id, org, name, role, token_hash, created) VALUES (?, ?, ?, ?, ?, ?)')
+        .run(adminId, orgId, a, 'admin', hash(token), this.now());
+      this.audit(orgId, adminId, 'org.create', orgId);
+      this.db.exec('COMMIT');
+    } catch (e) { this.db.exec('ROLLBACK'); throw e; }
     return { orgId, adminId, token };
   }
 
