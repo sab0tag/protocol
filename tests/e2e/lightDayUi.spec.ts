@@ -68,7 +68,7 @@ test('a saved symptom offers light day with wellbeing off; a low saved energy sc
   expect((await rows(page, 'entries')).filter((e) => e.kind === 'symptom')).toHaveLength(1);
   await page.getByRole('button', { name: 'Повернути звичайний день', exact: true }).click();
   await page.goto('./#/modules'); await page.getByRole('switch', { name: 'Самопочуття', exact: true }).click();
-  await page.goto('./#/wellbeing'); await page.getByRole('button', { name: 'Енергія: 1', exact: true }).click();
+  await page.goto('./#/wellbeing'); await page.getByRole('button', { name: /^Енергія: 1 —/ }).click();
   await expect(page.getByRole('button', { name: 'Легкий день', exact: true })).toBeVisible();
   expect((await rows(page, 'wellbeing'))[0].energy).toBe(1);
 });
