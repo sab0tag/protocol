@@ -17,7 +17,8 @@ interface StoredTransfer {
  */
 export class InMemoryPlanTransfer {
   private readonly entries = new Map<string, StoredTransfer>();
-  constructor(private readonly now: () => number = Date.now) {}
+  private readonly now: () => number;
+  constructor(now: () => number = Date.now) { this.now = now; }
 
   issue(input: unknown, options: { organizationId: string; ttlMs: number }): { token: string; expiresAt: number } {
     const plan = validateCarePlanV1(input);
