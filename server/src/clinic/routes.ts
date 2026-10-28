@@ -35,7 +35,7 @@ export function mountClinic(app: Hono, o: { dir: ClinicDirectory; delivery: Plan
   const body = async (c: Context) => ((await c.req.json().catch(() => null)) ?? {}) as Record<string, unknown>;
   const id = (c: Context) => { const v = c.req.param('id') ?? ''; if (!ID.test(v)) throw new ClinicError('not_found'); return v; };
 
-  app.get('/v1/clinic/me', (c) => run(c, (a) => ({ memberId: a.memberId, role: a.role })));
+  app.get('/v1/clinic/me', (c) => run(c, (a) => dir.profile(a)));
   app.get('/v1/clinic/staff', (c) => run(c, (a) => ({ staff: dir.listStaff(a) })));
   app.post('/v1/clinic/staff', small, (c) => run(c, async (a) => {
     const b = await body(c);

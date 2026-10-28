@@ -23,6 +23,7 @@ export const ROUTES = {
   planCheckup:  { path: '/plan/checkup',     feature: 'plan' },
   planScan:     { path: '/plan/scan',        feature: 'plan.scan' },
   planHistory:  { path: '/plan/history',     feature: 'plan' },
+  clinicPortal: { path: '/clinic',          feature: 'clinic.portal' },
   planImport:   { path: '/plan/import',      feature: 'plan' },
   onboarding:   { path: '/welcome',         feature: 'onboarding' },
   progress:     { path: '/progress',        feature: 'progress' },
