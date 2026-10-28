@@ -46,7 +46,7 @@ export function DayRhythm({ date, rhythm, foods, onEntry, onDose, onAnytime, onA
       {rhythm.nodes.length === 0
         ? empty && <p className="py-4 text-muted">{L.empty}</p>
         : <ol className="relative space-y-1">{rhythm.nodes.map((n, k) => <Node key={k} phase={phases[k]!} node={n} last={k === rhythm.nodes.length - 1} foods={foods} onEntry={onEntry} onDose={onDose} />)}</ol>}
-      {<button type="button" onClick={onAdd} className="protocol-action-secondary mt-3 w-full"><Plus size={18} aria-hidden />{L.addOther}</button>}
+      {!empty && <button type="button" onClick={onAdd} className="protocol-action-secondary mt-3 w-full"><Plus size={18} aria-hidden />{L.addOther}</button>}
     </section>
   );
 }
