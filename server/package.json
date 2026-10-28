@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "start": "node src/main.ts",
+    "clinic:create": "node src/clinic/createOrg.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "ai:smoke:openrouter": "node src/ai/smokeOpenRouter.ts",
