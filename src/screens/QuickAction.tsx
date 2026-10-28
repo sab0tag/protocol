@@ -14,8 +14,22 @@ import type { Observation } from '../domain/observation';
 import type { DayEntry } from '../domain/types';
 import { t } from '../i18n/uk';
 import { useUi } from '../store/ui';
+import { useFeatures } from '../app/features';
+import { QUICK_ACTION_FEATURES } from '../app/navigation';
+import { FeatureUnavailable } from '../components/FeatureUnavailable';
+import { can } from '../domain/features';
+import { modulePreferences } from '../domain/modulePreferences';
+import { MODULE_POLICY_ENABLED } from '../domain/rollout';
 
 export function QuickAction() {
+  const { action } = useParams();
+  const { can } = useFeatures();
+  const location = useLocation();
+  const feature = action && Object.hasOwn(QUICK_ACTION_FEATURES, action) ? QUICK_ACTION_FEATURES[action as keyof typeof QUICK_ACTION_FEATURES] : undefined;
+  return feature && !can(feature) ? <FeatureUnavailable feature={feature} /> : <ActiveQuickAction key={`${action}:${location.key}`} />;
+}
+
+function ActiveQuickAction() {
   const { action } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
@@ -31,6 +45,9 @@ export function QuickAction() {
 }
 
 async function run(action: string, ml: number, observation?: Observation): Promise<string> {
+  const events = MODULE_POLICY_ENABLED ? await db.moduleEvents.toArray() : [];
+  const feature = Object.hasOwn(QUICK_ACTION_FEATURES, action) ? QUICK_ACTION_FEATURES[action as keyof typeof QUICK_ACTION_FEATURES] : undefined;
+  if (MODULE_POLICY_ENABLED && feature && !can(feature, { ...modulePreferences(events), tier: 'free' })) return '/modules';
   const date = todayISO(), now = format(new Date(), 'HH:mm');
   useUi.getState().setDate(date);
   if (action === 'water') {

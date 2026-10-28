@@ -12,9 +12,9 @@ import { t } from '../i18n/uk';
 
 const L = t.day;
 
-export function DayRhythm({ date, rhythm, foods, onEntry, onDose, onAnytime, onAdd, onYesterday, title = L.rhythm }: {
+export function DayRhythm({ date, rhythm, foods, onEntry, onDose, onAnytime, onAdd, onYesterday, title = L.rhythm, addLabel = L.addOther }: {
   date: string; rhythm: Rhythm; foods?: Map<string, Food>; title?: string;
-  onEntry: (e: DayEntry) => void; onDose: (i: CheckItem) => void; onAnytime: (i: CheckItem) => void; onAdd: () => void; onYesterday: () => void;
+  onEntry: (e: DayEntry) => void; onDose: (i: CheckItem) => void; onAnytime: (i: CheckItem) => void; onAdd: () => void; onYesterday?: () => void; addLabel?: string;
 }) {
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
@@ -29,9 +29,9 @@ export function DayRhythm({ date, rhythm, foods, onEntry, onDose, onAnytime, onA
     <section aria-labelledby="rhythm" className="protocol-card mb-4 p-4 sm:p-5">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <h2 id="rhythm" className="text-xl font-semibold">{title}</h2>
-        <button type="button" onClick={onYesterday} className="flex min-h-tap shrink-0 items-center gap-1 rounded-xl px-2 text-sm font-medium text-accent">
+        {onYesterday && <button type="button" onClick={onYesterday} className="flex min-h-tap shrink-0 items-center gap-1 rounded-xl px-2 text-sm font-medium text-accent">
           <Undo2 size={16} aria-hidden />{L.likeYesterday}
-        </button>
+        </button>}
       </div>
       {rhythm.anytime.length > 0 && (
         <div className="mb-2 flex flex-wrap items-center gap-2">
@@ -46,7 +46,7 @@ export function DayRhythm({ date, rhythm, foods, onEntry, onDose, onAnytime, onA
       {rhythm.nodes.length === 0
         ? empty && <p className="py-4 text-muted">{L.empty}</p>
         : <ol className="relative space-y-1">{rhythm.nodes.map((n, k) => <Node key={k} phase={phases[k]!} node={n} last={k === rhythm.nodes.length - 1} foods={foods} onEntry={onEntry} onDose={onDose} />)}</ol>}
-      {!empty && <button type="button" onClick={onAdd} className="protocol-action-secondary mt-3 w-full"><Plus size={18} aria-hidden />{L.addOther}</button>}
+      {!empty && <button type="button" onClick={onAdd} className="protocol-action-secondary mt-3 w-full"><Plus size={18} aria-hidden />{addLabel}</button>}
     </section>
   );
 }

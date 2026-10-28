@@ -1,3 +1,5 @@
+import { useFeatures } from '../app/features';
+import { entryVisible } from '../domain/visibility';
 import { format } from 'date-fns';
 import { saved } from './Toast';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -22,13 +24,14 @@ const label = 'text-sm font-semibold uppercase tracking-wider text-muted';
  *  «Далі» — the next item, when nothing is due. A reminder opens to this. An earlier day shows only its own
  *  «Не відмічено» (D52) — today's screen never collects yesterday's. */
 export function NowCard({ entries, plan, date, observation, onConfirm }: { entries: DayEntry[]; plan: Plan | undefined; date: string; observation?: Observation; onConfirm: (e: DayEntry) => void }) {
+  const { can, context } = useFeatures();
   const [clock, setClock] = useState(() => new Date());
   useEffect(() => { const id = setInterval(() => setClock(new Date()), 30_000); return () => clearInterval(id); }, []);
   const synced = useLiveQuery(async () => (await db.meta.get('sync'))?.snoozed ?? {}, [], undefined);
   const today = todayISO();
   if (synced === undefined || date > today) return null;
   const now = date === today ? clock : new Date(`${date}T23:59:00`);
-  const focus = dayFocus({ entries, plan, date, now, observation, snoozed: { ...localSnoozed, ...synced } });
+  const focus = dayFocus({ entries: entries.filter((e) => entryVisible(e, context)), plan: plan && !can('meds.log') ? { ...plan, prescriptions: [] } : plan, date, now, observation, snoozed: { ...localSnoozed, ...synced } });
   if (!focus.now && !focus.next && !focus.missed.length) return null;
   return (
     <div className="mb-3 space-y-3">

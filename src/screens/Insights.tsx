@@ -6,8 +6,10 @@ import { t } from '../i18n/uk';
 import { Link } from 'react-router-dom';
 import { useObservation } from '../app/observation';
 import { ExampleNotice } from '../components/ExampleNotice';
+import { useFeatures } from '../app/features';
 
 export function Insights() {
+  const { can } = useFeatures();
   const { observation, ready: observationReady } = useObservation();
   const plan = usePlan();
   const entries = useAllEntries();
@@ -15,7 +17,8 @@ export function Insights() {
   const workouts = useWorkouts();
   const foods = useFoods();
   if (!entries || !wellbeing || !workouts || !foods || !observationReady) return <Loading />;
-  const found = patterns({ entries, wellbeing, workouts, foods, observation, ...(plan ? { plan } : {}) });
+  const found = patterns({ entries: can('food.log') ? entries : [], wellbeing: can('wellbeing.log') ? wellbeing : [], // D137
+    workouts: can('workout.log') ? workouts : [], foods, observation, ...(plan ? { plan } : {}) });
 
   return (
     <section className="space-y-4 pt-4">

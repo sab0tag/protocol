@@ -22,6 +22,8 @@ interface Props {
   onWater: () => Promise<Undo | undefined>;
   /** Keep the first screen clear; the floating actions return after the quick tiles leave view. */
   hidden?: boolean;
+  /** D137: the water module is off */
+  hideWater?: boolean;
 }
 
 /** D82: whether an element is on screen now (for the dock — hidden while the quick tiles are in view). */
@@ -39,7 +41,7 @@ export function useOnScreen<T extends Element>(): [(el: T | null) => void, boole
 
 let seq = 0;
 
-export function QuickDock({ med, meds, water, onMed, onWater, hidden }: Props) {
+export function QuickDock({ med, meds, water, onMed, onWater, hidden, hideWater }: Props) {
   const [note, setNote] = useState<Note | null>(null);
   useEffect(() => {
     if (!note) return;
@@ -65,6 +67,7 @@ export function QuickDock({ med, meds, water, onMed, onWater, hidden }: Props) {
     </div>
   );
 
+  if (hideWater && !meds.total) return null;
   return (
     <div role="group" aria-label={L.label}
       className={`fixed bottom-[calc(8.75rem+env(safe-area-inset-bottom))] right-4 z-20 flex-col gap-3 print:hidden md:bottom-8 md:right-8 ${hidden ? 'hidden' : 'flex'}`}>
@@ -80,12 +83,12 @@ export function QuickDock({ med, meds, water, onMed, onWater, hidden }: Props) {
           </Round>
         </div>
       )}
-      <div className="relative">
+      {!hideWater && <div className="relative">
         {bubble('water')}
         <Round progress={water.target ? water.ml / water.target : undefined} tone="water" onClick={() => void run('water', onWater, '')} label={L.water(water.ml, water.target)}>
           <Droplet size={22} className="text-water" aria-hidden />
         </Round>
-      </div>
+      </div>}
     </div>
   );
 }
