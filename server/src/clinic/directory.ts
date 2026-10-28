@@ -69,6 +69,14 @@ export class ClinicDirectory {
     if (!isRole(live.role) || !can(live.role, action)) throw new ClinicError('forbidden');
   }
 
+  /** What the portal needs to compose a plan: the caller's own name and organization. */
+  profile(actor: Actor): { memberId: string; role: Role; displayName: string; organizationId: string; organizationName: string } {
+    const r = this.db.prepare('SELECT m.name AS name, m.role AS role, m.active AS active, o.name AS org FROM clinic_members m JOIN clinic_orgs o ON o.id = m.org WHERE m.id = ? AND m.org = ?')
+      .get(actor.memberId, actor.orgId) as { name: string; role: Role; active: number; org: string } | undefined;
+    if (!r || !r.active) throw new ClinicError('unauthenticated');
+    return { memberId: actor.memberId, role: r.role, displayName: r.name, organizationId: actor.orgId, organizationName: r.org };
+  }
+
   addStaff(actor: Actor, input: { displayName: string; role: Role }): { memberId: string; token: string } {
     this.require(actor, 'staff.manage');
     const name = input.displayName.trim();

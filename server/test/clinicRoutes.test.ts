@@ -33,7 +33,7 @@ describe('clinic API', () => {
   it('admin manages staff; the new doctor then works with the returned token', async () => {
     const { call, a } = rig();
     const me = await call(a.token, 'GET', '/me');
-    expect(me).toMatchObject({ status: 200, cache: 'no-store', json: { role: 'admin' } });
+    expect(me).toMatchObject({ status: 200, cache: 'no-store', json: { role: 'admin', displayName: 'Адмін А', organizationName: 'Клініка А', organizationId: a.orgId } });
     const added = await call(a.token, 'POST', '/staff', { displayName: 'Лікар', role: 'doctor' });
     expect(added.status).toBe(201);
     expect((await call(added.json.token, 'GET', '/me')).json.role).toBe('doctor');
