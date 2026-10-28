@@ -1,7 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { device } from './helpers';
 import { t } from '../../src/i18n/uk';
-import { SYMPTOMS } from '../../src/domain/symptoms';
 
 test('prescription sheet wraps Tab in both directions and restores focus on Escape and backdrop close', async ({ browser }) => {
   const page = await device(browser);
@@ -33,7 +32,7 @@ test('a symptom sheet recalculates its last tab stop when save becomes enabled',
   await close.focus(); await page.keyboard.press('Shift+Tab');
   await expect(save).not.toBeFocused();
   expect(await dialog.evaluate(element => element.contains(document.activeElement))).toBe(true);
-  await dialog.getByRole('button', { name: SYMPTOMS[0]!, exact: true }).click();
+  await dialog.getByRole('button', { name: 'Здуття', exact: true }).click();
   await expect(save).toBeEnabled();
   await close.focus(); await page.keyboard.press('Shift+Tab'); await expect(save).toBeFocused();
   await page.keyboard.press('Tab'); await expect(close).toBeFocused();
