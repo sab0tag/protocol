@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { device } from './helpers';
+import { t } from '../../src/i18n/uk';
 
 test('a diet of Наказ №931: «стіл 5» suggests ЩД to confirm, its rules not set up said plainly, norms fill only empty targets after a preview and marked, a doctor\'s target outside the norm is a question (D90, R02)', async ({ browser }) => {
   const page = await device(browser, 'skip');
@@ -22,7 +23,7 @@ test('a diet of Наказ №931: «стіл 5» suggests ЩД to confirm, its 
   await page.goto('./#/meal/new');
   await page.getByRole('searchbox').fill('гречка');
   await page.getByRole('button', { name: /^Гречка варена/ }).first().click();
-  await expect(page.getByText('Зауважень немає — за налаштованими правилами')).toBeVisible();
+  await expect(page.locator('[data-plan-status="incomplete"]')).toContainText(t.meal.planIncomplete);
   await expect(page.getByText(/ЩД: дієту збережено; автоматичну перевірку її правил ще не налаштовано/)).toBeVisible();
   await expect(page.getByText('Підходить', { exact: true })).toHaveCount(0);
   await page.goto('./#/plan/goals');
