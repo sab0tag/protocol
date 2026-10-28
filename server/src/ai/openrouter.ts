@@ -11,7 +11,7 @@ export interface OpenRouterOptions {
   /** Upstream providers OpenRouter may use; fallback to others is always disabled. */
   allowedUpstream?: readonly string[];
   timeoutMs?: number;
-  /** Retries of the same model on 429/5xx only. Never switches model (no costlier fallback). */
+  /** Explicit opt-in retries for HTTP 429/5xx only. May incur additional provider charges. */
   retries?: number;
   baseUrl?: string;
   fetch?: typeof fetch;
@@ -35,7 +35,7 @@ export function openRouterProvider(options: OpenRouterOptions): AiProvider {
         provider: { allow_fallbacks: false, ...(options.allowedUpstream ? { only: options.allowedUpstream } : {}) },
         usage: { include: true },
       });
-      const attempts = 1 + Math.max(0, options.retries ?? 1);
+      const attempts = 1 + Math.max(0, options.retries ?? 0);
       let last: OpenRouterError = new OpenRouterError('http', 'OpenRouter request failed');
       for (let i = 0; i < attempts; i++) {
         let res: Response;
@@ -48,15 +48,20 @@ export function openRouterProvider(options: OpenRouterOptions): AiProvider {
           });
         } catch (e) {
           last = new OpenRouterError(e instanceof Error && e.name === 'TimeoutError' ? 'timeout' : 'http', 'OpenRouter unreachable');
-          continue;
+          // An ambiguous network failure may have been billed upstream. Never replay it.
+          throw last;
         }
         if (res.status === 429 || res.status >= 500) { last = new OpenRouterError('http', `OpenRouter status ${res.status}`); continue; }
         if (!res.ok) throw new OpenRouterError('http', `OpenRouter status ${res.status}`);
-        const data = await res.json() as { model?: string; choices?: { message?: { content?: string; refusal?: string | null } }[];
+        const data = await res.json() as { model?: string; choices?: { finish_reason?: string | null; error?: unknown; message?: { content?: string | null; refusal?: string | null } }[];
           usage?: { prompt_tokens?: number; completion_tokens?: number; cost?: number } };
         const usage = { provider: 'openrouter' as const, model: data.model ?? route.model, input: data.usage?.prompt_tokens ?? 0,
           output: data.usage?.completion_tokens ?? 0, ...(data.usage?.cost !== undefined ? { costUsd: data.usage.cost } : {}) };
-        const message = data.choices?.[0]?.message;
+        const choice = data.choices?.[0];
+        if (choice?.error || choice?.finish_reason === 'error') throw new OpenRouterError('http', 'Model returned an error');
+        if (choice?.finish_reason === 'length') throw new OpenRouterError('invalid_output', 'Model response was truncated');
+        if (choice?.finish_reason === 'content_filter') return { result: 'refused', usage };
+        const message = choice?.message;
         if (message?.refusal) return { result: 'refused', usage };
         let parsed: unknown;
         try { parsed = JSON.parse(message?.content ?? ''); } catch { throw new OpenRouterError('invalid_output', 'Model returned invalid JSON'); }
