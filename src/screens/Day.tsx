@@ -251,7 +251,7 @@ export function Day() {
       )}
 
       {isToday && plan && entries && <PrnCard plan={plan} date={date} entries={entries} /> /* D118 */}
-      {rhythm && <DayRhythm title={isToday ? t.day.upcoming : t.day.rhythm} rhythm={rhythm} foods={foods} onYesterday={() => setYesterday(true)} onEntry={(e) => (e.kind === 'meal' && e.status === 'planned' && e.items?.length ? setConfirming(e) : setRowFor(e))} onDose={setAskMed} onAdd={() => setAdding(true)}
+      {rhythm && <DayRhythm date={date} title={isToday ? t.day.upcoming : t.day.rhythm} rhythm={rhythm} foods={foods} onYesterday={() => setYesterday(true)} onEntry={(e) => (e.kind === 'meal' && e.status === 'planned' && e.items?.length ? setConfirming(e) : setRowFor(e))} onDose={setAskMed} onAdd={() => setAdding(true)}
         onAnytime={(i) => (i.kind === 'workout' ? navigate('/workout') : setAskMed(i))} />}
       {totals && <DaySummary title={isToday ? t.summary.title : t.summary.forDay} totals={totals} targets={targets} allowed={allowedMetrics} meds={{ done: meds.filter((i) => i.done).length, total: meds.length }}
         {...(isToday && best ? { streak: t.day.streak(t.progress.habit[best.key], best.streak) } : {})}

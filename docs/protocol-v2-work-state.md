@@ -66,3 +66,15 @@ Branch `feat/protocol-plan-backup`, stacked on storage PR #36 (head `dad4cc8`). 
 - Retained older identity format is supported; new legacy ids are owner-independent because local profile ids differ between devices. This is not cross-person sharing or server authorization.
 - 534 client tests, build/typecheck and 55 focused backup/domain/storage/legacy cases passed. Browser backup/upgrade/preference cases 3/3 passed. Confirmation visually checked 320/1024 light/dark; no personal screenshots or medical records published.
 - Next: complete #36/#37 CI/review; implement encrypted sync compatibility and old-client write protection before enabling live multi-plan consumers. New source data must never be silently omitted by a claimed complete backup/sync.
+
+## Calm visual polish — 28 October 2026
+
+Branch `feat/protocol-calm-polish`, base main `28fd5f5`. Owner priorities: expressive landscape/readable header; uniform card spacing/radii/control heights; typography hierarchy; elapsed/nearest/upcoming timeline; small iPhone navigation; helpful empty states; restrained motion.
+
+- Shared card spacing 16/20 px, existing semantic radii and 44 px control minimum. Titles, explanatory labels and numeric values have distinct treatments.
+- Landscape framing/overlays revised, greeting scales to screen width with text shadow; local offline asset preserved.
+- Timeline uses local date/time to distinguish elapsed, next actionable and future rows. Unknown-time entries stay untimed. Clock classification never marks a medicine/meal missed or changes source records. Clock refreshes every 30 seconds and on focus.
+- Active bottom tab has a visible surface; all five tabs retain >=44 px targets at 320/375/390/1024. Empty timeline adds a calm explanation and its existing working add action.
+- Card entry 180 ms, checkbox confirmation 150 ms and existing save toast; new motion is absent for reduced-motion users.
+- Production build passed; 536 client unit tests passed; targeted browser scenario passed across four widths/light/dark and reduced-motion with unchanged statuses. Representative mobile image inspected. Full fresh browser regression running. First browser attempts failed because Chromium was missing after the environment reset; restored the external runtime without changing repo test assertions/configuration.
+- Next: resolve actual regression failures if any, publish PR/CI/preview and inspect remaining captures. Do not claim complete until verified; do not merge/deploy production as part of this styling pass without resolving the prior approval block.
