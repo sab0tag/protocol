@@ -183,7 +183,7 @@ export function Assistant() {
             <p className="mt-1 text-sm text-muted">Оберіть підказку або запитайте своїми словами. Перед передаванням запиту до AI потрібна згода.</p>
           </div>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <button type="button" onClick={() => navigate('/day')} className="min-h-tap rounded-xl border border-line bg-bg p-3 text-left text-sm font-medium">Що мені зараз важливо? <span className="mt-1 block text-xs font-normal text-muted">Відкрити план дня →</span></button>
+            <button type="button" onClick={() => navigate('/')} className="min-h-tap rounded-xl border border-line bg-bg p-3 text-left text-sm font-medium">Що мені зараз важливо? <span className="mt-1 block text-xs font-normal text-muted">Відкрити план дня →</span></button>
             <button type="button" onClick={() => setText('Що приготувати на вечерю з урахуванням мого плану?')} className="min-h-tap rounded-xl border border-line bg-bg p-3 text-left text-sm font-medium">Що приготувати на вечерю? <span className="mt-1 block text-xs font-normal text-muted">Підставити запит для перевірки →</span></button>
             <button type="button" onClick={() => navigate('/week')} className="min-h-tap rounded-xl border border-line bg-bg p-3 text-left text-sm font-medium">Як проходить мій тиждень? <span className="mt-1 block text-xs font-normal text-muted">Відкрити підсумок →</span></button>
             <button type="button" onClick={() => navigate('/report')} className="min-h-tap rounded-xl border border-line bg-bg p-3 text-left text-sm font-medium">Що підготувати до лікаря? <span className="mt-1 block text-xs font-normal text-muted">Відкрити звіт →</span></button>
