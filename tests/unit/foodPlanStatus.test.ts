@@ -27,3 +27,14 @@ it('reports a confirmed allergen inside a recipe even when another ingredient is
   const recipe = { name: 'Synthetic recipe', grams: 200, components: [{ foodId: 'known', name: food.name, grams: 100 }, { name: 'Unknown ingredient', grams: 100 }] };
   expect(foodPlanStatus([{ item: recipe, hits: [] }], foods, plan).state).toBe('allergen');
 });
+
+it('keeps an estimated parent recipe uncertain even when its descendants match known foods — yet names a confirmed allergen inside it', () => {
+  const ingredient = { foodId: 'known', name: food.name, grams: 100 };
+  const recipe = { name: 'Estimated dish', grams: 100, est: { tags: [], allergens: [] }, components: [ingredient] };
+  const result = foodPlanStatus([{ item: recipe, hits: [] }], foods, plan);
+  expect(result.state).toBe('allergen'); expect(result.allergens).not.toEqual([]);
+  const safeFoods = new Map([['known', { ...food, allergens: [] }]]);
+  expect(foodPlanStatus([{ item: recipe, hits: [] }], safeFoods, plan).state).toBe('incomplete');
+  const nested = { name: 'Outer recipe', grams: 100, components: [recipe] };
+  expect(foodPlanStatus([{ item: nested, hits: [] }], safeFoods, plan).state).toBe('incomplete');
+});
