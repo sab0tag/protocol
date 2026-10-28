@@ -56,6 +56,7 @@ test('history corrects a middle result without overwriting another date; a move 
   await expect(page.getByText(/^Історія та виправлення/)).toContainText('3');
   await expect(page.getByRole('button', { name: 'Редагувати результат: Тестовий показник, 2026-10-23', exact: true })).toBeVisible();
   await expect(edit).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Додати результат', exact: true })).toBeFocused();
   await toast(page).getByRole('button', { name: 'Скасувати', exact: true }).click();
   await expect(edit).toBeVisible();
   await edit.click();

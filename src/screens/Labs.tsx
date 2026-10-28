@@ -59,6 +59,8 @@ export function Labs() {
     try {
       const result = await writeLab(db, validation.result, original);
       if (result !== 'saved') { setMessage(result === 'exists' ? L.labExists : L.labChanged); return; }
+      // The old history button will disappear when the live query delivers the moved record.
+      if (original && (original.date !== validation.result.date || original.name !== validation.result.name)) opener.current = add.current;
       const next = { ...original, ...validation.result };
       if (!validation.result.target) delete next.target;
       toast(t.toast.lab(validation.result.name), original ? { undo: async () => {
