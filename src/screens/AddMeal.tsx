@@ -292,8 +292,7 @@ export function AddMeal() {
                       <Trash2 size={18} /></button>
                   </div>
                   <label className="block w-40"><span className="text-sm text-muted">{t.meal.portions}</span>
-                    <input type="number" inputMode="decimal" min={0.5} step={0.5} value={it.recipe?.portions ?? 1} className={field}
-                      onChange={(e) => { const v = Number(e.target.value); if (v > 0) setItems((xs) => xs.map((x, j) => (j === i ? setPortions(x, v) : x))); }} /></label>
+                    <PortionsInput value={it.recipe?.portions ?? 1} onCommit={(v) => setItems((xs) => xs.map((x, j) => (j === i ? setPortions(x, v) : x)))} /></label>
                   <span className="text-xs text-muted">≈ {approxG(it.grams)} г</span>
                   <details className="mt-1">
                     <summary className="min-h-tap cursor-pointer py-2 text-sm text-accent">{t.meal.composition(it.components.length)}</summary>
@@ -608,4 +607,19 @@ function matchHint(it: MealItem): string {
 /** Ids of the foods and dishes this person ate in the last two months (search prefers them — D30). */
 function usualIds(all: DayEntry[] | undefined): Set<string> {
   return new Set(all ? frequentItems(all, todayISO(), 60, 50).map((f) => f.item.recipe?.id ?? f.item.foodId ?? '') : []);
+}
+
+/** Allow the user to clear and replace a number without immediately restoring the old value. */
+function PortionsInput({ value, onCommit }: { value: number; onCommit: (value: number) => void }) {
+  const [draft, setDraft] = useState<string | null>(null);
+  const commit = () => {
+    if (draft === null) return;
+    const next = Number(draft.replace(',', '.'));
+    if (draft.trim() && Number.isFinite(next) && next >= 0.5) onCommit(next);
+    setDraft(null);
+  };
+  return <input type="text" inputMode="decimal" className={field} value={draft ?? String(value)}
+    onChange={(e) => setDraft(e.target.value)} onBlur={commit}
+    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur(); } }}
+    aria-label={t.meal.portions} />;
 }
