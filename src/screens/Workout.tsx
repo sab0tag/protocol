@@ -31,6 +31,8 @@ export function Workout() {
   const workouts = useWorkouts();
   const [draft, setDraft] = useState<W | null>(null);
   const exercisesHeading = useRef<HTMLHeadingElement>(null);
+  const [focused, setFocused] = useState(false);
+  const [activeExercise, setActiveExercise] = useState(0);
   const base0 = useRef(''); // D87: the day's draft as it started — what counts as «nothing typed yet»
 
   const existing = workouts?.find((w) => w.date === date);
@@ -46,11 +48,10 @@ export function Workout() {
     base0.current = JSON.stringify(base);
     const k = kept<{ draft: W; advice: string }>(`workout:${date}`); // D87: sets typed before a locked phone reloaded the page
     setDraft(k?.draft ?? base);
+    setActiveExercise(0); // a new day starts at its first exercise — the last day's index may not exist here
     if (k?.advice) setAiAdvice(k.advice);
   }, [date, workouts === undefined]); // eslint-disable-line react-hooks/exhaustive-deps
   const [card, setCard] = useState<Exercise | null>(null);
-  const [focused, setFocused] = useState(false);
-  const [activeExercise, setActiveExercise] = useState(0);
   const [picking, setPicking] = useState<{ replace?: number } | null>(null); // D60: the library inline — to add, or to replace exercise #
   const [aiAdvice, setAiAdvice] = useState(''); // D63
   useEffect(() => { // D87: kept while it differs from what is stored (or from the fresh day) — gone once recorded
@@ -107,7 +108,7 @@ export function Workout() {
         <div className="grid grid-cols-3 gap-2">
           <div className="rounded-2xl bg-bg p-3"><Dumbbell size={18} className="mb-2 text-accent" aria-hidden /><p className="text-xl font-semibold tabular">{draft.exercises.length}</p><p className="text-xs text-muted">Вправ</p></div>
           <div className="rounded-2xl bg-bg p-3"><Check size={18} className="mb-2 text-accent" aria-hidden /><p className="text-xl font-semibold tabular">{draft.exercises.reduce((n, ex) => n + ex.sets.length, 0)}</p><p className="text-xs text-muted">{existing ? 'Підходів у записі' : 'Підходів у плані'}</p></div>
-          <div className="rounded-2xl bg-bg p-3"><Clock3 size={18} className="mb-2 text-accent" aria-hidden /><p className="text-xl font-semibold tabular">{draft.durationMin}</p><p className="text-xs text-muted">{existing ? 'Записано, хв' : 'У плані, хв'}</p></div>
+          <div className="rounded-2xl bg-bg p-3"><Clock3 size={18} className="mb-2 text-accent" aria-hidden /><p className="text-xl font-semibold tabular">{existing ? existing.durationMin : '—'}</p><p className="text-xs text-muted">{existing ? 'Записано, хв' : 'Хвилин — після запису'}</p></div>
         </div>
         <button type="button" onClick={() => { exercisesHeading.current?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth', block: 'start' }); exercisesHeading.current?.focus({ preventScroll: true }); }} className="flex min-h-tap items-center justify-center rounded-xl bg-accent px-4 font-semibold text-surface">{existing ? 'Переглянути вправи' : 'Перейти до вправ'}</button>
       </section>
@@ -118,7 +119,7 @@ export function Workout() {
             className="flex min-h-tap w-full items-center justify-center rounded-xl border border-accent px-4 font-semibold text-accent">
             {focused ? 'Показати всі вправи' : 'Тренуватися по одній вправі'}
           </button>
-          {focused && <div className="mt-3 flex items-center justify-between gap-2" aria-label="Навігація вправами">
+          {focused && <div role="group" className="mt-3 flex items-center justify-between gap-2" aria-label="Навігація вправами">
             <button type="button" disabled={activeExercise === 0} onClick={() => setActiveExercise((i) => Math.max(0, i - 1))}
               className="min-h-tap rounded-xl border border-line px-3 disabled:opacity-40">← Назад</button>
             <span role="status" className="text-sm font-medium tabular">Вправа {activeExercise + 1} з {draft.exercises.length}</span>
