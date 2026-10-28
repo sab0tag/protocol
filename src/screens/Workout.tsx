@@ -48,6 +48,8 @@ export function Workout() {
     if (k?.advice) setAiAdvice(k.advice);
   }, [date, workouts === undefined]); // eslint-disable-line react-hooks/exhaustive-deps
   const [card, setCard] = useState<Exercise | null>(null);
+  const [focused, setFocused] = useState(false);
+  const [activeExercise, setActiveExercise] = useState(0);
   const [picking, setPicking] = useState<{ replace?: number } | null>(null); // D60: the library inline — to add, or to replace exercise #
   const [aiAdvice, setAiAdvice] = useState(''); // D63
   useEffect(() => { // D87: kept while it differs from what is stored (or from the fresh day) — gone once recorded
@@ -63,7 +65,7 @@ export function Workout() {
   const schedule = workoutDay(plan, workouts.filter((w) => w.date !== date), date);
   const add = (e: Exercise) => { setDraft({ ...draft, exercises: [...draft.exercises, blankExercise(e)] }); setPicking(null); };
   const replace = (i: number, e: Exercise) => { setDraft({ ...draft, exercises: draft.exercises.map((x, j) => (j === i ? blankExercise(e) : x)) }); setPicking(null); };
-  const remove = (i: number) => setDraft({ ...draft, exercises: draft.exercises.filter((_, j) => j !== i) });
+  const remove = (i: number) => { setDraft({ ...draft, exercises: draft.exercises.filter((_, j) => j !== i) }); setActiveExercise((n) => Math.max(0, Math.min(n, draft.exercises.length - 2))); };
 
   const setEx = (i: number, ex: WorkoutExercise) => setDraft({ ...draft, exercises: draft.exercises.map((x, j) => (j === i ? ex : x)) });
   // D76: unsaved = the draft differs from what is stored (a new day's draft is unsaved until recorded)
@@ -108,6 +110,23 @@ export function Workout() {
         <button type="button" onClick={() => { exercisesHeading.current?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth', block: 'start' }); exercisesHeading.current?.focus({ preventScroll: true }); }} className="flex min-h-tap items-center justify-center rounded-xl bg-accent px-4 font-semibold text-surface">{existing ? 'Переглянути вправи' : 'Перейти до вправ'}</button>
       </section>
 
+      {draft.exercises.length > 0 && (
+        <div className="rounded-2xl border border-line bg-surface p-3">
+          <button type="button" aria-pressed={focused} onClick={() => { setFocused((v) => !v); setActiveExercise((i) => Math.min(i, draft.exercises.length - 1)); }}
+            className="flex min-h-tap w-full items-center justify-center rounded-xl border border-accent px-4 font-semibold text-accent">
+            {focused ? 'Показати всі вправи' : 'Тренуватися по одній вправі'}
+          </button>
+          {focused && <div className="mt-3 flex items-center justify-between gap-2" aria-label="Навігація вправами">
+            <button type="button" disabled={activeExercise === 0} onClick={() => setActiveExercise((i) => Math.max(0, i - 1))}
+              className="min-h-tap rounded-xl border border-line px-3 disabled:opacity-40">← Назад</button>
+            <span role="status" className="text-sm font-medium tabular">Вправа {activeExercise + 1} з {draft.exercises.length}</span>
+            <button type="button" disabled={activeExercise >= draft.exercises.length - 1} onClick={() => setActiveExercise((i) => Math.min(draft.exercises.length - 1, i + 1))}
+              className="min-h-tap rounded-xl border border-line px-3 disabled:opacity-40">Далі →</button>
+          </div>}
+          {focused && <p className="mt-2 text-center text-xs text-muted">Заповнюйте підходи у своєму темпі. Дані залишаються в чернетці до збереження.</p>}
+        </div>
+      )}
+
       {(() => { // D61: the week in numbers, personal bests of the last workout
         const m = motivation(workouts, date);
         if (!m.week && !m.records.length) return null;
@@ -141,6 +160,7 @@ export function Workout() {
 
       <h2 ref={exercisesHeading} tabIndex={-1} id="workout-exercises" className="scroll-mt-6 text-lg font-semibold">Вправи тренування</h2>
       {draft.exercises.map((ex, i) => {
+        if (focused && i !== activeExercise) return null;
         const lib = exerciseOf(ex);
         const timed = lib?.timed ?? ex.name === 'Планка';
         const hint = pressHint(ex);
