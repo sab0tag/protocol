@@ -4,6 +4,12 @@ import type { z } from 'zod';
 export type AiTask = 'medical_document' | 'medical_labs' | 'food_photo' | 'food_label'
   | 'nutrition_assistant' | 'meal_generation' | 'workout_generation' | 'general_assistant';
 export type AiDataClass = 'medical' | 'general';
+
+/** Only explicitly synthetic or content-free tasks may use general routes by default. */
+const SENSITIVE_TASKS: ReadonlySet<AiTask> = new Set([
+  'medical_document', 'medical_labs', 'food_photo', 'food_label',
+  'nutrition_assistant', 'meal_generation', 'workout_generation',
+]);
 export type AiProviderId = 'anthropic' | 'openrouter';
 
 export interface AiRoute {
@@ -50,8 +56,11 @@ export function chooseRoute(task: AiTask, routes: Readonly<Partial<Record<AiTask
   const route = routes[task];
   if (!route) throw new AiRoutingError('No route configured');
   if (!permittedProviders.includes(route.provider)) throw new AiRoutingError('Provider not permitted for request');
-  if ((task === 'medical_document' || task === 'medical_labs') && route.dataClass !== 'medical')
-    throw new AiRoutingError('Medical task requires medical route');
+  if (SENSITIVE_TASKS.has(task) && route.dataClass !== 'medical')
+    throw new AiRoutingError('Task may contain health information and requires medical route');
+  // OpenRouter is deliberately restricted to general-class traffic regardless of caller permission.
+  if (route.provider === 'openrouter' && route.dataClass !== 'general')
+    throw new AiRoutingError('OpenRouter cannot receive medical-class traffic');
   return route;
 }
 
