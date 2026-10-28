@@ -203,6 +203,25 @@ describe('vault reminder reconciliation (D136)', () => {
     expect(store.reminderPolicy(VAULT).modules.water?.enabled).toBe(false);
   });
 
+  it('keeps a synced manual progress choice over a newer day-eight automatic choice, including stale schedules', async () => {
+    const { store, call, send } = await devices();
+    const automatic = { ...emptyPolicy(), modules: { progress: choice(true, T0) } };
+    const manual = { ...emptyPolicy(), modules: { progress: { ...choice(false, T0 - 60_000), priority: 2 } } };
+    const week = { items: [{ rid: rid('week'), at: T0, payload: { k: 'week' } }], policyVersion: 1 };
+    expect((await call('PUT', policyPath, automatic)).status).toBe(200);
+    await call('PUT', path(DEV), week);
+    expect(store.all('SELECT * FROM reminders')).toHaveLength(1);
+    expect((await call('PUT', policyPath, manual)).status).toBe(200);
+    expect(store.all('SELECT * FROM reminders')).toHaveLength(0);
+    await call('PUT', policyPath, automatic); await call('PUT', path(DEV2), week);
+    expect(store.reminderPolicy(VAULT).modules.progress).toMatchObject({ enabled: false, priority: 2 });
+    expect(await tick(store, send, T0)).toBe(0);
+    expect((await call('PUT', policyPath, { ...emptyPolicy(), modules: { water: { ...choice(false), priority: 2 } } })).status).toBe(400);
+    expect((await call('PUT', policyPath, { ...emptyPolicy(), modules: { progress: { ...choice(true, T0 + 1), priority: 2 } } })).status).toBe(200);
+    await call('PUT', path(DEV), { ...week, items: [{ ...week.items[0], at: T0 + 1 }] });
+    expect(await tick(store, send, T0 + 1)).toBe(1);
+  });
+
   it('rejects malformed policies/schedules atomically and does not misreport unsupported versions', async () => {
     const { store, call } = await devices();
     for (const body of [{ ...waterOff(), v: 2 }, { ...waterOff(), modules: { arbitrary: choice(false) } },

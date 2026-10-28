@@ -67,8 +67,21 @@ test('the example comes with two invented weeks: «Прогрес» and the repo
   await expect(page).toHaveURL(/#\/welcome$/); // the own one, as it was — not onboarded yet
   await page.getByRole('button', { name: /^Пропустити/ }).click();
   await expect(page).toHaveURL(/#\/$/);
+  if (process.env.VITE_MODULE_POLICY_ENABLED === 'true') {
+    await page.goto('./#/progress'); await expect(page.getByRole('heading', { level: 1 })).toHaveText('Розділ вимкнено');
+    await page.goto('./#/modules'); await page.getByRole('switch', { name: 'Прогрес і тиждень', exact: true }).click();
+    await expect(page.getByRole('switch', { name: 'Прогрес і тиждень', exact: true })).toBeChecked();
+  }
   await page.goto('./#/progress');
-  await expect(page.getByText(/Ще немає зважувань/)).toBeVisible();
+  if (process.env.VITE_MODULE_POLICY_ENABLED === 'true') {
+    await expect(page.getByText(/Ще немає зважувань/)).toHaveCount(0); // independent weight remains off
+    const ownWeights = await page.evaluate(async () => {
+      const req = indexedDB.open('protocol'); await new Promise((r) => { req.onsuccess = r; });
+      const get = req.result.transaction('weights').objectStore('weights').count(); await new Promise((r) => { get.onsuccess = r; });
+      req.result.close(); return get.result;
+    });
+    expect(ownWeights).toBe(0); // the example did not leak into the person's database
+  } else await expect(page.getByText(/Ще немає зважувань/)).toBeVisible();
   await page.goto('./#/report');
   await expect(page.getByRole('region', { name: 'Головне' })).toHaveCount(0);
 });

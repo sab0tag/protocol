@@ -21,6 +21,9 @@ import { cut, shrink } from '../sync/shrink';
 import { PhotoPrep } from './PhotoPrep';
 import { count } from '../data/tally';
 import { saved } from './Toast';
+import { MODULE_POLICY_ENABLED } from '../domain/rollout';
+import { ACTIVITY_KINDS } from '../domain/moduleStart';
+import type { Prescription } from '../domain/types';
 
 const L = t.conclusion;
 const P = t.plan;
@@ -269,6 +272,13 @@ export function PlanScan({ plan, onDone, onboarding }: { plan: PlanRow; onDone?:
                             <button type="button" onClick={() => flip(l.key)} aria-pressed={skip.has(l.key)}
                               className="mb-2 ml-8 min-h-[2rem] rounded-full border border-line px-3 text-xs">{skip.has(l.key) ? `${L.skippedMed} · ${L.unskipMed}` : L.skipMed}</button>
                           )}
+                          {MODULE_POLICY_ENABLED && l.kind === 'prescription' && l.prescription.kind === 'lifestyle' && <label className="mb-2 ml-8 block text-sm">
+                            <span>{t.startFlow.activity}</span><select value={l.prescription.activity ?? ''} onChange={(e) => {
+                              const activity = (e.target.value || undefined) as Prescription['activity'];
+                              setLines((rows) => rows.map((row) => row.key === l.key && row.kind === 'prescription' ? { ...row, prescription: { ...row.prescription, activity } } : row));
+                            }} className="mt-1 block min-h-tap w-full rounded-xl border border-line bg-bg px-2">
+                              <option value="">{t.startFlow.noActivity}</option>{ACTIVITY_KINDS.map((kind) => <option key={kind} value={kind}>{t.startFlow.activityKinds[kind]}</option>)}
+                            </select></label>}
                         </li>
                       );
                     })}
@@ -297,7 +307,7 @@ export function PlanScan({ plan, onDone, onboarding }: { plan: PlanRow; onDone?:
             <p aria-live="polite" aria-atomic="true" className="mb-2 text-sm text-muted">{L.selected(on.size, close.size)}</p>
             <div className="flex flex-wrap gap-2">
               <button type="button" disabled={saving || (!on.size && !close.size) || undecided > 0} onClick={() => void save()}
-                className="protocol-action flex-1 disabled:opacity-40">{saving ? L.saving : onboarding ? L.start(on.size) : L.save(on.size + close.size)}</button>
+                className="protocol-action flex-1 disabled:opacity-40">{saving ? L.saving : onboarding ? MODULE_POLICY_ENABLED ? t.startFlow.photoNext : L.start(on.size) : L.save(on.size + close.size)}</button>
               <button type="button" disabled={saving} onClick={() => void pause()} className="protocol-action-secondary disabled:opacity-40">{L.pauseDraft}</button>
             </div>
           </div>
