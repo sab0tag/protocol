@@ -99,4 +99,19 @@ describe('clinic API', () => {
     const app = createApp({ store: new Store(':memory:'), origins: [] });
     expect((await app.request('/v1/clinic/me')).status).toBe(404);
   });
+
+  it('stats: admins only, own organization only, numbers without content', async () => {
+    const { call, a, b, plan } = rig();
+    const doc = (await call(a.token, 'POST', '/staff', { displayName: 'Лікар', role: 'doctor' })).json.token;
+    const other = (await call(b.token, 'POST', '/staff', { displayName: 'Інший', role: 'doctor' })).json.token;
+    const one = (await call(doc, 'POST', '/plans', { plan: plan(a.orgId), patientConsent: true })).json;
+    await call(doc, 'POST', '/plans', { plan: plan(a.orgId), patientConsent: true });
+    await call(doc, 'DELETE', `/plans/${one.deliveryId}`);
+    await call(other, 'POST', '/plans', { plan: plan(b.orgId), patientConsent: true });
+    expect((await call(doc, 'GET', '/stats')).status).toBe(403);
+    const s = (await call(a.token, 'GET', '/stats?days=7')).json;
+    expect(s).toMatchObject({ days: 7, issued: 2, pending: 1, revoked: 1, redeemed: 0, expired: 0 });
+    expect(s.byDoctor).toEqual([{ memberId: expect.any(String), displayName: 'Лікар', issued: 2 }]);
+    expect(JSON.stringify(s)).not.toMatch(/План|code/);
+  });
 });
