@@ -144,6 +144,13 @@ export function Assistant() {
         {msgs.length > 0 && <button type="button" onClick={() => setMsgs([])} className="min-h-tap rounded-xl border border-white/25 px-3 text-sm text-white">{L.newTalk}</button> /* D130 */}
       </SceneHeader>
       <p className="protocol-card rounded-2xl border border-line bg-surface p-3 text-sm">{facts.length ? `${L.today} ${facts.join(' · ')}` : L.noTargetsShort}</p>
+      {msgs.length === 0 && (
+        <div className="flex flex-wrap gap-2" aria-label="Швидкі запитання">
+          {L.chips.map((c, i) => (
+            <button key={c} type="button" onClick={() => (i === 1 ? setText(c) : void ask(c))} className="min-h-tap rounded-full border border-line px-3 text-sm">{c}</button>
+          ))}
+        </div>
+      )}
       <ul className={`${msgs.length ? 'flex-1 ' : ''}space-y-2`} aria-label={L.title} aria-live="polite">
         {msgs.map((m) => (
           <li key={m.id} className={m.role === 'user' ? 'flex justify-end' : ''}>
@@ -182,11 +189,7 @@ export function Assistant() {
             <h2 className="text-lg font-semibold">Чим можу допомогти?</h2>
             <p className="mt-1 text-sm text-muted">Оберіть підказку або запитайте своїми словами. Перед передаванням запиту до AI потрібна згода.</p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {L.chips.map((c, i) => (
-              <button key={c} type="button" onClick={() => (i === 1 ? setText(c) : void ask(c))} className="min-h-tap rounded-full border border-line px-3 text-sm">{c}</button>
-            ))}
-          </div>
+
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <button type="button" onClick={() => navigate('/')} className="min-h-tap rounded-xl border border-line bg-bg p-3 text-left text-sm font-medium">Що мені зараз важливо? <span className="mt-1 block text-xs font-normal text-muted">Відкрити план дня →</span></button>
             <button type="button" onClick={() => setText('Що приготувати на вечерю з урахуванням мого плану?')} className="min-h-tap rounded-xl border border-line bg-bg p-3 text-left text-sm font-medium">Що приготувати на вечерю? <span className="mt-1 block text-xs font-normal text-muted">Підставити запит для перевірки →</span></button>
