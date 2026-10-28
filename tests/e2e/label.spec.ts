@@ -14,6 +14,7 @@ test('a package photo (model stubbed) → checked numbers → own food, added to
       per100g: { kcal: 73, protein: 9.5, fat: 2, carbs: 3.9, calciumMg: null } } });
   });
   await page.goto('./#/meal/new');
+  await page.getByText('Голос та скан етикетки', { exact: true }).click();
   await page.getByRole('button', { name: 'Скан етикетки' }).click();
   await page.getByRole('button', { name: /Фото етикетки/ }).click();
   const [chooser] = await Promise.all([page.waitForEvent('filechooser'), page.getByRole('button', { name: 'Дозволити й вибрати фото' }).click()]);
