@@ -181,9 +181,9 @@ function registered(index: MedIndex, title: string): Prescription['med'] | undef
 }
 
 /** Strict clock values: do not silently drop an unreadable slot or merge duplicate doses. */
-function readTimes(input: string): string[] | undefined {
+export function readTimes(input: string, { allowShortHour = false }: { allowShortHour?: boolean } = {}): string[] | undefined {
   if (!input.trim()) return undefined;
-  const times = input.split(',').map((x) => x.trim());
+  const times = input.split(',').map((x) => x.trim()).map((x) => allowShortHour && /^\d:\d{2}$/.test(x) ? x.padStart(5, '0') : x);
   if (times.length > 24 || times.some((x) => !HHMM.test(x)) || new Set(times).size !== times.length) return undefined;
   return times.sort();
 }

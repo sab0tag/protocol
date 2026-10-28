@@ -1,7 +1,7 @@
 import { PlanOverview } from '../components/PlanOverview';
 import { format, parseISO } from 'date-fns';
 import { ExampleNotice } from '../components/ExampleNotice';
-import { timesToSet } from '../domain/conclusion';
+import { readTimes, timesToSet } from '../domain/conclusion';
 import { Loading } from '../components/Recovery';
 import { saved } from '../components/Toast';
 import { uk } from 'date-fns/locale';
@@ -280,13 +280,17 @@ function PrescriptionForm({ plan, item, onClose }: { plan: PlanRow; item?: Presc
   const drug = p.kind === 'medication' || p.kind === 'supplement';
   const index = useMedIndex(drug); // D89: the register on the device — names only, never a dose
   const suggestions = useMemo(() => (index && drug && !p.med ? searchMeds(index, p.title, 5) : []), [index, drug, p.med, p.title]);
+  const parsedTimes = readTimes(times, { allowShortHour: true });
+  const asNeeded = drug && p.asNeeded;
+  const timeError = !asNeeded && times.trim() && !parsedTimes ? P.invalidTimes : undefined;
   const onSave = () => {
-    const ts = times.split(',').map((x) => x.trim()).filter((x) => /^\d{1,2}:\d{2}$/.test(x)).map((x) => x.padStart(5, '0'));
+    const ts = asNeeded ? [] : parsedTimes ?? [];
     const n = Number(left.replace(',', '.')), per = Number(perDose.replace(',', '.')) || 1;
     const counted = left.trim() === '' ? undefined : String(n) === String(now?.left) && per === item?.stock?.perDose ? item.stock
       : { left: n, perDose: per, at: atLocal(todayISO(), format(new Date(), 'HH:mm')) };
     const { stock: _s, ...rest } = p;
-    const next: Prescription = { ...rest, title: p.title.trim(), ...(ts.length ? { schedule: { times: ts, withFood: p.schedule?.withFood ?? false } } : { schedule: undefined }),
+    const next: Prescription = { ...rest, title: p.title.trim(), ...(ts.length || asNeeded && p.schedule?.withFood != null
+      ? { schedule: { times: ts, withFood: p.schedule?.withFood ?? false } } : { schedule: undefined }),
       ...(counted && n >= 0 ? { stock: counted } : {}) };
     if (item) void photoEdited(item.id, [item.title, item.dose, item.schedule?.times, item.schedule?.withFood, item.asNeeded, item.until, prnLimit(item)],
       [next.title, next.dose, next.schedule?.times, next.schedule?.withFood, next.asNeeded, next.until, prnLimit(next)]);
@@ -294,7 +298,7 @@ function PrescriptionForm({ plan, item, onClose }: { plan: PlanRow; item?: Presc
   };
   return (
     <FormSheet title={item ? P.edit : P.prescriptions} onClose={onClose} onSave={onSave}
-      blocked={drug && p.title.trim() ? (!p.dose?.trim() ? P.needDose : !times.trim() && !p.asNeeded ? P.needTime : undefined) : undefined}
+      blocked={drug && p.title.trim() ? (!p.dose?.trim() ? P.needDose : !times.trim() && !asNeeded ? P.needTime : timeError) : timeError}
       onDelete={item ? () => save({ prescriptions: plan.prescriptions.filter((x) => x.id !== item.id) }) : undefined}>
       <Field label={P.title_}><input required value={p.title} placeholder={drug ? P.medSearch : undefined} className={field}
         onChange={(e) => { const title = e.target.value; const { med: _m, ...rest } = p; setP(p.med && title === p.med.name ? p : { ...rest, title }); }} /></Field>
@@ -320,7 +324,9 @@ function PrescriptionForm({ plan, item, onClose }: { plan: PlanRow; item?: Presc
           {KINDS.map((k) => <option key={k} value={k}>{P.kinds[k]}</option>)}</select></Field>
       <Field label={P.dose}><input value={p.dose ?? ''} onChange={(e) => setP({ ...p, dose: e.target.value || undefined })} className={field} /></Field>
       {drug && <p className={`-mt-2 text-xs ${p.dose?.trim() ? 'text-muted' : 'text-warn'}`}>{p.dose?.trim() ? P.medDoseNote : P.noDose}</p>}
-      <Field label={P.times}><input value={times} onChange={(e) => setTimes(e.target.value)} placeholder={P.timesPh} className={field} /></Field>
+      <Field label={P.times}><input value={times} onChange={(e) => setTimes(e.target.value)} placeholder={P.timesPh} className={field}
+        aria-invalid={!!timeError} aria-describedby={timeError ? 'prescription-times-error' : undefined} /></Field>
+      {timeError && <p id="prescription-times-error" className="-mt-2 text-sm text-warn">{timeError}</p>}
       {drug && (
         <label className="protocol-toggle-row -mt-1 min-h-tap">
           <input type="checkbox" checked={!!p.asNeeded} onChange={(e) => { const { asNeeded: _a, ...rest } = p; setP(e.target.checked ? { ...p, asNeeded: true } : rest); }}
