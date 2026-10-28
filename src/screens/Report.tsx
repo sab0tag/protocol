@@ -10,6 +10,7 @@ import { db } from '../data/db';
 import { useAllEntries, useAllWellbeing, useFoods, useLabs, usePlan, useWeights, useWorkouts } from '../data/queries';
 import { dateOf, todayISO } from '../domain/dates';
 import { buildReport, habitLabel, prnLimitText, reportText, trackingLines, unscoredMedText } from '../domain/report';
+import { labNumber } from '../domain/labs';
 import { useObservation } from '../app/observation';
 import { count } from '../data/tally';
 import { t } from '../i18n/uk';
@@ -72,9 +73,10 @@ export function Report() {
               {x.unmatched > 0 && <span className="block text-sm text-muted">{t.prn.reportUnmatched(x.unmatched)}</span>}</p>
           ))}
           {r.meds && <p>{L.meds(r.meds.taken, r.meds.due)}
-            {r.meds.list.length > 1 ? <span className="mt-1 block space-y-0.5 text-sm text-muted">{r.meds.list.map((m) => <span key={m.title} className="block">{L.medLine(m)}</span>)}</span>
-              : r.meds.missed.length > 0 && <span className="block text-sm text-muted">{r.meds.missed.map((m) => L.missed(m.title, m.count)).join(' · ')}</span>}</p>}
-          {!!r.meds?.unmarked && <p className="text-sm text-muted">Без відмітки: {r.meds.unmarked} доз.</p>}
+            {r.meds.list.length > 1 && <span className="mt-1 block space-y-0.5 text-sm text-muted">{r.meds.list.map((m) => <span key={m.title} className="block">{L.medLine(m)}</span>)}</span>}
+            {r.meds.missed.length > 0 && <span className="block text-sm text-muted">{r.meds.missed.map((m) => L.missed(m.title, m.count)).join(' · ')}</span>}</p>}
+          {!!r.meds?.unmarked && <p className="text-sm text-muted">{L.unmarked(r.meds.unmarked)}</p>}
+          {r.meds && <p className="text-xs text-muted">{L.medsScope}</p>}
           {r.deviations && (r.deviations.meals ? (
             <p>{L.deviations(r.deviations.meals, r.deviations.of)}
               <span className="block text-sm text-muted">{r.deviations.by.map((b) => `${b.title} — ${b.count}`).join(' · ')}</span></p>
@@ -84,7 +86,7 @@ export function Report() {
               <caption className="mb-1 text-left font-medium">{L.labs}</caption>
               <tbody>{r.labs.map((l) => (
                 <tr key={l.date + l.name} className="border-t border-line"><td className="py-1">{l.name}</td>
-                  <td className="py-1 text-right">{num(l.value)} {l.unit}{l.target && <span className="block text-xs text-muted">{t.menu.target} {l.target}</span>}</td>
+                  <td className="py-1 text-right">{labNumber(l.value)} {l.unit}{l.target && <span className="block text-xs text-muted">{t.menu.target} {l.target}</span>}</td>
                   <td className="whitespace-nowrap py-1 pl-2 text-right text-muted">{format(parseISO(l.date), 'dd.MM')}</td></tr>
               ))}</tbody>
             </table>

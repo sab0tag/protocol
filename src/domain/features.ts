@@ -69,6 +69,7 @@ export const FEATURES = {
   'pilot':                { module: null,        tier: 'free' },
   'frictions':            { module: null,        tier: 'free' },
   'about':                { module: null,        tier: 'free' },
+  'clinic.portal':        { module: null,        tier: 'free' },
   'onboarding':           { module: null,        tier: 'free' },
   'more':                 { module: null,        tier: 'free' },
   'modules.settings':     { module: null,        tier: 'free' },

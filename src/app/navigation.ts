@@ -4,6 +4,7 @@ import type { FeatureId } from '../domain/features';
 export const ROUTES = {
   profiles: { path: '/profiles', feature: 'profiles' },
   day:          { path: '/',               feature: 'day' },
+  food: { path: '/food', feature: 'food.log' },
   mealNew:      { path: '/meal/new',       feature: 'food.log' },
   mealEdit:     { path: '/meal/:id',       feature: 'food.log' },
   myDay:        { path: '/my-day',         feature: 'day.checklist' },
@@ -23,6 +24,8 @@ export const ROUTES = {
   planCheckup:  { path: '/plan/checkup',     feature: 'plan' },
   planScan:     { path: '/plan/scan',        feature: 'plan.scan' },
   planHistory:  { path: '/plan/history',     feature: 'plan' },
+  clinicPortal: { path: '/clinic',          feature: 'clinic.portal' },
+  planImport:   { path: '/plan/import',      feature: 'plan' },
   onboarding:   { path: '/welcome',         feature: 'onboarding' },
   progress:     { path: '/progress',        feature: 'progress' },
   progressInsights: { path: '/progress/insights', feature: 'progress.patterns' },
@@ -47,7 +50,7 @@ export const ROUTES = {
 export type RouteId = keyof typeof ROUTES;
 export type StaticRouteId = { [K in RouteId]: (typeof ROUTES)[K]['path'] extends `${string}:${string}` | '*' ? never : K }[RouteId];
 
-export const TAB_ROUTES = ['day', 'mealNew', 'plan', 'progress', 'more'] as const satisfies readonly StaticRouteId[];
+export const TAB_ROUTES = ['day', 'food', 'plan', 'progress', 'more'] as const satisfies readonly StaticRouteId[];
 export type TabRouteId = (typeof TAB_ROUTES)[number];
 
 export const MORE_ROUTE_GROUPS = [

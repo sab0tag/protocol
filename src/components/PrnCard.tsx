@@ -4,12 +4,13 @@
 // says what to do. A limit that cannot be matched to the records says so instead of a remainder. Today's records can be
 // corrected (the amount) or taken out; a double tap makes one record (its id is made when the form opens).
 import { X } from 'lucide-react';
+import { format } from 'date-fns';
 import { useState } from 'react';
 import { db } from '../data/db';
-import { newId, timeOf } from '../domain/dates';
+import { atLocal, newId, timeOf } from '../domain/dates';
 import { prnLimit, prnMeds, prnRecords, prnUsed, proposedAmount } from '../domain/prn';
 import { prnAmountText, prnLimitText } from '../domain/report';
-import { LIMIT_UNITS, type AmountUnit, type DayEntry, type Plan, type Prescription } from '../domain/types';
+import { LIMIT_UNITS, type AmountUnit, type DayEntry, type ISODate, type Plan, type Prescription } from '../domain/types';
 import { t } from '../i18n/uk';
 import { saved } from './Toast';
 
@@ -20,7 +21,7 @@ const num = (s: string) => Number(s.replace(',', '.'));
 
 interface Draft { id: string; pid: string; qty: string; unit: AmountUnit; asking?: boolean; busy?: boolean }
 
-export function PrnCard({ plan, date, entries }: { plan: Plan; date: string; entries: DayEntry[] }) {
+export function PrnCard({ plan, date, entries }: { plan: Plan; date: ISODate; entries: DayEntry[] }) {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [fixing, setFixing] = useState<{ id: string; qty: string } | null>(null);
   const meds = prnMeds(plan, date);
@@ -29,7 +30,7 @@ export function PrnCard({ plan, date, entries }: { plan: Plan; date: string; ent
   const open = (p: Prescription) => { const a = proposedAmount(p); setDraft({ id: newId(), pid: p.id, qty: a.qty !== undefined ? dec(a.qty) : '', unit: a.unit }); };
   const record = async (p: Prescription, d: Draft) => {
     setDraft({ ...d, busy: true });
-    const e: DayEntry = { id: d.id, at: new Date().toISOString(), kind: 'med', status: 'done', title: p.title, prescriptionId: p.id, amount: { qty: num(d.qty), unit: d.unit } };
+    const e: DayEntry = { id: d.id, at: atLocal(date, format(new Date(), 'HH:mm')), kind: 'med', status: 'done', title: p.title, prescriptionId: p.id, amount: { qty: num(d.qty), unit: d.unit } };
     await saved(db.entries.put(e), L.taken(p.title), () => db.entries.delete(e.id)); // put — a second tap writes the same record again
     setDraft(null);
   };

@@ -66,7 +66,7 @@ test('the example comes with two invented weeks: «Прогрес» and the repo
   await page.getByRole('button', { name: 'Повернутися до своїх даних' }).first().click(); // D98: out of the example's database
   await expect(page).toHaveURL(/#\/welcome$/); // the own one, as it was — not onboarded yet
   await page.getByRole('button', { name: /^Пропустити/ }).click();
-  await expect(page.getByRole('heading', { level: 1 })).not.toHaveText(/Знайомство|Про себе|Сфотографуйте/);
+  await expect(page).toHaveURL(/#\/$/);
   await page.goto('./#/progress');
   await expect(page.getByText(/Ще немає зважувань/)).toBeVisible();
   await page.goto('./#/report');

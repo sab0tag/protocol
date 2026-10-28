@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { t } from '../../src/i18n/uk';
 import { device, toast } from './helpers';
 
 const LIST = `Сирники домашні — сир 5 % 400 г, 2 яйця, борошно 3 ст. л., на пательні, на 4 порції
@@ -72,7 +73,11 @@ test('export → import on a clean phone: the same dishes, the same numbers, no 
   await page.getByRole('button', { name: 'Зберегти всі з ✓ (2)' }).click();
   await page.getByRole('button', { name: 'Зберегти заготовки без складу (1)' }).click();
   await page.getByRole('button', { name: 'Закрити список' }).click();
-  const kcal = async (p: Page, name: string) => (await p.locator('li').filter({ has: p.locator(`input[value="${name}"]`) }).getByText(/на 1 порцію: ≈/).innerText());
+  const kcal = async (p: Page, name: string) => {
+    const card = p.locator('[data-catalog-dish]').filter({ has: p.getByText(name, { exact: true }) });
+    await card.getByRole('button', { name: `${t.dishes.catalog.more}: ${name}` }).click();
+    return card.getByText(/на 1 порцію: ≈/).innerText();
+  };
   const before = [await kcal(page, 'Сирники домашні'), await kcal(page, 'Яйця на олії')];
   await page.getByRole('button', { name: 'Експортувати' }).click();
   const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Зберегти файл' }).click()]);

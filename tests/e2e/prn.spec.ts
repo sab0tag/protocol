@@ -14,6 +14,8 @@ const withPlan = async (page: Page, rx: unknown) => {
 
 test('«за потреби» with a limit in tablets: how much was taken, «сьогодні N з M табл.», the doctor’s words before going over, the report (D118, R01)', async ({ browser }) => {
   const page = await device(browser, 'skip');
+  // 00:09 in Kyiv is still the previous UTC date; the record must remain on today's local checklist.
+  await page.clock.install({ time: new Date('2026-10-27T22:09:00Z') });
   await withPlan(page, { id: 'para', kind: 'medication', title: 'Парацетамол', dose: '500 мг', asNeeded: true, source: 'Лікар',
     limit: { value: 2, unit: 'tablet', sourceText: 'не більше 2 табл. на добу', source: 'paper' } });
   const card = page.getByRole('region', { name: 'За потреби' });

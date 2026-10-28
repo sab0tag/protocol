@@ -7,6 +7,8 @@ export interface StoredRecord { k: string; v: string | null; seq: number }
 
 export class Store {
   private db: DatabaseSync;
+  /** For modules that own their own tables (clinic directory, plan delivery). */
+  get database(): DatabaseSync { return this.db; }
 
   constructor(path: string) {
     this.db = new DatabaseSync(path);
@@ -31,6 +33,7 @@ export class Store {
         PRIMARY KEY (vault, device));
       CREATE TABLE IF NOT EXISTS usage (vault TEXT NOT NULL, month TEXT NOT NULL, kind TEXT NOT NULL, calls INTEGER NOT NULL,
         usd_micro INTEGER NOT NULL, PRIMARY KEY (vault, month, kind));
+      CREATE TABLE IF NOT EXISTS spend_day (day TEXT PRIMARY KEY, usd_micro INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS pairs (pid TEXT PRIMARY KEY, blob TEXT NOT NULL, expires INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS acks (vault TEXT NOT NULL, rid TEXT NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (vault, rid));
       CREATE TABLE IF NOT EXISTS device_tokens (h TEXT PRIMARY KEY, created INTEGER NOT NULL);
@@ -273,6 +276,16 @@ export class Store {
     this.db.prepare(`INSERT INTO usage (vault, month, kind, calls, usd_micro) VALUES (?, ?, ?, 1, ?)
       ON CONFLICT (vault, month, kind) DO UPDATE SET calls = calls + 1, usd_micro = usd_micro + excluded.usd_micro`)
       .run(vault, now.toISOString().slice(0, 7), kind, Math.round(usdMicro));
+  }
+
+  /** Cost control: the committed spend of one UTC day / month across every vault (no content, no ids). */
+  addDaySpend(day: string, usdMicro: number) {
+    this.db.prepare(`INSERT INTO spend_day (day, usd_micro) VALUES (?, ?) ON CONFLICT (day) DO UPDATE SET usd_micro = usd_micro + excluded.usd_micro`)
+      .run(day, Math.round(usdMicro));
+  }
+  daySpend(day: string): number { return Number((this.db.prepare('SELECT usd_micro FROM spend_day WHERE day = ?').get(day) as { usd_micro: number } | undefined)?.usd_micro ?? 0); }
+  monthSpend(month: string): number {
+    return Number((this.db.prepare('SELECT COALESCE(SUM(usd_micro), 0) AS n FROM usage WHERE month = ?').get(month) as { n: number }).n);
   }
 
   usage(vault: string | null, month: string): { kind: string; calls: number; usd_micro: number }[] {

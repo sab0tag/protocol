@@ -174,6 +174,13 @@ export function AddMeal() {
       <SceneHeader title={id ? t.meal.editTitle : t.meal.title} description={id ? t.meal.editHint : t.meal.entryHint} />
       <ExampleNotice plan={plan} />
       <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); void save(); }}>
+        <div role="group" aria-label={t.meal.name} className="protocol-card flex flex-wrap gap-2 p-3">
+          {t.meal.names.map((n) => (
+            <button key={n} type="button" onClick={() => setTitle(n)} aria-pressed={title === n}
+              className={`min-h-tap rounded-full border px-3 text-sm font-medium ${title === n ? 'border-accent bg-accent/10 text-accent' : 'border-line text-muted'}`}>{n}</button>
+          ))}
+        </div>
+
         <section aria-label={t.meal.addFood} className="protocol-card p-4 sm:p-5">
           <div role="group" aria-label={t.meal.entryModes} className="mb-3 grid grid-cols-3 gap-2">
             <button type="button" onClick={() => { setReadyOpen(false); searchInput.current?.focus(); }} className="protocol-action-secondary min-h-[4.5rem] flex-col px-2 text-sm"><Type size={20} aria-hidden />{t.meal.entryWrite}</button>
@@ -252,6 +259,8 @@ export function AddMeal() {
               {/* D110: a dish of one's own — described, it is broken into ingredients */}
               <Link to={`/dishes?describe=${encodeURIComponent(query.trim())}`} className="mt-1 inline-flex min-h-tap items-center text-sm text-accent underline">{t.dishes.breakdown.fromMeal}</Link></>
           )}
+          {!id && !query && !free && photo.state === 'none' && items.length === 0 && all && <RecentMeals entries={all} date={date} initialTitle={title}
+            onAdd={(xs, mealTitle) => { setItems((ys) => [...ys, ...xs]); setTitle(mealTitle); }} />}
           {!query && <FavoritesList limit={3} onAdd={(xs) => setItems((ys) => [...ys, ...xs])} />}
           {!query && all && (() => {
             const freq = frequentItems(all, todayISO()).filter((f) => !items.some((it) => it.name === f.item.name));
@@ -273,9 +282,6 @@ export function AddMeal() {
           {labelOpen && <LabelScan onAdd={(it) => setItems((xs) => [...xs, it])} />}
         </section>
 
-        {!id && !query && !free && photo.state === 'none' && items.length === 0 && all && <RecentMeals entries={all} date={date} initialTitle={title}
-          onAdd={(xs, mealTitle) => { setItems((ys) => [...ys, ...xs]); setTitle(mealTitle); }} />}
-
         {items.length > 0 && <CheckPanel foods={foods} checks={checks} anyActive={anyActive} swapped={swapped} eaten={eaten && hasSwaps(checks)} plan={plan} />}
 
         <section aria-label={t.meal.items} className={`protocol-card p-4 sm:p-5 ${items.length ? '' : 'hidden'}`}>{/* D78: appears with the first line */}
@@ -292,8 +298,7 @@ export function AddMeal() {
                       <Trash2 size={18} /></button>
                   </div>
                   <label className="block w-40"><span className="text-sm text-muted">{t.meal.portions}</span>
-                    <input type="number" inputMode="decimal" min={0.5} step={0.5} value={it.recipe?.portions ?? 1} className={field}
-                      onChange={(e) => { const v = Number(e.target.value); if (v > 0) setItems((xs) => xs.map((x, j) => (j === i ? setPortions(x, v) : x))); }} /></label>
+                    <PortionsInput value={it.recipe?.portions ?? 1} onCommit={(v) => setItems((xs) => xs.map((x, j) => (j === i ? setPortions(x, v) : x)))} /></label>
                   <span className="text-xs text-muted">≈ {approxG(it.grams)} г</span>
                   <details className="mt-1">
                     <summary className="min-h-tap cursor-pointer py-2 text-sm text-accent">{t.meal.composition(it.components.length)}</summary>
@@ -403,12 +408,8 @@ export function AddMeal() {
           </button>
           {metaOpen && (
             <div className="border-t border-line p-3">
-              <div className="mb-2 flex flex-wrap gap-2" role="group" aria-label={t.meal.name}>
-                {t.meal.names.map((n) => (
-                  <button key={n} type="button" onClick={() => setTitle(n)} aria-pressed={title === n}
-                    className={`min-h-tap rounded-full border px-3 ${title === n ? 'border-accent bg-accent/10 text-accent' : 'border-line'}`}>{n}</button>
-                ))}
-              </div>
+
+
               <div className="grid grid-cols-2 gap-3">
                 <label className="block"><span className="text-sm text-muted">{t.meal.name}</span>
                   <input value={title} onChange={(e) => setTitle(e.target.value)} className={field} /></label>
@@ -423,7 +424,7 @@ export function AddMeal() {
           )}
         </div>
 
-        <div data-testid="meal-save-actions" className="sticky bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-10 protocol-card rounded-2xl border border-line bg-surface p-3 shadow-lg md:bottom-4">
+        <div data-testid="meal-save-actions" className={`${items.length ? 'sticky bottom-[calc(4.75rem+env(safe-area-inset-bottom))] md:bottom-4' : ''} z-10 protocol-card rounded-2xl border border-line bg-surface p-3 shadow-lg`}>
           <p aria-live="polite" aria-atomic="true" className="mb-2 text-sm text-muted">{items.length ? t.meal.selectedCount(items.length) : t.meal.chooseFirst}</p>
           <div className="flex flex-wrap gap-2">
           {swapped ? (
@@ -608,4 +609,19 @@ function matchHint(it: MealItem): string {
 /** Ids of the foods and dishes this person ate in the last two months (search prefers them — D30). */
 function usualIds(all: DayEntry[] | undefined): Set<string> {
   return new Set(all ? frequentItems(all, todayISO(), 60, 50).map((f) => f.item.recipe?.id ?? f.item.foodId ?? '') : []);
+}
+
+/** Allow the user to clear and replace a number without immediately restoring the old value. */
+function PortionsInput({ value, onCommit }: { value: number; onCommit: (value: number) => void }) {
+  const [draft, setDraft] = useState<string | null>(null);
+  const commit = () => {
+    if (draft === null) return;
+    const next = Number(draft.replace(',', '.'));
+    if (draft.trim() && Number.isFinite(next) && next >= 0.5) onCommit(next);
+    setDraft(null);
+  };
+  return <input type="text" inputMode="decimal" className={field} value={draft ?? String(value)}
+    onChange={(e) => setDraft(e.target.value)} onBlur={commit}
+    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur(); } }}
+    aria-label={t.meal.portions} />;
 }

@@ -5,6 +5,7 @@ import { ErrorBoundary } from '../components/Recovery';
 import { usePlan } from '../data/queries';
 import { useUi } from '../store/ui';
 import { t } from '../i18n/uk';
+import { Nutrition } from '../screens/Nutrition';
 import { AddMeal } from '../screens/AddMeal';
 import { Profiles } from '../screens/Profiles';
 import { Day } from '../screens/Day';
@@ -18,6 +19,8 @@ import { ConciergeLog } from '../screens/ConciergeLog';
 import { Assistant } from '../screens/Assistant';
 import { Plan } from '../screens/Plan';
 import { PlanScanScreen } from '../screens/PlanScanScreen';
+import { ClinicPortalScreen } from '../screens/ClinicPortalScreen';
+import { PlanImportScreen } from '../screens/PlanImportScreen';
 import { PlanHistory } from '../screens/PlanHistory';
 import { Progress } from '../screens/Progress';
 import { Insights } from '../screens/Insights';
@@ -49,12 +52,12 @@ function MealRoute() {
 
 // Exhaustive against ROUTES: adding a screen also requires choosing its feature owner in navigation.ts.
 const SCREENS = {
-  profiles: <Profiles />, day: <Day />, mealNew: <MealRoute />, mealEdit: <MealRoute />, myDay: <MyDay />,
+  food: <Nutrition />, profiles: <Profiles />, day: <Day />, mealNew: <MealRoute />, mealEdit: <MealRoute />, myDay: <MyDay />,
   wellbeing: <Wellbeing />, wellbeingJournal: <WellbeingJournal />, workout: <Workout />, exercises: <Exercises />, quickAction: <QuickAction />,
   quickLinks: <QuickLinks />, frictions: <Frictions />, pilot: <Pilot />, week: <Week />, plan: <Plan />,
   planPrescriptions: <Plan section="prescriptions" />, planConstraints: <Plan section="constraints" />,
   planGoals: <Plan section="goals" />, planCheckup: <Plan section="checkup" />,
-  planScan: <PlanScanScreen />, planHistory: <PlanHistory />,
+  planScan: <PlanScanScreen />, planHistory: <PlanHistory />, planImport: <PlanImportScreen />, clinicPortal: <ClinicPortalScreen />,
   onboarding: <Onboarding />, progress: <Progress />, progressInsights: <Insights />, progressMotivation: <Motivation />,
   progressLabs: <Labs />, report: <Report />, dishes: <Dishes />, foods: <MyFoods />, data: <Data />,
   more: <More />, moreCategory: <MoreCategory />, about: <About />, conciergeLog: <ConciergeLog />,

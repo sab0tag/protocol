@@ -164,3 +164,16 @@ export const pilotSend = (auth: { pid: string; secret: string }, body: unknown) 
 export const pilotLeave = (auth: { pid: string; secret: string }) => pilotFetch<{ ok: true }>('DELETE', '', auth);
 /** Is a doctor's code known; `visit` — the QR link was opened (counted on the server by day and code, nothing else). */
 export const pilotSource = (code: string, visit: boolean) => pilotFetch<{ known: boolean }>('GET', `/src/${encodeURIComponent(code)}${visit ? '?visit=1' : ''}`);
+
+/** PR-13: redeem a clinic's one-time code. No account; the plan is returned once. */
+export async function redeemClinicPlan(code: string): Promise<unknown> {
+  let res: Response;
+  try {
+    res = await fetch(`${API_URL}/v1/clinic/plans/redeem`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code }) });
+  } catch {
+    throw new ApiError(0, 'offline');
+  }
+  const data = await res.json().catch(() => ({})) as { error?: string; plan?: unknown };
+  if (!res.ok) throw new ApiError(res.status, data.error ?? 'error', data);
+  return data.plan;
+}

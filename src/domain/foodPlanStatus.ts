@@ -7,9 +7,10 @@ export function foodPlanStatus(checks: ItemCheck[], foods: Map<string, Food>, pl
   const allergies = planAllergies(plan), found = new Set<string>();
   let incomplete = dietCoverage(plan).some(c => !c.configured);
   const walk = (item: MealItem) => {
+    if (item.est) { incomplete = true; return; }
     if (item.components?.length) { item.components.forEach(walk); return; }
     const food = item.foodId ? foods.get(item.foodId) : undefined;
-    if (item.est || !food || (food.custom && !food.allergens)) { incomplete = true; return; }
+    if (!food || (food.custom && !food.allergens)) { incomplete = true; return; }
     allergyHits(food, allergies).forEach(a => found.add(a));
   };
   checks.forEach(c => walk(c.item));

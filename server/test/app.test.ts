@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { createApp, DEFAULT_LIMITS } from '../src/app.ts';
 import type { PhotoResult, Recognizer } from '../src/photo.ts';
 import { Store } from '../src/store.ts';
+import { ClinicDirectory } from '../src/clinic/directory.ts';
+import { PlanDelivery } from '../src/clinic/delivery.ts';
 
 const VAULT = 'a'.repeat(32);
 const AUTH = 'k'.repeat(43);
@@ -382,5 +384,92 @@ describe('the assistant’s chat (D117)', () => {
     expect(await r.json()).toEqual({ topic: 'food', text: 'Добре підійде омлет. Або йогурт.', items: [{ name: 'Омлет з 2 яєць', grams: 150 }] });
     expect(got?.history).toEqual([{ role: 'user', text: 'привіт' }]);
     expect((await ask({ text: '', names: ['Омлет з 2 яєць'] })).status).toBe(400);
+  });
+});
+
+describe('AI cost control', () => {
+  const MENU = { meals: [{ title: 'Сніданок' as const, time: '08:00', items: [{ name: 'Яйце варене', grams: 100, count: 2 }] }], tips: [] };
+  const rig = (over: { limits?: Partial<typeof DEFAULT_LIMITS>; disabledAi?: string[]; cost?: number } = {}) => {
+    const store = new Store(':memory:');
+    let calls = 0;
+    const usage = { model: 'claude-opus-5', input: (over.cost ?? 1) * 1_000_000 / 5, output: 0 };
+    const app = createApp({ store, origins: [], disabledAi: over.disabledAi, limits: { ...DEFAULT_LIMITS, ...over.limits },
+      menu: async () => { calls++; return { result: MENU, usage }; } });
+    const post = () => app.request(`/v1/vaults/${VAULT}/menu`, { method: 'POST',
+      headers: { Authorization: `Bearer ${AUTH}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ date: '2026-10-08', foods: ['Яйце'] }) });
+    return { store, app, post, calls: () => calls };
+  };
+  const open = (r: ReturnType<typeof rig>) => r.app.request(`/v1/vaults/${VAULT}`, { method: 'PUT', headers: { Authorization: `Bearer ${AUTH}` } });
+
+  it('blocks before the provider when the daily budget is spent, and keeps counting after a restart', async () => {
+    const r = rig({ limits: { aiDayUsdMicro: 250_000 } }); // one call costs $1 → the $0.10 reserve fits once, the real $1 closes the day
+    await open(r);
+    expect((await r.post()).status).toBe(200);
+    const blocked = await r.post();
+    expect(blocked.status).toBe(429);
+    expect(await blocked.json()).toEqual({ error: 'budget' });
+    expect(r.calls()).toBe(1);
+    const again = createApp({ store: r.store, origins: [], limits: { ...DEFAULT_LIMITS, aiDayUsdMicro: 250_000 }, menu: async () => ({ result: MENU }) });
+    const res = await again.request(`/v1/vaults/${VAULT}/menu`, { method: 'POST', headers: { Authorization: `Bearer ${AUTH}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ date: '2026-10-08', foods: ['Яйце'] }) });
+    expect(res.status).toBe(429);
+  });
+
+  it('parallel requests cannot jointly pass the budget', async () => {
+    const r = rig({ limits: { aiDayUsdMicro: 250_000 } });
+    await open(r);
+    const results = await Promise.all(Array.from({ length: 6 }, () => r.post()));
+    expect(results.filter((x) => x.status === 200)).toHaveLength(2);
+    expect(r.calls()).toBe(2);
+  });
+
+  it('a disabled feature answers ai_off without calling the provider', async () => {
+    const r = rig({ disabledAi: ['menu'] });
+    await open(r);
+    const res = await r.post();
+    expect(res.status).toBe(503);
+    expect(await res.json()).toEqual({ error: 'ai_off' });
+    expect(r.calls()).toBe(0);
+  });
+});
+
+describe('clinic plan redemption', () => {
+  const rigPlan = () => {
+    const store = new Store(':memory:');
+    const dir = new ClinicDirectory(store.database);
+    const planDelivery = new PlanDelivery(store.database, dir);
+    const org = dir.createOrganization('Клініка', 'Адмін');
+    const admin = dir.authenticate(org.token)!;
+    const doc = dir.authenticate(dir.addStaff(admin, { displayName: 'Лікар', role: 'doctor' }).token)!;
+    const plan = { schemaVersion: 1, planId: crypto.randomUUID(), organizationId: org.orgId, issuedAt: '2025-01-01T10:00:00+02:00',
+      clinician: { displayName: 'Лікар', organizationName: 'Клініка' }, title: 'План', medications: [], restrictions: [], tests: [] };
+    const { code } = planDelivery.issue(doc, { plan, patientConsent: true });
+    const app = createApp({ store, origins: ['https://protocol.test'], planDelivery });
+    const redeem = (c: unknown, ip = '1.1.1.1') => app.request('/v1/clinic/plans/redeem', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': ip }, body: JSON.stringify({ code: c }),
+    });
+    return { code, redeem, app };
+  };
+  it('gives the plan once, uncached, then 410', async () => {
+    const { code, redeem } = rigPlan();
+    const r = await redeem(code);
+    expect(r.status).toBe(200);
+    expect(r.headers.get('cache-control')).toBe('no-store');
+    expect(((await r.json()) as { plan: { title: string } }).plan.title).toBe('План');
+    const again = await redeem(code);
+    expect(again.status).toBe(410);
+    expect(await again.json()).toEqual({ error: 'used' });
+  });
+  it('unknown or malformed codes are 404; guessing is rate limited', async () => {
+    const { redeem } = rigPlan();
+    expect((await redeem('z'.repeat(43))).status).toBe(404);
+    expect((await redeem(42)).status).toBe(404);
+    for (let i = 0; i < 40; i++) await redeem('z'.repeat(43), '9.9.9.9');
+    expect((await redeem('z'.repeat(43), '9.9.9.9')).status).toBe(429);
+  });
+  it('is off without clinic support', async () => {
+    const app = createApp({ store: new Store(':memory:'), origins: [] });
+    const r = await app.request('/v1/clinic/plans/redeem', { method: 'POST', body: '{}' });
+    expect(r.status).toBe(503);
   });
 });
