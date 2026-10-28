@@ -93,7 +93,7 @@ function Steps({ plan, start, onScanned }: { plan: PlanRow; start: number; onSca
         <div><h1 className="text-2xl font-semibold">Ваш план лікування — без зайвої складності</h1><p className="mt-1 text-sm text-muted">Сфотографуйте призначення лікаря. Protocol допоможе впорядкувати ліки, харчування та щоденні справи в одному місці.</p></div>
       </header>
       <div className="protocol-card space-y-2 rounded-2xl border border-line bg-surface p-3" aria-label="Приклад результату">
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted">Демо-приклад · не медичне призначення</p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted">Демо-приклад · не медична рекомендація</p>
         <p className="text-sm text-muted">Зі складного висновку — до зрозумілих кроків на день:</p>
         <div className="space-y-2 text-sm">
           <p className="rounded-xl bg-bg p-3">💊 08:00 · Приклад нагадування про ліки</p>
