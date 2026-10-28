@@ -90,3 +90,7 @@ Original #44 is dirty against main after #39/#41. Integration branch `integratio
 
 ### Integration #53 CI regression triage (28 Oct)
 First remote CI: check and server passed; e2e failed in four cases. Fixed genuine Today ordering regression (example-data warning now before schedule); restored missing localized sync client-upgrade explanation while retaining protocol refusal; disambiguated storage test's page-level h1 from new Today summary h2 without weakening visibility assertion. Dish-list model-mock scenario returned failed instead of check; cause still under investigation, not bypassed. Re-run CI required. Assistant #52 second pass failed because prompt chips remained 154px from context; moved chips immediately after context in commit f9c7a194; subsequent CI passed. No merges until integration checks green.
+
+
+### Food 2.0 integration after #53 (28 Oct 2026)
+Original #47 was stacked on #44 and conflicts with current main. Branch `integration/food-on-main` ports food-only implementation, domain, translations, warning styles, and focused tests onto merged #53. Existing Today/sync fixes and tests are retained. Original #47 is not to be merged directly. Full CI, E2E and preview review are required before merge. No patient data or production authorization.
