@@ -13,7 +13,7 @@ async function fresh(browser: Browser) {
   const ctx = await browser.newContext(), page = await ctx.newPage();
   await page.clock.setFixedTime(new Date('2026-10-19T12:00:00+03:00'));
   await page.goto('./'); await page.evaluate(() => navigator.serviceWorker.ready);
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Сфотографуйте призначення лікаря');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('План лікаря — щоденні дії');
   return page;
 }
 async function manual(page: Page) {
@@ -95,9 +95,9 @@ test('repeat onboarding preserves choices/date and a new target offers only expl
   await expect(page.getByRole('switch', { name: 'Вода', exact: true })).toBeChecked();
   await expect(page.getByRole('switch', { name: 'Запис їжі', exact: true })).not.toBeChecked();
   // A later manual plan edit offers again, but declining leaves the history exactly as it was.
-  await page.goto('./#/plan');
+  await page.goto('./#/plan/goals'); // the plan's sections have their own routes now
   const accepted = await rows(page, 'moduleEvents');
-  await page.locator('section.rounded-2xl').filter({ has: page.getByRole('heading', { name: 'Цілі', exact: true }) }).getByRole('button', { name: 'Редагувати', exact: true }).click();
+  await page.getByRole('button', { name: 'Редагувати', exact: true }).first().click();
   const targets = page.getByRole('dialog', { name: 'Цілі', exact: true });
   await targets.getByLabel('Білок, г', { exact: true }).fill('90');
   await targets.getByRole('button', { name: 'Зберегти', exact: true }).click();

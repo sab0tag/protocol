@@ -63,6 +63,15 @@ export function ymd(d: Date): string {
 }
 
 /** Write rows straight into IndexedDB (bypassing the app), then reload so the app's query cache sees them. */
+/** A skipped onboarding records its own clean-start module choices (D138); a test that seeds its own history clears them first. */
+export async function clearModules(page: Page): Promise<void> {
+  await page.evaluate(async () => {
+    const open = indexedDB.open('protocol'); await new Promise((r) => { open.onsuccess = r; });
+    const tx = open.result.transaction('moduleEvents', 'readwrite'); tx.objectStore('moduleEvents').clear();
+    await new Promise((r) => { tx.oncomplete = r; }); open.result.close();
+  });
+}
+
 export async function seed(page: Page, rows: { store: string; value: unknown }[]): Promise<void> {
   await page.evaluate(async (rs) => {
     const req = indexedDB.open('protocol');

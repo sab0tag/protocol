@@ -95,7 +95,6 @@ test('the example is a database of its own: the own records stay, «Подиви
   await page.getByRole('dialog', { name: 'Призначення' }).getByRole('textbox', { name: /^Час прийому/ }).fill('09:00');
   await page.getByRole('dialog', { name: 'Призначення' }).getByRole('button', { name: 'Зберегти' }).click();
   await page.goto('./#/more');
-  if (process.env.VITE_MODULE_POLICY_ENABLED === 'true') await page.locator('details').filter({ has: page.getByText('Інші можливості', { exact: true }) }).locator('summary').click();
   await page.getByRole('button', { name: /Подивитись на прикладі/ }).click(); // the own plan is not empty — still there
   await page.getByRole('button', { name: 'Відкрити приклад' }).click(); // D99: asked first — the own data stays
   await expect(page.getByText(/Це приклад:/)).toBeVisible();
@@ -117,7 +116,6 @@ test('the day\'s own records are there after a look at the example — the examp
   await seed(page, [{ store: 'entries', value: { id: 'own-1', at, kind: 'meal', status: 'done', title: 'Сніданок', items: [{ foodId: 'egg-boiled', name: 'Яйце варене', grams: 100 }] } }]);
   await expect(page.getByText('Сніданок').first()).toBeVisible();
   await page.goto('./#/more');
-  if (process.env.VITE_MODULE_POLICY_ENABLED === 'true') await page.locator('details').filter({ has: page.getByText('Інші можливості', { exact: true }) }).locator('summary').click();
   await page.getByRole('button', { name: /Подивитись на прикладі/ }).click();
   await expect(page.getByText(/Ваші дані залишаються окремо/)).toBeVisible();
   await page.getByRole('button', { name: 'Відкрити приклад' }).click();

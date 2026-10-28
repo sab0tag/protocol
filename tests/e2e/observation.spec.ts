@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { device, seed } from './helpers';
+import { clearModules, device, seed } from './helpers';
 import { t } from '../../src/i18n/uk';
 
 // Run normally to verify preparation compatibility, and with VITE_MODULE_POLICY_ENABLED=true to exercise the policy.
@@ -27,11 +27,7 @@ test('food/water observation periods are shared by the doctor report and week, b
       ]),
     ];
   });
-  await page.evaluate(async () => {
-    const open = indexedDB.open('protocol'); await new Promise((r) => { open.onsuccess = r; });
-    const tx = open.result.transaction('moduleEvents', 'readwrite'); tx.objectStore('moduleEvents').clear();
-    await new Promise((r) => { tx.oncomplete = r; }); open.result.close();
-  });
+  await clearModules(page);
 
   await seed(page, rows);
   if (enabled) {
@@ -67,6 +63,7 @@ test('the day summary adapts when only one metric is being observed (D135)', asy
   test.skip(!enabled, 'the module policy is enabled only in the D135 rollout run');
   const page = await device(browser, 'skip');
   await page.clock.setFixedTime(new Date('2026-10-26T10:00:00+02:00'));
+  await clearModules(page);
   const modules = ['meds', 'water', 'food', 'menu', 'assistant', 'wellbeing', 'workout', 'progress'];
   await seed(page, [
     { store: 'plan', value: { id: 'main', prescriptions: [{ id: 'metric-med', kind: 'medication', title: 'Ліки',
@@ -86,6 +83,7 @@ test('the quick medicine action does not mark a dose while meds observation is o
   test.skip(!enabled, 'the module policy is enabled only in the D135 rollout run');
   const page = await device(browser, 'skip');
   await page.clock.setFixedTime(new Date('2026-10-26T10:00:00+02:00'));
+  await clearModules(page);
   const modules = ['meds', 'water', 'food', 'menu', 'assistant', 'wellbeing', 'workout', 'progress'];
   await seed(page, [
     { store: 'plan', value: { id: 'main', prescriptions: [{ id: 'quick-med', kind: 'medication', title: 'Ліки',
