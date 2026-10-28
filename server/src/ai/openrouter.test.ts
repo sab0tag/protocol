@@ -53,24 +53,24 @@ describe('OpenRouter adapter', () => {
   });
   it('never retries an ambiguous network failure even when retries are configured', async () => {
     const f = vi.fn(async () => { throw new TypeError('connection reset after request'); });
-    await expect(gw(f as never, 'k', 3).structured(req('meal_generation'))).rejects.toMatchObject({ code: 'http' });
+    await expect(gw(f as never, 'k', 3).structured(req('general_assistant'))).rejects.toMatchObject({ code: 'http' });
     expect(f).toHaveBeenCalledTimes(1);
   });
 
   it('does not retry by default after an HTTP 503', async () => {
     const f = vi.fn(async () => new Response('', { status: 503 }));
-    await expect(gw(f as never, 'k', 0).structured(req('meal_generation'))).rejects.toMatchObject({ code: 'http' });
+    await expect(gw(f as never, 'k', 0).structured(req('general_assistant'))).rejects.toMatchObject({ code: 'http' });
     expect(f).toHaveBeenCalledTimes(1);
   });
 
   it('rejects truncated JSON even if it happens to parse', async () => {
     const f = vi.fn(async () => ok({ answer: 'partial' }, { choices: [{ finish_reason: 'length', message: { content: '{"answer":"partial"}' } }] }));
-    await expect(gw(f as never, 'k').structured(req('meal_generation'))).rejects.toMatchObject({ code: 'invalid_output' });
+    await expect(gw(f as never, 'k').structured(req('general_assistant'))).rejects.toMatchObject({ code: 'invalid_output' });
   });
 
   it('treats filtered completion as refusal', async () => {
     const f = vi.fn(async () => ok({ answer: 'hidden' }, { choices: [{ finish_reason: 'content_filter', message: { content: null } }] }));
-    const response = await gw(f as never, 'k').structured(req('meal_generation'));
+    const response = await gw(f as never, 'k').structured(req('general_assistant'));
     expect(response.result).toBe('refused');
   });
 
