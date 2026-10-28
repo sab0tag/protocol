@@ -52,3 +52,42 @@ test('recorded overview keeps asymmetric right and left values and does not rewr
   expect(persisted).toEqual(workout);
   await page.context().close();
 });
+
+for (const width of [320, 1024]) test(`focused mode retains per-side drafts and resets on a shorter next day at ${width}px`, async ({ browser }) => {
+  const page = await device(browser);
+  await page.setViewportSize({ width, height: 844 });
+  const dates = await page.evaluate(() => {
+    const d = new Date(), local = () => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const today = local(); d.setDate(d.getDate() + 1); return { today, tomorrow: local() };
+  });
+  const squat = { exerciseId: 'goblet-squat', name: 'Гоблет-присід', target: '1 × 8', sets: [{ reps: 8 }] };
+  const press = { exerciseId: 'press', name: 'Жим стоячи однією рукою', target: '1 × 12 кожною', sets: [{ side: 'R', reps: 12 }, { side: 'L', reps: 9 }] };
+  await seed(page, [
+    { store: 'workouts', value: { id: 'focus-today', date: dates.today, durationMin: 17, equipment: 'Synthetic', exercises: [squat, { ...squat, exerciseId: 'swing', name: 'Махи двома руками' }, press] } },
+    { store: 'workouts', value: { id: 'focus-tomorrow', date: dates.tomorrow, durationMin: 10, equipment: 'Synthetic', exercises: [squat] } },
+  ]);
+  await page.goto('./#/workout');
+  await page.getByRole('button', { name: 'Тренуватися по одній вправі', exact: true }).click();
+  await expect(page.getByRole('button', { name: '← Назад', exact: true })).toBeDisabled();
+  const next = page.getByRole('button', { name: 'Далі →', exact: true });
+  await next.click(); await next.click();
+  await expect(page.getByRole('status').filter({ hasText: 'Вправа 3 з 3' })).toBeVisible();
+  const sides = page.getByRole('group', { name: press.name, exact: true }).getByRole('spinbutton');
+  await sides.nth(0).fill('14'); await sides.nth(1).fill('11');
+  await page.getByRole('button', { name: 'Показати всі вправи', exact: true }).click();
+  await expect(sides.nth(0)).toHaveValue('14'); await expect(sides.nth(1)).toHaveValue('11');
+  await page.getByRole('button', { name: 'Тренуватися по одній вправі', exact: true }).click();
+  await expect(next).toBeDisabled();
+  await page.getByRole('button', { name: 'Наступний день', exact: true }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'Вправа 1 з 1' })).toBeVisible();
+  await expect(page.getByRole('group', { name: squat.name, exact: true })).toBeVisible();
+  await expect(next).toBeDisabled();
+  await page.getByRole('button', { name: 'Попередній день', exact: true }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'Вправа 1 з 3' })).toBeVisible();
+  await next.click(); await next.click();
+  await expect(sides.nth(0)).toHaveValue('14'); await expect(sides.nth(1)).toHaveValue('11');
+  await page.getByRole('button', { name: 'Зберегти зміни', exact: true }).click();
+  await page.reload();
+  await expect(sides.nth(0)).toHaveValue('14'); await expect(sides.nth(1)).toHaveValue('11');
+  await page.context().close();
+});
