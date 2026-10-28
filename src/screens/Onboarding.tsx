@@ -1,4 +1,4 @@
-import { Plus, Trash2 } from 'lucide-react';
+import { FileText, Pill, Plus, Trash2, UtensilsCrossed } from 'lucide-react';
 import { Loading } from '../components/Recovery';
 import { toast } from '../components/Toast';
 import { useState } from 'react';
@@ -92,6 +92,15 @@ function Steps({ plan, start, onScanned }: { plan: PlanRow; start: number; onSca
       <header className="protocol-scene-header">
         <div><h1 className="text-2xl font-semibold">{L.s0}</h1><p className="mt-1 text-sm text-muted">{L.s0hint}</p></div>
       </header>
+      <section className="protocol-card space-y-2" aria-labelledby="onboarding-preview">
+        <h2 id="onboarding-preview" className="font-semibold">{L.preview.title}</h2>
+        <p className="text-xs font-medium text-muted">{L.preview.label}</p>
+        <ul className="space-y-2 text-sm">
+          {[{ Icon: Pill, text: L.preview.medicine }, { Icon: UtensilsCrossed, text: L.preview.food }, { Icon: FileText, text: L.preview.report }].map(({ Icon, text }) =>
+            <li key={text} className="flex items-center gap-2 rounded-xl bg-bg p-2"><Icon size={18} className="shrink-0 text-accent" aria-hidden /><span>{text}</span></li>)}
+        </ul>
+        <p className="text-xs text-muted">{L.preview.verify}</p>
+      </section>
       <PlanScan plan={plan} onboarding onDone={() => void started()} />
       <button type="button" onClick={() => setStep(1)} className="min-h-tap w-full rounded-xl border border-accent px-4 font-medium text-accent">{L.manual}</button>
       <PilotStart />

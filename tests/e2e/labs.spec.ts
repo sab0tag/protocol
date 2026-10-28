@@ -134,7 +134,7 @@ test('onboarding starts from the doctor’s paper: photo → hide what is person
     prescriptions: [
       { kind: 'medication', title: 'Метформін', dose: '500 мг', times: [], perDay: 2, frequency: '2 рази на день', durationDays: null, asNeeded: false, withFood: true, ...w('yes') },
       { kind: 'medication', title: 'Каптоприл', dose: null, times: [], perDay: 1, frequency: null, durationDays: null, asNeeded: false, withFood: null, ...w('check') }] } }));
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Сфотографуйте призначення лікаря');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('План лікаря — щоденні дії');
   await expect(page.getByRole('button', { name: 'Ввести вручну' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Подивитись на прикладі' })).toBeVisible();
   await page.getByRole('button', { name: 'Фото висновку лікаря' }).click();

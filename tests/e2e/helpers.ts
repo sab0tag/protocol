@@ -15,7 +15,7 @@ export async function device(browser: Browser, start: 'example' | 'demo' | 'skip
     return page;
   }
   await page.getByRole('button', { name: /^Пропустити/ }).click();
-  await expect(page.getByRole('heading', { level: 1 })).not.toHaveText(/Знайомство|Про себе|Сфотографуйте/); // D113: the first screen is the photo
+  await expect(page).toHaveURL(/#\/$/); // D113: the first screen is the photo
   if (start === 'example') { // the example plan in the person's own database, on a clean history — a fixture for the tests
     await page.evaluate(async (plan) => {
       const req = indexedDB.open('protocol');
