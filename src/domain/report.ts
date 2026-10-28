@@ -35,7 +35,7 @@ export interface Report {
   habits: { key: HabitKey; met: number; of: number }[];
   /** D40: meals from «Меню на завтра» in the period that are past: eaten, skipped, not marked */
   menu?: { done: number; skipped: number; open: number };
-  /** D79 «Головне»: the doses due on the days with records (today — only those whose time has come), taken and missed */
+  /** D79 «Головне»: doses due on days with records; absence of a mark is never an explicit skip. */
   meds?: { taken: number; due: number; missed: { title: string; count: number }[]; unmarked?: number;
     /** D89: each medicine — the trade name, its INN from the register, the dose as prescribed, doses taken of due */
     list: { title: string; inn?: string; dose?: string; taken: number; due: number }[] };
@@ -83,7 +83,7 @@ export function buildReport(args: {
       if (i.kind !== 'med' || (d === today && !i.done && (!i.time || i.time > hm))) continue;
       due += 1;
       if (i.done) taken += 1;
-      else if (!observation || i.skipped) missed.set(i.title, (missed.get(i.title) ?? 0) + 1);
+      else if (i.skipped) missed.set(i.title, (missed.get(i.title) ?? 0) + 1);
       else unmarked += 1;
       if (i.done) for (const e of day) if (e.kind === 'med' && e.status === 'done' && e.checkKey === i.key) countedMarks.add(e.id);
       const m = perMed.get(i.prescriptionId ?? i.title) ?? { taken: 0, due: 0 };
@@ -153,7 +153,7 @@ export function buildReport(args: {
     coincidences: [...observedCoincidences(entries.filter((e) => inside(dateOf(e.at))), foods, observation).map(coincidenceText),
       ...wellbeingCoincidences(entries.filter((e) => inside(dateOf(e.at))), wellbeing.filter((x) => inside(x.date)), foods, plan, observation).map((p) => p.text)], // D71
     questions: plan?.questions ?? [],
-    ...(due ? { meds: { taken, due, ...(observation ? { unmarked } : {}), missed: [...missed.entries()].map(([title, count]) => ({ title, count })).sort((a, b) => b.count - a.count),
+    ...(due ? { meds: { taken, due, unmarked, missed: [...missed.entries()].map(([title, count]) => ({ title, count })).sort((a, b) => b.count - a.count),
       list: [...perMed.entries()].map(([key, n]) => {
         const p = plan?.prescriptions.find((x) => x.id === key);
         return { title: p?.title ?? key, ...(p?.med?.inn ? { inn: p.med.inn } : {}), ...(p?.dose ? { dose: p.dose } : {}), ...n };
@@ -196,7 +196,8 @@ export function reportText(r: Report, dm: (d: ISODate) => string): string {
     ...(r.tracking ? trackingLines(r.tracking) : []),
     ...(r.unscoredMedMarks ? [unscoredMedText(r.unscoredMedMarks)] : []),
     r.meds ? `${t.report.meds(r.meds.taken, r.meds.due)}${r.meds.missed.length ? ` — ${r.meds.missed.map((m) => t.report.missed(m.title, m.count)).join('; ')}` : ''}` : '',
-    r.meds?.unmarked ? `Без відмітки: ${r.meds.unmarked} доз.` : '',
+    r.meds?.unmarked ? t.report.unmarked(r.meds.unmarked) : '',
+    r.meds ? t.report.medsScope : '',
     r.meds && r.meds.list.length > 1 ? r.meds.list.map((m) => `• ${t.report.medLine(m)}`).join('\n') : '',
     ...r.prn.map((x) => `${t.prn.report(x.title, x.total, x.days)}${x.over.length ? ` — ${t.prn.over(prnLimitText(x.limit!), x.over.map((d) => d.slice(8, 10) + '.' + d.slice(5, 7)).join(', '))}` : ''}${x.unmatched ? ` — ${t.prn.reportUnmatched(x.unmatched)}` : ''}`), // D118, R01
     r.deviations ? (r.deviations.meals ? `${t.report.deviations(r.deviations.meals, r.deviations.of)}: ${r.deviations.by.map((b) => `${b.title} — ${b.count}`).join('; ')}`
