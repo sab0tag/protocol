@@ -1,5 +1,7 @@
 import { serve } from '@hono/node-server';
 import { createApp, DEFAULT_LIMITS } from './app.ts';
+import { ClinicDirectory } from './clinic/directory.ts';
+import { PlanDelivery } from './clinic/delivery.ts';
 import { backupAgeH, backupOnce, backupRecords, listBackups } from './backup.ts';
 import { claudeLabel } from './label.ts';
 import { claudeMenu } from './menu.ts';
@@ -23,8 +25,11 @@ const effort = (env.PHOTO_EFFORT ?? 'low') as 'low' | 'medium' | 'high';
 const backups = env.BACKUP_DIR ?? '/backups';
 const vapid = vapidKeys(store, env);
 const send = webPushSender(vapid, env.VAPID_SUBJECT ?? 'https://protocol.beyondthesignal.to');
+const clinic = new ClinicDirectory(store.database);
 const app = createApp({
   store,
+  clinic,
+  planDelivery: new PlanDelivery(store.database, clinic),
   push: { publicKey: vapid.publicKey, send },
   backupAgeH: () => backupAgeH(backups, new Date()),
   backups: { list: () => listBackups(backups), records: (name, vault) => backupRecords(backups, name, vault) },
@@ -46,6 +51,7 @@ const app = createApp({
     ? claudeDish({ model: env.MENU_MODEL ?? 'claude-opus-5-5', effort: 'low' }) : undefined,
   workout: env.ANTHROPIC_API_KEY // D63
     ? claudeWorkout({ model: env.WORKOUT_MODEL ?? 'claude-opus-5-5', effort: (env.WORKOUT_EFFORT ?? 'low') as 'low' | 'medium' | 'high' }) : undefined,
+  disabledAi: (env.AI_DISABLED ?? '').split(',').map((k) => k.trim()).filter(Boolean),
   limits: {
     ...DEFAULT_LIMITS,
     ...(env.PHOTOS_PER_DAY ? { photosPerDay: Number(env.PHOTOS_PER_DAY) } : {}),
@@ -55,6 +61,8 @@ const app = createApp({
     ...(env.VAULTS_PER_IP_PER_DAY ? { vaultsPerIpPerDay: Number(env.VAULTS_PER_IP_PER_DAY) } : {}), // e2e only
     ...(env.DEVICE_TOKENS_PER_IP_PER_DAY ? { deviceTokensPerIpPerDay: Number(env.DEVICE_TOKENS_PER_IP_PER_DAY) } : {}), // e2e only: every test is a new device
     ...(env.AI_PER_DAY ? { aiPerDay: Number(env.AI_PER_DAY) } : {}),
+    ...(env.AI_DAY_USD ? { aiDayUsdMicro: Number(env.AI_DAY_USD) * 1_000_000 } : {}),
+    ...(env.AI_MONTH_USD ? { aiMonthUsdMicro: Number(env.AI_MONTH_USD) * 1_000_000 } : {}),
     ...(env.PILOT_JOINS_PER_IP_PER_DAY ? { pilotJoinsPerIpPerDay: Number(env.PILOT_JOINS_PER_IP_PER_DAY) } : {}), // e2e only
   },
 });

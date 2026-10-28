@@ -102,3 +102,14 @@ Current base `1115980` already includes Food/Wellbeing/Progress/Assistant integr
 `feat/protocol-nutrition-overview` adds `/food` («Моє харчування») as the food tab: date-scoped actual totals, source targets, preserved planned/skipped outcomes, expandable meal composition and original edit links, visible restriction reasons and limited rule-check claims. Existing entry methods/editor remain unchanged. Unknown/estimated composition cannot silently look complete. No new journal writes, fabricated targets, pantry/preparation data or overall score. See `nutrition-overview.md` for checks and the remaining catalog/recommendation scope. Full CI and preview status live in the PR; main/production remain unchanged.
 
 Marketing #48 was refreshed by merging current main into its own branch. Its 8 focused browser tests pass again. Published visual verification remains blocked by Vercel authentication in the available browser; no protection settings changed.
+## Sheet keyboard integration (28 October 2026)
+
+PR #66 refreshed on main `d1a56f7`, preserving the catalog, lab-correction, AI routing and clinic work already merged there. The Sheet focus lifecycle keeps the background inert, wraps native Tab navigation, preserves editing focus across callback changes and restores the original opener through sheet replacement.
+
+The first CI run had four failing new browser scenarios: the backdrop click did not wait for the reopened dialog; the symptom save button has a different disabled label; the medicine scenario searched an obsolete accessible name; the add chooser was requested from an empty day where it is deliberately absent. Updated the fixtures and locators without changing the product's names, empty-state behavior, timeouts or focus assertions. Browser coverage now exercises both 320px and 1024px layouts, plus current lab/import interactions. The standard CI browser configuration is unchanged.
+
+Baseline on the refreshed tree: 601 client and 141 server unit tests, client production build and both typechecks passed. Final browser/CI results are recorded in #66; merge only after green checks. Next independent integration: #65 daily nutrition hub, followed by onboarding #60 and the workout #45 → #46 → #49 stack. Existing production access and real data remain untouched.
+
+
+### Nutrition integration refinement
+Refreshed #65 on main d1a56f7 plus #66. Preserve estimated parent recipes as incomplete even if descendants resolve to known foods; do not show a confirmed allergen or clear result from an estimated parent. New domain and browser regressions exercise this case. Existing actual totals, date modes, unknown-goal behavior, catalog filters/favorites and explicit save remain intact. Focused nutrition/catalog/entry browser checks: 9 passed before Sheet integration; final combined checks/CI are recorded in the PR.

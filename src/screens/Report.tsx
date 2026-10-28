@@ -10,6 +10,7 @@ import { db } from '../data/db';
 import { useAllEntries, useAllWellbeing, useFoods, useLabs, usePlan, useWeights, useWorkouts } from '../data/queries';
 import { dateOf, todayISO } from '../domain/dates';
 import { buildReport, habitLabel, prnLimitText, reportText, trackingLines, unscoredMedText } from '../domain/report';
+import { labNumber } from '../domain/labs';
 import { useObservation } from '../app/observation';
 import { count } from '../data/tally';
 import { t } from '../i18n/uk';
@@ -85,7 +86,7 @@ export function Report() {
               <caption className="mb-1 text-left font-medium">{L.labs}</caption>
               <tbody>{r.labs.map((l) => (
                 <tr key={l.date + l.name} className="border-t border-line"><td className="py-1">{l.name}</td>
-                  <td className="py-1 text-right">{num(l.value)} {l.unit}{l.target && <span className="block text-xs text-muted">{t.menu.target} {l.target}</span>}</td>
+                  <td className="py-1 text-right">{labNumber(l.value)} {l.unit}{l.target && <span className="block text-xs text-muted">{t.menu.target} {l.target}</span>}</td>
                   <td className="whitespace-nowrap py-1 pl-2 text-right text-muted">{format(parseISO(l.date), 'dd.MM')}</td></tr>
               ))}</tbody>
             </table>

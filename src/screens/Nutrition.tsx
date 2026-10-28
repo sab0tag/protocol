@@ -97,6 +97,7 @@ function MealCheck({ entry, foods, plan, recent, date }: { entry: DayEntry; food
 }
 
 function incompleteLine(item: MealItem, foods: Map<string, Food>): boolean {
+  if (item.est) return true;
   if (item.components?.length) return item.components.some(part => incompleteLine(part, foods));
-  return !!item.est || (!item.manual && (!item.foodId || !foods.has(item.foodId)));
+  return !item.manual && (!item.foodId || !foods.has(item.foodId));
 }

@@ -87,3 +87,24 @@ for (const colorScheme of ['light', 'dark'] as const) {
     await page.context().close();
   });
 }
+
+test('estimated parent dishes keep their uncertainty in both the daily totals and restriction check', async ({ browser }) => {
+  const page = await device(browser, 'skip');
+  const today = await page.evaluate(() => {
+    const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  });
+  await seed(page, [
+    { store: 'foods', value: { id: 'known-safe', name: 'Synthetic known food', per100g: { kcal: 100, protein: 2, fat: 1, carbs: 10 }, tags: [], allergens: [] } },
+    { store: 'plan', value: { ...emptyPlan(), id: 'main', onboardedAt: today, constraints: [{ id: 'milk', tag: 'allergy', title: 'Synthetic restriction', reason: 'Synthetic only', source: 'Synthetic', active: true, allergens: ['milk'] }] } },
+    { store: 'entries', value: { id: 'estimated-parent', at: `${today}T12:00:00`, kind: 'meal', status: 'done', title: 'Synthetic estimated dish', items: [{ name: 'Estimated parent', grams: 100, est: { tags: [], allergens: [] }, components: [{ foodId: 'known-safe', name: 'Synthetic known food', grams: 100 }] }] } },
+  ]);
+  await page.goto('./#/food');
+  const summary = page.getByRole('region', { name: L.progress, exact: true });
+  await expect(summary).toContainText('100 ккал');
+  await expect(summary).toContainText(L.incomplete);
+  const meal = page.getByRole('listitem').filter({ has: page.getByRole('heading', { name: 'Synthetic estimated dish', exact: true }) });
+  await expect(meal).toContainText(L.incompleteMeal);
+  await expect(meal.locator('[data-plan-status=incomplete]')).toContainText(t.meal.planIncomplete);
+  await expect(meal.locator('[data-plan-status=clear], [data-plan-status=allergen]')).toHaveCount(0);
+  await page.context().close();
+});
