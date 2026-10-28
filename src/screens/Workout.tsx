@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { saved as withToast } from '../components/Toast';
 import { keep, kept } from '../data/kept';
 import { uk } from 'date-fns/locale';
-import { Check, ChevronLeft, ChevronRight, Info, Plus, RefreshCw, Save, X } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, Clock3, Dumbbell, Info, Plus, RefreshCw, Save, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { db } from '../data/db';
 import { usePlan, useWorkouts } from '../data/queries';
@@ -90,6 +90,23 @@ export function Workout() {
           className="flex min-h-tap min-w-tap items-center justify-center rounded-xl border border-line bg-surface"><ChevronRight size={20} /></button>
       </header>
 
+      <section aria-label="Огляд тренування" className="protocol-card space-y-4 p-5">
+        <div className="flex items-center justify-between gap-3">
+          <span className="protocol-eyebrow">{existing ? 'Записане тренування' : 'Ваш план на сьогодні'}</span>
+          <span className="rounded-full bg-accent/10 px-3 py-1 text-xs font-semibold text-accent">{L.week(week)}</span>
+        </div>
+        <div>
+          <h2 className="text-2xl font-semibold tracking-tight">{existing ? 'Ваш результат' : 'Рух у своєму темпі'}</h2>
+          <p className="mt-1 text-sm text-muted">{existing ? 'Перегляньте або відредагуйте виконані вправи.' : 'План можна змінювати під свій стан. Почніть із комфортного навантаження.'}</p>
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          <div className="rounded-2xl bg-bg p-3"><Dumbbell size={18} className="mb-2 text-accent" aria-hidden /><p className="text-xl font-semibold tabular">{draft.exercises.length}</p><p className="text-xs text-muted">Вправ</p></div>
+          <div className="rounded-2xl bg-bg p-3"><Check size={18} className="mb-2 text-accent" aria-hidden /><p className="text-xl font-semibold tabular">{draft.exercises.reduce((n, ex) => n + ex.sets.length, 0)}</p><p className="text-xs text-muted">Підходів у плані</p></div>
+          <div className="rounded-2xl bg-bg p-3"><Clock3 size={18} className="mb-2 text-accent" aria-hidden /><p className="text-xl font-semibold tabular">{draft.durationMin}</p><p className="text-xs text-muted">Хвилин</p></div>
+        </div>
+        <a href="#workout-exercises" className="flex min-h-tap items-center justify-center rounded-xl bg-accent px-4 font-semibold text-surface">{existing ? 'Переглянути вправи' : 'Перейти до вправ'}</a>
+      </section>
+
       {(() => { // D61: the week in numbers, personal bests of the last workout
         const m = motivation(workouts, date);
         if (!m.week && !m.records.length) return null;
@@ -121,6 +138,7 @@ export function Workout() {
         </p>
       )}
 
+      <h2 id="workout-exercises" className="scroll-mt-6 text-lg font-semibold">Вправи тренування</h2>
       {draft.exercises.map((ex, i) => {
         const lib = exerciseOf(ex);
         const timed = lib?.timed ?? ex.name === 'Планка';
