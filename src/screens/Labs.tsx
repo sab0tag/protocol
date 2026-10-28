@@ -36,7 +36,7 @@ export function Labs() {
       (form.current?.elements.namedItem('name') as HTMLInputElement | null)?.focus({ preventScroll: true });
       form.current?.scrollIntoView({ block: 'nearest' });
     } else if (opener.current) {
-      (opener.current.isConnected ? opener.current : add.current)?.focus({ preventScroll: true });
+      (opener.current.isConnected ? opener.current : add.current)?.focus();
     }
   }, [open]);
   if (!labs) return <Loading />;
