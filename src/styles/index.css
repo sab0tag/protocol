@@ -190,3 +190,36 @@ main :where(details[open] > summary)::after { transform: rotate(180deg); }
   input[type=checkbox], input[type=checkbox].protocol-switch { appearance: auto; background-image: none; }
   input[type=checkbox].protocol-switch::after { display: none; }
 }
+
+/* Calm polish: shared panel rhythm; compact metrics keep their own component spacing. */
+:root { --protocol-space-card: 1rem; --protocol-height-control: 2.75rem; }
+.protocol-card { padding: var(--protocol-space-card); }
+.protocol-card h2 { font-size: 1.125rem; line-height: 1.4; font-weight: 650; }
+.protocol-card :where(dt, figcaption) { line-height: 1.5; }
+.protocol-card dd { font-variant-numeric: tabular-nums; letter-spacing: -.025em; }
+.protocol-action, .protocol-action-secondary { min-height: var(--protocol-height-control); }
+.protocol-day-hero {
+  background-image: linear-gradient(90deg, rgb(4 18 14 / .74), rgb(4 18 14 / .16) 78%), url('../assets/forest-dusk.webp');
+  background-position: center, 70% 53%;
+}
+.protocol-day-hero::after { background: linear-gradient(180deg, rgb(3 16 12 / .16), transparent 38%, rgb(3 16 12 / .8)); }
+.protocol-day-hero [data-testid="greeting"] { font-size: clamp(1.35rem, 5vw, 1.7rem); line-height: 1.25; text-shadow: 0 2px 12px rgb(0 0 0 / .55); }
+.protocol-day-hero [data-testid="daily-phrase"] { text-shadow: 0 1px 6px #06180f; }
+.protocol-bottom-nav a { min-height: 3.5rem; font-size: .75rem; line-height: 1.25; }
+.protocol-bottom-nav a[aria-current="page"] { background: rgb(var(--accent) / .12); }
+.protocol-rhythm-node > button { border: 1px solid transparent; }
+.protocol-rhythm-node[data-phase="current"] > button { border-color: rgb(var(--accent) / .5); background: rgb(var(--accent) / .08); box-shadow: inset 3px 0 rgb(var(--accent)); }
+.protocol-rhythm-node[data-phase="past"] > button { background: rgb(var(--line) / .15); }
+.protocol-rhythm-node[data-phase="future"] > button { border-color: rgb(var(--line) / .55); }
+.protocol-rhythm-phase { display: block; color: rgb(var(--accent)); font-size: .75rem; font-weight: 600; line-height: 1.5; }
+.protocol-rhythm-phase:empty { display: none; }
+.protocol-rhythm-node[data-phase="past"] .protocol-rhythm-phase { color: rgb(var(--muted)); }
+@keyframes protocol-card-enter { from { opacity: .5; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+@keyframes protocol-check-confirm { from { transform: scale(.8); } to { transform: scale(1); } }
+@media (prefers-reduced-motion: no-preference) {
+  .protocol-card { animation: protocol-card-enter 180ms ease-out; }
+  .protocol-rhythm-node > button { transition: background-color 180ms ease, border-color 180ms ease; }
+  input[type=checkbox]:checked:not(.protocol-switch) { animation: protocol-check-confirm 150ms ease-out; }
+}
+@media (min-width: 640px) { :root { --protocol-space-card: 1.25rem; } }
+@media (max-width: 359px) { .protocol-bottom-nav ul { gap: 0; padding-inline: .25rem; } }
