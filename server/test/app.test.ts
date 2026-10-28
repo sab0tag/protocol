@@ -384,3 +384,49 @@ describe('the assistant’s chat (D117)', () => {
     expect((await ask({ text: '', names: ['Омлет з 2 яєць'] })).status).toBe(400);
   });
 });
+
+describe('AI cost control', () => {
+  const MENU = { meals: [{ title: 'Сніданок' as const, time: '08:00', items: [{ name: 'Яйце варене', grams: 100, count: 2 }] }], tips: [] };
+  const rig = (over: { limits?: Partial<typeof DEFAULT_LIMITS>; disabledAi?: string[]; cost?: number } = {}) => {
+    const store = new Store(':memory:');
+    let calls = 0;
+    const usage = { model: 'claude-opus-5', input: (over.cost ?? 1) * 1_000_000 / 5, output: 0 };
+    const app = createApp({ store, origins: [], disabledAi: over.disabledAi, limits: { ...DEFAULT_LIMITS, ...over.limits },
+      menu: async () => { calls++; return { result: MENU, usage }; } });
+    const post = () => app.request(`/v1/vaults/${VAULT}/menu`, { method: 'POST',
+      headers: { Authorization: `Bearer ${AUTH}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ date: '2026-10-08', foods: ['Яйце'] }) });
+    return { store, app, post, calls: () => calls };
+  };
+  const open = (r: ReturnType<typeof rig>) => r.app.request(`/v1/vaults/${VAULT}`, { method: 'PUT', headers: { Authorization: `Bearer ${AUTH}` } });
+
+  it('blocks before the provider when the daily budget is spent, and keeps counting after a restart', async () => {
+    const r = rig({ limits: { aiDayUsdMicro: 250_000 } }); // one call costs $1 → the $0.10 reserve fits once, the real $1 closes the day
+    await open(r);
+    expect((await r.post()).status).toBe(200);
+    const blocked = await r.post();
+    expect(blocked.status).toBe(429);
+    expect(await blocked.json()).toEqual({ error: 'budget' });
+    expect(r.calls()).toBe(1);
+    const again = createApp({ store: r.store, origins: [], limits: { ...DEFAULT_LIMITS, aiDayUsdMicro: 250_000 }, menu: async () => ({ result: MENU }) });
+    const res = await again.request(`/v1/vaults/${VAULT}/menu`, { method: 'POST', headers: { Authorization: `Bearer ${AUTH}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ date: '2026-10-08', foods: ['Яйце'] }) });
+    expect(res.status).toBe(429);
+  });
+
+  it('parallel requests cannot jointly pass the budget', async () => {
+    const r = rig({ limits: { aiDayUsdMicro: 250_000 } });
+    await open(r);
+    const results = await Promise.all(Array.from({ length: 6 }, () => r.post()));
+    expect(results.filter((x) => x.status === 200)).toHaveLength(2);
+    expect(r.calls()).toBe(2);
+  });
+
+  it('a disabled feature answers ai_off without calling the provider', async () => {
+    const r = rig({ disabledAi: ['menu'] });
+    await open(r);
+    const res = await r.post();
+    expect(res.status).toBe(503);
+    expect(await res.json()).toEqual({ error: 'ai_off' });
+    expect(r.calls()).toBe(0);
+  });
+});

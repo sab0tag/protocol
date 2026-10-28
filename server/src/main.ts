@@ -46,6 +46,7 @@ const app = createApp({
     ? claudeDish({ model: env.MENU_MODEL ?? 'claude-opus-5-5', effort: 'low' }) : undefined,
   workout: env.ANTHROPIC_API_KEY // D63
     ? claudeWorkout({ model: env.WORKOUT_MODEL ?? 'claude-opus-5-5', effort: (env.WORKOUT_EFFORT ?? 'low') as 'low' | 'medium' | 'high' }) : undefined,
+  disabledAi: (env.AI_DISABLED ?? '').split(',').map((k) => k.trim()).filter(Boolean),
   limits: {
     ...DEFAULT_LIMITS,
     ...(env.PHOTOS_PER_DAY ? { photosPerDay: Number(env.PHOTOS_PER_DAY) } : {}),
@@ -55,6 +56,8 @@ const app = createApp({
     ...(env.VAULTS_PER_IP_PER_DAY ? { vaultsPerIpPerDay: Number(env.VAULTS_PER_IP_PER_DAY) } : {}), // e2e only
     ...(env.DEVICE_TOKENS_PER_IP_PER_DAY ? { deviceTokensPerIpPerDay: Number(env.DEVICE_TOKENS_PER_IP_PER_DAY) } : {}), // e2e only: every test is a new device
     ...(env.AI_PER_DAY ? { aiPerDay: Number(env.AI_PER_DAY) } : {}),
+    ...(env.AI_DAY_USD ? { aiDayUsdMicro: Number(env.AI_DAY_USD) * 1_000_000 } : {}),
+    ...(env.AI_MONTH_USD ? { aiMonthUsdMicro: Number(env.AI_MONTH_USD) * 1_000_000 } : {}),
     ...(env.PILOT_JOINS_PER_IP_PER_DAY ? { pilotJoinsPerIpPerDay: Number(env.PILOT_JOINS_PER_IP_PER_DAY) } : {}), // e2e only
   },
 });

@@ -33,6 +33,12 @@ export class BudgetGuard {
     this.warnAt = options.warnAt ?? 0.8;
   }
 
+  /** Register a window (e.g. `day:2026-10-28`) with its limit; `alreadySpent` seeds it from persisted spend the first time it is seen. */
+  ensureScope(scope: BudgetScope, limit: number, alreadySpent: number): void {
+    this.limits.set(scope, limit);
+    if (!this.spent.has(scope)) this.spent.set(scope, alreadySpent);
+  }
+
   disableFeature(task: string): void { this.disabled.add(task); }
   enableFeature(task: string): void { this.disabled.delete(task); }
 
