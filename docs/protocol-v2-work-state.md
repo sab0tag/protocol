@@ -94,3 +94,11 @@ First remote CI: check and server passed; e2e failed in four cases. Fixed genuin
 
 ### Food 2.0 integration after #53 (28 Oct 2026)
 Original #47 was stacked on #44 and conflicts with current main. Branch `integration/food-on-main` ports food-only implementation, domain, translations, warning styles, and focused tests onto merged #53. Existing Today/sync fixes and tests are retained. Original #47 is not to be merged directly. Full CI, E2E and preview review are required before merge. No patient data or production authorization.
+
+## Daily nutrition hub (28 October 2026)
+
+Current base `1115980` already includes Food/Wellbeing/Progress/Assistant integration and the latest prescription-clock, photo-consent and report-outcome fixes. Original #44/#47 are historical branches and are not merged directly.
+
+`feat/protocol-nutrition-overview` adds `/food` («Моє харчування») as the food tab: date-scoped actual totals, source targets, preserved planned/skipped outcomes, expandable meal composition and original edit links, visible restriction reasons and limited rule-check claims. Existing entry methods/editor remain unchanged. Unknown/estimated composition cannot silently look complete. No new journal writes, fabricated targets, pantry/preparation data or overall score. See `nutrition-overview.md` for checks and the remaining catalog/recommendation scope. Full CI and preview status live in the PR; main/production remain unchanged.
+
+Marketing #48 was refreshed by merging current main into its own branch. Its 8 focused browser tests pass again. Published visual verification remains blocked by Vercel authentication in the available browser; no protection settings changed.

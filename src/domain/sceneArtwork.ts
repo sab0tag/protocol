@@ -4,7 +4,7 @@ const startsWithAny = (path: string, prefixes: string[]) => prefixes.some((prefi
 
 export function sceneArtworkForPath(pathname: string): SceneArtwork | null {
   if (pathname === '/') return null;
-  if (startsWithAny(pathname, ['/meal', '/dishes', '/foods', '/menu', '/shopping']) || pathname === '/more/food') return 'food';
+  if (startsWithAny(pathname, ['/food', '/meal', '/dishes', '/foods', '/menu', '/shopping']) || pathname === '/more/food') return 'food';
   if (startsWithAny(pathname, ['/workout', '/exercises'])) return 'movement';
   if (startsWithAny(pathname, ['/assistant', '/concierge-log'])) return 'assistant';
   if (startsWithAny(pathname, ['/plan', '/welcome', '/report']) || pathname === '/progress/labs') return 'care';

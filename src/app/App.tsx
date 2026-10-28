@@ -5,6 +5,7 @@ import { ErrorBoundary } from '../components/Recovery';
 import { usePlan } from '../data/queries';
 import { useUi } from '../store/ui';
 import { t } from '../i18n/uk';
+import { Nutrition } from '../screens/Nutrition';
 import { AddMeal } from '../screens/AddMeal';
 import { Profiles } from '../screens/Profiles';
 import { Day } from '../screens/Day';
@@ -49,7 +50,7 @@ function MealRoute() {
 
 // Exhaustive against ROUTES: adding a screen also requires choosing its feature owner in navigation.ts.
 const SCREENS = {
-  profiles: <Profiles />, day: <Day />, mealNew: <MealRoute />, mealEdit: <MealRoute />, myDay: <MyDay />,
+  food: <Nutrition />, profiles: <Profiles />, day: <Day />, mealNew: <MealRoute />, mealEdit: <MealRoute />, myDay: <MyDay />,
   wellbeing: <Wellbeing />, wellbeingJournal: <WellbeingJournal />, workout: <Workout />, exercises: <Exercises />, quickAction: <QuickAction />,
   quickLinks: <QuickLinks />, frictions: <Frictions />, pilot: <Pilot />, week: <Week />, plan: <Plan />,
   planPrescriptions: <Plan section="prescriptions" />, planConstraints: <Plan section="constraints" />,
