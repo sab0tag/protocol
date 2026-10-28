@@ -664,6 +664,8 @@ export const t = {
     main: 'Головне', mainHint: 'Рахуються дні, коли були записи.',
     meds: (taken: number, due: number) => `Ліки: відмічено прийнятими ${taken} з ${due} доз у дні з записами (${Math.round((taken / due) * 100)} %)`, // R06
     missed: (title: string, n: number) => `${title} — пропущено ${n}`,
+    unmarked: (n: number) => `Без відмітки: ${n} доз.`,
+    medsScope: 'Частка — серед належних доз у дні з записами. Дні без записів не оцінюються, а відсутність відмітки не означає пропуск.',
     medLine: (m: { title: string; inn?: string; dose?: string; taken: number; due: number }) =>
       `${m.title}${m.inn ? ` (${m.inn})` : ''}${m.dose ? `, ${m.dose}` : ''} — ${m.taken} з ${m.due} (${Math.round((m.taken / m.due) * 100)} %)`, // D89
     deviations: (n: number, of: number) => `Прийомів їжі з відхиленням від обмежень: ${n} з ${of}`,

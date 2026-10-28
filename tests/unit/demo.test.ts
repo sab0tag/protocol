@@ -18,7 +18,7 @@ describe('the example weeks and the report’s «Головне» (D79)', () => 
   });
 
   it('shows what records are for: doses, limits, coincidences, sleep, weight, labs', () => {
-    expect(r.meds).toMatchObject({ taken: DEMO_DAYS - 3, due: DEMO_DAYS, missed: [{ title: 'Вітамін D', count: 3 }], list: [{ title: 'Вітамін D', taken: DEMO_DAYS - 3, due: DEMO_DAYS }] }); // today: 08:30 has come, not taken… today has no records
+    expect(r.meds).toMatchObject({ taken: DEMO_DAYS - 3, due: DEMO_DAYS, unmarked: 3, missed: [], list: [{ title: 'Вітамін D', taken: DEMO_DAYS - 3, due: DEMO_DAYS }] }); // the three absent marks are unknown; today has no records
     expect(r.deviations?.by[0]).toEqual({ title: 'Непереносимість лактози', count: 4 });
     expect(r.coincidences.some((c) => c.startsWith('«Здуття» — 4 з 4'))).toBe(true);
     expect(r.coincidences.some((c) => c.startsWith('Сон після днів, коли вечеря пізніше 20:00'))).toBe(true);
@@ -26,7 +26,9 @@ describe('the example weeks and the report’s «Головне» (D79)', () => 
     expect(r.habits.find((h) => h.key === 'water')).toEqual({ key: 'water', met: 10, of: 14 }); // not all zeros, not all perfect
     expect(r.labs.map((l) => l.name)).toEqual(['Глюкоза натще', 'Феритин']);
     const text = reportText(r, (x) => x);
-    expect(text.split('\n')[1]).toBe('Ліки: відмічено прийнятими 11 з 14 доз у дні з записами (79 %) — Вітамін D — пропущено 3');
+    expect(text.split('\n')[1]).toBe('Ліки: відмічено прийнятими 11 з 14 доз у дні з записами (79 %)');
+    expect(text).toContain('Без відмітки: 3 доз.');
+    expect(text).not.toContain('Вітамін D — пропущено');
   });
 });
 
