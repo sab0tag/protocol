@@ -7,7 +7,7 @@
 | Screen / route | Mockup reference | Audit state |
 |---|---|---|
 | Today — `/` | Today / greeting / timeline | Shared shell updated; detailed review pending |
-| Add food — `/meal/new` | Record food | Shared header updated; detailed review pending |
+| Add food — `/meal/new` | Record food | Recent meals now follow search; reviewed at 320, 390, 768, and 1024 px in both themes; narrow demo state still places meal cards below the first fold |
 | Edit meal — `/meal/:id` | Food detail / editing | Shared header updated; detailed review pending |
 | My day — `/my-day` | Daily checklist | Example-data warning order checked; detailed visual review pending |
 | Wellbeing — `/wellbeing` | Daily health tracking | Header and rating controls visually checked; remaining widths/themes pending |
@@ -99,7 +99,7 @@ Food list thumbnails are cached locally from Unsplash under its [official licens
 |---|---|---|
 | Today | 320/390/768/1024 px / dark; 390 px / light | The woodland header, greeting, week strip, quick actions, and bottom navigation render without clipping; 768/1024 use the icon rail and centered content column. The example-data warning now precedes the sample missed-item card. The mockup's plan chip and compact metric placement still differ; detailed below-the-fold comparison remains pending. |
 | My day | 320 px / dark | The sample-data warning appears before checklist progress and action rows; the checklist remains within the viewport width. Full width/theme comparison remains pending. |
-| Add food | 320 px / dark; 390 px / light | All four input modes fit with no horizontal overflow at 320 px. Recent meal cards use local photos for all nine supported food categories. |
+| Add food | 320, 390, 768, and 1024 px / light and dark | Recent meal tabs and photo cards now follow search. The empty-form save panel no longer sticks over the list; it becomes sticky once items are selected. No horizontal overflow. The retained section photo and required demo-data warning push the recent cards below the first fold at narrow widths in example mode. |
 | Wellbeing | 320 px / dark and light; 1024 px / light | The photo header, demo-data warning, daily rating groups, symptom chips, and journal link remain legible with no horizontal overflow at the checked widths. |
 | Wellbeing journal | 320 px / light | The demo-data warning precedes the sample entries; the long list scrolls beneath the fixed navigation without horizontal overflow. Other widths/themes are covered by the browser geometry matrix. |
 | Doctor plan | 390 px / light and dark | The intended care-section photo and safety notice about demo records remain intact. Existing single-plan sections render without clipping; multi-plan status rings and controls are not shown because the new storage model is deliberately not UI-writable until backup/sync compatibility is implemented. |
@@ -124,6 +124,7 @@ The expanded E2E matrix initially found horizontal overflow on Motivation at 320
 - The Progress screen now surfaces the existing seven-day carbohydrate, protein, water, workout, and checklist summary before the weight section. It reuses the established data-coverage rules; date-range selection and the mockup's chart framing remain different.
 - The Progress screen's carbohydrate, protein, water, and checklist indicators use the existing accessible ring component in compact mock-scale cards. Workouts remain a plain count because there is no target to justify a completion percentage; the shared Motivation card retains its prior tile layout.
 - Visually compared the Dishes catalog with the mockup at all four requested widths in both themes. Search and meal filters precede compact image cards with favorite and overflow actions; at 320 px labels wrap without clipping, and wider layouts retain the centered content column. The section-photo hero is intentionally preserved per product direction; detailed ingredient and editing controls remain expandable rather than crowding the catalog.
+- On Add food, moved recent meal categories and photo cards directly below the search area, ahead of secondary frequent/manual actions. The empty form keeps its save/cancel controls in normal flow so they no longer cover the list; they return to sticky placement after an item is selected. Checked all requested widths and themes: at 320/390 px in example mode, the retained hero photo and required safety notice still leave the first recent meal card below or partly below the initial viewport, while wider views show the list. This is a documented difference rather than a reason to remove the warning or artwork.
 - Keep the intentionally added section and food photography unchanged. The screenshot matrix checks responsive layout, theme selection, navigation, header-art presence, and horizontal overflow; it does not establish pixel-level equivalence.
 
 The browser matrix captures the 41 visual screens at 320, 390, 768, and 1024 px in both themes. Food cards use local category illustrations as image-like thumbnails; the section header photos do not replace the per-food photographs shown in mockups.

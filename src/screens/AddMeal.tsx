@@ -259,6 +259,8 @@ export function AddMeal() {
               {/* D110: a dish of one's own — described, it is broken into ingredients */}
               <Link to={`/dishes?describe=${encodeURIComponent(query.trim())}`} className="mt-1 inline-flex min-h-tap items-center text-sm text-accent underline">{t.dishes.breakdown.fromMeal}</Link></>
           )}
+          {!id && !query && !free && photo.state === 'none' && items.length === 0 && all && <RecentMeals entries={all} date={date} initialTitle={title}
+            onAdd={(xs, mealTitle) => { setItems((ys) => [...ys, ...xs]); setTitle(mealTitle); }} />}
           {!query && <FavoritesList limit={3} onAdd={(xs) => setItems((ys) => [...ys, ...xs])} />}
           {!query && all && (() => {
             const freq = frequentItems(all, todayISO()).filter((f) => !items.some((it) => it.name === f.item.name));
@@ -279,9 +281,6 @@ export function AddMeal() {
           {free && <FreeItemForm onAdd={(it) => { setItems((xs) => [...xs, it]); setFree(false); }} />}
           {labelOpen && <LabelScan onAdd={(it) => setItems((xs) => [...xs, it])} />}
         </section>
-
-        {!id && !query && !free && photo.state === 'none' && items.length === 0 && all && <RecentMeals entries={all} date={date} initialTitle={title}
-          onAdd={(xs, mealTitle) => { setItems((ys) => [...ys, ...xs]); setTitle(mealTitle); }} />}
 
         {items.length > 0 && <CheckPanel foods={foods} checks={checks} anyActive={anyActive} swapped={swapped} eaten={eaten && hasSwaps(checks)} plan={plan} />}
 
@@ -425,7 +424,7 @@ export function AddMeal() {
           )}
         </div>
 
-        <div data-testid="meal-save-actions" className="sticky bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-10 protocol-card rounded-2xl border border-line bg-surface p-3 shadow-lg md:bottom-4">
+        <div data-testid="meal-save-actions" className={`${items.length ? 'sticky bottom-[calc(4.75rem+env(safe-area-inset-bottom))] md:bottom-4' : ''} z-10 protocol-card rounded-2xl border border-line bg-surface p-3 shadow-lg`}>
           <p aria-live="polite" aria-atomic="true" className="mb-2 text-sm text-muted">{items.length ? t.meal.selectedCount(items.length) : t.meal.chooseFirst}</p>
           <div className="flex flex-wrap gap-2">
           {swapped ? (
