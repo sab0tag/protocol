@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { createApp, DEFAULT_LIMITS } from '../src/app.ts';
 import type { PhotoResult, Recognizer } from '../src/photo.ts';
 import { Store } from '../src/store.ts';
+import { ClinicDirectory } from '../src/clinic/directory.ts';
+import { PlanDelivery } from '../src/clinic/delivery.ts';
 
 const VAULT = 'a'.repeat(32);
 const AUTH = 'k'.repeat(43);
@@ -428,5 +430,46 @@ describe('AI cost control', () => {
     expect(res.status).toBe(503);
     expect(await res.json()).toEqual({ error: 'ai_off' });
     expect(r.calls()).toBe(0);
+  });
+});
+
+describe('clinic plan redemption', () => {
+  const rigPlan = () => {
+    const store = new Store(':memory:');
+    const dir = new ClinicDirectory(store.database);
+    const planDelivery = new PlanDelivery(store.database, dir);
+    const org = dir.createOrganization('Клініка', 'Адмін');
+    const admin = dir.authenticate(org.token)!;
+    const doc = dir.authenticate(dir.addStaff(admin, { displayName: 'Лікар', role: 'doctor' }).token)!;
+    const plan = { schemaVersion: 1, planId: crypto.randomUUID(), organizationId: org.orgId, issuedAt: '2025-01-01T10:00:00+02:00',
+      clinician: { displayName: 'Лікар', organizationName: 'Клініка' }, title: 'План', medications: [], restrictions: [], tests: [] };
+    const { code } = planDelivery.issue(doc, { plan, patientConsent: true });
+    const app = createApp({ store, origins: ['https://protocol.test'], planDelivery });
+    const redeem = (c: unknown, ip = '1.1.1.1') => app.request('/v1/clinic/plans/redeem', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': ip }, body: JSON.stringify({ code: c }),
+    });
+    return { code, redeem, app };
+  };
+  it('gives the plan once, uncached, then 410', async () => {
+    const { code, redeem } = rigPlan();
+    const r = await redeem(code);
+    expect(r.status).toBe(200);
+    expect(r.headers.get('cache-control')).toBe('no-store');
+    expect(((await r.json()) as { plan: { title: string } }).plan.title).toBe('План');
+    const again = await redeem(code);
+    expect(again.status).toBe(410);
+    expect(await again.json()).toEqual({ error: 'used' });
+  });
+  it('unknown or malformed codes are 404; guessing is rate limited', async () => {
+    const { redeem } = rigPlan();
+    expect((await redeem('z'.repeat(43))).status).toBe(404);
+    expect((await redeem(42)).status).toBe(404);
+    for (let i = 0; i < 40; i++) await redeem('z'.repeat(43), '9.9.9.9');
+    expect((await redeem('z'.repeat(43), '9.9.9.9')).status).toBe(429);
+  });
+  it('is off without clinic support', async () => {
+    const app = createApp({ store: new Store(':memory:'), origins: [] });
+    const r = await app.request('/v1/clinic/plans/redeem', { method: 'POST', body: '{}' });
+    expect(r.status).toBe(503);
   });
 });

@@ -21,6 +21,7 @@ import type { Sender } from './push.ts';
 import type { Store } from './store.ts';
 import { parseReminderPolicy } from './reminderPolicy.ts';
 import { BudgetGuard } from './ai/budgets.ts';
+import { RedeemFailure, type PlanDelivery } from './clinic/delivery.ts';
 import { latestWeek, parsePilot, PID, SECRET, SRC, weekAdd, weekKey } from './pilot.ts';
 
 export interface Limits {
@@ -57,6 +58,7 @@ export interface Deps {
   notFound?: NotFoundReader; // D91: the concierge, scenario 1
   conciergeModel?: string; // D91: written into the log's versions
   label?: LabelReader; // the same (D45)
+  planDelivery?: PlanDelivery; // clinic plans handed over by one-time code
   push?: { publicKey: string; send: Sender };
   backupAgeH?: () => number | null;
   backups?: { list: () => string[]; records: (name: string, vault: string) => { k: string; v: string | null; seq: number }[] | null };
@@ -786,6 +788,20 @@ export function createApp(deps: Deps) {
     const body = rec.kind.startsWith('note:') ? { ...rec.body, note: scrubNames((rec.body as { note: string }).note) } : rec.body;
     store.putPilotWeek(pid, rec.body.week, rec.kind, rec.kind === 'week' ? (rec.body as { src?: string }).src ?? null : null, JSON.stringify(body));
     return c.json({ ok: true });
+  });
+
+  /** Patient side, no account: a one-time code gives the plan once. The plan is never logged and never cached. */
+  app.post('/v1/clinic/plans/redeem', bodyLimit({ maxSize: 1_000, onError: (c) => c.json({ error: 'too_large' }, 413) }), async (c) => {
+    if (!deps.planDelivery) return c.json({ error: 'clinic_off' }, 503);
+    if (!store.take(`planredeem:${ipKey(c)}`, 30, now())) return c.json({ error: 'too_many' }, 429);
+    const body = await c.req.json().catch(() => null) as { code?: unknown } | null;
+    c.header('Cache-Control', 'no-store');
+    try {
+      return c.json({ plan: deps.planDelivery.redeem(typeof body?.code === 'string' ? body.code : '') });
+    } catch (e) {
+      if (!(e instanceof RedeemFailure)) throw e;
+      return c.json({ error: e.code }, e.code === 'invalid' ? 404 : 410);
+    }
   });
 
   app.delete('/v1/pilot', (c) => {

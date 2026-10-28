@@ -1,5 +1,7 @@
 import { serve } from '@hono/node-server';
 import { createApp, DEFAULT_LIMITS } from './app.ts';
+import { ClinicDirectory } from './clinic/directory.ts';
+import { PlanDelivery } from './clinic/delivery.ts';
 import { backupAgeH, backupOnce, backupRecords, listBackups } from './backup.ts';
 import { claudeLabel } from './label.ts';
 import { claudeMenu } from './menu.ts';
@@ -25,6 +27,7 @@ const vapid = vapidKeys(store, env);
 const send = webPushSender(vapid, env.VAPID_SUBJECT ?? 'https://protocol.beyondthesignal.to');
 const app = createApp({
   store,
+  planDelivery: new PlanDelivery(store.database, new ClinicDirectory(store.database)),
   push: { publicKey: vapid.publicKey, send },
   backupAgeH: () => backupAgeH(backups, new Date()),
   backups: { list: () => listBackups(backups), records: (name, vault) => backupRecords(backups, name, vault) },
