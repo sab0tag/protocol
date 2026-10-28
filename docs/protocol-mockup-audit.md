@@ -32,7 +32,7 @@
 | Motivation — `/progress/motivation` | Motivation | Shared header updated; detailed review pending |
 | Lab results — `/progress/labs` | Results and trends | Shared header updated; detailed review pending |
 | Report — `/report` | Doctor's report | Pending |
-| Dishes — `/dishes` | My dishes | Shared header updated; detailed review pending |
+| Dishes — `/dishes` | My dishes | Catalog visually reviewed at 320, 390, 768, and 1024 px in both themes; intentionally retained section photography; details/actions remain available |
 | Foods — `/foods` | Food catalog | Shared header updated; detailed review pending |
 | Data — `/data` | Import / export | Shared header updated; detailed review pending |
 | More — `/more` | Additional capabilities | Shared header updated; detailed review pending |
@@ -111,6 +111,7 @@ Food list thumbnails are cached locally from Unsplash under its [official licens
 | Settings | 768 px / dark | The profile-photo card and settings links render beneath the integrated header; no clipping or horizontal overflow. |
 | Workout | 1024 px / light | The image is integrated into the header; the previous/next controls remain legible against their surface buttons. |
 | Add food | 390 px / light and dark | Recent meal categories and favorite controls are present. All nine supported food categories use cached local photographs. |
+| Dishes | 320, 390, 768, and 1024 px / light and dark | Search, horizontally scrollable filters, photo cards, favorites, and navigation remain legible with no horizontal overflow. The catalog matches the mockup's card-and-filter structure; the intentionally retained section-photo hero is larger than the mockup's compact title row. Long details and editing actions stay available from each card; the existing editor follows the catalog. |
 
 The expanded E2E matrix initially found horizontal overflow on Motivation at 320 px. Habit labels and right-hand status text now have explicit shrink/wrap constraints; all checks passed on PR #28.
 
@@ -122,6 +123,7 @@ The expanded E2E matrix initially found horizontal overflow on Motivation at 320
 - On the empty assistant screen, the composer now sits near the bottom navigation instead of directly below suggestion chips, matching the mockup's chat layout; an E2E geometry assertion guards the spacing.
 - The Progress screen now surfaces the existing seven-day carbohydrate, protein, water, workout, and checklist summary before the weight section. It reuses the established data-coverage rules; date-range selection and the mockup's chart framing remain different.
 - The Progress screen's carbohydrate, protein, water, and checklist indicators use the existing accessible ring component in compact mock-scale cards. Workouts remain a plain count because there is no target to justify a completion percentage; the shared Motivation card retains its prior tile layout.
+- Visually compared the Dishes catalog with the mockup at all four requested widths in both themes. Search and meal filters precede compact image cards with favorite and overflow actions; at 320 px labels wrap without clipping, and wider layouts retain the centered content column. The section-photo hero is intentionally preserved per product direction; detailed ingredient and editing controls remain expandable rather than crowding the catalog.
 - Keep the intentionally added section and food photography unchanged. The screenshot matrix checks responsive layout, theme selection, navigation, header-art presence, and horizontal overflow; it does not establish pixel-level equivalence.
 
 The browser matrix captures the 41 visual screens at 320, 390, 768, and 1024 px in both themes. Food cards use local category illustrations as image-like thumbnails; the section header photos do not replace the per-food photographs shown in mockups.
