@@ -1,0 +1,95 @@
+import { expect, test } from '@playwright/test';
+import { device, seed, toast } from './helpers';
+
+test('manual lab errors are explained and the exact numeric precision reaches history, report and sharing', async ({ browser }) => {
+  const page = await device(browser, 'skip');
+  await page.clock.setFixedTime(new Date('2026-10-28T12:00:00+02:00'));
+  await page.goto('./#/progress/labs');
+  await page.getByRole('button', { name: 'Додати результат', exact: true }).click();
+  const form = page.getByRole('form', { name: 'Додати результат', exact: true });
+  await form.getByRole('combobox', { name: 'Показник', exact: true }).fill('Тестовий показник');
+  const value = form.getByRole('textbox', { name: 'Значення', exact: true });
+  await value.fill('abc');
+  await form.getByRole('button', { name: 'Зберегти', exact: true }).click();
+  await expect(value).toHaveAttribute('aria-invalid', 'true');
+  await expect(value).toBeFocused();
+  await expect(form.getByText('Введіть число, наприклад 5,7. Одиницю вкажіть окремо.')).toBeVisible();
+  await expect(value).toHaveValue('abc');
+  await value.fill('0,004123');
+  await form.getByLabel('Дата', { exact: true }).fill('2026-10-29');
+  await form.getByRole('button', { name: 'Зберегти', exact: true }).click();
+  await expect(form.getByLabel('Дата', { exact: true })).toHaveAttribute('aria-invalid', 'true');
+  await expect(value).toHaveValue('0,004123');
+  await form.getByLabel('Дата', { exact: true }).fill('2026-10-27');
+  await form.getByRole('textbox', { name: 'Од.', exact: true }).fill('од.');
+  await form.getByRole('button', { name: 'Зберегти', exact: true }).click();
+  await expect(form).toHaveCount(0);
+  await expect(page.getByRole('table')).toContainText('0,004123');
+  await page.getByText(/^Історія та виправлення/).click();
+  await expect(page.getByRole('button', { name: 'Редагувати результат: Тестовий показник, 2026-10-27', exact: true })).toBeVisible();
+  await page.goto('./#/report');
+  await expect(page.getByRole('region', { name: 'Головне' })).toContainText('0,004123 од.');
+  await page.evaluate(() => Object.defineProperty(navigator, 'share', { configurable: true,
+    value: async (data: ShareData) => { document.body.dataset.sharedReport = data.text; } }));
+  await page.getByRole('button', { name: 'Поділитися', exact: true }).click();
+  await expect(page.locator('body')).toHaveAttribute('data-shared-report', /0,004123 од\./);
+});
+
+test('history corrects a middle result without overwriting another date; a move can be undone', async ({ browser }) => {
+  const page = await device(browser, 'skip');
+  const base = { name: 'Тестовий показник', value: 5.1234, unit: 'од.' };
+  await seed(page, [20, 21, 22].map(day => ({ store: 'labs', value: { ...base, date: `2026-10-${day}` } })));
+  await page.goto('./#/progress/labs');
+  await page.getByText(/^Історія та виправлення/).click();
+  const edit = page.getByRole('button', { name: 'Редагувати результат: Тестовий показник, 2026-10-21', exact: true });
+  await edit.click();
+  const form = page.getByRole('form', { name: 'Редагувати результат', exact: true });
+  await expect(form.getByRole('textbox', { name: 'Значення', exact: true })).toHaveValue('5,1234');
+  await form.getByRole('textbox', { name: 'Значення', exact: true }).fill('7,123456');
+  await form.getByLabel('Дата', { exact: true }).fill('2026-10-22');
+  await form.getByRole('button', { name: 'Зберегти', exact: true }).click();
+  await expect(form.getByRole('alert')).toContainText('На цю дату вже є результат');
+  await expect(form.getByRole('textbox', { name: 'Значення', exact: true })).toHaveValue('7,123456');
+  await form.getByLabel('Дата', { exact: true }).fill('2026-10-23');
+  await form.getByRole('button', { name: 'Зберегти', exact: true }).click();
+  await expect(form).toHaveCount(0);
+  await expect(page.getByText(/^Історія та виправлення/)).toContainText('3');
+  await expect(page.getByRole('button', { name: 'Редагувати результат: Тестовий показник, 2026-10-23', exact: true })).toBeVisible();
+  await expect(edit).toHaveCount(0);
+  await toast(page).getByRole('button', { name: 'Скасувати', exact: true }).click();
+  await expect(edit).toBeVisible();
+  await edit.click();
+  await expect(form.getByRole('textbox', { name: 'Значення', exact: true })).toHaveValue('5,1234');
+  await form.getByRole('textbox', { name: 'Значення', exact: true }).fill('9');
+  await form.getByRole('button', { name: 'Скасувати', exact: true }).click();
+  await expect(edit).toBeFocused();
+  await page.reload();
+  await page.getByText(/^Історія та виправлення/).click();
+  await edit.click();
+  await expect(form.getByRole('textbox', { name: 'Значення', exact: true })).toHaveValue('5,1234');
+});
+
+test('a result changed while its editor is open is not overwritten, and the draft remains available', async ({ browser }) => {
+  const page = await device(browser, 'skip');
+  const result = { date: '2026-10-20', name: 'Тестовий показник', value: 5.12, unit: 'од.' };
+  await seed(page, [{ store: 'labs', value: result }]);
+  await page.goto('./#/progress/labs');
+  await page.getByText(/^Історія та виправлення/).click();
+  await page.getByRole('button', { name: 'Редагувати результат: Тестовий показник, 2026-10-20', exact: true }).click();
+  const form = page.getByRole('form', { name: 'Редагувати результат', exact: true });
+  await form.getByRole('textbox', { name: 'Значення', exact: true }).fill('6,78');
+  await page.evaluate(async result => {
+    const request = indexedDB.open('protocol');
+    await new Promise(resolve => { request.onsuccess = resolve; });
+    const tx = request.result.transaction('labs', 'readwrite');
+    tx.objectStore('labs').put({ ...result, value: 8.9 });
+    await new Promise(resolve => { tx.oncomplete = resolve; });
+    request.result.close();
+  }, result);
+  await form.getByRole('button', { name: 'Зберегти', exact: true }).click();
+  await expect(form.getByRole('alert')).toContainText('Результат змінився або був видалений');
+  await expect(form.getByRole('textbox', { name: 'Значення', exact: true })).toHaveValue('6,78');
+  await form.getByRole('button', { name: 'Скасувати', exact: true }).click();
+  await page.reload();
+  await expect(page.getByRole('table')).toContainText('8,9');
+});
