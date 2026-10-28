@@ -203,7 +203,7 @@ export function PlanScan({ plan, onDone, onboarding }: { plan: PlanRow; onDone?:
           <h2 className="text-base font-semibold">Передавання медичних даних для розпізнавання</h2>
           <p>{L.consent}</p>
           <p className="rounded-xl border border-line bg-bg p-3 text-muted">Ви можете приховати особисті дані на фото перед надсиланням. Розпізнані призначення не стануть частиною плану, доки ви не перевірите та не підтвердите їх.</p>
-          <button type="button" onClick={() => void allow() className="min-h-tap rounded-xl bg-accent px-3 font-medium text-surface">{L.allow}</button>
+          <button type="button" onClick={() => void allow()} className="min-h-tap rounded-xl bg-accent px-3 font-medium text-surface">{L.allow}</button>
         </div>
       )}
       {state === 'form' && (
