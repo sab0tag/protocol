@@ -90,8 +90,18 @@ function Steps({ plan, start, onScanned }: { plan: PlanRow; start: number; onSca
   if (step === 0) return (
     <section className="space-y-4 pt-6">
       <header className="protocol-scene-header">
-        <div><h1 className="text-2xl font-semibold">{L.s0}</h1><p className="mt-1 text-sm text-muted">{L.s0hint}</p></div>
+        <div><h1 className="text-2xl font-semibold">Ваш план лікування — без зайвої складності</h1><p className="mt-1 text-sm text-muted">Сфотографуйте призначення лікаря. Protocol допоможе впорядкувати ліки, харчування та щоденні справи в одному місці.</p></div>
       </header>
+      <div className="protocol-card space-y-2 rounded-2xl border border-line bg-surface p-3" aria-label="Приклад результату">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted">Демо-приклад · не медичне призначення</p>
+        <p className="text-sm text-muted">Зі складного висновку — до зрозумілих кроків на день:</p>
+        <div className="space-y-2 text-sm">
+          <p className="rounded-xl bg-bg p-3">💊 08:00 · Приклад нагадування про ліки</p>
+          <p className="rounded-xl bg-bg p-3">🍽️ Перевірка страв за обмеженнями</p>
+          <p className="rounded-xl bg-bg p-3">📅 Нагадування про контрольний візит</p>
+        </div>
+        <p className="text-xs text-muted">Перед збереженням перевірте розпізнані дані за оригіналом документа.</p>
+      </div>
       <PlanScan plan={plan} onboarding onDone={() => void started()} />
       <button type="button" onClick={() => setStep(1)} className="min-h-tap w-full rounded-xl border border-accent px-4 font-medium text-accent">{L.manual}</button>
       <PilotStart />
