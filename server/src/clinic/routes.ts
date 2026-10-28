@@ -52,6 +52,8 @@ export function mountClinic(app: Hono, o: { dir: ClinicDirectory; delivery: Plan
   app.post('/v1/clinic/staff/:id/token', (c) => run(c, (a) => ({ token: dir.rotateToken(a, id(c)) })));
   app.get('/v1/clinic/audit', (c) => run(c, (a) => ({ entries: dir.auditLog(a, Number(c.req.query('limit')) || 100) })));
 
+  app.get('/v1/clinic/stats', (c) => run(c, (a) => delivery.stats(a, Number(c.req.query('days')) || 30)));
+
   app.post('/v1/clinic/plans', plan, (c) => run(c, async (a) => {
     const b = await body(c);
     return delivery.issue(a, { plan: b.plan, patientConsent: b.patientConsent === true,
