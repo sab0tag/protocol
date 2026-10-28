@@ -29,12 +29,14 @@ export async function call<T>(keys: Keys, method: string, path: string, body?: u
   return data as T;
 }
 
+// Explicit legacy capability until the normalized sync adapter is implemented. Old servers ignore these fields.
+export const CLIENT_DATA_PROTOCOL = 1;
 export const createVault = (keys: Keys) => call<{ created: boolean }>(keys, 'PUT', '');
 
 export function vaultApi(keys: Keys): Api {
   return {
-    pull: (since) => call<{ records: RemoteRecord[]; more: boolean; seq: number }>(keys, 'GET', `/records?since=${since}`),
-    push: (records) => call<{ seq: number }>(keys, 'POST', '/records', { records }),
+    pull: (since) => call<{ records: RemoteRecord[]; more: boolean; seq: number }>(keys, 'GET', `/records?since=${since}&protocol=${CLIENT_DATA_PROTOCOL}`),
+    push: (records) => call<{ seq: number }>(keys, 'POST', '/records', { records, protocol: CLIENT_DATA_PROTOCOL }),
   };
 }
 

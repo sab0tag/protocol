@@ -38,7 +38,11 @@ const STALE = 2 * 3600_000; // the server was down: a reminder this late is not 
 /** One pass over what is due. Returns how many were sent. */
 export async function tick(store: Store, send: Sender, now: number): Promise<number> {
   let sent = 0;
-  for (const r of store.due(now)) {
+  const due = store.due(now);
+  const protocols = new Map(due.map(r => [r.vault, store.minimumWriteProtocol(r.vault)]));
+  for (const r of due) {
+    const protocol = protocols.get(r.vault)!;
+    if (store.minimumWriteProtocol(r.vault) !== protocol) continue; // a protocol transition retired this snapshot
     const data = JSON.parse(r.payload) as { k?: string; m?: boolean; tag?: string };
     const policy = store.reminderPolicy(r.vault); // re-read after every awaited send: another device may have disabled a module
     const aware = store.reminderAware(r.vault, r.device);
@@ -49,11 +53,12 @@ export async function tick(store: Store, send: Sender, now: number): Promise<num
     const governed = aware || Object.keys(policy.modules).length > 0 || policy.days.length > 0;
     const payload = JSON.stringify({ ...data, n: r.sent, ...(governed ? { pv: 1, a: r.at, pa: reminderAccess(policy, data, r.at, now) } : {}) });
     const res = await send(r.sub, payload);
-    if (res === 'gone') { store.dropDevice(r.vault, r.device); continue; }
     if (res === 'ok') {
       sent += 1;
       if (store.pushedFirst(r.vault, r.rid, r.at)) store.bump('stat:rem_sent', 1, new Date(now)); // D119: a reminder that came — not its repeats, not per device
     }
+    if (store.minimumWriteProtocol(r.vault) !== protocol) continue; // never update/delete a freshly resubmitted queue
+    if (res === 'gone') { store.dropDevice(r.vault, r.device); continue; }
     store.afterSend(r.vault, r.device, r.rid, r.repeats_left > 0 ? now + r.repeat_every * 60_000 : null);
   }
   return sent;
