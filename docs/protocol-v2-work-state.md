@@ -103,3 +103,10 @@ Owner authorization: develop in branches, open/update PRs, run CI and preview wi
 - #48 standalone marketing landing: draft; separate preview and visual QA pending.
 
 Next gates: wait for #50/#51 CI; inspect check, server and e2e jobs; fix regressions; inspect preview at 320/390/1024 in light/dark; reconcile mockups and app routes; continue Assistant 2.0, Labs 2.0, Plan and onboarding, Week, Reminders, Report, Insights, design-system consistency. Avoid nonfunctional actions, clinical inferences, real patient data or credentials. No new PR is complete without verified checks and preview evidence.
+
+
+## Assistant 2.0 continuation — 28 October 2026
+
+- #52 draft `feat/protocol-assistant-scenarios` stacked on #51: four first-use scenario actions with real routes, explicit draft question before AI send, existing consent and danger/crisis routing intact. Canonical Today route is `/` (not `/day`); corrected in commit `4f6c19a`.
+- CI for #47 head `540ad188` passed; #49 head `7217c1c` passed. #50/#51 previous E2E failures came from the obsolete diet expectation; fixed in their own branches. Latest CI and previews still unverified. #45 inherited e2e failures remain to diagnose.
+- Browser/mobile/desktop/light/dark preview checks not yet completed. Do not merge any of these PRs or mark complete until verified. Next: add route/interaction tests for #52, inspect CI, repair remaining failures, preview and compare to approved mockups, then Labs 2.0.
