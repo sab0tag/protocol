@@ -1,6 +1,6 @@
-import { format } from 'date-fns';
+import { addDays, format, startOfDay } from 'date-fns';
 import type { ProtocolDB } from './db';
-import { appendModuleEvents, setLightDay } from './modulePreferences';
+import { appendModuleEvents } from './modulePreferences';
 import { lightDayChoice } from '../domain/modulePreferences';
 import { lightDayNotice } from '../domain/lightDay';
 import { newId } from '../domain/dates';
@@ -10,10 +10,14 @@ export async function setTodayLightDay(target: ProtocolDB, enabled: boolean, sou
   const date = format(now, 'yyyy-MM-dd');
   return target.transaction('rw', target.moduleEvents, async () => {
     const current = lightDayChoice(await target.moduleEvents.toArray(), date);
-    if ((current?.enabled ?? false) === enabled) return false;
+    const currentWindow = current?.from !== undefined && current?.until !== undefined && now.getTime() >= current.from && now.getTime() < current.until;
+    if ((current?.enabled ?? false) === enabled && (!enabled || current?.from === undefined || currentWindow)) return false;
     // Preserve local command order even for two opposite actions in the same millisecond or a clock moved backwards.
     const at = new Date(Math.max(now.getTime(), current ? Date.parse(current.at) + 1 : 0)).toISOString();
-    await setLightDay(target, date, enabled, source, at); return true;
+    const keepWindow = !enabled || currentWindow;
+    const from = keepWindow && current?.from !== undefined ? current.from : startOfDay(now).getTime();
+    const until = keepWindow && current?.until !== undefined ? current.until : addDays(startOfDay(now), 1).getTime();
+    await appendModuleEvents(target, [{ id: newId(), v: 1, at, kind: 'light-day', date, enabled, source, from, until }]); return true;
   });
 }
 

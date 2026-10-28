@@ -6,7 +6,7 @@ import { DangerCard } from './DangerCard';
 import { format } from 'date-fns';
 import { Plus } from 'lucide-react';
 import { useState } from 'react';
-import { db } from '../data/db';
+import { db, inDemo } from '../data/db';
 import { atLocal, newId, timeOf, todayISO } from '../domain/dates';
 import { amountText } from '../domain/foodSearch';
 import { BEFORE_HOURS, DANGER, eatenBefore, isDanger, SYMPTOMS } from '../domain/symptoms';
@@ -17,13 +17,16 @@ import { t } from '../i18n/uk';
 import { Sheet } from './Sheet';
 import { saved } from './Toast';
 import { TextSafety } from './TextSafety';
+import { LightDayControl } from './LightDayControl';
+import { dangerInText, crisisInText } from '../domain/symptoms';
 
 const L = t.symptom;
 const chip = (on: boolean, danger = false) =>
   `min-h-tap rounded-full border px-3 text-sm ${on ? (danger ? 'border-warn bg-warn-bg font-medium text-warn' : 'border-accent bg-accent/10 font-medium text-accent') : 'border-line'}`;
 
 export function SymptomSheet({ date, entry, all, foods, onClose }: { date: string; entry?: DayEntry; all: DayEntry[]; foods?: Map<string, Food>; onClose: () => void }) {
-  const { can } = useFeatures();
+  const { can, enabled } = useFeatures();
+  const [stored, setStored] = useState(false), [saving, setSaving] = useState(false);
   const [picked, setPicked] = useState<string[]>(entry?.symptoms ?? []);
   const [own, setOwn] = useState('');
   const [time, setTime] = useState(entry ? timeOf(entry.at) : date === todayISO() ? format(new Date(), 'HH:mm') : '');
@@ -34,14 +37,22 @@ export function SymptomSheet({ date, entry, all, foods, onClose }: { date: strin
   const danger = picked.some(isDanger);
   const extra = picked.filter((s) => !(SYMPTOMS as readonly string[]).includes(s) && !isDanger(s));
 
-  const save = () => {
-    if (!picked.length || !at) return;
+  const save = async () => {
+    if (!picked.length || !at || saving) return;
     const { severity: _old, ...base } = entry ?? {};
     const row: DayEntry = { ...base, id: entry?.id ?? newId(), at, kind: 'symptom', status: 'done', title: picked.join(', '),
       symptoms: picked, ...(severity ? { severity } : {}) };
-    onClose();
-    void saved(db.entries.put(row), t.toast.symptomSaved(row.title), entry ? () => db.entries.put(entry) : () => db.entries.delete(row.id));
+    setSaving(true);
+    const result = await saved(db.entries.put(row), t.toast.symptomSaved(row.title), entry ? () => db.entries.put(entry) : () => db.entries.delete(row.id));
+    setSaving(false);
+    if (result === undefined) return;
+    if (enabled && !inDemo() && !entry && date === todayISO() && !danger && !dangerInText(row.title) && !crisisInText(row.title) && !dangerInText(own) && !crisisInText(own)) setStored(true);
+    else onClose();
   };
+
+  if (stored) return <Sheet title={L.title} onClose={onClose}><p className="mb-3">{t.lightDay.saved}</p>
+    <LightDayControl date={date} onlyEnable onDone={onClose} />
+    <button type="button" onClick={onClose} className="mt-3 min-h-tap text-accent underline">{t.lightDay.close}</button></Sheet>;
 
   return (
     <Sheet title={L.title} onClose={onClose}>
@@ -84,7 +95,7 @@ export function SymptomSheet({ date, entry, all, foods, onClose }: { date: strin
         {before.length > 0 && foods && <p className="mt-1 text-xs text-muted">{t.allergen.typical}</p>}
       </section>}
 
-      <button type="button" onClick={save} disabled={!picked.length || !at}
+      <button type="button" onClick={() => void save()} disabled={!picked.length || !at || saving}
         className="mt-4 min-h-tap w-full rounded-xl bg-accent px-4 font-medium text-surface disabled:opacity-40">{picked.length ? L.save : L.pickSome}</button>
     </Sheet>
   );

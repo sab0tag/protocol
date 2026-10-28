@@ -62,8 +62,8 @@ function metric(key: MetricKey, totals: DayTotals, targets: Targets, meds: { don
   }
 }
 
-export function DaySummary({ totals, targets, meds, streak, food, onComplete, allowed, title = L.title }: { totals: DayTotals; targets: Targets; meds: { done: number; total: number }; streak?: string; title?: string;
-  food?: FoodState; onComplete?: (on: boolean) => void; allowed?: readonly MetricKey[] }) {
+export function DaySummary({ totals, targets, meds, streak, food, onComplete, allowed, title = L.title, quiet = false }: { totals: DayTotals; targets: Targets; meds: { done: number; total: number }; streak?: string; title?: string;
+  food?: FoodState; onComplete?: (on: boolean) => void; allowed?: readonly MetricKey[]; quiet?: boolean }) {
   const { can } = useFeatures();
   const [main, setMain] = useState<MetricKey[]>(loadMain);
   const [all, setAll] = useState(false);
@@ -89,9 +89,9 @@ export function DaySummary({ totals, targets, meds, streak, food, onComplete, al
     <section aria-labelledby="summary" className="protocol-card mb-4 p-5">
       <div className="mb-3 flex items-baseline justify-between gap-2">
         <h2 id="summary" className="text-lg font-semibold">{title}</h2>
-        <button type="button" onClick={() => setSetup((v) => !v)} aria-expanded={setup} className="min-h-tap px-1 text-sm text-accent">{setup ? L.done : L.setup}</button>
+        {!quiet && <button type="button" onClick={() => setSetup((v) => !v)} aria-expanded={setup} className="min-h-tap px-1 text-sm text-accent">{setup ? L.done : L.setup}</button>}
       </div>
-      {setup ? (
+      {setup && !quiet ? (
         <fieldset>
           <legend className="mb-2 text-sm text-muted">{L.setupHint(minVisible, maxVisible)}</legend>
           {visible.map((k) => (
@@ -106,8 +106,8 @@ export function DaySummary({ totals, targets, meds, streak, food, onComplete, al
       ) : (
         <>
           <Metrics list={shown(effectiveMain)} />
-          {all && <div className="mt-3 border-t border-line pt-3"><Metrics list={shown(rest)} /></div>}
-          <button type="button" onClick={() => setAll((v) => !v)} aria-expanded={all} className="mt-2 min-h-tap text-sm text-accent">{all ? L.less : L.all}</button>
+          {!quiet && all && <div className="mt-3 border-t border-line pt-3"><Metrics list={shown(rest)} /></div>}
+          {!quiet && <button type="button" onClick={() => setAll((v) => !v)} aria-expanded={all} className="mt-2 min-h-tap text-sm text-accent">{all ? L.less : L.all}</button>}
         </>
       )}
       {food && visible.some((k) => k !== 'water' && k !== 'meds') && ( /* R06: only the person can say all food is written */
@@ -120,7 +120,7 @@ export function DaySummary({ totals, targets, meds, streak, food, onComplete, al
         </div>
       )}
       {streak && <p className="mt-1 text-sm text-accent">{streak}</p>}
-      {can('assistant.chat') && <Link to="/assistant" className="mt-1 inline-flex min-h-tap items-center gap-2 text-sm text-accent underline"> {/* D117 */}
+      {!quiet && can('assistant.chat') && <Link to="/assistant" className="mt-1 inline-flex min-h-tap items-center gap-2 text-sm text-accent underline"> {/* D117 */}
         <MessageCircle size={16} aria-hidden />{t.assistant.link}</Link>}
     </section>
   );

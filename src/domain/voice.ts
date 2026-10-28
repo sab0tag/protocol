@@ -20,6 +20,12 @@ export interface VoiceContext extends MealContext {
 
 export const emptyDraft = (): VoiceDraft => ({ items: [], notFound: [], meds: [], waterMl: 0 });
 
+/** An exact local command, never a substring of food, a negation, a past date or a danger phrase. */
+export function lightDayCommand(text: string): boolean {
+  const words = normalize(withoutStop(text)).replace(/[.!?,;:]+/g, ' ').replace(/\s+/g, ' ').trim();
+  return words === 'сьогодні легкий день' || words === 'сегодня легкий день' || words === 'сегодня лёгкий день';
+}
+
 const TITLES: [RegExp, string][] = [[/сніданок|сніданку|снідан/iu, 'Сніданок'], [/обід|обіду|обідал/iu, 'Обід'], [/вечер[яюі]|вечеряв/iu, 'Вечеря'], [/перекус/iu, 'Перекус']];
 /** Words around the food that are not food: «на сніданок я з'їв …», «ще випила …». */
 const FILLER = /^(?:(?:на|в|у|до)\s+(?:сніданок|обід|вечерю|перекус)\s*)?(?:я\s+)?(?:ще\s+)?(?:з[’'ʼ]?їв|з[’'ʼ]?їла|з[’'ʼ]?їли|їв|їла|випив|випила|випили|пив|пила|був|була|було|були|поїв|поїла|перекусив|перекусила|снідав|снідала|обідав|обідала|вечеряв|вечеряла)?\s*/iu;

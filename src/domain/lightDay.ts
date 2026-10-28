@@ -1,11 +1,19 @@
 // D139: local calendar dates are durable history. Midnight changes today's projection, never yesterday's row.
 import { addDays, differenceInCalendarDays, format, parseISO } from 'date-fns';
-import { isLocalDate, type LightDayChoice, type ModuleEvent } from './modulePreferences';
+import { isLightDay, lightDayChoice, isLocalDate, type LightDayChoice, type ModuleEvent } from './modulePreferences';
 import type { ISODate } from './types';
 
 export interface LightDayHistory { dates: ISODate[]; count: number; days: number }
 const date = (d: Date) => format(d, 'yyyy-MM-dd');
 const shift = (d: ISODate, n: number) => date(addDays(parseISO(d), n));
+
+/** Current UI and push share the command's origin window after travel. Past history remains a date. */
+export function lightDayOnDate(events: readonly ModuleEvent[], day: ISODate, now: Date): boolean {
+  const choice = lightDayChoice(events, day);
+  if (!choice?.enabled) return false;
+  return day !== date(now) || choice.from === undefined || choice.until === undefined
+    ? isLightDay(events, day) : now.getTime() >= choice.from && now.getTime() < choice.until;
+}
 
 /** Latest per-date decisions, unique dates, clipped to the selected calendar period and today's local date. */
 export function lightDayHistory(events: readonly ModuleEvent[], from: ISODate, to: ISODate, now: Date): LightDayHistory {
