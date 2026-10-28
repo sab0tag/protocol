@@ -29,6 +29,7 @@ export function Workout() {
   const plan = usePlan();
   const workouts = useWorkouts();
   const [draft, setDraft] = useState<W | null>(null);
+  const exercisesHeading = useRef<HTMLHeadingElement>(null);
   const base0 = useRef(''); // D87: the day's draft as it started — what counts as «nothing typed yet»
 
   const existing = workouts?.find((w) => w.date === date);
@@ -101,10 +102,10 @@ export function Workout() {
         </div>
         <div className="grid grid-cols-3 gap-2">
           <div className="rounded-2xl bg-bg p-3"><Dumbbell size={18} className="mb-2 text-accent" aria-hidden /><p className="text-xl font-semibold tabular">{draft.exercises.length}</p><p className="text-xs text-muted">Вправ</p></div>
-          <div className="rounded-2xl bg-bg p-3"><Check size={18} className="mb-2 text-accent" aria-hidden /><p className="text-xl font-semibold tabular">{draft.exercises.reduce((n, ex) => n + ex.sets.length, 0)}</p><p className="text-xs text-muted">Підходів у плані</p></div>
-          <div className="rounded-2xl bg-bg p-3"><Clock3 size={18} className="mb-2 text-accent" aria-hidden /><p className="text-xl font-semibold tabular">{draft.durationMin}</p><p className="text-xs text-muted">Хвилин</p></div>
+          <div className="rounded-2xl bg-bg p-3"><Check size={18} className="mb-2 text-accent" aria-hidden /><p className="text-xl font-semibold tabular">{draft.exercises.reduce((n, ex) => n + ex.sets.length, 0)}</p><p className="text-xs text-muted">{existing ? 'Підходів у записі' : 'Підходів у плані'}</p></div>
+          <div className="rounded-2xl bg-bg p-3"><Clock3 size={18} className="mb-2 text-accent" aria-hidden /><p className="text-xl font-semibold tabular">{draft.durationMin}</p><p className="text-xs text-muted">{existing ? 'Записано, хв' : 'У плані, хв'}</p></div>
         </div>
-        <a href="#workout-exercises" className="flex min-h-tap items-center justify-center rounded-xl bg-accent px-4 font-semibold text-surface">{existing ? 'Переглянути вправи' : 'Перейти до вправ'}</a>
+        <button type="button" onClick={() => { exercisesHeading.current?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth', block: 'start' }); exercisesHeading.current?.focus({ preventScroll: true }); }} className="flex min-h-tap items-center justify-center rounded-xl bg-accent px-4 font-semibold text-surface">{existing ? 'Переглянути вправи' : 'Перейти до вправ'}</button>
       </section>
 
       {(() => { // D61: the week in numbers, personal bests of the last workout
@@ -138,7 +139,7 @@ export function Workout() {
         </p>
       )}
 
-      <h2 id="workout-exercises" className="scroll-mt-6 text-lg font-semibold">Вправи тренування</h2>
+      <h2 ref={exercisesHeading} tabIndex={-1} id="workout-exercises" className="scroll-mt-6 text-lg font-semibold">Вправи тренування</h2>
       {draft.exercises.map((ex, i) => {
         const lib = exerciseOf(ex);
         const timed = lib?.timed ?? ex.name === 'Планка';
