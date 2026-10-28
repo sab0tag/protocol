@@ -223,3 +223,8 @@ main :where(details[open] > summary)::after { transform: rotate(180deg); }
 }
 @media (min-width: 640px) { :root { --protocol-space-card: 1.25rem; } }
 @media (max-width: 359px) { .protocol-bottom-nav ul { gap: 0; padding-inline: .25rem; } }
+:root { --food-allergen: 156 40 35; }
+:root[data-theme="dark"] { --food-allergen: 255 155 145; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme]) { --food-allergen: 255 155 145; } }
+.food-plan-check[data-plan-status="allergen"] { border-color: rgb(var(--food-allergen) / .55); background: rgb(var(--food-allergen) / .07); }
+.food-plan-check[data-plan-status="allergen"] > p.font-medium { color: rgb(var(--food-allergen)); }

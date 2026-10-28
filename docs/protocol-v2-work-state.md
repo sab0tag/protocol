@@ -79,3 +79,11 @@ Branch `feat/protocol-calm-polish`, base main `28fd5f5`. Owner priorities: expre
 - Production build passed; 536 client unit tests passed; targeted browser scenario passed across four widths/light/dark and reduced-motion with unchanged statuses. Representative mobile image inspected. Full fresh browser regression running. First browser attempts failed because Chromium was missing after the environment reset; restored the external runtime without changing repo test assertions/configuration.
 - Next: resolve actual regression failures if any, publish PR/CI/preview and inspect remaining captures. Do not claim complete until verified; do not merge/deploy production as part of this styling pass without resolving the prior approval block.
 - Regression follow-up: empty timeline must keep the existing primary food action, not introduce a second CTA. Restored that contract and updated exact text assertions to the new localized hint, retaining the existing absence-of-extra-action check. Day + polish cases 10/10 passed after the fix. Final remote CI remains the completion gate.
+
+## Food entry priority — 28 October 2026
+
+Visual polish #44 passed all CI and is ready for review. Workout navigation fix #46 is stacked on #45; its unrelated inherited clock/naming tests need the isolated corrections recorded in its PR. Do not claim all of Workout 2.0 is implemented.
+
+Branch `feat/protocol-food-entry` introduces three primary food-entry methods, secondary voice/label tools, existing prepared recipes into a reviewable draft, and visible rule-based status/reasons before composition editing. Unknown/estimated composition and unconfigured restrictions cannot yield a green clear claim; known allergens are identified from known food data and the active plan. No timing/pantry claims or automatic recording. Details and remaining daily-hub/recommendation scope: `docs/food-entry-overview.md`.
+
+Initial full client suite 538 passed, build passed, focused food/label/naming/browser cases 6/6. Final extra unit cases, clean build and remote CI remain the completion gate; record final CI/preview in the PR. Latest source instructions override the old four-primary-action naming test, with every secondary capability still tested through its disclosure.
