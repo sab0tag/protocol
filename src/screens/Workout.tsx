@@ -15,6 +15,7 @@ import { EXERCISES, exerciseOf, type Exercise } from '../data/exercises';
 import { adviceFor, lastNumbers, motivation } from '../domain/progression';
 import { ExerciseCard, LevelBadge } from '../components/ExerciseCard';
 import { ExerciseLibrary } from '../components/ExerciseLibrary';
+import { ExampleNotice } from '../components/ExampleNotice';
 import { AiWorkoutPanel } from '../components/AiWorkoutPanel';
 import { t } from '../i18n/uk';
 import { useUi } from '../store/ui';
@@ -89,6 +90,7 @@ export function Workout() {
         <button type="button" onClick={() => shift(1)} aria-label={t.day.next}
           className="flex min-h-tap min-w-tap items-center justify-center rounded-xl border border-line bg-surface"><ChevronRight size={20} /></button>
       </header>
+      <ExampleNotice plan={plan} />
 
       {(() => { // D61: the week in numbers, personal bests of the last workout
         const m = motivation(workouts, date);

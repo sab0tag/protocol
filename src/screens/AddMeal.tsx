@@ -1,4 +1,6 @@
+import { foodPlanStatus } from '../domain/foodPlanStatus';
 import { SceneHeader } from '../components/SceneHeader';
+import { ExampleNotice } from '../components/ExampleNotice';
 import { RecentMeals } from '../components/RecentMeals';
 import { MedFoodPanel } from '../components/MedFoodPanel';
 import { DangerCard } from '../components/DangerCard';
@@ -77,6 +79,7 @@ export function AddMeal() {
   const concierge = (s: Suggested) => { setItems((xs) => [...xs, s.item]); suggested.current.push(s); };
   const [query, setQuery] = useState('');
   const searchInput = useRef<HTMLInputElement>(null);
+  const [readyOpen, setReadyOpen] = useState(false);
   const [labelOpen, setLabelOpen] = useState(false);
   const [free, setFree] = useState(false);
   const [metaOpen, setMetaOpen] = useState(false);
@@ -169,22 +172,33 @@ export function AddMeal() {
   return (
     <section className="space-y-4 pt-4">
       <SceneHeader title={id ? t.meal.editTitle : t.meal.title} description={id ? t.meal.editHint : t.meal.entryHint} />
+      <ExampleNotice plan={plan} />
       <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); void save(); }}>
+        <div role="group" aria-label={t.meal.name} className="protocol-card flex flex-wrap gap-2 p-3">
+          {t.meal.names.map((n) => (
+            <button key={n} type="button" onClick={() => setTitle(n)} aria-pressed={title === n}
+              className={`min-h-tap rounded-full border px-3 text-sm font-medium ${title === n ? 'border-accent bg-accent/10 text-accent' : 'border-line text-muted'}`}>{n}</button>
+          ))}
+        </div>
+
         <section aria-label={t.meal.addFood} className="protocol-card p-4 sm:p-5">
-          <div role="group" aria-label={t.meal.entryModes} className="mb-3 grid grid-cols-4 gap-2">
-            <button type="button" onClick={pickPhoto} disabled={photo.state === 'busy'}
-              className="flex min-h-[4.25rem] min-w-0 flex-col items-center justify-center gap-1 rounded-xl border border-accent bg-accent px-1 py-2 text-center text-xs font-medium text-surface disabled:opacity-40">
-              <Camera size={20} aria-hidden />{t.meal.photo}</button>
-            <button type="button" onClick={() => navigate('/?open=voice')}
-              className="flex min-h-[4.25rem] min-w-0 flex-col items-center justify-center gap-1 rounded-xl border border-line bg-bg/70 px-1 py-2 text-center text-xs font-medium text-muted">
-              <Mic size={20} aria-hidden />{t.meal.modeVoice}</button>
-            <button type="button" onClick={() => searchInput.current?.focus()}
-              className="flex min-h-[4.25rem] min-w-0 flex-col items-center justify-center gap-1 rounded-xl border border-line bg-bg/70 px-1 py-2 text-center text-xs font-medium text-muted">
-              <Type size={20} aria-hidden />{t.meal.modeText}</button>
-            <button type="button" aria-expanded={labelOpen} onClick={() => setLabelOpen((open) => !open)}
-              className="flex min-h-[4.25rem] min-w-0 flex-col items-center justify-center gap-1 rounded-xl border border-line bg-bg/70 px-1 py-2 text-center text-xs font-medium text-muted">
-              <ScanText size={20} aria-hidden />{t.meal.modeLabel}</button>
+          <div role="group" aria-label={t.meal.entryModes} className="mb-3 grid grid-cols-3 gap-2">
+            <button type="button" onClick={() => { setReadyOpen(false); searchInput.current?.focus(); }} className="protocol-action-secondary min-h-[4.5rem] flex-col px-2 text-sm"><Type size={20} aria-hidden />{t.meal.entryWrite}</button>
+            <button type="button" onClick={pickPhoto} disabled={photo.state === 'busy'} className="protocol-action-secondary min-h-[4.5rem] flex-col px-2 text-sm disabled:opacity-40"><Camera size={20} aria-hidden />{t.meal.photo}</button>
+            <button type="button" aria-expanded={readyOpen} onClick={() => setReadyOpen(v => !v)} className="protocol-action-secondary min-h-[4.5rem] flex-col px-2 text-sm"><Star size={20} aria-hidden />{t.meal.entryReady}</button>
           </div>
+          {readyOpen && <section aria-label={t.meal.entryReady} className="mb-3 space-y-2">
+            <p className="text-sm text-muted">{t.meal.readyHint}</p>
+            <div className="grid gap-2 sm:grid-cols-2">{(recipes ?? []).filter(r => !r.needsMake && r.items.length).slice(0, 6).map(r => <button type="button" key={r.id} className="protocol-action-secondary justify-start text-left" onClick={() => { setItems(xs => [...xs, dishItem(r)]); setReadyOpen(false); }}>{r.name}</button>)}</div>
+            <Link to="/dishes" className="inline-flex min-h-tap items-center text-sm text-accent underline">{t.meal.allDishes}</Link>
+          </section>}
+          <details className="mb-3 rounded-xl border border-line px-3">
+            <summary className="min-h-tap cursor-pointer py-3 text-sm text-muted">{t.meal.moreEntryMethods}</summary>
+            <div className="flex flex-wrap gap-2 pb-3">
+              <button type="button" onClick={() => navigate('/?open=voice')} className="protocol-action-secondary"><Mic size={18} aria-hidden />{t.meal.modeVoice}</button>
+              <button type="button" aria-expanded={labelOpen} onClick={() => setLabelOpen(v => !v)} className="protocol-action-secondary"><ScanText size={18} aria-hidden />{t.meal.modeLabel}</button>
+            </div>
+          </details>
           <label htmlFor="meal-search" className="block text-sm text-muted">{t.meal.search}</label>
           <div className="mt-1 flex items-end gap-2">
             <div className="relative min-w-0 flex-1">
@@ -269,6 +283,8 @@ export function AddMeal() {
         {!id && !query && !free && photo.state === 'none' && items.length === 0 && all && <RecentMeals entries={all} date={date} initialTitle={title}
           onAdd={(xs, mealTitle) => { setItems((ys) => [...ys, ...xs]); setTitle(mealTitle); }} />}
 
+        {items.length > 0 && <CheckPanel foods={foods} checks={checks} anyActive={anyActive} swapped={swapped} eaten={eaten && hasSwaps(checks)} plan={plan} />}
+
         <section aria-label={t.meal.items} className={`protocol-card p-4 sm:p-5 ${items.length ? '' : 'hidden'}`}>{/* D78: appears with the first line */}
           <h2 className="mb-2 font-semibold">{t.meal.items}</h2>
           <ul className="space-y-3">
@@ -283,8 +299,7 @@ export function AddMeal() {
                       <Trash2 size={18} /></button>
                   </div>
                   <label className="block w-40"><span className="text-sm text-muted">{t.meal.portions}</span>
-                    <input type="number" inputMode="decimal" min={0.5} step={0.5} value={it.recipe?.portions ?? 1} className={field}
-                      onChange={(e) => { const v = Number(e.target.value); if (v > 0) setItems((xs) => xs.map((x, j) => (j === i ? setPortions(x, v) : x))); }} /></label>
+                    <PortionsInput value={it.recipe?.portions ?? 1} onCommit={(v) => setItems((xs) => xs.map((x, j) => (j === i ? setPortions(x, v) : x)))} /></label>
                   <span className="text-xs text-muted">≈ {approxG(it.grams)} г</span>
                   <details className="mt-1">
                     <summary className="min-h-tap cursor-pointer py-2 text-sm text-accent">{t.meal.composition(it.components.length)}</summary>
@@ -366,7 +381,6 @@ export function AddMeal() {
           {dishSaved && <p role="status" className="mt-1 text-sm text-accent">{dishSaved}</p>}
         </section>
 
-        {items.length > 0 && <CheckPanel checks={checks} anyActive={anyActive} swapped={swapped} eaten={eaten && hasSwaps(checks)} plan={plan} />}
         {items.length > 0 && plan && <MedFoodPanel notes={medFoodNotes(plan.prescriptions, items, foods, { mealAt: atLocal(date, time),
           doses: new Map(plan.prescriptions.map((p) => [p.id, (others ?? []).filter((e) => e.kind === 'med' && e.status === 'done' && e.prescriptionId === p.id && !e.timeUnknown).map((e) => e.at)])) })} />}
 
@@ -395,12 +409,8 @@ export function AddMeal() {
           </button>
           {metaOpen && (
             <div className="border-t border-line p-3">
-              <div className="mb-2 flex flex-wrap gap-2" role="group" aria-label={t.meal.name}>
-                {t.meal.names.map((n) => (
-                  <button key={n} type="button" onClick={() => setTitle(n)} aria-pressed={title === n}
-                    className={`min-h-tap rounded-full border px-3 ${title === n ? 'border-accent bg-accent/10 text-accent' : 'border-line'}`}>{n}</button>
-                ))}
-              </div>
+
+
               <div className="grid grid-cols-2 gap-3">
                 <label className="block"><span className="text-sm text-muted">{t.meal.name}</span>
                   <input value={title} onChange={(e) => setTitle(e.target.value)} className={field} /></label>
@@ -531,24 +541,27 @@ function cookable(food: Food | undefined): boolean {
 }
 
 /** «Перевірка»: each item's verdict with the reason, the meal as a whole, and what «Записати заміну» would write. */
-function CheckPanel({ checks, anyActive, swapped, eaten, plan }: { checks: ItemCheck[]; anyActive: boolean; swapped: MealItem[] | null; eaten: boolean; plan: Plan | undefined }) {
+function CheckPanel({ foods, checks, anyActive, swapped, eaten, plan }: { foods: Map<string, Food>; checks: ItemCheck[]; anyActive: boolean; swapped: MealItem[] | null; eaten: boolean; plan: Plan | undefined }) {
   const [why, setWhy] = useState<string | null>(null); // D91: «Чому?» — open for one flag at a time
   if (!anyActive) return <p className="protocol-card rounded-2xl border border-line bg-surface p-3 text-muted">{t.check.noPlan}</p>;
   const v = mealVerdict(checks);
   // R02: a diet chosen but none of its rules set up — no green «Підходить» as if it were checked
   const unset = dietCoverage(plan).filter((c) => !c.configured);
-  const full = v.fits && !unset.length;
+  const status = foodPlanStatus(checks, foods, plan);
+  const full = v.fits && !unset.length && status.state === 'clear';
   return (
-    <section aria-live="polite" className={`rounded-2xl border p-3 ${full ? 'border-accent/40 bg-accent/5' : v.fits ? 'border-line bg-surface' : 'border-warn/30 bg-warn-bg'}`}>
+    <section data-plan-status={status.state} aria-live="polite" className={`food-plan-check rounded-2xl border p-3 ${full ? 'border-accent/40 bg-accent/5' : 'border-warn/30 bg-warn-bg'}`}>
       <h2 className="font-semibold">{t.check.title}</h2>
-      <p className={`mb-2 font-medium ${full ? 'text-accent' : v.fits ? '' : 'text-warn'}`}>{full ? t.check.fits : v.fits ? t.diet.partialFits : attentionText(checks)}</p>
+      <p className={`mb-2 font-medium ${full ? 'text-accent' : 'text-warn'}`}>{status.state === 'allergen' ? t.meal.planAllergen : full ? t.meal.planClear : status.state === 'incomplete' ? t.meal.planIncomplete : t.meal.planAttention}</p>
+      {!v.fits && <p className="mb-2 text-sm">{attentionText(checks)}</p>}
+      <p className="mb-2 text-sm text-muted">{t.meal.planLimit}</p>
       {unset.map((c) => <p key={c.code} className="mb-2 text-sm text-muted">{t.diet.checkNote(c.code)}</p>)}
       <ul className="space-y-2">
         {checks.map(({ item, hits }, i) => (
           <li key={i} className="rounded-xl bg-surface p-2">
             <div className="flex items-center justify-between gap-2">
               <span className="font-medium">{item.name}</span>
-              <Badge verdict={hits[0]?.verdict ?? 'ok'} />
+              {foodPlanStatus([{ item, hits }], foods, plan).state === 'incomplete' ? <span className="text-xs font-medium text-warn">{t.meal.partialBadge}</span> : <Badge verdict={hits[0]?.verdict ?? 'ok'} />}
             </div>
             {hits.map((h, j) => (
               <div key={j} className="text-sm">
@@ -597,4 +610,19 @@ function matchHint(it: MealItem): string {
 /** Ids of the foods and dishes this person ate in the last two months (search prefers them — D30). */
 function usualIds(all: DayEntry[] | undefined): Set<string> {
   return new Set(all ? frequentItems(all, todayISO(), 60, 50).map((f) => f.item.recipe?.id ?? f.item.foodId ?? '') : []);
+}
+
+/** Allow the user to clear and replace a number without immediately restoring the old value. */
+function PortionsInput({ value, onCommit }: { value: number; onCommit: (value: number) => void }) {
+  const [draft, setDraft] = useState<string | null>(null);
+  const commit = () => {
+    if (draft === null) return;
+    const next = Number(draft.replace(',', '.'));
+    if (draft.trim() && Number.isFinite(next) && next >= 0.5) onCommit(next);
+    setDraft(null);
+  };
+  return <input type="text" inputMode="decimal" className={field} value={draft ?? String(value)}
+    onChange={(e) => setDraft(e.target.value)} onBlur={commit}
+    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur(); } }}
+    aria-label={t.meal.portions} />;
 }

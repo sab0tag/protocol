@@ -9,10 +9,11 @@ import { format } from 'date-fns';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Mic, Send, Square } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { DangerCard } from '../components/DangerCard';
 import { CrisisCard } from '../components/CrisisCard';
 import { Loading } from '../components/Recovery';
+import { ExampleNotice } from '../components/ExampleNotice';
 import { saved } from '../components/Toast';
 import { db, inDemo } from '../data/db';
 import { keep, kept } from '../data/kept';
@@ -45,6 +46,7 @@ export function Assistant() {
   const plan = usePlan(), foods = useFoods(), recipes = useRecipes(), entries = useDayEntries(date), all = useAllEntries();
   const meta = useLiveQuery(async () => (await db.meta.get('sync')) ?? null, []);
   const [params, setParams] = useSearchParams();
+  const navigate = useNavigate();
   // D132: a talk kept on the phone is cleaned on loading — what held danger or despair (kept before D130 too) is gone
   const [msgs, setMsgs] = useState<Msg[]>(() => scrubTalk(kept<Msg[]>(`assistant:${date}`) ?? []));
   const [text, setText] = useState('');
@@ -142,7 +144,15 @@ export function Assistant() {
       <SceneHeader title={L.title} description={L.hint}>
         {msgs.length > 0 && <button type="button" onClick={() => setMsgs([])} className="min-h-tap rounded-xl border border-white/25 px-3 text-sm text-white">{L.newTalk}</button> /* D130 */}
       </SceneHeader>
+      <ExampleNotice plan={plan} />
       <p className="protocol-card rounded-2xl border border-line bg-surface p-3 text-sm">{facts.length ? `${L.today} ${facts.join(' · ')}` : L.noTargetsShort}</p>
+      {msgs.length === 0 && (
+        <div className="flex flex-wrap gap-2" aria-label="Швидкі запитання">
+          {L.chips.map((c, i) => (
+            <button key={c} type="button" onClick={() => (i === 1 ? setText(c) : void ask(c))} className="min-h-tap rounded-full border border-line px-3 text-sm">{c}</button>
+          ))}
+        </div>
+      )}
       <ul className={`${msgs.length ? 'flex-1 ' : ''}space-y-2`} aria-label={L.title} aria-live="polite">
         {msgs.map((m) => (
           <li key={m.id} className={m.role === 'user' ? 'flex justify-end' : ''}>
@@ -176,11 +186,20 @@ export function Assistant() {
         </div>
       )}
       {msgs.length === 0 && (
-        <div className="flex flex-wrap gap-2">
-          {L.chips.map((c, i) => (
-            <button key={c} type="button" onClick={() => (i === 1 ? setText(c) : void ask(c))} className="min-h-[2.25rem] rounded-full border border-line px-3 text-sm">{c}</button>
-          ))}
-        </div>
+        <section className="protocol-card space-y-3 p-4" aria-label="Швидкі сценарії помічника">
+          <div>
+            <h2 className="text-lg font-semibold">Чим можу допомогти?</h2>
+            <p className="mt-1 text-sm text-muted">Оберіть підказку або запитайте своїми словами. Перед передаванням запиту до AI потрібна згода.</p>
+          </div>
+
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <button type="button" onClick={() => navigate('/')} className="min-h-tap rounded-xl border border-line bg-bg p-3 text-left text-sm font-medium">Що мені зараз важливо? <span className="mt-1 block text-xs font-normal text-muted">Відкрити план дня →</span></button>
+            <button type="button" onClick={() => setText('Що приготувати на вечерю з урахуванням мого плану?')} className="min-h-tap rounded-xl border border-line bg-bg p-3 text-left text-sm font-medium">Що приготувати на вечерю? <span className="mt-1 block text-xs font-normal text-muted">Підставити запит для перевірки →</span></button>
+            <button type="button" onClick={() => navigate('/week')} className="min-h-tap rounded-xl border border-line bg-bg p-3 text-left text-sm font-medium">Як проходить мій тиждень? <span className="mt-1 block text-xs font-normal text-muted">Відкрити підсумок →</span></button>
+            <button type="button" onClick={() => navigate('/report')} className="min-h-tap rounded-xl border border-line bg-bg p-3 text-left text-sm font-medium">Що підготувати до лікаря? <span className="mt-1 block text-xs font-normal text-muted">Відкрити звіт →</span></button>
+          </div>
+
+        </section>
       )}
       <form className="sticky bottom-[calc(4.5rem+env(safe-area-inset-bottom))] mt-auto flex gap-2 bg-bg py-2 md:bottom-0" onSubmit={(e) => { e.preventDefault(); void ask(text); }}>
         {speechSupported() && (

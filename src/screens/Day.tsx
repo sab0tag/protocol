@@ -193,9 +193,8 @@ export function Day() {
           med={nextMed && { title: nextMed.title, ...(nextMed.time ? { time: nextMed.time } : {}), missed: medMissed }}
           onMed={dockMed} onWater={dockWater} hidden={tilesOnScreen} />}
 
-      {entries && <NowCard entries={entries} plan={plan} date={date} observation={observation} onConfirm={setConfirming} />}
-
       <ExampleNotice plan={plan} />
+      {entries && <NowCard entries={entries} plan={plan} date={date} observation={observation} onConfirm={setConfirming} />}
       {/* D40: one notice at a time — the code first, then the backup */}
       {isToday && codeDue && (
         <div role="status" className="mb-3 space-y-2 protocol-card rounded-2xl border border-line bg-surface p-3 text-sm">
@@ -251,7 +250,7 @@ export function Day() {
       )}
 
       {isToday && plan && entries && <PrnCard plan={plan} date={date} entries={entries} /> /* D118 */}
-      {rhythm && <DayRhythm title={isToday ? t.day.upcoming : t.day.rhythm} rhythm={rhythm} foods={foods} onYesterday={() => setYesterday(true)} onEntry={(e) => (e.kind === 'meal' && e.status === 'planned' && e.items?.length ? setConfirming(e) : setRowFor(e))} onDose={setAskMed} onAdd={() => setAdding(true)}
+      {rhythm && <DayRhythm date={date} title={isToday ? t.day.upcoming : t.day.rhythm} rhythm={rhythm} foods={foods} onYesterday={() => setYesterday(true)} onEntry={(e) => (e.kind === 'meal' && e.status === 'planned' && e.items?.length ? setConfirming(e) : setRowFor(e))} onDose={setAskMed} onAdd={() => setAdding(true)}
         onAnytime={(i) => (i.kind === 'workout' ? navigate('/workout') : setAskMed(i))} />}
       {totals && <DaySummary title={isToday ? t.summary.title : t.summary.forDay} totals={totals} targets={targets} allowed={allowedMetrics} meds={{ done: meds.filter((i) => i.done).length, total: meds.length }}
         {...(isToday && best ? { streak: t.day.streak(t.progress.habit[best.key], best.streak) } : {})}

@@ -5,6 +5,7 @@ import { patterns } from '../domain/progress';
 import { t } from '../i18n/uk';
 import { Link } from 'react-router-dom';
 import { useObservation } from '../app/observation';
+import { ExampleNotice } from '../components/ExampleNotice';
 
 export function Insights() {
   const { observation, ready: observationReady } = useObservation();
@@ -20,6 +21,7 @@ export function Insights() {
     <section className="space-y-4 pt-4">
       <Link to="/progress" className="inline-flex min-h-tap items-center text-sm text-muted">{t.progress.title}</Link>
       <SceneHeader title={t.progress.insightsTitle} />
+      <ExampleNotice plan={plan} />
       <section className="protocol-card rounded-2xl border border-line bg-surface p-3">
         <h2 className="font-semibold">{t.progress.patterns}</h2>
         <p className="mb-2 text-sm text-muted">{t.progress.patternsHint}</p>

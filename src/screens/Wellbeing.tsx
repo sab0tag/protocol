@@ -1,11 +1,12 @@
 import { format, parseISO } from 'date-fns';
 import { Loading } from '../components/Recovery';
+import { ExampleNotice } from '../components/ExampleNotice';
 import { saved } from '../components/Toast';
 import { uk } from 'date-fns/locale';
 import { Check, ChevronLeft, ChevronRight, Moon, Plus, Smile, Zap } from 'lucide-react';
 import { useState } from 'react';
 import { db } from '../data/db';
-import { useWellbeing } from '../data/queries';
+import { usePlan, useWellbeing } from '../data/queries';
 import type { Wellbeing as W } from '../domain/types';
 import { t } from '../i18n/uk';
 import { useUi } from '../store/ui';
@@ -14,11 +15,17 @@ import { Link } from 'react-router-dom';
 const L = t.well;
 type Score = 1 | 2 | 3 | 4 | 5;
 const scoreIcons = { energy: Zap, mood: Smile, sleep: Moon };
+const scoreWords: Record<'energy' | 'mood' | 'sleep', readonly [string, string, string, string, string]> = {
+  energy: ['Без сил', 'Мало сил', 'Звично', 'Є сили', 'Багато сил'],
+  mood: ['Дуже важко', 'Нелегко', 'Спокійно', 'Добре', 'Чудово'],
+  sleep: ['Не відпочив', 'Погано', 'Посередньо', 'Добре', 'Відновився'],
+};
 
 /** «Самопочуття» (SPEC.md §5.5): one record a day, saved on every tap — and it says so, with the time (D74). */
 export function Wellbeing() {
   const { date, shift } = useUi();
   const rec = useWellbeing(date);
+  const plan = usePlan();
   const [own, setOwn] = useState('');
   const [note, setNote] = useState<{ date: string; text: string } | null>(null); // a note being typed, not yet saved
   const [savedAt, setSavedAt] = useState<{ date: string; hm: string } | null>(null);
@@ -46,24 +53,30 @@ export function Wellbeing() {
         <button type="button" onClick={() => shift(1)} aria-label={t.day.next}
           className="flex min-h-tap min-w-tap items-center justify-center rounded-xl border border-line text-muted"><ChevronRight size={20} /></button>
       </header>
+      <ExampleNotice plan={plan} />
       <p role="status" className="flex items-center justify-center gap-1 text-sm text-muted">
         {savedAt?.date === date ? <><Check size={16} className="text-accent" aria-hidden />{L.savedAt(savedAt.hm)}</> : L.autosave}</p>
       <Link to="/wellbeing/journal" className="flex min-h-tap items-center justify-between rounded-xl border border-line bg-surface px-3 font-medium">
         <span>{L.journal}</span><span aria-hidden className="text-muted">›</span>
       </Link>
 
+      <div className="protocol-card space-y-2 p-5">
+        <p className="text-xs font-semibold uppercase tracking-wider text-accent">Коротка відмітка</p>
+        <h2 className="text-2xl font-semibold tracking-tight">Як ви сьогодні?</h2>
+        <p className="text-sm text-muted">Оберіть те, що найближче до вашого стану. Кожна відповідь зберігається одразу; можна змінити її пізніше.</p>
+      </div>
       {(['energy', 'mood', 'sleep'] as const).map((key) => { const Icon = scoreIcons[key]; return (
         <fieldset key={key} className="protocol-card rounded-2xl border border-line bg-surface p-5">
           <legend className="sr-only">{L[key]}</legend>
-          <div className="mb-4 flex items-center gap-2"><Icon size={19} className="text-accent" aria-hidden /><span className="font-semibold">{L[key]}</span></div>
+          <div className="mb-3 flex items-center gap-2"><Icon size={19} className="text-accent" aria-hidden /><span className="font-semibold">{L[key]}</span><span className="ml-auto text-sm font-medium text-accent" aria-live="polite">{w[key] ? scoreWords[key][w[key] - 1] : 'Не обрано'}</span></div>
           <div className="grid grid-cols-5 gap-1.5 rounded-2xl bg-bg p-1.5">
             {([1, 2, 3, 4, 5] as Score[]).map((n) => (
-              <button key={n} type="button" aria-pressed={w[key] === n} aria-label={`${L[key]}: ${n}`}
+              <button key={n} type="button" aria-pressed={w[key] === n} aria-label={`${L[key]}: ${n} — ${scoreWords[key][n - 1]}`}
                 onClick={() => void put({ [key]: w[key] === n ? undefined : n })}
-                className={`min-h-tap rounded-xl border text-lg font-semibold ${w[key] === n ? 'border-accent bg-accent text-surface shadow-sm' : 'border-transparent text-muted'}`}>{n}</button>
+                className={`min-h-tap rounded-xl border text-base font-semibold transition-colors ${w[key] === n ? 'border-accent bg-accent text-surface shadow-sm' : 'border-transparent text-muted hover:bg-surface'}`}>{n}</button>
             ))}
           </div>
-          <p className="mt-2 flex justify-between text-xs text-muted"><span>1 — {L.scaleLow}</span><span>5 — {L.scaleHigh}</span></p>
+          <p className="mt-2 flex justify-between gap-2 text-xs text-muted"><span>{scoreWords[key][0]}</span><span>{scoreWords[key][4]}</span></p>
         </fieldset>
       ); })}
 

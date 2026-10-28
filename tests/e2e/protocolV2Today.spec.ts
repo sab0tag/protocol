@@ -21,3 +21,45 @@ test('Protocol 2.0 Today hero retains accessible date navigation and actionable 
   await expect(hero.getByRole('heading', { level: 1 })).toHaveText('Сьогодні');
   await page.screenshot({ path: 'test-results/protocol-v2-today-mobile.png', fullPage: true });
 });
+
+test('the example-data warning appears before the example schedule', async ({ browser }) => {
+  const page = await device(browser);
+  const warning = page.getByRole('status').filter({ hasText: 'Це приклад:' });
+  const schedule = page.getByRole('region', { name: /^(Зараз|Не відмічено|Найближче)$/ }).first();
+  await expect(warning).toBeVisible();
+  await expect(schedule).toBeVisible();
+  const [warningBox, scheduleBox] = await Promise.all([warning.boundingBox(), schedule.boundingBox()]);
+  if (!warningBox || !scheduleBox) throw new Error('The warning and schedule must have visible bounds');
+  expect(warningBox.y).toBeLessThan(scheduleBox.y);
+});
+
+test('the example-data warning appears before My Day checklist actions', async ({ browser }) => {
+  const page = await device(browser);
+  await page.goto('./#/my-day');
+  const warning = page.getByRole('status').filter({ hasText: 'Це приклад:' });
+  const checklist = page.getByRole('progressbar', { name: 'Мій день' });
+  await expect(warning).toBeVisible();
+  await expect(checklist).toBeVisible();
+  const [warningBox, checklistBox] = await Promise.all([warning.boundingBox(), checklist.boundingBox()]);
+  if (!warningBox || !checklistBox) throw new Error('The warning and checklist must have visible bounds');
+  expect(warningBox.y).toBeLessThan(checklistBox.y);
+});
+
+test('example-data warning is shown on screens that edit or summarize sample data', async ({ browser }) => {
+  const page = await device(browser);
+  for (const route of ['/meal/new', '/workout', '/week', '/progress/insights', '/progress/motivation', '/wellbeing',
+    '/wellbeing/journal', '/assistant', '/menu', '/dishes', '/foods', '/progress/labs', '/plan/history', '/plan/scan', '/data', '/report']) {
+    await page.goto(`./#${route}`);
+    await expect(page.getByRole('status').filter({ hasText: 'Це приклад:' }), route).toBeVisible();
+  }
+});
+
+test('printed reports keep the example-data label but omit its action button', async ({ browser }) => {
+  const page = await device(browser);
+  await page.goto('./#/report');
+  const warning = page.getByRole('status').filter({ hasText: 'Це приклад:' });
+  await expect(warning).toBeVisible();
+  await page.emulateMedia({ media: 'print' });
+  await expect(warning).toBeVisible();
+  await expect(warning.getByRole('button')).toBeHidden();
+});

@@ -1,3 +1,4 @@
+import { t } from '../../src/i18n/uk';
 import { expect, test } from '@playwright/test';
 import { device, kyivOffset, seed, toast, ymd } from './helpers';
 
@@ -140,7 +141,7 @@ test('«Як учора» stays on «День» and copies a prior meal to today
 test('an empty Day rhythm keeps one explanation and leaves food recording as the action', async ({ browser }) => {
   const page = await device(browser, 'skip');
   const rhythm = page.getByRole('region', { name: 'Найближче' });
-  await expect(rhythm.getByText('На цей день ще нічого немає.')).toBeVisible();
+  await expect(rhythm.getByText(t.day.empty, { exact: true })).toBeVisible();
   await expect(rhythm.getByRole('button', { name: 'Як учора' })).toBeVisible();
   await expect(rhythm.getByRole('button', { name: 'Додати інше — ліки, тренування, нотатку' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Записати їжу' })).toBeVisible();
@@ -168,7 +169,7 @@ test('a once-daily medicine without a time is not followed by the empty-rhythm m
   const rhythm = page.getByRole('region', { name: 'Найближче' });
   await expect(rhythm.getByText('Сьогодні, будь-коли:')).toBeVisible();
   await expect(rhythm.getByRole('button', { name: 'Вітамін D' })).toBeVisible();
-  await expect(rhythm.getByText('На цей день ще нічого немає.')).toHaveCount(0);
+  await expect(rhythm.getByText(t.day.empty, { exact: true })).toHaveCount(0);
 });
 
 test('«Нічого з цього» skips the planned meal and undo restores the plan', async ({ browser }) => {

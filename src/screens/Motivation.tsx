@@ -9,6 +9,7 @@ import { ProgressTrack, type ProgressTone } from '../components/ProgressTrack';
 import { ProgressRing } from '../components/ProgressRing';
 import { SceneHeader } from '../components/SceneHeader';
 import { useObservation } from '../app/observation';
+import { ExampleNotice } from '../components/ExampleNotice';
 
 const L = t.progress;
 
@@ -24,6 +25,7 @@ export function Motivation() {
     <section className="space-y-4 pt-4">
       <Link to="/progress" className="inline-flex min-h-tap items-center text-sm text-muted">{t.progress.title}</Link>
       <SceneHeader title={t.progress.motivationTitle} />
+      <ExampleNotice plan={plan} />
       <WeekCard summary={weekSummary({ plan, entries, workouts, foods, today: todayISO(), observation })} />
       <HabitsCard list={habits({ plan, entries, workouts, foods, today: todayISO(), observation })} showEmpty />
     </section>

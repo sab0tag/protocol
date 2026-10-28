@@ -28,7 +28,7 @@ test('app opens an existing v10 journal without losing local data or enabling pr
     req.onsuccess = () => req.result.close();
   }, { stores: V10_STORES, plan: original, draft, photo });
   await page.goto('./');
-  await expect(page.getByRole('heading', { name: 'Сьогодні', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Сьогодні', exact: true, level: 1 })).toBeVisible();
   const stored = await page.evaluate(async () => {
     const req = indexedDB.open('protocol'); await new Promise<void>((resolve, reject) => { req.onsuccess = () => resolve(); req.onerror = () => reject(req.error); });
     try {

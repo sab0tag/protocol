@@ -66,3 +66,31 @@ Branch `feat/protocol-plan-backup`, stacked on storage PR #36 (head `dad4cc8`). 
 - Retained older identity format is supported; new legacy ids are owner-independent because local profile ids differ between devices. This is not cross-person sharing or server authorization.
 - 534 client tests, build/typecheck and 55 focused backup/domain/storage/legacy cases passed. Browser backup/upgrade/preference cases 3/3 passed. Confirmation visually checked 320/1024 light/dark; no personal screenshots or medical records published.
 - Next: complete #36/#37 CI/review; implement encrypted sync compatibility and old-client write protection before enabling live multi-plan consumers. New source data must never be silently omitted by a claimed complete backup/sync.
+
+## R5 fourth boundary — old-client server gate
+
+Branch `feat/protocol-sync-write-gate`, stacked on backup PR #37. API adds a persistent authenticated per-vault minimum protocol, default 1. The current client still advertises 1. Only an explicit capable-client request opts a vault into 2; no startup/UI code does so.
+
+- Opted-in vaults reject old record reads/writes and stale reminder/policy submissions before advancing cursors or changing records. Transition clears old queued schedules atomically, preserves ciphertext/history/preferences, and protects fresh schedules from obsolete asynchronous push snapshots.
+- 73 server tests, server typecheck; 534 client tests and build/typecheck passed. Three focused Chromium sync/backup cases passed, including actual server opt-in with an unchanged old client's cursor/ciphertext and an upgrade message.
+- Next deployment boundary: independent Hetzner API container, not Vercel. No server deployment or real-vault opt-in performed. Deploy only with the owner's separate production command; keep default floor 1. See `protocol-v2-sync-protocol.md` for the concrete rollout/rollback sequence.
+- Normalized encrypted transport and conflict/version recovery remain to implement before protocol 2 is advertised by a real client or live multi-plan consumers are enabled.
+
+## Integration blocker / latest checkpoint
+
+- #35 merged `08a0908` after CI run 40574749672 passed. #36 merged `62d912c` after CI run 40575971243 passed.
+- #37 head `181fe016989bd37c4abb0ea2612973cea98ab473` passed all CI jobs (run 40577370600), review threads empty, marked ready. Automatic approval review rejected its main merge, stating that a separate main-merge command was missing, despite the owner's current instruction authorizing needed merges. No workaround/alternate merge path is used. PR remains open and ready pending explicit resolution of that rejection.
+- The sync-gate branch is published as a separate PR stacked on #37; it can be reviewed and checked while the merge is blocked. Do not claim either #37 or the gate is merged. No Hetzner deployment or real-vault upgrade has occurred.
+
+
+## Conflict resolution: calm polish on current main (28 October 2026)
+
+Original #44 is dirty against main after #39/#41. Integration branch `integration/calm-polish-on-main` starts from current main and ports the nine implementation/test files from #44, retaining current main history and its #39/#41 changes. Original docs history is preserved and this note appended instead of replacing it. Full CI and visual preview are required before merge; no production deployment or patient data is authorized. Original #44 remains open for historical review; merge the integration PR only after verification.
+
+
+### Integration #53 CI regression triage (28 Oct)
+First remote CI: check and server passed; e2e failed in four cases. Fixed genuine Today ordering regression (example-data warning now before schedule); restored missing localized sync client-upgrade explanation while retaining protocol refusal; disambiguated storage test's page-level h1 from new Today summary h2 without weakening visibility assertion. Dish-list model-mock scenario returned failed instead of check; cause still under investigation, not bypassed. Re-run CI required. Assistant #52 second pass failed because prompt chips remained 154px from context; moved chips immediately after context in commit f9c7a194; subsequent CI passed. No merges until integration checks green.
+
+
+### Food 2.0 integration after #53 (28 Oct 2026)
+Original #47 was stacked on #44 and conflicts with current main. Branch `integration/food-on-main` ports food-only implementation, domain, translations, warning styles, and focused tests onto merged #53. Existing Today/sync fixes and tests are retained. Original #47 is not to be merged directly. Full CI, E2E and preview review are required before merge. No patient data or production authorization.

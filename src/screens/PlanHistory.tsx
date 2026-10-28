@@ -1,6 +1,7 @@
 import { ChevronLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { PlanVersions } from '../components/PlanVersions';
+import { ExampleNotice } from '../components/ExampleNotice';
 import { Loading } from '../components/Recovery';
 import { usePlan } from '../data/queries';
 import { t } from '../i18n/uk';
@@ -18,6 +19,7 @@ export function PlanHistory() {
         <h1 className="text-2xl font-semibold">{t.versions.title}</h1>
         <p className="mt-1 text-sm text-muted">{t.versions.hint}</p>
       </header>
+      <ExampleNotice plan={plan} />
       <PlanVersions current={plan} />
     </section>
   );
