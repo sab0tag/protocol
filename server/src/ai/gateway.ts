@@ -19,6 +19,8 @@ export interface AiUsage {
   output: number;
   cacheWrite?: number;
   cacheRead?: number;
+  /** Provider-reported cost when the provider states it. */
+  costUsd?: number;
 }
 
 export interface AiRequest<S extends z.ZodType> {
