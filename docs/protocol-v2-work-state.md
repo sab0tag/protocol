@@ -87,3 +87,19 @@ Visual polish #44 passed all CI and is ready for review. Workout navigation fix 
 Branch `feat/protocol-food-entry` introduces three primary food-entry methods, secondary voice/label tools, existing prepared recipes into a reviewable draft, and visible rule-based status/reasons before composition editing. Unknown/estimated composition and unconfigured restrictions cannot yield a green clear claim; known allergens are identified from known food data and the active plan. No timing/pantry claims or automatic recording. Details and remaining daily-hub/recommendation scope: `docs/food-entry-overview.md`.
 
 Initial full client suite 538 passed, build passed, focused food/label/naming/browser cases 6/6. Final extra unit cases, clean build and remote CI remain the completion gate; record final CI/preview in the PR. Latest source instructions override the old four-primary-action naming test, with every secondary capability still tested through its disclosure.
+
+
+## Integration and UX continuation — 28 October 2026 (latest)
+
+Owner authorization: develop in branches, open/update PRs, run CI and preview with synthetic data; **do not merge to main or deploy production without a separate explicit command**. Previous owner instruction to integrate applied to #39 and #41 only; this newer boundary controls all further work.
+
+- main: #39 sync compatibility and #41 synthetic medication warning merged; main CI at `7bd330259` and `9c4aa375` succeeded.
+- #44 calm Today polish: CI passed; open, not merged.
+- #42 dishes catalog and #43 recent-meal UI: CI passed on their stacked heads; open, require dependency-safe integration.
+- #45 workout overview: e2e failed on inherited Today 'Зараз' and More navigation selectors; check/server jobs passed. Diagnose actual UI versus stale expectations, never delete tests. #46 navigation fix and #49 focused one-exercise mode passed CI on their own stacked heads; no claim that #45's failing baseline is resolved.
+- #47 Food 2.0: CI on head `540ad188` succeeded after changing an obsolete assertion for an unconfigured diet to assert the explicit `data-plan-status=incomplete` warning. This is a safety-relevant semantic change, not weakened coverage.
+- #50 Wellbeing: numeric 1–5 values, autosave and symptoms retained, accessible semantic labels added. Initial CI failed due to inherited obsolete diet assertion; copied exact safety-aware test fix into branch `9b1b16c`. Await latest CI.
+- #51 Progress: four-domain overview without a fabricated health score; weight summary, wellbeing journal link, recent workout count and weekly plan link. Initial CI failed on the same inherited diet assertion; fixed in branch `b8bca0c`. Await latest CI. Full trend analytics still outstanding.
+- #48 standalone marketing landing: draft; separate preview and visual QA pending.
+
+Next gates: wait for #50/#51 CI; inspect check, server and e2e jobs; fix regressions; inspect preview at 320/390/1024 in light/dark; reconcile mockups and app routes; continue Assistant 2.0, Labs 2.0, Plan and onboarding, Week, Reminders, Report, Insights, design-system consistency. Avoid nonfunctional actions, clinical inferences, real patient data or credentials. No new PR is complete without verified checks and preview evidence.
