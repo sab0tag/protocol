@@ -13,6 +13,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { DangerCard } from '../components/DangerCard';
 import { CrisisCard } from '../components/CrisisCard';
 import { Loading } from '../components/Recovery';
+import { ExampleNotice } from '../components/ExampleNotice';
 import { saved } from '../components/Toast';
 import { db, inDemo } from '../data/db';
 import { keep, kept } from '../data/kept';
@@ -143,6 +144,7 @@ export function Assistant() {
       <SceneHeader title={L.title} description={L.hint}>
         {msgs.length > 0 && <button type="button" onClick={() => setMsgs([])} className="min-h-tap rounded-xl border border-white/25 px-3 text-sm text-white">{L.newTalk}</button> /* D130 */}
       </SceneHeader>
+      <ExampleNotice plan={plan} />
       <p className="protocol-card rounded-2xl border border-line bg-surface p-3 text-sm">{facts.length ? `${L.today} ${facts.join(' · ')}` : L.noTargetsShort}</p>
       {msgs.length === 0 && (
         <div className="flex flex-wrap gap-2" aria-label="Швидкі запитання">
