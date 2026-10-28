@@ -54,8 +54,13 @@ export function chooseRoute(task: AiTask, routes: Readonly<Partial<Record<AiTask
 }
 
 export class AiGateway {
-  constructor(private readonly routes: Readonly<Partial<Record<AiTask, AiRoute>>>,
-    private readonly providers: Readonly<Partial<Record<AiProviderId, AiProvider>>>) {}
+  private readonly routes: Readonly<Partial<Record<AiTask, AiRoute>>>;
+  private readonly providers: Readonly<Partial<Record<AiProviderId, AiProvider>>>;
+  constructor(routes: Readonly<Partial<Record<AiTask, AiRoute>>>,
+    providers: Readonly<Partial<Record<AiProviderId, AiProvider>>>) {
+    this.routes = routes;
+    this.providers = providers;
+  }
 
   async structured<S extends z.ZodType>(request: AiRequest<S>): Promise<AiResult<z.infer<S>>> {
     const route = chooseRoute(request.task, this.routes, request.permittedProviders);
