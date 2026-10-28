@@ -31,8 +31,9 @@ test('dated history and neutral outcomes agree in week, progress, doctor report 
     await expect(history).toContainText('Дати: 25.10.2026');
     await expect(history).not.toContainText('28.10.2026');
     await expect(history).toContainText('Добровільно записано тренувань у легкі дні: 1');
-    await expect(page.locator('dl > div').filter({ has: page.locator('dt', { hasText: 'Вода — норма' }) })).toContainText('0 з 1 дн.');
-    await expect(page.locator('dl > div').filter({ has: page.locator('dt', { hasText: 'Білок ≥ 90 % цілі' }) })).toContainText('1 з 1 дн.');
+    const metric = (label: string) => page.locator('dl > div, li.protocol-week-metric').filter({ hasText: label }); // tiles on «Тиждень», rings on «Прогрес»
+    await expect(metric('Вода — норма')).toContainText('0 з 1 дн.');
+    await expect(metric('Білок ≥ 90 % цілі')).toContainText('1 з 1 дн.');
   }
   await page.goto('./#/report'); await page.getByLabel('З', { exact: true }).fill('2026-10-20');
   await page.getByLabel('По', { exact: true }).fill('2026-10-26');
