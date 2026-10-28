@@ -174,6 +174,12 @@ export function AddMeal() {
       <SceneHeader title={id ? t.meal.editTitle : t.meal.title} description={id ? t.meal.editHint : t.meal.entryHint} />
       <ExampleNotice plan={plan} />
       <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); void save(); }}>
+        <div role="group" aria-label={t.meal.name} className="protocol-card flex flex-wrap gap-2 p-3">
+          {t.meal.names.map((n) => (
+            <button key={n} type="button" onClick={() => setTitle(n)} aria-pressed={title === n}
+              className={`min-h-tap rounded-full border px-3 text-sm font-medium ${title === n ? 'border-accent bg-accent/10 text-accent' : 'border-line text-muted'}`}>{n}</button>
+          ))}
+        </div>
         <section aria-label={t.meal.addFood} className="protocol-card p-4 sm:p-5">
           <div role="group" aria-label={t.meal.entryModes} className="mb-3 grid grid-cols-3 gap-2">
             <button type="button" onClick={() => { setReadyOpen(false); searchInput.current?.focus(); }} className="protocol-action-secondary min-h-[4.5rem] flex-col px-2 text-sm"><Type size={20} aria-hidden />{t.meal.entryWrite}</button>
