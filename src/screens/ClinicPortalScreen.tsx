@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import qrcode from 'qrcode-generator';
 import { composePlan, patientLink, type PlanForm } from '../domain/clinicPlanDraft';
 import { ApiError } from '../sync/api';
-import { clinicAddStaff, clinicDeactivate, clinicIssue, clinicMe, clinicPlanStatus, clinicRevoke, clinicStaff, type ClinicMe, type StaffMember } from '../sync/clinicApi';
+import { clinicAddStaff, clinicDeactivate, clinicIssue, clinicMe, clinicPlanStatus, clinicRevoke, clinicStaff, clinicStats, type ClinicMe, type ClinicStats, type StaffMember } from '../sync/clinicApi';
 
 const ERR: Record<string, string> = {
   unauthorized: 'Токен не підходить або доступ вимкнено.', offline: 'Немає зʼєднання.', forbidden: 'Недостатньо прав.',
@@ -49,9 +49,9 @@ export function ClinicPortalScreen() {
 
 function Staff({ token }: { token: string }) {
   const [staff, setStaff] = useState<StaffMember[]>([]), [name, setName] = useState(''), [role, setRole] = useState<'doctor' | 'admin'>('doctor');
-  const [issued, setIssued] = useState(''), [error, setError] = useState('');
+  const [issued, setIssued] = useState(''), [error, setError] = useState(''), [stats, setStats] = useState<ClinicStats | null>(null);
   const load = () => clinicStaff(token).then(setStaff).catch((e) => setError(say(e)));
-  useEffect(() => { void load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { void load(); void clinicStats(token).then(setStats).catch(() => undefined); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function add() {
     setError('');
@@ -63,6 +63,13 @@ function Staff({ token }: { token: string }) {
   }
   return (
     <div className="space-y-4">
+      {stats && (
+        <div className="text-sm">
+          <h2 className="font-medium">Плани за {stats.days} днів</h2>
+          <p>Видано: {stats.issued} · отримано: {stats.redeemed} · очікують: {stats.pending} · прострочено: {stats.expired} · скасовано: {stats.revoked}</p>
+          {stats.byDoctor.map((d) => <p key={d.memberId} className="text-muted">{d.displayName || 'Колишній співробітник'}: {d.issued}</p>)}
+        </div>
+      )}
       <ul className="space-y-2">
         {staff.map((m) => (
           <li key={m.id} className="flex items-center justify-between gap-2">
