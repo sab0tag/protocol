@@ -32,7 +32,7 @@ export function Workout() {
   const [draft, setDraft] = useState<W | null>(null);
   const exercisesHeading = useRef<HTMLHeadingElement>(null);
   const [focused, setFocused] = useState(false);
-  const [activeExercise, setActiveExercise] = useState(0);
+  const [activeAt, setActiveExercise] = useState(0);
   const base0 = useRef(''); // D87: the day's draft as it started — what counts as «nothing typed yet»
 
   const existing = workouts?.find((w) => w.date === date);
@@ -64,10 +64,11 @@ export function Workout() {
   shownDate.current = date; // a reply for a day no longer on screen is dropped, never written over another day's draft
 
   if (!workouts || !draft) return <Loading />;
+  const activeExercise = Math.min(activeAt, Math.max(0, draft.exercises.length - 1)); // an AI draft may bring fewer exercises
   const schedule = workoutDay(plan, workouts.filter((w) => w.date !== date), date);
   const add = (e: Exercise) => { setDraft({ ...draft, exercises: [...draft.exercises, blankExercise(e)] }); setPicking(null); };
   const replace = (i: number, e: Exercise) => { setDraft({ ...draft, exercises: draft.exercises.map((x, j) => (j === i ? blankExercise(e) : x)) }); setPicking(null); };
-  const remove = (i: number) => { setDraft({ ...draft, exercises: draft.exercises.filter((_, j) => j !== i) }); setActiveExercise((n) => Math.max(0, Math.min(n, draft.exercises.length - 2))); };
+  const remove = (i: number) => { setDraft({ ...draft, exercises: draft.exercises.filter((_, j) => j !== i) }); setActiveExercise(Math.max(0, Math.min(activeExercise, draft.exercises.length - 2))); };
 
   const setEx = (i: number, ex: WorkoutExercise) => setDraft({ ...draft, exercises: draft.exercises.map((x, j) => (j === i ? ex : x)) });
   // D76: unsaved = the draft differs from what is stored (a new day's draft is unsaved until recorded)
@@ -115,15 +116,15 @@ export function Workout() {
 
       {draft.exercises.length > 0 && (
         <div className="rounded-2xl border border-line bg-surface p-3">
-          <button type="button" aria-pressed={focused} onClick={() => { setFocused((v) => !v); setActiveExercise((i) => Math.min(i, draft.exercises.length - 1)); }}
+          <button type="button" aria-pressed={focused} onClick={() => setFocused((v) => !v)}
             className="flex min-h-tap w-full items-center justify-center rounded-xl border border-accent px-4 font-semibold text-accent">
             {focused ? 'Показати всі вправи' : 'Тренуватися по одній вправі'}
           </button>
           {focused && <div role="group" className="mt-3 flex items-center justify-between gap-2" aria-label="Навігація вправами">
-            <button type="button" disabled={activeExercise === 0} onClick={() => setActiveExercise((i) => Math.max(0, i - 1))}
+            <button type="button" disabled={activeExercise === 0} onClick={() => setActiveExercise(activeExercise - 1)}
               className="min-h-tap rounded-xl border border-line px-3 disabled:opacity-40">← Назад</button>
             <span role="status" className="text-sm font-medium tabular">Вправа {activeExercise + 1} з {draft.exercises.length}</span>
-            <button type="button" disabled={activeExercise >= draft.exercises.length - 1} onClick={() => setActiveExercise((i) => Math.min(draft.exercises.length - 1, i + 1))}
+            <button type="button" disabled={activeExercise >= draft.exercises.length - 1} onClick={() => setActiveExercise(activeExercise + 1)}
               className="min-h-tap rounded-xl border border-line px-3 disabled:opacity-40">Далі →</button>
           </div>}
           {focused && <p className="mt-2 text-center text-xs text-muted">Заповнюйте підходи у своєму темпі. Дані залишаються в чернетці до збереження.</p>}

@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { device } from './helpers';
+import { device, syncOn } from './helpers';
 test('overview jumps to the exercises without replacing the hash route', async ({ browser }) => {
   const page = await device(browser); await page.goto('./#/workout');
   await page.getByText('Перейти до вправ', { exact: true }).click();
@@ -30,5 +30,23 @@ test('one exercise at a time: next/back, removing the last one stays in range, a
   await expect(swaps).toHaveCount(1);
   await page.getByRole('button', { name: 'Показати всі вправи' }).click();
   expect(await swaps.count()).toBeGreaterThan(1);
+  await page.context().close();
+});
+
+test('one exercise at a time: an AI draft with fewer exercises keeps the shown exercise in range', async ({ browser }) => {
+  const page = await device(browser);
+  await syncOn(page);
+  await page.route('**/workout', (r) => r.fulfill({ json: { advice: 'Коротко сьогодні.', exercises: [{ id: 'swing', sets: 3, reps: 12, seconds: null }] } }));
+  await page.goto('./#/workout');
+  const n = await page.getByRole('button', { name: /^Замінити: / }).count();
+  await page.getByRole('button', { name: 'Тренуватися по одній вправі' }).click();
+  const nav = page.getByRole('group', { name: 'Навігація вправами' });
+  for (let i = 1; i < n; i++) await nav.getByRole('button', { name: 'Далі →' }).click();
+  const panel = page.getByRole('region', { name: 'Скласти тренування з ІІ' });
+  await panel.getByRole('button', { name: 'Скласти тренування' }).click();
+  await panel.getByRole('button', { name: 'Дозволити й скласти' }).click();
+  await expect(page.getByText('Коротко сьогодні.')).toBeVisible();
+  await expect(nav.getByRole('status')).toHaveText('Вправа 1 з 1');
+  await expect(page.getByRole('button', { name: /^Як виконувати: Махи двома руками/ })).toBeVisible();
   await page.context().close();
 });
