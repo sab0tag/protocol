@@ -90,3 +90,20 @@ describe('plan delivery', () => {
     expect(log).not.toMatch(/План|Лікар/);
   });
 });
+
+describe('stats', () => {
+  it('counts redeemed, expired, revoked and pending in the window and respects the roles', () => {
+    const { del, adminA, docA, a, plan, tick } = rig();
+    const r = del.issue(docA, { plan: plan(a.orgId), patientConsent: true });
+    del.redeem(r.code);
+    del.issue(docA, { plan: plan(a.orgId), patientConsent: true, ttlMs: 1000 });
+    const v = del.issue(docA, { plan: plan(a.orgId), patientConsent: true });
+    del.revoke(docA, v.deliveryId);
+    del.issue(docA, { plan: plan(a.orgId), patientConsent: true, ttlMs: 60_000 });
+    tick(2000);
+    expect(del.stats(adminA)).toMatchObject({ issued: 4, redeemed: 1, expired: 1, revoked: 1, pending: 1 });
+    tick(40 * 24 * 3600 * 1000);
+    expect(del.stats(adminA, 30).issued).toBe(0);
+    expect(err(() => del.stats(docA))).toBe('forbidden');
+  });
+});

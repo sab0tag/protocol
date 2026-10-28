@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { device, toast } from './helpers';
 
-test('«Записати їжу» shows four input modes before search; the meal line stays folded and a pinned meal returns in one tap (D51)', async ({ browser }) => {
+test('«Записати їжу» shows entry methods before search; the meal line stays folded and a pinned meal returns in one tap (D51)', async ({ browser }) => {
   const page = await device(browser, 'demo');
   await page.setViewportSize({ width: 320, height: 844 });
   await page.goto('./#/meal/new');
@@ -33,8 +33,14 @@ test('«Записати їжу» shows four input modes before search; the meal
   await page.getByRole('button', { name: 'Додати до дня', exact: true }).click();
   await expect(toast(page)).toContainText('Перекус');
 
-  await page.getByRole('button', { name: /^Перекус, Виконано/ }).click();
-  await page.getByRole('button', { name: 'У звичні' }).click();
+  const recordedMeal = page.getByRole('button', { name: /^Перекус, Виконано/ });
+  // Center the row before the tap so the scroll-triggered floating dock settles outside its hit area.
+  await recordedMeal.evaluate(element => element.scrollIntoView({ block: 'center', behavior: 'instant' }));
+  await expect(recordedMeal).toBeInViewport();
+  await recordedMeal.click();
+  const mealActions = page.getByRole('dialog', { name: 'Перекус', exact: true });
+  await expect(mealActions).toBeVisible();
+  await mealActions.getByRole('button', { name: 'У звичні', exact: true }).click();
   await expect(toast(page)).toContainText('«Перекус» — у звичних');
 
   await page.goto('./#/meal/new');
