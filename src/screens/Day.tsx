@@ -193,9 +193,8 @@ export function Day() {
           med={nextMed && { title: nextMed.title, ...(nextMed.time ? { time: nextMed.time } : {}), missed: medMissed }}
           onMed={dockMed} onWater={dockWater} hidden={tilesOnScreen} />}
 
-      {entries && <NowCard entries={entries} plan={plan} date={date} observation={observation} onConfirm={setConfirming} />}
-
       <ExampleNotice plan={plan} />
+      {entries && <NowCard entries={entries} plan={plan} date={date} observation={observation} onConfirm={setConfirming} />}
       {/* D40: one notice at a time — the code first, then the backup */}
       {isToday && codeDue && (
         <div role="status" className="mb-3 space-y-2 protocol-card rounded-2xl border border-line bg-surface p-3 text-sm">
