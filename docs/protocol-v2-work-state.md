@@ -86,3 +86,7 @@ Branch `feat/protocol-sync-write-gate`, stacked on backup PR #37. API adds a per
 ## Conflict resolution: calm polish on current main (28 October 2026)
 
 Original #44 is dirty against main after #39/#41. Integration branch `integration/calm-polish-on-main` starts from current main and ports the nine implementation/test files from #44, retaining current main history and its #39/#41 changes. Original docs history is preserved and this note appended instead of replacing it. Full CI and visual preview are required before merge; no production deployment or patient data is authorized. Original #44 remains open for historical review; merge the integration PR only after verification.
+
+
+### Integration #53 CI regression triage (28 Oct)
+First remote CI: check and server passed; e2e failed in four cases. Fixed genuine Today ordering regression (example-data warning now before schedule); restored missing localized sync client-upgrade explanation while retaining protocol refusal; disambiguated storage test's page-level h1 from new Today summary h2 without weakening visibility assertion. Dish-list model-mock scenario returned failed instead of check; cause still under investigation, not bypassed. Re-run CI required. Assistant #52 second pass failed because prompt chips remained 154px from context; moved chips immediately after context in commit f9c7a194; subsequent CI passed. No merges until integration checks green.
