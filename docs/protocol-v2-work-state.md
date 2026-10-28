@@ -81,3 +81,8 @@ Branch `feat/protocol-sync-write-gate`, stacked on backup PR #37. API adds a per
 - #35 merged `08a0908` after CI run 40574749672 passed. #36 merged `62d912c` after CI run 40575971243 passed.
 - #37 head `181fe016989bd37c4abb0ea2612973cea98ab473` passed all CI jobs (run 40577370600), review threads empty, marked ready. Automatic approval review rejected its main merge, stating that a separate main-merge command was missing, despite the owner's current instruction authorizing needed merges. No workaround/alternate merge path is used. PR remains open and ready pending explicit resolution of that rejection.
 - The sync-gate branch is published as a separate PR stacked on #37; it can be reviewed and checked while the merge is blocked. Do not claim either #37 or the gate is merged. No Hetzner deployment or real-vault upgrade has occurred.
+
+
+## Conflict resolution: calm polish on current main (28 October 2026)
+
+Original #44 is dirty against main after #39/#41. Integration branch `integration/calm-polish-on-main` starts from current main and ports the nine implementation/test files from #44, retaining current main history and its #39/#41 changes. Original docs history is preserved and this note appended instead of replacing it. Full CI and visual preview are required before merge; no production deployment or patient data is authorized. Original #44 remains open for historical review; merge the integration PR only after verification.
