@@ -7,6 +7,8 @@ export interface StoredRecord { k: string; v: string | null; seq: number }
 
 export class Store {
   private db: DatabaseSync;
+  /** For modules that own their own tables (clinic directory, plan delivery). */
+  get database(): DatabaseSync { return this.db; }
 
   constructor(path: string) {
     this.db = new DatabaseSync(path);
