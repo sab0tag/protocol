@@ -20,6 +20,10 @@ import type { Recognizer } from './photo.ts';
 import type { Sender } from './push.ts';
 import type { Store } from './store.ts';
 import { parseReminderPolicy } from './reminderPolicy.ts';
+import { BudgetGuard } from './ai/budgets.ts';
+import { RedeemFailure, type PlanDelivery } from './clinic/delivery.ts';
+import { mountClinic } from './clinic/routes.ts';
+import type { ClinicDirectory } from './clinic/directory.ts';
 import { latestWeek, parsePilot, PID, SECRET, SRC, weekAdd, weekKey } from './pilot.ts';
 
 export interface Limits {
@@ -36,9 +40,11 @@ export interface Limits {
   dishesPerDay: number; // D110: dish breakdowns, a vault or a device
   listDishesPerDay: number; // D123: dishes of a list that went to the model, a vault or a device
   pilotJoinsPerIpPerDay: number; // D119
+  aiDayUsdMicro?: number; // cost control: committed + reserved spend of the server per UTC day
+  aiMonthUsdMicro?: number; // the same per UTC month
 }
 
-export const DEFAULT_LIMITS: Limits = { vaultsPerIpPerDay: 5, vaultBytes: 50_000_000, photosPerVaultPerDay: 30, photosPerDay: 150, menusPerVaultPerDay: 15, workoutsPerVaultPerDay: 10, conciergePerVaultPerDay: 60, aiPerDay: 800, deviceTokensPerIpPerDay: 5, devicePhotosPerDay: 10, dishesPerDay: 20, listDishesPerDay: 50, pilotJoinsPerIpPerDay: 10 };
+export const DEFAULT_LIMITS: Limits = { vaultsPerIpPerDay: 5, vaultBytes: 50_000_000, photosPerVaultPerDay: 30, photosPerDay: 150, menusPerVaultPerDay: 15, workoutsPerVaultPerDay: 10, conciergePerVaultPerDay: 60, aiPerDay: 800, deviceTokensPerIpPerDay: 5, devicePhotosPerDay: 10, dishesPerDay: 20, listDishesPerDay: 50, pilotJoinsPerIpPerDay: 10, aiDayUsdMicro: 25_000_000, aiMonthUsdMicro: 400_000_000 };
 
 export interface Deps {
   store: Store;
@@ -54,11 +60,15 @@ export interface Deps {
   notFound?: NotFoundReader; // D91: the concierge, scenario 1
   conciergeModel?: string; // D91: written into the log's versions
   label?: LabelReader; // the same (D45)
+  clinic?: ClinicDirectory; // doctor/admin API; needs planDelivery too
+  planDelivery?: PlanDelivery; // clinic plans handed over by one-time code
   push?: { publicKey: string; send: Sender };
   backupAgeH?: () => number | null;
   backups?: { list: () => string[]; records: (name: string, vault: string) => { k: string; v: string | null; seq: number }[] | null };
   origins: string[];
   limits?: Limits;
+  /** Kill switch: AI kinds (e.g. 'menu', 'photo') that answer `ai_off` without calling a provider. */
+  disabledAi?: readonly string[];
   now?: () => Date;
 }
 
@@ -94,7 +104,30 @@ export function createApp(deps: Deps) {
   const now = deps.now ?? (() => new Date());
   const app = new Hono();
   const ai = { lastOk: 0, lastError: 0 };
-  const spent = (vault: string, kind: string, usage?: Usage) => { if (usage) store.addUsage(vault, kind, usdMicro(usage), now()); };
+  // Cost control (spec §5): reserve the worst case before the provider is called; settle with the real cost afterwards.
+  const guard = new BudgetGuard([], { perOperationCap: 1_000_000 });
+  for (const k of deps.disabledAi ?? []) guard.disableFeature(k);
+  const UPPER: Record<string, number> = { photo: 300_000, label: 200_000, labs: 300_000, conclusion: 400_000, medbox: 200_000 };
+  type Hold = { ok: true; commit: (usd: number) => void; release: () => void } | { ok: false; status: 429 | 503; error: 'budget' | 'ai_off' };
+  const reserve = (kind: string): Hold => {
+    const at = now();
+    const day = `day:${at.toISOString().slice(0, 10)}`;
+    const month = `month:${at.toISOString().slice(0, 7)}`;
+    guard.ensureScope(day, limits.aiDayUsdMicro ?? Infinity, store.daySpend(day.slice(4)));
+    guard.ensureScope(month, limits.aiMonthUsdMicro ?? Infinity, store.monthSpend(month.slice(6)));
+    const id = randomBytes(12).toString('hex');
+    const r = guard.reserve(id, kind, UPPER[kind] ?? 100_000, [day, month]);
+    if (!r.ok) return r.reason === 'feature_disabled' ? { ok: false, status: 503, error: 'ai_off' } : { ok: false, status: 429, error: 'budget' };
+    if (r.warnings.length) console.warn('AI budget at 80%:', r.warnings.join(', '));
+    return { ok: true, commit: (usd) => guard.commit(id, usd), release: () => guard.release(id) };
+  };
+  const spent = (vault: string, kind: string, usage: Usage | undefined, hold: Hold) => {
+    if (!usage) return;
+    const usd = usdMicro(usage);
+    store.addUsage(vault, kind, usd, now());
+    store.addDaySpend(now().toISOString().slice(0, 10), usd);
+    if (hold.ok) hold.commit(usd);
+  };
 
   app.use('*', cors({ origin: origins, allowMethods: ['GET', 'POST', 'PUT', 'DELETE'], allowHeaders: ['Authorization', 'Content-Type'], maxAge: 86400 }));
   const DEVICE = /^[0-9a-f]{32}$/;
@@ -233,14 +266,17 @@ export function createApp(deps: Deps) {
     if (bytes.length > MAX_IMAGE || bytes[0] !== 0xff || bytes[1] !== 0xd8) return c.json({ error: 'bad_image' }, 400);
     const at = now();
     if (!store.take('photo:all', limits.photosPerDay, at) || !store.take(`photo:${id}`, limits.photosPerVaultPerDay, at)) return c.json({ error: 'too_many' }, 429);
+    const hold = reserve('label');
+    if (!hold.ok) return c.json({ error: hold.error }, hold.status);
     try {
       const { result, usage } = await deps.label(image);
-      spent(id, 'label', usage);
+      spent(id, 'label', usage, hold);
       ai.lastOk = Date.now();
       if (result === 'refused') return c.json({ error: 'refused' }, 422);
       return c.json(result);
     } catch (e) {
       ai.lastError = Date.now();
+      hold.release();
       console.error('label failed:', (e as Error).message);
       return c.json({ error: 'upstream' }, 502);
     }
@@ -258,14 +294,17 @@ export function createApp(deps: Deps) {
     if (bytes.length > MAX_IMAGE || bytes[0] !== 0xff || bytes[1] !== 0xd8) return c.json({ error: 'bad_image' }, 400);
     const at = now();
     if (!store.take('photo:all', limits.photosPerDay, at) || !store.take(`photo:${id}`, limits.photosPerVaultPerDay, at)) return c.json({ error: 'too_many' }, 429);
+    const hold = reserve('labs');
+    if (!hold.ok) return c.json({ error: hold.error }, hold.status);
     try {
       const { result, usage } = await deps.labs(image, list(body?.names, 100, 80));
-      spent(id, 'labs', usage);
+      spent(id, 'labs', usage, hold);
       ai.lastOk = Date.now();
       if (result === 'refused') return c.json({ error: 'refused' }, 422);
       return c.json(result);
     } catch (e) {
       ai.lastError = Date.now();
+      hold.release();
       console.error('labs failed:', (e as Error).message);
       return c.json({ error: 'upstream' }, 502);
     }
@@ -281,14 +320,17 @@ export function createApp(deps: Deps) {
     for (const im of images) { const b = Buffer.from(im, 'base64'); if (b.length > MAX_IMAGE || b[0] !== 0xff || b[1] !== 0xd8) return c.json({ error: 'bad_image' }, 400); }
     const at = now();
     if (!store.take('photo:all', limits.photosPerDay, at) || !store.take(`photo:${who}`, perDay, at)) return c.json({ error: 'too_many' }, 429);
+    const hold = reserve('conclusion');
+    if (!hold.ok) return c.json({ error: hold.error }, hold.status);
     try {
       const { result, usage } = await deps.conclusion(images);
-      spent(who, 'conclusion', usage);
+      spent(who, 'conclusion', usage, hold);
       ai.lastOk = Date.now();
       if (result === 'refused') return c.json({ error: 'refused' }, 422);
       return c.json(result);
     } catch (e) {
       ai.lastError = Date.now();
+      hold.release();
       console.error('conclusion failed:', (e as Error).message);
       return c.json({ error: 'upstream' }, 502);
     }
@@ -324,14 +366,17 @@ export function createApp(deps: Deps) {
     const text = str(b?.text, 2000).trim();
     if (text.length < 3) return c.json({ error: 'bad_request' }, 400);
     if (!store.take(`dish:${who}`, limits.dishesPerDay, now()) || !store.take('ai:all', limits.aiPerDay, now())) return c.json({ error: 'too_many' }, 429);
+    const hold = reserve('dish');
+    if (!hold.ok) return c.json({ error: hold.error }, hold.status);
     try {
       const { result, usage } = await deps.dish({ text, foods: list(b?.foods, 600, 80) });
-      spent(who, 'dish', usage);
+      spent(who, 'dish', usage, hold);
       ai.lastOk = Date.now();
       if (result === 'refused') return c.json({ error: 'refused' }, 422);
       return c.json(result);
     } catch (e) {
       ai.lastError = Date.now();
+      hold.release();
       console.error('dish failed:', (e as Error).message);
       return c.json({ error: 'upstream' }, 502);
     }
@@ -354,15 +399,18 @@ export function createApp(deps: Deps) {
     const left = limits.listDishesPerDay - store.count(`dishlist:${who}`, now());
     if (left < dishes.length) return c.json({ error: 'too_many', left: Math.max(0, left) }, 429);
     if (!store.take('ai:all', limits.aiPerDay, now())) return c.json({ error: 'too_many', left }, 429);
+    const hold = reserve('dishes');
+    if (!hold.ok) return c.json({ error: hold.error }, hold.status);
     try {
       const { result, usage } = await deps.dishes({ dishes, foods: list(b?.foods, 600, 80) });
-      spent(who, 'dishes', usage);
+      spent(who, 'dishes', usage, hold);
       ai.lastOk = Date.now();
       if (result === 'refused') return c.json({ error: 'refused' }, 422);
       store.bump(`dishlist:${who}`, dishes.length, now());
       return c.json(result);
     } catch (e) {
       ai.lastError = Date.now();
+      hold.release();
       console.error('dishes failed:', (e as Error).message);
       return c.json({ error: 'upstream' }, 502);
     }
@@ -383,14 +431,17 @@ export function createApp(deps: Deps) {
     if (bytes.length > MAX_IMAGE || bytes[0] !== 0xff || bytes[1] !== 0xd8) return c.json({ error: 'bad_image' }, 400);
     const at = now();
     if (!store.take('photo:all', limits.photosPerDay, at) || !store.take(`photo:${id}`, limits.photosPerVaultPerDay, at)) return c.json({ error: 'too_many' }, 429);
+    const hold = reserve('medbox');
+    if (!hold.ok) return c.json({ error: hold.error }, hold.status);
     try {
       const { result, usage } = await deps.medbox(image);
-      spent(id, 'medbox', usage);
+      spent(id, 'medbox', usage, hold);
       ai.lastOk = Date.now();
       if (result === 'refused') return c.json({ error: 'refused' }, 422);
       return c.json(result);
     } catch (e) {
       ai.lastError = Date.now();
+      hold.release();
       console.error('medbox failed:', (e as Error).message);
       return c.json({ error: 'upstream' }, 502);
     }
@@ -411,9 +462,11 @@ export function createApp(deps: Deps) {
     const at = now();
     if (!store.take(`concierge:${id}`, limits.conciergePerVaultPerDay, at) || !store.take('ai:all', limits.aiPerDay, at)) return c.json({ error: 'too_many' }, 429);
     const started = Date.now();
+    const hold = reserve('concierge');
+    if (!hold.ok) return c.json({ error: hold.error }, hold.status);
     try {
       const { result, usage } = await deps.notFound(text, names);
-      spent(id, 'concierge', usage);
+      spent(id, 'concierge', usage, hold);
       ai.lastOk = Date.now();
       if (result === 'refused') return c.json({ error: 'refused' }, 422);
       const known = new Set(names);
@@ -434,6 +487,7 @@ export function createApp(deps: Deps) {
       return c.json({ candidates, ...(logId ? { id: logId } : {}) });
     } catch (e) {
       ai.lastError = Date.now();
+      hold.release();
       console.error('concierge failed:', (e as Error).message);
       return c.json({ error: 'upstream' }, 502);
     }
@@ -453,9 +507,11 @@ export function createApp(deps: Deps) {
     const at = now();
     if (!store.take(`concierge:${who}`, limits.conciergePerVaultPerDay, at) || !store.take('ai:all', limits.aiPerDay, at)) return c.json({ error: 'too_many' }, 429);
     const started = Date.now();
+    const hold = reserve('concierge');
+    if (!hold.ok) return c.json({ error: hold.error }, hold.status);
     try {
       const { result, usage } = await deps.chat({ text, history, names, context });
-      spent(who, 'concierge', usage);
+      spent(who, 'concierge', usage, hold);
       ai.lastOk = Date.now();
       if (result === 'refused') return c.json({ error: 'refused' }, 422);
       const { result: out, numbersDropped } = checked(result, names); // the code's check on the way out
@@ -474,6 +530,7 @@ export function createApp(deps: Deps) {
       return c.json({ ...out, ...(logId ? { id: logId } : {}) });
     } catch (e) {
       ai.lastError = Date.now();
+      hold.release();
       console.error('chat failed:', (e as Error).message);
       return c.json({ error: 'upstream' }, 502);
     }
@@ -610,14 +667,17 @@ export function createApp(deps: Deps) {
     if (!store.take('photo:all', limits.photosPerDay, at) || !store.take(`photo:${id}`, limits.photosPerVaultPerDay, at)) {
       return c.json({ error: 'too_many' }, 429);
     }
+    const hold = reserve('photo');
+    if (!hold.ok) return c.json({ error: hold.error }, hold.status);
     try {
       const { result, usage } = await recognize({ image, foods: list(body?.foods, 400, 80), dishes: list(body?.dishes, 400, 80) });
-      spent(id, 'photo', usage);
+      spent(id, 'photo', usage, hold);
       ai.lastOk = Date.now();
       if (result === 'refused') return c.json({ error: 'refused' }, 422);
       return c.json(result);
     } catch (e) {
       ai.lastError = Date.now();
+      hold.release();
       console.error('photo failed:', (e as Error).message);
       return c.json({ error: 'upstream' }, 502);
     }
@@ -638,15 +698,18 @@ export function createApp(deps: Deps) {
       }
     }
     if (!store.take(`menu:${id}`, limits.menusPerVaultPerDay, now()) || !store.take('ai:all', limits.aiPerDay, now())) return c.json({ error: 'too_many' }, 429);
+    const hold = reserve('menu');
+    if (!hold.ok) return c.json({ error: hold.error }, hold.status);
     try {
       const { result, usage } = await menu({ date, targets, rules: list(b?.rules, 30, 300), foods, dishes: list(b?.dishes, 100, 80),
         usual: list(b?.usual, 50, 80), wish: str(b?.wish, 300), avoid: list(b?.avoid, 60, 80) });
-      spent(id, 'menu', usage);
+      spent(id, 'menu', usage, hold);
       ai.lastOk = Date.now();
       if (result === 'refused') return c.json({ error: 'refused' }, 422);
       return c.json(result);
     } catch (e) {
       ai.lastError = Date.now();
+      hold.release();
       console.error('menu failed:', (e as Error).message);
       return c.json({ error: 'upstream' }, 502);
     }
@@ -673,15 +736,18 @@ export function createApp(deps: Deps) {
     });
     const minutes = typeof b?.minutes === 'number' ? Math.min(90, Math.max(10, Math.round(b.minutes))) : 35;
     if (!store.take(`workout:${id}`, limits.workoutsPerVaultPerDay, now()) || !store.take('ai:all', limits.aiPerDay, now())) return c.json({ error: 'too_many' }, 429);
+    const hold = reserve('workout');
+    if (!hold.ok) return c.json({ error: hold.error }, hold.status);
     try {
       const { result, usage } = await deps.workout({ exercises, history, rules: list(b?.rules, 30, 300), equipment: str(b?.equipment, 40) || 'Гиря 16 кг',
         minutes, wish: str(b?.wish, 300) });
-      spent(id, 'workout', usage);
+      spent(id, 'workout', usage, hold);
       ai.lastOk = Date.now();
       if (result === 'refused') return c.json({ error: 'refused' }, 422);
       return c.json(result);
     } catch (e) {
       ai.lastError = Date.now();
+      hold.release();
       console.error('workout failed:', (e as Error).message);
       return c.json({ error: 'upstream' }, 502);
     }
@@ -726,6 +792,22 @@ export function createApp(deps: Deps) {
     store.putPilotWeek(pid, rec.body.week, rec.kind, rec.kind === 'week' ? (rec.body as { src?: string }).src ?? null : null, JSON.stringify(body));
     return c.json({ ok: true });
   });
+
+  /** Patient side, no account: a one-time code gives the plan once. The plan is never logged and never cached. */
+  app.post('/v1/clinic/plans/redeem', bodyLimit({ maxSize: 1_000, onError: (c) => c.json({ error: 'too_large' }, 413) }), async (c) => {
+    if (!deps.planDelivery) return c.json({ error: 'clinic_off' }, 503);
+    if (!store.take(`planredeem:${ipKey(c)}`, 30, now())) return c.json({ error: 'too_many' }, 429);
+    const body = await c.req.json().catch(() => null) as { code?: unknown } | null;
+    c.header('Cache-Control', 'no-store');
+    try {
+      return c.json({ plan: deps.planDelivery.redeem(typeof body?.code === 'string' ? body.code : '') });
+    } catch (e) {
+      if (!(e instanceof RedeemFailure)) throw e;
+      return c.json({ error: e.code }, e.code === 'invalid' ? 404 : 410);
+    }
+  });
+
+  if (deps.clinic && deps.planDelivery) mountClinic(app, { dir: deps.clinic, delivery: deps.planDelivery, allow: (c) => store.take(`clinicreq:${ipKey(c)}`, 3000, now()) });
 
   app.delete('/v1/pilot', (c) => {
     const pid = member(c);

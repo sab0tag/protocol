@@ -94,3 +94,11 @@ First remote CI: check and server passed; e2e failed in four cases. Fixed genuin
 
 ### Food 2.0 integration after #53 (28 Oct 2026)
 Original #47 was stacked on #44 and conflicts with current main. Branch `integration/food-on-main` ports food-only implementation, domain, translations, warning styles, and focused tests onto merged #53. Existing Today/sync fixes and tests are retained. Original #47 is not to be merged directly. Full CI, E2E and preview review are required before merge. No patient data or production authorization.
+
+## Sheet keyboard integration (28 October 2026)
+
+PR #66 refreshed on main `d1a56f7`, preserving the catalog, lab-correction, AI routing and clinic work already merged there. The Sheet focus lifecycle keeps the background inert, wraps native Tab navigation, preserves editing focus across callback changes and restores the original opener through sheet replacement.
+
+The first CI run had four failing new browser scenarios: the backdrop click did not wait for the reopened dialog; the symptom save button has a different disabled label; the medicine scenario searched an obsolete accessible name; the add chooser was requested from an empty day where it is deliberately absent. Updated the fixtures and locators without changing the product's names, empty-state behavior, timeouts or focus assertions. Browser coverage now exercises both 320px and 1024px layouts, plus current lab/import interactions. The standard CI browser configuration is unchanged.
+
+Baseline on the refreshed tree: 601 client and 141 server unit tests, client production build and both typechecks passed. Final browser/CI results are recorded in #66; merge only after green checks. Next independent integration: #65 daily nutrition hub, followed by onboarding #60 and the workout #45 → #46 → #49 stack. Existing production access and real data remain untouched.

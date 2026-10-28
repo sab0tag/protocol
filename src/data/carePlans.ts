@@ -1,7 +1,7 @@
 /** R5 storage preparation. Not called by app startup/UI until sync/backup compatibility is implemented. */
 import type { ProtocolDB } from './db';
 import { profileDatabase } from './profiles';
-import { expandLegacyPlan, plansForPerson, type LegacyPlanExpansion, type PlanCatalog } from '../domain/carePlans';
+import { expandLegacyPlan, plansForPerson, type CarePlan, type CarePlanItem, type LegacyPlanExpansion, type PlanCatalog } from '../domain/carePlans';
 import { stable } from '../sync/engine';
 
 export interface PlanMigration {
@@ -48,5 +48,17 @@ export async function readPreparedPlans(target: ProtocolDB, personId: string): P
     const catalog: PlanCatalog = { plans: await target.carePlans.toArray(), items: await target.carePlanItems.toArray() };
     if (catalog.plans.some(plan => plan.personId !== personId) || catalog.items.some(item => item.personId !== personId)) throw new Error('plan_database_owner_mismatch');
     return plansForPerson(catalog, personId);
+  });
+}
+
+/** Stores a confirmed clinic import as a draft. Importing the same clinic plan again never overwrites or duplicates it. */
+export async function saveClinicImport(target: ProtocolDB, personId: string, draft: { plan: CarePlan; items: CarePlanItem[] }): Promise<'saved' | 'already_imported'> {
+  owner(target, personId);
+  if (draft.plan.personId !== personId || draft.items.some(i => i.personId !== personId)) throw new Error('plan_database_owner_mismatch');
+  return target.transaction('rw', target.carePlans, target.carePlanItems, async () => {
+    if (await target.carePlans.get(draft.plan.id)) return 'already_imported';
+    await target.carePlans.add(draft.plan);
+    await target.carePlanItems.bulkAdd(draft.items);
+    return 'saved';
   });
 }

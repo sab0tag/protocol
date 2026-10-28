@@ -3,7 +3,8 @@
 import type { Constraint, Mode, Plan, Prescription, Targets } from './types';
 
 export type CarePlanStatus = 'draft' | 'active' | 'paused' | 'completed' | 'archived';
-export type PlanSource = { kind: 'legacy'; recordId: 'main' } | { kind: 'manual' } | { kind: 'document'; documentId: string };
+export type PlanSource = { kind: 'legacy'; recordId: 'main' } | { kind: 'manual' } | { kind: 'document'; documentId: string }
+  | { kind: 'clinic'; clinicPlanId: string; organizationName: string; issuedAt: string };
 export interface CarePlan {
   id: string;
   personId: string;

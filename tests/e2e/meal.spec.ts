@@ -2,12 +2,21 @@ import { expect, test } from '@playwright/test';
 import { device, toast } from './helpers';
 
 test('«Записати їжу» shows four input modes before search; the meal line stays folded and a pinned meal returns in one tap (D51)', async ({ browser }) => {
-  const page = await device(browser);
+  const page = await device(browser, 'demo');
   await page.setViewportSize({ width: 320, height: 844 });
   await page.goto('./#/meal/new');
   const search = page.getByRole('searchbox', { name: /^Що з’їли/ });
   await expect(page.getByRole('group', { name: 'Спосіб додавання їжі' })).toBeVisible();
   await expect(search).not.toBeFocused();
+  const actions = page.getByTestId('meal-save-actions');
+  await expect(actions).not.toHaveClass(/sticky/);
+  const recent = page.getByRole('region', { name: 'Останні' });
+  const manual = page.getByRole('button', { name: 'Свого немає в базі? Додати вручну' });
+  await expect(recent).toBeVisible();
+  const [recentBox, manualBox] = await Promise.all([recent.boundingBox(), manual.boundingBox()]);
+  expect(recentBox).not.toBeNull();
+  expect(manualBox).not.toBeNull();
+  expect(recentBox!.y).toBeLessThan(manualBox!.y);
   const searchLabel = page.getByText(/^Що з’їли/);
   const [labelBox, searchBox] = await Promise.all([searchLabel.boundingBox(), search.boundingBox()]);
   expect(labelBox).not.toBeNull();
@@ -15,6 +24,7 @@ test('«Записати їжу» shows four input modes before search; the meal
   expect(labelBox!.y + labelBox!.height).toBeLessThanOrEqual(searchBox!.y);
   await search.fill('кефір');
   await page.getByRole('button', { name: /^Кефір 2,5 %/ }).first().click();
+  await expect(actions).toHaveClass(/sticky/);
   const line = page.getByRole('button', { name: /^Прийом: назва, час/ });
   await expect(line).toHaveAttribute('aria-expanded', 'false');
   await line.click();
