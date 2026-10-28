@@ -22,6 +22,8 @@ import type { Store } from './store.ts';
 import { parseReminderPolicy } from './reminderPolicy.ts';
 import { BudgetGuard } from './ai/budgets.ts';
 import { RedeemFailure, type PlanDelivery } from './clinic/delivery.ts';
+import { mountClinic } from './clinic/routes.ts';
+import type { ClinicDirectory } from './clinic/directory.ts';
 import { latestWeek, parsePilot, PID, SECRET, SRC, weekAdd, weekKey } from './pilot.ts';
 
 export interface Limits {
@@ -58,6 +60,7 @@ export interface Deps {
   notFound?: NotFoundReader; // D91: the concierge, scenario 1
   conciergeModel?: string; // D91: written into the log's versions
   label?: LabelReader; // the same (D45)
+  clinic?: ClinicDirectory; // doctor/admin API; needs planDelivery too
   planDelivery?: PlanDelivery; // clinic plans handed over by one-time code
   push?: { publicKey: string; send: Sender };
   backupAgeH?: () => number | null;
@@ -803,6 +806,8 @@ export function createApp(deps: Deps) {
       return c.json({ error: e.code }, e.code === 'invalid' ? 404 : 410);
     }
   });
+
+  if (deps.clinic && deps.planDelivery) mountClinic(app, { dir: deps.clinic, delivery: deps.planDelivery, allow: (c) => store.take(`clinicreq:${ipKey(c)}`, 3000, now()) });
 
   app.delete('/v1/pilot', (c) => {
     const pid = member(c);

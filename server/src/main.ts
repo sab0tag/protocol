@@ -25,9 +25,11 @@ const effort = (env.PHOTO_EFFORT ?? 'low') as 'low' | 'medium' | 'high';
 const backups = env.BACKUP_DIR ?? '/backups';
 const vapid = vapidKeys(store, env);
 const send = webPushSender(vapid, env.VAPID_SUBJECT ?? 'https://protocol.beyondthesignal.to');
+const clinic = new ClinicDirectory(store.database);
 const app = createApp({
   store,
-  planDelivery: new PlanDelivery(store.database, new ClinicDirectory(store.database)),
+  clinic,
+  planDelivery: new PlanDelivery(store.database, clinic),
   push: { publicKey: vapid.publicKey, send },
   backupAgeH: () => backupAgeH(backups, new Date()),
   backups: { list: () => listBackups(backups), records: (name, vault) => backupRecords(backups, name, vault) },
