@@ -113,3 +113,6 @@ Baseline on the refreshed tree: 601 client and 141 server unit tests, client pro
 
 ### Nutrition integration refinement
 Refreshed #65 on main d1a56f7 plus #66. Preserve estimated parent recipes as incomplete even if descendants resolve to known foods; do not show a confirmed allergen or clear result from an estimated parent. New domain and browser regressions exercise this case. Existing actual totals, date modes, unknown-goal behavior, catalog filters/favorites and explicit save remain intact. Focused nutrition/catalog/entry browser checks: 9 passed before Sheet integration; final combined checks/CI are recorded in the PR.
+
+### Nutrition CI follow-up
+Run 40764040481 passed client/server checks and 153 browser cases, with one repeated failure in the existing meal pinning scenario. Its artifacts showed the tap opening medicine-time choices or Assistant rather than meal actions while the scroll-triggered dock was changing position. The unchanged scenario passed locally. Center the recorded row before tapping and require its exact meal dialog before pinning; no product behavior, timeout or favorite assertion is relaxed. Three clean repeated local runs pass. Refresh the branch onto merged #66 and clinic analytics #83 before the new full CI run; keep main merging blocked until that run is green.

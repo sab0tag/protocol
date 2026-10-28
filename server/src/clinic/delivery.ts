@@ -94,4 +94,29 @@ export class PlanDelivery {
     if (!parsed.success || parsed.data.organizationId !== claimed.org) throw new RedeemFailure('tampered');
     return parsed.data;
   }
+
+  /** Aggregate counts for the clinic's admins (PR-14): numbers only, never plan content or anything about a patient. */
+  stats(actor: Actor, days = 30): ClinicStats {
+    this.dir.require(actor, 'stats.view');
+    const d = Math.min(Math.max(1, Math.floor(days) || 30), 365);
+    const since = this.now() - d * 24 * 60 * 60 * 1000, t = this.now();
+    const rows = this.db.prepare(
+      `SELECT issued_by AS doctor, CASE WHEN status = 'pending' AND expires <= ? THEN 'expired' ELSE status END AS st, COUNT(*) AS n
+       FROM plan_delivery WHERE org = ? AND created >= ? GROUP BY issued_by, st`).all(t, actor.orgId, since) as { doctor: string; st: string; n: number }[];
+    const out: ClinicStats = { days: d, issued: 0, redeemed: 0, pending: 0, expired: 0, revoked: 0, byDoctor: [] };
+    const per = new Map<string, number>();
+    for (const r of rows) {
+      out.issued += r.n;
+      if (r.st === 'redeemed' || r.st === 'pending' || r.st === 'expired' || r.st === 'revoked') out[r.st] += r.n;
+      per.set(r.doctor, (per.get(r.doctor) ?? 0) + r.n);
+    }
+    const names = new Map((this.db.prepare('SELECT id, name FROM clinic_members WHERE org = ?').all(actor.orgId) as { id: string; name: string }[]).map((m) => [m.id, m.name]));
+    out.byDoctor = [...per].map(([id, issued]) => ({ memberId: id, displayName: names.get(id) ?? '', issued })).sort((a, b) => b.issued - a.issued);
+    return out;
+  }
+}
+
+export interface ClinicStats {
+  days: number; issued: number; redeemed: number; pending: number; expired: number; revoked: number;
+  byDoctor: { memberId: string; displayName: string; issued: number }[];
 }
