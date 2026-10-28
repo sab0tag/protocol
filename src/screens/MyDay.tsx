@@ -12,6 +12,7 @@ import { t } from '../i18n/uk';
 import { useUi } from '../store/ui';
 import { useObservation } from '../app/observation';
 import { ProgressTrack } from '../components/ProgressTrack';
+import { ExampleNotice } from '../components/ExampleNotice';
 
 const M = t.myday;
 
@@ -58,6 +59,7 @@ export function MyDay() {
         <button type="button" onClick={() => shift(1)} aria-label={t.day.next}
           className="flex min-h-tap min-w-tap items-center justify-center rounded-xl border border-line bg-surface"><ChevronRight size={20} /></button>
       </header>
+      <ExampleNotice plan={plan} />
       {c.total > 0 && <ProgressTrack ratio={c.done / c.total} label={M.title} valueText={M.counter(c.done, c.total)} />}
 
       {c.total === 0 && <p className="protocol-card rounded-2xl border border-line bg-surface p-4 text-muted">{M.empty}</p>}

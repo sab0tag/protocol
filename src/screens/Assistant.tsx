@@ -33,6 +33,7 @@ import { count } from '../data/tally';
 import { passes } from '../domain/evaluate';
 import { currentKeys } from '../sync/runner';
 import { SceneHeader } from '../components/SceneHeader';
+import { ExampleNotice } from '../components/ExampleNotice';
 
 const L = t.assistant;
 const CONSENT = profileKey('protocol.assistantConsent');
@@ -142,6 +143,7 @@ export function Assistant() {
       <SceneHeader title={L.title} description={L.hint}>
         {msgs.length > 0 && <button type="button" onClick={() => setMsgs([])} className="min-h-tap rounded-xl border border-white/25 px-3 text-sm text-white">{L.newTalk}</button> /* D130 */}
       </SceneHeader>
+      <ExampleNotice plan={plan} />
       <p className="protocol-card rounded-2xl border border-line bg-surface p-3 text-sm">{facts.length ? `${L.today} ${facts.join(' · ')}` : L.noTargetsShort}</p>
       <ul className={`${msgs.length ? 'flex-1 ' : ''}space-y-2`} aria-label={L.title} aria-live="polite">
         {msgs.map((m) => (

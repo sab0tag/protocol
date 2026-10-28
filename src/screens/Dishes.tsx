@@ -13,6 +13,7 @@ import { useAllRecipes, useFoods, usePlan } from '../data/queries';
 import { harchDishes } from '../data/harchDishes';
 import { amountText } from '../domain/foodSearch';
 import { FoodArtwork } from '../components/FoodArtwork';
+import { ExampleNotice } from '../components/ExampleNotice';
 import { mealNutrients, round } from '../domain/nutrition';
 import { sumGrams } from '../domain/recipes';
 import type { Food, Recipe } from '../domain/types';
@@ -35,6 +36,7 @@ export function Dishes() {
   return (
     <section className="space-y-4 pt-4">
       <SceneHeader title={L.title} />
+      <ExampleNotice plan={plan} />
       <p className="text-sm text-muted">{L.hint}</p>
       <Link to="/foods" className="flex min-h-tap items-center justify-between protocol-card rounded-2xl border border-line bg-surface px-3 font-medium">
         <span>{L.foods}</span><span aria-hidden className="text-muted">›</span>

@@ -3,10 +3,11 @@ import { Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { AllergenPicker } from '../components/AllergenPicker';
 import { LabelScan } from '../components/LabelScan';
+import { ExampleNotice } from '../components/ExampleNotice';
 import { Loading } from '../components/Recovery';
 import { saved } from '../components/Toast';
 import { db } from '../data/db';
-import { useFoods } from '../data/queries';
+import { useFoods, usePlan } from '../data/queries';
 import { detachFood } from '../domain/recipes';
 import type { Food } from '../domain/types';
 import { t } from '../i18n/uk';
@@ -16,6 +17,7 @@ const L = t.dishes;
 
 export function MyFoods() {
   const foods = useFoods();
+  const plan = usePlan();
   if (!foods) return <Loading />;
   const mine = [...foods.values()].filter((food) => food.custom).sort((a, b) => a.name.localeCompare(b.name, 'uk'));
 
@@ -23,6 +25,7 @@ export function MyFoods() {
     <section className="space-y-4 pt-4">
       <Link to="/dishes" className="inline-flex min-h-tap items-center text-sm text-muted">{t.dishes.title}</Link>
       <SceneHeader title={L.foods} />
+      <ExampleNotice plan={plan} />
       <p className="text-sm text-muted">{L.foodsHint}</p>
       <LabelScan />
       {mine.length === 0

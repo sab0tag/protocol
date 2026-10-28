@@ -9,8 +9,8 @@
 | Today — `/` | Today / greeting / timeline | Shared shell updated; detailed review pending |
 | Add food — `/meal/new` | Record food | Shared header updated; detailed review pending |
 | Edit meal — `/meal/:id` | Food detail / editing | Shared header updated; detailed review pending |
-| My day — `/my-day` | Daily checklist | Pending |
-| Wellbeing — `/wellbeing` | Daily health tracking | Header updated; detailed review pending |
+| My day — `/my-day` | Daily checklist | Example-data warning order checked; detailed visual review pending |
+| Wellbeing — `/wellbeing` | Daily health tracking | Header and rating controls visually checked; remaining widths/themes pending |
 | Wellbeing journal — `/wellbeing/journal` | History / trend | Pending |
 | Workout — `/workout` | Activity tracking | Pending |
 | Exercises — `/exercises` | Exercise library | Shared header updated; detailed review pending |
@@ -62,6 +62,8 @@ Shared visual systems audited alongside those components: color and type tokens,
 - Converted the plan overview and wellbeing date header to regular theme-aware surfaces.
 - Added locally cached header photography for food, movement, care, wellbeing, settings, and assistant routes; Today keeps its existing forest hero.
 - Updated the Today greeting to use the active profile name and exact day-part text without punctuation; recent meals now filter through breakfast/lunch/dinner/snack tabs and can be favorited with a red heart.
+- Moved the existing demo-data warning ahead of the example schedule cards on Today and added it to My day before its sample checklist, so example medication status is always caveated before action.
+- Extended the same warning to Add food, Workout, Week, Insights, Motivation, Wellbeing, its journal, Assistant, Menu, Dishes, My foods, Labs, Plan history, Plan scan, and Data/backup, where sample records can be edited, exported, or summarized. Printed reports retain the example label but omit its action button. Browser coverage verifies these safeguards; this is not a completed visual review of those screens.
 - Expanded browser geometry coverage to all routed screens and the requested 320, 390, 768, and 1024 px widths in both themes. This is a regression gate, not a substitute for visual comparison.
 
 ### Section artwork sources
@@ -95,8 +97,11 @@ Food list thumbnails are cached locally from Unsplash under its [official licens
 
 | Screen | Viewport / theme | Observation |
 |---|---|---|
-| Today | 390 px / dark | The woodland header, greeting area, week strip, quick actions, and bottom navigation render without clipping. Detailed comparison below the fold remains pending. |
-| Add food | 320 px / dark | All four input modes fit. Recent meal cards use local photos for all nine supported food categories. |
+| Today | 320/390/768/1024 px / dark; 390 px / light | The woodland header, greeting, week strip, quick actions, and bottom navigation render without clipping; 768/1024 use the icon rail and centered content column. The example-data warning now precedes the sample missed-item card. The mockup's plan chip and compact metric placement still differ; detailed below-the-fold comparison remains pending. |
+| My day | 320 px / dark | The sample-data warning appears before checklist progress and action rows; the checklist remains within the viewport width. Full width/theme comparison remains pending. |
+| Add food | 320 px / dark; 390 px / light | All four input modes fit with no horizontal overflow at 320 px. Recent meal cards use local photos for all nine supported food categories. |
+| Wellbeing | 320 px / dark and light; 1024 px / light | The photo header, demo-data warning, daily rating groups, symptom chips, and journal link remain legible with no horizontal overflow at the checked widths. |
+| Wellbeing journal | 320 px / light | The demo-data warning precedes the sample entries; the long list scrolls beneath the fixed navigation without horizontal overflow. Other widths/themes are covered by the browser geometry matrix. |
 | Doctor plan | 390 px / light and dark | The intended care-section photo and safety notice about demo records remain intact. Existing single-plan sections render without clipping; multi-plan status rings and controls are not shown because the new storage model is deliberately not UI-writable until backup/sync compatibility is implemented. |
 | Progress | 390 px / light and dark | Weekly carbohydrate, protein, water, and checklist rings now use compact cards closer to the mockup; workouts remain a plain count without an invented target. The weight trend is a responsive line chart, followed by analysis and insight links; the date-range selector and chart framing still differ. |
 | Profiles | 390 px / dark | Local profile creation and same-profile device connection are visible. The mockup's shared-access controls and per-person portraits are not implemented. |
@@ -121,4 +126,4 @@ The expanded E2E matrix initially found horizontal overflow on Motivation at 320
 
 The browser matrix captures the 41 visual screens at 320, 390, 768, and 1024 px in both themes. Food cards use local category illustrations as image-like thumbnails; the section header photos do not replace the per-food photographs shown in mockups.
 
-Still to do: complete detailed, screen-by-screen comparison for the screens represented in the mockups; resolve confirmed presentation differences without changing the intended artwork or adding product capabilities; and record deliberate differences caused by functionality/accessibility. PR #38 is merged after green CI. The compact-ring update passes local typecheck, 528 unit tests, production build, and focused Playwright coverage at 320/390/768/1024 px in both themes; full PR CI is pending.
+Still to do: complete detailed, screen-by-screen comparison for the screens represented in the mockups; resolve confirmed presentation differences without changing the intended artwork or adding product capabilities; and record deliberate differences caused by functionality/accessibility. PRs #38 and #40 are merged after green CI. The compact-ring update passed local typecheck, 528 unit tests, production build, and focused Playwright coverage at 320/390/768/1024 px in both themes.
