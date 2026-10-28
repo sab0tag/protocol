@@ -1,10 +1,10 @@
 import { WeightReview } from '../components/WeightReview';
 import { weightQuality } from '../domain/weightQuality';
 import { SceneHeader } from '../components/SceneHeader';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, subDays } from 'date-fns';
 import { ExampleNotice } from '../components/ExampleNotice';
 import { Loading } from '../components/Recovery';
-import { AlertTriangle, ChevronRight, FileText } from 'lucide-react';
+import { Activity, AlertTriangle, ChevronRight, Dumbbell, FileText, HeartPulse, Scale } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useAllEntries, useFoods, usePlan, useWeights, useWorkouts } from '../data/queries';
@@ -45,6 +45,12 @@ export function Progress() {
           <FileText size={18} aria-hidden />{L.report}</Link>
       </SceneHeader>
       <ExampleNotice plan={plan} />
+      <section aria-label="Огляд прогресу" className="grid grid-cols-2 gap-3">
+        <article className="protocol-card p-4"><Scale size={19} className="mb-2 text-accent" aria-hidden /><h2 className="text-xs text-muted">Вага</h2><p className="mt-1 text-xl font-semibold tabular">{sum.now ? `${kg(sum.now.kg)} кг` : 'Немає записів'}</p><p className="mt-1 text-xs text-muted">{sum.delta != null ? `Від початку: ${signed(sum.delta)} кг` : 'Додайте перше вимірювання'}</p></article>
+        <article className="protocol-card p-4"><HeartPulse size={19} className="mb-2 text-accent" aria-hidden /><h2 className="text-xs text-muted">Самопочуття</h2><p className="mt-1 text-base font-semibold">Ваші записи</p><Link className="mt-2 inline-block text-sm text-accent underline-offset-4 hover:underline" to="/wellbeing/journal">Переглянути щоденник →</Link></article>
+        <article className="protocol-card p-4"><Dumbbell size={19} className="mb-2 text-accent" aria-hidden /><h2 className="text-xs text-muted">Активність за 7 днів</h2><p className="mt-1 text-xl font-semibold tabular">{workouts.filter((w) => w.date >= format(subDays(parseISO(todayISO()), 6), 'yyyy-MM-dd') && w.date <= todayISO()).length}</p><p className="mt-1 text-xs text-muted">Записаних тренувань</p></article>
+        <article className="protocol-card p-4"><Activity size={19} className="mb-2 text-accent" aria-hidden /><h2 className="text-xs text-muted">План</h2><p className="mt-1 text-base font-semibold">Виконання за тиждень</p><p className="mt-1 text-xs text-muted">Деталі — у підсумку нижче</p></article>
+      </section>
       <WeekCard summary={weekly} variant="rings" />
       <section className="protocol-card rounded-2xl border border-line bg-surface p-3">
         <h2 className="mb-2 font-semibold">{L.weight}</h2>
