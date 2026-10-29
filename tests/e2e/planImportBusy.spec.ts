@@ -3,12 +3,11 @@ import { device } from './helpers';
 
 test('leaving during Retry-After cancels the queued redemption without consuming the code', async ({ browser }) => {
   const page = await device(browser, 'skip');
-  await page.clock.install();
   const code = 'd'.repeat(43);
   const calls: unknown[] = [];
   await page.route('**/v1/clinic/plans/redeem', async (route) => {
     calls.push(route.request().postDataJSON().code);
-    await route.fulfill({ status: 503, headers: { 'Retry-After': '2' }, json: { error: 'database_busy' } });
+    await route.fulfill({ status: 503, headers: { 'Retry-After': '5' }, json: { error: 'database_busy' } });
   });
   await page.goto(`./#/plan/import?code=${code}`);
   await page.getByRole('button', { name: 'Переглянути план', exact: true }).click();
@@ -17,7 +16,8 @@ test('leaving during Retry-After cancels the queued redemption without consuming
   await page.getByRole('link', { name: 'План лікаря', exact: true }).click();
   await expect(page).toHaveURL(/#\/plan$/);
   await expect(page.getByRole('heading', { name: 'План від клініки', exact: true })).toHaveCount(0);
-  await page.clock.runFor(2500);
+  await page.waitForTimeout(5500); // Observe the entire queued retry window after unmount.
+
   expect(calls).toEqual([code]);
   await page.context().close();
 });
