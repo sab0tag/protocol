@@ -24,6 +24,7 @@ import { BudgetGuard } from './ai/budgets.ts';
 import { RedeemFailure, type PlanDelivery, type RedeemError } from './clinic/delivery.ts';
 import { DatabaseBusy, isBusy } from './db/tx.ts';
 import { mountClinic } from './clinic/routes.ts';
+import { isIdentityPath, mountIdentity, type Identity } from './identity/routes.ts';
 import type { ClinicDirectory } from './clinic/directory.ts';
 import { latestWeek, parsePilot, PID, SECRET, SRC, weekAdd, weekKey } from './pilot.ts';
 
@@ -70,6 +71,7 @@ export interface Deps {
   backupAgeH?: () => number | null;
   backups?: { list: () => string[]; records: (name: string, vault: string) => { k: string; v: string | null; seq: number }[] | null };
   origins: string[];
+  identity?: Identity; // ACCESS-03 sign-in and sessions; only with CLINIC_IDENTITY_V2=on
   limits?: Limits;
   /** Kill switch: AI kinds (e.g. 'menu', 'photo') that answer `ai_off` without calling a provider. */
   disabledAi?: readonly string[];
@@ -133,7 +135,10 @@ export function createApp(deps: Deps) {
     if (hold.ok) hold.commit(usd);
   };
 
-  app.use('*', cors({ origin: origins, allowMethods: ['GET', 'POST', 'PUT', 'DELETE'], allowHeaders: ['Authorization', 'Content-Type'], maxAge: 86400 }));
+  const general = cors({ origin: origins, allowMethods: ['GET', 'POST', 'PUT', 'DELETE'], allowHeaders: ['Authorization', 'Content-Type'], maxAge: 86400 });
+  // session routes have their own credentialed CORS for exactly the app origin (ACCESS-03); nothing else gets credentials
+  app.use('*', (c, next) => (deps.identity && isIdentityPath(c.req.path) ? next() : general(c, next)));
+  if (deps.identity) mountIdentity(app, deps.identity, { allow: (c, scope, perDay) => store.take(`${scope}:${ipKey(c)}`, perDay, now()), now: () => now().getTime() });
   const DEVICE = /^[0-9a-f]{32}$/;
   /** D40: the server POSTs to a subscription's endpoint — only to the browsers' own push services, never to an
    *  address someone typed (that would let anyone make this server call any host). */

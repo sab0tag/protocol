@@ -98,6 +98,9 @@ The exact contractual deletion timeline and backup expiry are pre-enablement gat
 5. Record the serving topology before callback/cookie integration: the current app and API use separate hosts;
    use an explicitly reviewed same-origin proxy/BFF or a narrowly allowed same-site API configuration. Do not widen
    CORS, cookie Domain, deployment visibility or production routes silently to make login work.
+   **Recorded 2026-10-29: same-site API** — sign-in and callback on `api.beyondthesignal.to`, `__Host-` cookies of the
+   API host (no `Domain`), credentialed CORS only on `/v1/session*` and only for the exact app origin. See
+   [ACCESS-03](../access-03-sessions.md).
 6. Confirm the MAU cohort/plan, per-person deletion completion and provider backup/log retention terms, identifier
    region, Protocol invitation delivery, key/JWKS rotation and recovery drill. Verify the 10-minute step-up contract
    and Auth0 `amr`/`auth_time` handling described above.
