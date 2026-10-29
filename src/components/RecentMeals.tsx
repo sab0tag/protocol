@@ -71,7 +71,7 @@ export function RecentMeals({ entries, date, initialTitle, onAdd }: {
           return (
           <li key={e.id}>
             <div className="flex min-w-0 items-start gap-2">
-              <button type="button" data-testid="recent-meal-add" onClick={() => onAdd(
+              <button type="button" data-testid="recent-meal-add" onClick={() => targetDate && onAdd(
                 JSON.parse(JSON.stringify(e.items)) as MealItem[], mealCategoryName(selected), targetDate,
               )}
                 className="flex min-h-tap min-w-0 flex-1 items-start gap-2 rounded-2xl border border-line bg-bg/50 p-3 text-left motion-safe:transition-colors motion-safe:duration-150 hover:border-accent/50">
