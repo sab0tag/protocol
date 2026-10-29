@@ -245,7 +245,8 @@ export interface WorkoutExercise {
 export interface Workout {
   id: string;
   date: ISODate;
-  durationMin: number;
+  /** Minutes the person typed (D141: never a default — older records may carry the former 30). */
+  durationMin?: number;
   equipment: string;
   exercises: WorkoutExercise[];
   feeling?: string;

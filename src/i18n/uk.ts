@@ -647,6 +647,14 @@ export const t = {
     tryIt: (name: string) => `Замінити на «${name}»`,
     weekNumbers: (n: number, t: string) => `За 7 днів: тренувань — ${n}, піднято ${t} т`,
     record: (name: string, v: number, timed: boolean) => `Новий рекорд: ${name} — ${v} ${timed ? 'с' : 'повт.'} у найслабшому підході`,
+    // D141: what was planned and what was done are never the same number
+    plan: 'План: ',
+    planHint: 'Сірі числа в полях — план; записується лише те, що ви ввели.',
+    setsOf: (planned: number) => ` з ${planned}`, // after the done count, smaller: «3 з 21» stays on one line at 320 px
+    setsFilled: 'Підходів заповнено з плану', setsDone: 'Підходів виконано з плану',
+    minutesLater: 'Хвилин — після запису', minutesSaved: 'Записано, хв', minutesNone: 'Тривалість не вказана',
+    fact: (reps: number, seconds: number) => `Факт: ${[reps ? `${reps} повт.` : '', seconds ? `${seconds} с утримання` : ''].filter(Boolean).join(' · ')}`,
+    noNumbers: 'Підходи без цифр — записано лише, що тренування було.',
   },
   welcome: {
     title: 'Знайомство',

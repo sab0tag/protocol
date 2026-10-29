@@ -50,3 +50,33 @@ test('one exercise at a time: an AI draft with fewer exercises keeps the shown e
   await expect(page.getByRole('button', { name: /^Як виконувати: Махи двома руками/ })).toBeVisible();
   await page.context().close();
 });
+
+test('plan against fact: the plan shows as hints, only typed sets count, no minutes are made up (D141)', async ({ browser }) => {
+  const page = await device(browser); await page.goto('./#/workout');
+  const slots = page.getByRole('spinbutton', { name: /, Підхід \d/ });
+  const planned = await slots.count();
+  const first = page.getByLabel('Гоблет-присід, Підхід 1', { exact: true });
+  await expect(first).toHaveAttribute('placeholder', '10'); // the plan of the set, not a value
+  await expect(first).toHaveValue('');
+  await expect(page.getByText(`0 з ${planned}`, { exact: true })).toBeVisible();
+  await expect(page.getByLabel('Тривалість, хв')).toHaveValue('');
+  await first.fill('10');
+  await page.getByLabel('Гоблет-присід, Підхід 2', { exact: true }).fill('8');
+  await expect(page.getByText(`2 з ${planned}`, { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Записати тренування' }).click();
+  await expect(page.getByText('Підходів виконано з плану', { exact: true })).toBeVisible();
+  await expect(page.getByText('Факт: 18 повт.', { exact: true })).toBeVisible();
+  await expect(page.getByText('Тривалість не вказана', { exact: true })).toBeVisible();
+  const stored = await page.evaluate(async () => {
+    const open = indexedDB.open('protocol'); await new Promise((r) => { open.onsuccess = r; });
+    const get = open.result.transaction('workouts', 'readonly').objectStore('workouts').getAll(); await new Promise((r) => { get.onsuccess = r; });
+    open.result.close(); return get.result as { durationMin?: number; exercises: { sets: { reps?: number }[] }[] }[];
+  });
+  expect(stored).toHaveLength(1);
+  expect(stored[0]!.durationMin).toBeUndefined();
+  expect(stored[0]!.exercises[0]!.sets.map((s) => s.reps)).toEqual([10, 8, undefined]);
+  await page.getByLabel('Тривалість, хв').fill('25');
+  await page.getByRole('button', { name: 'Зберегти зміни' }).click();
+  await expect(page.getByText('Записано, хв', { exact: true })).toBeVisible();
+  await page.context().close();
+});
