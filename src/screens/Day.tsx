@@ -180,7 +180,7 @@ export function Day() {
   ] : undefined;
   if (!observationReady) return <Loading />;
   return (
-    <section>
+    <section className="pt-4">{/* the same top space as every other screen — the hero is not cut by the window edge */}
       <DayHeader date={date} setDate={setDate} action={enabled ? <LightDayControl date={date} /> : undefined} />
       {light && !isToday && <p className="mb-3 text-sm">{t.lightDay.enable}</p>}
       {enabled && isToday && <LightDayNotice date={date} />}
