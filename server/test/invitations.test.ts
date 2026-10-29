@@ -339,3 +339,11 @@ it('staff deactivation replays without a second audit or version change', async 
   expect(r.db.prepare("SELECT count(*) AS n FROM clinic_audit WHERE action = 'staff.deactivate'").get()?.n).toBe(1);
   expect(r.dir.listStaff(r.admin).find(s=>s.id===r.doctor.memberId)?.active).toBe(false);
 });
+
+
+it('accepting a role replacement revokes the old bearer and cached actor instead of retaining removed clinical rights', async () => {
+  const r = rig(), old = r.dir.authenticate(r.doctor.token)!;
+  await r.invites.invite(r.admin,{...r.input,roles:['admin']}); const s = r.login('recipient'); r.invites.accept(s.session.hash,r.code());
+  expect(r.dir.authenticate(r.doctor.token)).toBeNull(); expect(() => r.dir.require(old,'plan.issue')).toThrow('unauthenticated');
+  const admin = r.dir.authenticateSession(s.session.hash,r.org.orgId); expect(r.dir.listStaff(admin)).toBeDefined(); expect(() => r.dir.require(admin,'plan.issue')).toThrow('forbidden');
+});

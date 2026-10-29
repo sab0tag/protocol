@@ -80,7 +80,7 @@ identity is enabled. Credentials belong in the existing secret mechanism, not so
 ## Role sets and cutover
 
 The session-only roles endpoint applies exact validated sets under the same lock as fresh MFA and audit checks.
-Adding a membership role never widens an existing single-role bearer. Removing its role invalidates that credential. Legacy Actors retain the authenticated credential hash; service
+Adding a membership role never widens an existing single-role bearer. Removing its role invalidates that credential, including role replacement during invitation acceptance. Legacy Actors retain the authenticated credential hash; service
 checks compare it with the current stored hash, so a request already authenticated before rotation cannot regain
 rights after its credential is revoked.
 The last usable administrator cannot be removed, including after legacy auth has expired.
@@ -142,5 +142,5 @@ monitoring and ADR 0001 checks. ACCESS-11 restore invalidation remains required 
 not verify medical qualifications. Encryption, lost-response recovery, plan versions and patient binding/sharing
 remain their own ACCESS-07/06/08 work. Local patient use stays account-free.
 
-Local checks on Node 24: 343 server tests, 671 client tests, both typechecks and production build. Selected real-API
+Local checks on Node 24: 344 server tests, 671 client tests, both typechecks and production build. Selected real-API
 browser coverage includes eight passing clinic/login/invitation scenarios including a lost-response SMTP retry; full CI remains required before merge.

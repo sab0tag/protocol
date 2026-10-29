@@ -153,7 +153,12 @@ export class StaffInvitations {
       }
       this.db.prepare('DELETE FROM organization_membership_roles WHERE membership_id = ?').run(membershipId);
       for (const role of roles) this.db.prepare('INSERT INTO organization_membership_roles VALUES (?, ?)').run(membershipId, role);
-      if (row.target_member) this.db.prepare('UPDATE organization_memberships SET roles_version = roles_version + 1 WHERE id = ?').run(membershipId);
+      if (row.target_member) {
+        this.db.prepare('UPDATE organization_memberships SET roles_version = roles_version + 1 WHERE id = ?').run(membershipId);
+        const legacy = this.db.prepare('SELECT role FROM clinic_members WHERE id = ? AND org = ?').get(row.target_member,row.org)!;
+        if (!roles.includes(legacy.role as Role)) this.db.prepare('UPDATE clinic_members SET role = ?, token_hash = ? WHERE id = ? AND org = ?')
+          .run(roles.includes('admin') ? 'admin' : 'doctor',hash(randomBytes(32).toString('base64url')),row.target_member,row.org);
+      }
       this.db.prepare("UPDATE staff_invitations SET state = 'accepted', accepted_account = ?, accepted_at = ? WHERE id = ?").run(s.accountId, this.now(), row.id);
       this.audit(row.org, membershipId, 'staff.invite.accept', row.id);
       return { organizationId: row.org, membershipId };
