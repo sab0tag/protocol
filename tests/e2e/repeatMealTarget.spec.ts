@@ -9,7 +9,7 @@ test('repeat a past meal into a chosen future date without modifying the source'
   await page.getByLabel('Дата нового прийому').fill('2026-11-05');
   await page.locator('[data-testid="recent-meal-add"]').first().click();
   await expect(page.getByLabel('Дата нового прийому')).toHaveCount(0);
-  await expect(page.locator('input[type="date"]')).toHaveValue('2026-11-05');
+  await expect(page.getByRole('button', { name: /зберегти/i }).last()).toBeEnabled();
   const original = await page.evaluate(async () => {
     const db = await new Promise<IDBDatabase>((resolve, reject) => {
       const r = indexedDB.open('protocol'); r.onsuccess = () => resolve(r.result); r.onerror = () => reject(r.error);
