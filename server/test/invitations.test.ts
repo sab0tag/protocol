@@ -320,3 +320,20 @@ it('24-hour mutation cleanup does not extend the original invitation expiry', as
   expect(r.db.prepare('SELECT * FROM staff_mutations').all()).toEqual([]);
   expect(r.db.prepare('SELECT expires_at FROM staff_invitations WHERE id = ?').get(created.id)?.expires_at).toBe(created.expiresAt);
 });
+
+
+it('zero-grace cutover uses one timestamp even when the clock advances during the transaction', async () => {
+  const r = rig(); await r.invites.invite(r.admin,r.input); const s = r.login('recipient'); r.invites.accept(s.session.hash,r.code());
+  let clock = r.now(); const moving = new ClinicDirectory(r.db,() => ++clock);
+  moving.cutover(r.admin,0);
+  const transition = r.db.prepare('SELECT migrated_at, legacy_until FROM clinic_auth_transitions WHERE org = ?').get(r.org.orgId)!;
+  expect(transition.legacy_until).toBe(transition.migrated_at); expect(moving.authenticate(r.org.token)).toBeNull();
+});
+
+
+it('staff deactivation replays without a second audit or version change', async () => {
+  const r = rig(), m = receipt('admin/deactivate',{id:r.doctor.memberId},r.now());
+  r.dir.deactivate(r.admin,r.doctor.memberId,m); r.dir.deactivate(r.admin,r.doctor.memberId,m);
+  expect(r.db.prepare("SELECT count(*) AS n FROM clinic_audit WHERE action = 'staff.deactivate'").get()?.n).toBe(1);
+  expect(r.dir.listStaff(r.admin).find(s=>s.id===r.doctor.memberId)?.active).toBe(false);
+});

@@ -194,11 +194,11 @@ export class ClinicDirectory {
       return performMutation(this.db,bindMutation(mutation,`${actor.session!.accountId}/${actor.session!.membershipId}/${actor.orgId}/auth-transition`), () => {
       const state = this.authTransition(actor);
       if (state.unlinked.length) throw new ClinicError('bad_request'); // migrate all active employees before disabling their access
-      const until = this.now() + graceHours * 3600_000;
+      const migratedAt = this.now(), until = migratedAt + graceHours * 3600_000;
       if (state.legacyUntil !== null) {
         if (until > state.legacyUntil) throw new ClinicError('bad_request'); // no extension/reset of the seven-day window
         this.db.prepare('UPDATE clinic_auth_transitions SET legacy_until = ? WHERE org = ?').run(until, actor.orgId);
-      } else this.db.prepare('INSERT INTO clinic_auth_transitions VALUES (?, ?, ?)').run(actor.orgId, this.now(), until);
+      } else this.db.prepare('INSERT INTO clinic_auth_transitions VALUES (?, ?, ?)').run(actor.orgId, migratedAt, until);
       this.audit(actor.orgId, actor.memberId, 'org.identity.cutover', actor.orgId);
       });
     });
@@ -218,16 +218,19 @@ export class ClinicDirectory {
     });
   }
 
-  deactivate(actor: Actor, memberId: string): void {
+  deactivate(actor: Actor, memberId: string, mutation?: Mutation): void {
     this.require(actor, 'staff.manage');
     immediate(this.db, () => {
       this.require(actor, 'staff.manage');
       this.fresh(actor);
+      return performMutation(this.db,bindMutation(mutation,`${actor.session?.accountId ?? ''}/${actor.session?.membershipId ?? actor.memberId}/${actor.orgId}/staff.deactivate/${memberId}`), () => {
       const m = this.target(actor, memberId);
+      if (!m.active) return;
       if (m.admin && m.active) this.keepAnAdmin(actor.orgId, memberId);
       this.db.prepare('UPDATE clinic_members SET active = 0 WHERE id = ? AND org = ?').run(memberId, actor.orgId);
       projectLegacyMember(this.db, memberId, false);
       this.audit(actor.orgId, actor.memberId, 'staff.deactivate', memberId);
+      });
     });
   }
 

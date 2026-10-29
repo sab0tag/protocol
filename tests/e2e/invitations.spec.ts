@@ -18,6 +18,7 @@ test('SMTP invitation → fresh recipient login → preview and explicit members
     await expect(recipient).toHaveURL(/#\/clinic\/invite$/);
     expect(await recipient.evaluate(() => JSON.stringify({ ...localStorage }) + JSON.stringify({ ...sessionStorage }))).not.toContain(secret);
     const [login] = await Promise.all([recipient.waitForEvent('popup'), recipient.getByRole('link', { name: 'Увійти в новій вкладці', exact: true }).click()]);
+    await login.getByLabel('Synthetic subject suffix').fill(crypto.randomUUID());
     await login.getByRole('button', { name: 'Continue as Invitee', exact: true }).click(); await expect(login).toHaveURL(/#\/clinic$/);
     await login.close(); await recipient.bringToFront(); await recipient.getByRole('button', { name: 'Перевірити вхід', exact: true }).click();
     await recipient.getByRole('button', { name: 'Переглянути запрошення', exact: true }).click();
@@ -41,10 +42,13 @@ test('operator invitation claims an existing admin ID; clinic cutover rejects it
   const context = await browser.newContext({ ignoreHTTPSErrors: true, serviceWorkers: 'block' });
   try {
     const page = await context.newPage(); await page.goto('./#/clinic'); await page.getByRole('link', { name: 'Увійти через захищений сервіс' }).click();
-    await page.getByRole('button', { name: 'Continue as Bootstrap', exact: true }).click(); await expect(page.getByText(/немає доступних клінік/)).toBeVisible();
+    await page.getByRole('button', { name: 'Continue as Bootstrap', exact: true }).click(); await expect(page).toHaveURL(/#\/clinic$/);
     await page.goto(`./#/clinic/invite?code=${inbox().at(-1)!.code}`); await page.getByRole('button', { name: 'Переглянути запрошення', exact: true }).click();
     await page.getByRole('checkbox', { name: 'Хочу вступити до цієї клініки з указаними ролями' }).check(); await page.getByRole('button', { name: 'Прийняти запрошення', exact: true }).click();
     await page.getByRole('link', { name: 'Відкрити кабінет', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Кабінет клініки', exact: true })).toBeVisible();
+    await expect(page.getByRole('status').filter({ hasText: 'Перевіряємо сесію…' })).toHaveCount(0);
+    const selector = page.getByRole('combobox', { name: 'Клініка', exact: true }); if (await selector.count()) await selector.selectOption(org);
     await expect(page.getByText('Ще не приєдналися: 0.', { exact: false })).toBeVisible();
     await page.getByRole('combobox', { name: 'Старі токени діятимуть ще' }).selectOption('0');
     await page.getByRole('checkbox', { name: 'Співробітники перевірили новий вхід; підтверджую відключення токенів' }).check(); await page.getByRole('button', { name: 'Почати перехід', exact: true }).click();

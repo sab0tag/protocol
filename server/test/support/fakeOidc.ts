@@ -28,10 +28,10 @@ export async function fakeOidc(initial: FakeClaims = {}, tls?: { key: string; ce
       if (!url.searchParams.has('as')) {
         res.writeHead(200, { 'Content-Type': 'text/html' });
         const hidden = [...url.searchParams].map(([k, v]) => `<input type="hidden" name="${k}" value="${v.replaceAll('&', '&amp;').replaceAll('"', '&quot;')}">`).join('');
-        return res.end(`<h1>Synthetic identity provider</h1><form>${hidden}<button name="as" value="doctor">Continue as Doctor</button><button name="as" value="admin">Continue as Admin</button><button name="as" value="outsider">Continue as Outsider</button><button name="as" value="invitee">Continue as Invitee</button><button name="as" value="bootstrap">Continue as Bootstrap</button></form>`);
+        return res.end(`<h1>Synthetic identity provider</h1><form>${hidden}<label>Synthetic subject suffix<input name="suffix" value=""></label><button name="as" value="doctor">Continue as Doctor</button><button name="as" value="admin">Continue as Admin</button><button name="as" value="outsider">Continue as Outsider</button><button name="as" value="invitee">Continue as Invitee</button><button name="as" value="bootstrap">Continue as Bootstrap</button></form>`);
       }
       const code = randomUUID();
-      codes.set(code, { nonce: url.searchParams.get('nonce')!, challenge: url.searchParams.get('code_challenge')!, redirect: url.searchParams.get('redirect_uri')!, subject: claims.subject ?? url.searchParams.get('as')! });
+      codes.set(code, { nonce: url.searchParams.get('nonce')!, challenge: url.searchParams.get('code_challenge')!, redirect: url.searchParams.get('redirect_uri')!, subject: claims.subject ?? (url.searchParams.get('as')! + (url.searchParams.get('suffix') ? ':' + url.searchParams.get('suffix')! : '')) });
       const back = new URL(url.searchParams.get('redirect_uri')!); back.searchParams.set('code', code); back.searchParams.set('state', url.searchParams.get('state')!);
       res.writeHead(302, { Location: back.href }); return res.end();
     }

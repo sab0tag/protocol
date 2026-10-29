@@ -65,6 +65,7 @@ export function mountClinic(app: Hono, o: { dir: ClinicDirectory; delivery: Plan
   app.get('/v1/clinic/me', (c) => run(c, (a) => dir.profile(a)));
   app.get('/v1/clinic/staff', (c) => run(c, (a) => ({ staff: dir.listStaff(a) })));
   app.post('/v1/clinic/staff', small, (c) => run(c, async (a) => {
+    if (a.session) throw new ClinicError('forbidden'); // invitations replace bearer minting for session clients
     const b = await body(c);
     if (typeof b.displayName !== 'string' || !isRole(b.role)) throw new ClinicError('bad_request');
     return dir.addStaff(a, { displayName: b.displayName, role: b.role });
@@ -76,8 +77,8 @@ export function mountClinic(app: Hono, o: { dir: ClinicDirectory; delivery: Plan
     dir.setRole(a, id(c), b.role);
     return { ok: true };
   }));
-  app.delete('/v1/clinic/staff/:id', (c) => run(c, (a) => { dir.deactivate(a, id(c)); return { ok: true }; }));
-  app.post('/v1/clinic/staff/:id/token', (c) => run(c, (a) => ({ token: dir.rotateToken(a, id(c)) })));
+  app.delete('/v1/clinic/staff/:id', (c) => run(c, (a) => { dir.deactivate(a, id(c), a.session ? mutation(c,a,`staff.deactivate/${id(c)}`,{}) : undefined); return { ok: true }; }));
+  app.post('/v1/clinic/staff/:id/token', (c) => run(c, (a) => { if (a.session) throw new ClinicError('forbidden'); return { token: dir.rotateToken(a, id(c)) }; }));
   const mutation = (c: Context, a: Actor, action: string, b: unknown) => mutationRequest(c, `${a.session?.accountId ?? ''}/${a.session?.membershipId ?? a.memberId}/${a.orgId}/${action}`, b, o.now?.() ?? Date.now());
   app.put('/v1/clinic/staff/:id/roles', small, c => run(c, async a => {
     const b = await body(c); if (!Number.isSafeInteger(b.version) || Number(b.version) < 1) throw new ClinicError('bad_request');

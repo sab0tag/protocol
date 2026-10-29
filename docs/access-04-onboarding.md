@@ -96,7 +96,7 @@ to a pre-version-5 build is refused by migration history. No legacy columns or r
 
 ## Mutation retries and role versions
 
-New invitation create/revoke/accept, role-set and cutover HTTP mutations require `Idempotency-Key` (16–128 URL-safe
+New invitation create/revoke/accept, staff deactivation, role-set and cutover HTTP mutations require `Idempotency-Key` (16–128 URL-safe
 characters). Receipts live 24 hours, keyed by a hashed key and server-derived account/membership/clinic/operation;
 only the canonical request hash and metadata result are stored. Service boundaries rebind scope and reauthorize
 under the write lock before replaying a result. Another payload with the same key is 409; an in-progress submission
@@ -111,7 +111,7 @@ which revokes the previous pending link. Acceptance similarly reuses its key aft
 Role edits use an explicit `version` from the staff listing (If-Match equivalent), incremented transactionally.
 A stale edit is 409 with no overwrite; a replay of the committed edit returns its original result. Invitation
 acceptance and legacy role projections also advance the version when they change roles. Session clients cannot use
-the unversioned legacy role endpoint. Existing legacy plan endpoints keep their existing contracts until ACCESS-07-C.
+the unversioned legacy role endpoint or bearer-minting endpoints; they use invitations. Existing legacy plan endpoints keep their existing contracts until ACCESS-07-C.
 
 ## HTTP surface
 
@@ -142,5 +142,5 @@ monitoring and ADR 0001 checks. ACCESS-11 restore invalidation remains required 
 not verify medical qualifications. Encryption, lost-response recovery, plan versions and patient binding/sharing
 remain their own ACCESS-07/06/08 work. Local patient use stays account-free.
 
-Local checks on Node 24: 341 server tests, 671 client tests, both typechecks and production build. Selected real-API
+Local checks on Node 24: 343 server tests, 671 client tests, both typechecks and production build. Selected real-API
 browser coverage includes eight passing clinic/login/invitation scenarios including a lost-response SMTP retry; full CI remains required before merge.
