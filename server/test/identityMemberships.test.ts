@@ -65,7 +65,7 @@ describe('ACCESS-02 additive migration', () => {
     expect(rows(db, 'schema_migrations')).toEqual(history);
     migrate(db); // Current services require the current schema; prefix assertions above remain immutable.
     const dir = new ClinicDirectory(db);
-    expect(dir.authenticate('a'.repeat(43))).toEqual({ memberId: 'staff-a', orgId: 'org-a', role: 'doctor' });
+    expect(dir.authenticate('a'.repeat(43))).toEqual({ memberId: 'staff-a', orgId: 'org-a', role: 'doctor', credentialHash: hash('a'.repeat(43)) });
     expect(dir.authenticate('b'.repeat(43))).toBeNull();
     db.close();
   });

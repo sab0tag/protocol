@@ -63,7 +63,7 @@ export class ClinicDirectory {
     const r = this.db.prepare('SELECT id, org, role, active FROM clinic_members WHERE token_hash = ?').get(hash(token)) as
       { id: string; org: string; role: string; active: number } | undefined;
     if (!r || !r.active || !isRole(r.role)) return null;
-    const actor = { memberId: r.id, orgId: r.org, role: r.role };
+    const actor = { memberId: r.id, orgId: r.org, role: r.role, credentialHash: hash(token) };
     try { this.require(actor, 'clinic.profile.read'); } catch (e) {
       if (e instanceof ClinicError) return null;
       throw e;

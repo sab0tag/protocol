@@ -144,7 +144,9 @@ describe('per-clinic legacy cutoff', () => {
     const r = rig(); await r.invites.invite(r.admin, r.input); const s = r.login('recipient'); r.invites.accept(s.session.hash, r.code());
     r.dir.setRoles(r.admin, r.doctor.memberId, ['admin', 'doctor']);
     expect(() => r.dir.listStaff(r.dir.authenticate(r.doctor.token)!)).toThrow('forbidden');
+    const cachedDoctor = r.dir.authenticate(r.doctor.token)!;
     r.dir.setRoles(r.admin, r.doctor.memberId, ['admin']); expect(r.dir.authenticate(r.doctor.token)).toBeNull();
+    expect(() => r.dir.listStaff(cachedDoctor)).toThrow('unauthenticated');
     r.dir.cutover(r.admin, 0); r.dir.setRoles(r.admin, r.org.adminId, ['doctor']);
     const last = r.dir.authenticateSession(s.session.hash, r.org.orgId);
     expect(() => r.dir.setRoles(last, r.doctor.memberId, ['doctor'])).toThrow('last_admin');
@@ -223,4 +225,12 @@ it('housekeeping removes expired invitation contact data and retains category-on
   const r = rig(); await r.invites.invite(r.admin,r.input); r.tick(INVITATION_MS + 30*86400_000 + 1); r.invites.housekeeping();
   expect(r.db.prepare('SELECT * FROM staff_invitations').all()).toEqual([]);
   const audit = JSON.stringify(r.db.prepare('SELECT * FROM clinic_audit').all()); expect(audit).toContain('staff.invite.create'); expect(audit).not.toContain(r.input.email); expect(audit).not.toContain(r.code());
+});
+
+
+it('rotating a credential invalidates cached legacy authority before any service mutation', () => {
+  const r = rig(), cached = r.dir.authenticate(r.org.token)!;
+  const next = r.dir.rotateToken(r.admin, r.org.adminId);
+  expect(() => r.dir.addStaff(cached,{ displayName:'Denied cached actor',role:'doctor' })).toThrow('unauthenticated');
+  expect(r.dir.authenticate(next)).not.toBeNull(); expect(r.dir.authenticate(r.org.token)).toBeNull();
 });
