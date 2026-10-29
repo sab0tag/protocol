@@ -4,6 +4,7 @@ import type { PhotoResult, Recognizer } from '../src/photo.ts';
 import { Store } from '../src/store.ts';
 import { ClinicDirectory } from '../src/clinic/directory.ts';
 import { PlanDelivery } from '../src/clinic/delivery.ts';
+import { DatabaseBusy } from '../src/clinic/tx.ts';
 
 const VAULT = 'a'.repeat(32);
 const AUTH = 'k'.repeat(43);
@@ -448,17 +449,35 @@ describe('clinic plan redemption', () => {
     const redeem = (c: unknown, ip = '1.1.1.1') => app.request('/v1/clinic/plans/redeem', {
       method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': ip }, body: JSON.stringify({ code: c }),
     });
-    return { code, redeem, app };
+    return { code, redeem, app, store };
   };
-  it('gives the plan once, uncached, then 410', async () => {
+  it('gives the plan once, uncached, then used/409', async () => {
     const { code, redeem } = rigPlan();
     const r = await redeem(code);
     expect(r.status).toBe(200);
     expect(r.headers.get('cache-control')).toBe('no-store');
     expect(((await r.json()) as { plan: { title: string } }).plan.title).toBe('План');
     const again = await redeem(code);
-    expect(again.status).toBe(410);
+    expect(again.status).toBe(409);
     expect(await again.json()).toEqual({ error: 'used' });
+  });
+  it('a damaged stored plan answers 410 tampered every time, without plan content', async () => {
+    const { code, redeem, store } = rigPlan();
+    store.database.prepare("UPDATE plan_delivery SET plan = replace(plan, 'План', 'Інший')").run();
+    for (let i = 0; i < 2; i++) {
+      const r = await redeem(code);
+      expect(r.status).toBe(410);
+      expect(await r.json()).toEqual({ error: 'tampered' });
+    }
+  });
+  it('a busy database answers 503 database_busy with Retry-After, never 500', async () => {
+    const store = new Store(':memory:');
+    const busyDelivery = { redeem: () => { throw new DatabaseBusy(); } } as unknown as PlanDelivery;
+    const app = createApp({ store, origins: [], planDelivery: busyDelivery });
+    const r = await app.request('/v1/clinic/plans/redeem', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: 'x'.repeat(43) }) });
+    expect(r.status).toBe(503);
+    expect(r.headers.get('retry-after')).toBe('1');
+    expect(await r.json()).toEqual({ error: 'database_busy' });
   });
   it('unknown or malformed codes are 404; guessing is rate limited', async () => {
     const { redeem } = rigPlan();

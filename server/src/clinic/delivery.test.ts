@@ -1,7 +1,8 @@
+import { createHash } from 'node:crypto';
 import { DatabaseSync } from 'node:sqlite';
 import { describe, expect, it } from 'vitest';
 import { ClinicDirectory } from './directory.ts';
-import { PlanDelivery, MAX_TTL_MS } from './delivery.ts';
+import { PlanDelivery, MAX_TTL_MS, type RedeemStep } from './delivery.ts';
 
 const rig = () => {
   const db = new DatabaseSync(':memory:');
@@ -21,6 +22,7 @@ const rig = () => {
   });
   return { db, dir, del, a, b, docA, docB, adminA, plan, tick: (ms: number) => { t += ms; } };
 };
+const sha = (v: string) => createHash('sha256').update(v).digest('hex');
 const err = (f: () => unknown) => { try { f(); } catch (e) { return (e as { code: string }).code; } return 'ok'; };
 
 describe('plan delivery', () => {
@@ -68,6 +70,26 @@ describe('plan delivery', () => {
     expect(del.status(docA, d.deliveryId)).toBe('revoked');
     expect(err(() => del.redeem(d.code))).toBe('revoked');
   });
+  it('only the author sees or revokes a delivery; a colleague of the same clinic gets not_found and changes nothing', () => {
+    const { del, dir, adminA, docA, a, plan, db } = rig();
+    const colleague = dir.authenticate(dir.addStaff(adminA, { displayName: 'Колега', role: 'doctor' }).token)!;
+    const d = del.issue(docA, { plan: plan(a.orgId), patientConsent: true });
+    const before = db.prepare('SELECT * FROM plan_delivery').get();
+    expect(err(() => del.status(colleague, d.deliveryId))).toBe('not_found');
+    expect(err(() => del.revoke(colleague, d.deliveryId))).toBe('not_found');
+    expect(db.prepare('SELECT * FROM plan_delivery').get()).toEqual(before);
+    expect(err(() => del.status(adminA, d.deliveryId))).toBe('forbidden');
+    expect(del.status(docA, d.deliveryId)).toBe('pending');
+    del.revoke(docA, d.deliveryId);
+    expect(del.status(docA, d.deliveryId)).toBe('revoked');
+  });
+  it('a deactivated author can no longer read or revoke the status', () => {
+    const { del, dir, adminA, docA, a, plan } = rig();
+    const d = del.issue(docA, { plan: plan(a.orgId), patientConsent: true });
+    dir.deactivate(adminA, docA.memberId);
+    expect(err(() => del.status(docA, d.deliveryId))).toBe('unauthenticated');
+    expect(err(() => del.revoke(docA, d.deliveryId))).toBe('unauthenticated');
+  });
   it('a deactivated doctor can no longer issue, but already issued links stay valid until revoked', () => {
     const { del, dir, adminA, docA, a, plan } = rig();
     const d = del.issue(docA, { plan: plan(a.orgId), patientConsent: true });
@@ -75,12 +97,40 @@ describe('plan delivery', () => {
     expect(err(() => del.issue(docA, { plan: plan(a.orgId), patientConsent: true }))).toBe('unauthenticated');
     expect(del.redeem(d.code).title).toBe('План');
   });
-  it('detects a plan altered in storage', () => {
-    const { del, docA, a, plan, db } = rig();
-    const { code } = del.issue(docA, { plan: plan(a.orgId), patientConsent: true });
-    db.prepare("UPDATE plan_delivery SET plan = replace(plan, 'План', 'Інший')").run();
-    expect(err(() => del.redeem(code))).toBe('tampered');
-    expect(err(() => del.redeem(code))).toBe('used');
+  it('a payload altered in storage ends tampered: committed, erased, audited once, and never reported as used', () => {
+    const corrupt: Record<string, (db: DatabaseSync) => void> = {
+      hash: (db) => db.prepare("UPDATE plan_delivery SET plan = replace(plan, 'План', 'Інший')").run(),
+      missing: (db) => db.prepare('UPDATE plan_delivery SET plan = NULL').run(),
+      json: (db) => { const v = '{not json'; db.prepare('UPDATE plan_delivery SET plan = ?, plan_hash = ?').run(v, sha(v)); },
+      schema: (db) => { const v = JSON.stringify({ schemaVersion: 2 }); db.prepare('UPDATE plan_delivery SET plan = ?, plan_hash = ?').run(v, sha(v)); },
+      org: (db) => {
+        const row = db.prepare('SELECT plan FROM plan_delivery').get() as { plan: string };
+        const v = JSON.stringify({ ...JSON.parse(row.plan), organizationId: 'інша' });
+        db.prepare('UPDATE plan_delivery SET plan = ?, plan_hash = ?').run(v, sha(v));
+      },
+    };
+    for (const [kind, damage] of Object.entries(corrupt)) {
+      const { del, dir, adminA, docA, a, plan, db } = rig();
+      const d = del.issue(docA, { plan: plan(a.orgId), patientConsent: true });
+      damage(db);
+      expect(err(() => del.redeem(d.code)), kind).toBe('tampered');
+      expect(err(() => del.redeem(d.code)), kind).toBe('tampered');
+      expect(db.prepare('SELECT status, plan FROM plan_delivery').get(), kind).toEqual({ status: 'tampered', plan: null });
+      expect(del.status(docA, d.deliveryId)).toBe('tampered');
+      expect(err(() => del.revoke(docA, d.deliveryId))).toBe('not_found');
+      expect(del.status(docA, d.deliveryId)).toBe('tampered');
+      const events = dir.auditLog(adminA).filter((e) => e.action.startsWith('plan.tampered'));
+      expect(events, kind).toEqual([expect.objectContaining({ actor: 'patient_link', action: `plan.tampered.${kind}`, target: d.deliveryId })]);
+      expect(JSON.stringify(dir.auditLog(adminA))).not.toContain(d.code);
+    }
+  });
+  it('a redemption is audited as patient_link with the delivery id, never the code', () => {
+    const { del, dir, adminA, docA, a, plan } = rig();
+    const d = del.issue(docA, { plan: plan(a.orgId), patientConsent: true });
+    del.redeem(d.code);
+    const log = dir.auditLog(adminA);
+    expect(log).toContainEqual(expect.objectContaining({ actor: 'patient_link', action: 'plan.redeem', target: d.deliveryId }));
+    expect(JSON.stringify(log)).not.toContain(d.code);
   });
   it('keeps plan content out of the audit log', () => {
     const { del, dir, adminA, docA, a, plan } = rig();
@@ -101,9 +151,62 @@ describe('stats', () => {
     del.revoke(docA, v.deliveryId);
     del.issue(docA, { plan: plan(a.orgId), patientConsent: true, ttlMs: 60_000 });
     tick(2000);
-    expect(del.stats(adminA)).toMatchObject({ issued: 4, redeemed: 1, expired: 1, revoked: 1, pending: 1 });
+    expect(del.stats(adminA)).toMatchObject({ issued: 4, redeemed: 1, expired: 1, revoked: 1, pending: 1, tampered: 0 });
     tick(40 * 24 * 3600 * 1000);
     expect(del.stats(adminA, 30).issued).toBe(0);
     expect(err(() => del.stats(docA))).toBe('forbidden');
   });
+});
+
+describe('stats with tampered deliveries', () => {
+  it('counts tampered separately, not as redeemed, and the states still add up to the issued total', () => {
+    const { del, adminA, docA, a, plan, db } = rig();
+    const ok = del.issue(docA, { plan: plan(a.orgId), patientConsent: true });
+    del.redeem(ok.code);
+    const bad = del.issue(docA, { plan: plan(a.orgId), patientConsent: true });
+    db.prepare("UPDATE plan_delivery SET plan = replace(plan, 'План', 'Інший') WHERE id = ?").run(bad.deliveryId);
+    expect(err(() => del.redeem(bad.code))).toBe('tampered');
+    del.issue(docA, { plan: plan(a.orgId), patientConsent: true });
+    const s = del.stats(adminA);
+    expect(s).toMatchObject({ issued: 3, redeemed: 1, tampered: 1, pending: 1, expired: 0, revoked: 0 });
+    expect(s.redeemed + s.pending + s.expired + s.revoked + s.tampered).toBe(s.issued);
+  });
+});
+
+describe('redeem atomicity under technical faults', () => {
+  const faulty = (failAt: RedeemStep, damage = false) => {
+    const db = new DatabaseSync(':memory:');
+    const dir = new ClinicDirectory(db);
+    let armed = true;
+    const del = new PlanDelivery(db, dir, Date.now, (step) => { if (armed && step === failAt) { armed = false; throw new Error(`fault at ${step}`); } });
+    const org = dir.createOrganization('А', 'Адмін');
+    const admin = dir.authenticate(org.token)!;
+    const doc = dir.authenticate(dir.addStaff(admin, { displayName: 'Лікар', role: 'doctor' }).token)!;
+    const d = del.issue(doc, { plan: { schemaVersion: 1, planId: crypto.randomUUID(), organizationId: org.orgId, issuedAt: '2025-01-01T10:00:00+02:00',
+      clinician: { displayName: 'Лікар', organizationName: 'А' }, title: 'План', medications: [], restrictions: [], tests: [] }, patientConsent: true });
+    if (damage) db.prepare("UPDATE plan_delivery SET plan = replace(plan, 'План', 'Інший')").run();
+    const snapshot = () => ({ row: db.prepare('SELECT status, plan FROM plan_delivery').get(), audit: dir.auditLog(admin).length });
+    return { del, d, db, snapshot };
+  };
+
+  for (const step of ['read', 'transition', 'audit'] as const) {
+    it(`a fault at "${step}" rolls back status, payload and audit; the next attempt succeeds`, () => {
+      const { del, d, snapshot, db } = faulty(step);
+      const before = snapshot();
+      expect(() => del.redeem(d.code)).toThrow(`fault at ${step}`);
+      expect(db.isTransaction).toBe(false);
+      expect(snapshot()).toEqual(before);
+      expect(del.redeem(d.code).title).toBe('План');
+      expect(err(() => del.redeem(d.code))).toBe('used');
+    });
+    it(`a fault at "${step}" while marking a damaged payload leaves it pending, then the retry commits tampered`, () => {
+      const { del, d, snapshot, db } = faulty(step, true);
+      const before = snapshot();
+      expect(() => del.redeem(d.code)).toThrow(`fault at ${step}`);
+      expect(snapshot()).toEqual(before);
+      expect((before.row as { status: string }).status).toBe('pending');
+      expect(err(() => del.redeem(d.code))).toBe('tampered');
+      expect(db.prepare('SELECT status, plan FROM plan_delivery').get()).toEqual({ status: 'tampered', plan: null });
+    });
+  }
 });

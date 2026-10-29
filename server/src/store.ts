@@ -14,6 +14,7 @@ export class Store {
     this.db = new DatabaseSync(path);
     this.db.exec(`
       PRAGMA journal_mode = WAL;
+      PRAGMA busy_timeout = 5000;
       CREATE TABLE IF NOT EXISTS vaults (id TEXT PRIMARY KEY, auth TEXT NOT NULL, created TEXT NOT NULL, bytes INTEGER NOT NULL DEFAULT 0);
       CREATE TABLE IF NOT EXISTS vault_protocols (vault TEXT PRIMARY KEY, minimum INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS records (vault TEXT NOT NULL, k TEXT NOT NULL, v TEXT, seq INTEGER NOT NULL, PRIMARY KEY (vault, k));

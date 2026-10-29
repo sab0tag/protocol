@@ -21,10 +21,14 @@ import type { Sender } from './push.ts';
 import type { Store } from './store.ts';
 import { parseReminderPolicy } from './reminderPolicy.ts';
 import { BudgetGuard } from './ai/budgets.ts';
-import { RedeemFailure, type PlanDelivery } from './clinic/delivery.ts';
+import { RedeemFailure, type PlanDelivery, type RedeemError } from './clinic/delivery.ts';
+import { DatabaseBusy, isBusy } from './clinic/tx.ts';
 import { mountClinic } from './clinic/routes.ts';
 import type { ClinicDirectory } from './clinic/directory.ts';
 import { latestWeek, parsePilot, PID, SECRET, SRC, weekAdd, weekKey } from './pilot.ts';
+
+/** `used` is one domain error with one status, whether the code was spent long ago or a moment ago by a concurrent call. */
+const REDEEM_STATUS: Record<RedeemError, 404 | 409 | 410> = { invalid: 404, used: 409, expired: 410, revoked: 410, tampered: 410 };
 
 export interface Limits {
   vaultsPerIpPerDay: number;
@@ -796,14 +800,22 @@ export function createApp(deps: Deps) {
   /** Patient side, no account: a one-time code gives the plan once. The plan is never logged and never cached. */
   app.post('/v1/clinic/plans/redeem', bodyLimit({ maxSize: 1_000, onError: (c) => c.json({ error: 'too_large' }, 413) }), async (c) => {
     if (!deps.planDelivery) return c.json({ error: 'clinic_off' }, 503);
-    if (!store.take(`planredeem:${ipKey(c)}`, 30, now())) return c.json({ error: 'too_many' }, 429);
+    let allowed: boolean;
+    try { allowed = store.take(`planredeem:${ipKey(c)}`, 30, now()); } catch (e) {
+      // the rate-limit counter is a write too: under a held lock it must also end as a retryable 503, not a 500
+      if (!isBusy(e)) throw e;
+      c.header('Retry-After', '1'); return c.json({ error: 'database_busy' }, 503);
+    }
+    if (!allowed) return c.json({ error: 'too_many' }, 429);
     const body = await c.req.json().catch(() => null) as { code?: unknown } | null;
     c.header('Cache-Control', 'no-store');
     try {
       return c.json({ plan: deps.planDelivery.redeem(typeof body?.code === 'string' ? body.code : '') });
     } catch (e) {
+      // A busy write lock is retryable and changed nothing: no payload, no `used`, never an unhandled 500.
+      if (e instanceof DatabaseBusy) { c.header('Retry-After', '1'); return c.json({ error: 'database_busy' }, 503); }
       if (!(e instanceof RedeemFailure)) throw e;
-      return c.json({ error: e.code }, e.code === 'invalid' ? 404 : 410);
+      return c.json({ error: e.code }, REDEEM_STATUS[e.code]);
     }
   });
 

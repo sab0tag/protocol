@@ -134,6 +134,12 @@ export class ClinicDirectory {
   /** Records an action of another module (plans, delivery). `target` is an id, never content. */
   record(actor: Actor, action: string, target: string | null): void { this.audit(actor.orgId, actor.memberId, action, target); }
 
+  /**
+   * Records an action with no authenticated staff member behind it. `patient_link` marks an anonymous redemption by
+   * whoever holds the link — not a verified patient identity. Runs inside the caller's transaction; never the secret.
+   */
+  recordSystem(orgId: string, actor: 'patient_link', action: string, target: string): void { this.audit(orgId, actor, action, target); }
+
   private target(actor: Actor, memberId: string): { role: Role; active: boolean } {
     const m = this.db.prepare('SELECT role, active FROM clinic_members WHERE id = ? AND org = ?').get(memberId, actor.orgId) as
       { role: Role; active: number } | undefined;
