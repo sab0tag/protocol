@@ -210,7 +210,7 @@ export function reportText(r: Report, dm: (d: ISODate) => string): string {
       : t.report.noDeviations(r.deviations.of)) : '',
     r.medFood ? t.medFood.report(r.medFood) : '',
     r.dietQuestions.length ? r.dietQuestions.map((q) => `• ${q}`).join('\n') : '',
-    r.labs.length ? `${t.report.labs}:\n${r.labs.map((l) => `• ${dm(l.date)} ${l.name}: ${dec(l.value)} ${l.unit}${l.target ? ` (ціль ${l.target})` : ''}`).join('\n')}` : '',
+    r.labs.length ? `${t.report.labs}:\n${r.labs.map((l) => `• ${dm(l.date)} ${l.name}: ${dec(l.value)} ${l.unit}${[l.reference ? `референс лабораторії ${l.reference}` : '', l.target ? `ціль лікаря ${l.target}` : ''].filter(Boolean).join('; ').replace(/^(.+)$/, ' ($1)')}`).join('\n')}` : '',
     r.checklistPct != null ? `План дня виконано: ${r.checklistPct} %` : '',
     r.weightPending ? t.weightQuality.reportPending(r.weightPending) : '',
     r.weightStart != null ? `Вага: ${dec(r.weightStart)} → ${dec(r.weightNow!)} кг` : '',

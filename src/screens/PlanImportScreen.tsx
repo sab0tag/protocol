@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ChevronLeft } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { db } from '../data/db';
@@ -28,18 +28,31 @@ export function PlanImportScreen() {
   const [error, setError] = useState('');
   // A busy server changed nothing: the code stays in this page's memory only (not the URL, not storage) for a retry.
   const [retryAt, setRetryAt] = useState<number | null>(null);
+  const mounted = useRef(false);
+  const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      if (retryTimer.current !== null) clearTimeout(retryTimer.current);
+    };
+  }, []);
 
   async function load() {
     if (code && params.has('code')) setParams({}, { replace: true });
     setState('loading'); setError('');
     const wait = retryAt === null ? 0 : retryAt - Date.now();
-    if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+    if (wait > 0) await new Promise<void>((resolve) => { retryTimer.current = setTimeout(resolve, wait); });
+    retryTimer.current = null;
+    if (!mounted.current) return; // Leaving must not spend a one-time code on a queued retry.
     setRetryAt(null);
     try {
       const pv = previewClinicPlan(await redeemClinicPlan(code));
+      if (!mounted.current) return;
       if (!pv) { setError('План має невідомий формат. Оновіть застосунок або попросіть клініку видати новий.'); setState('idle'); return; }
       setPreview(pv); setTicked(new Set(pv.items.map((i) => i.key))); setState('idle');
     } catch (e) {
+      if (!mounted.current) return;
       if (e instanceof ApiError && e.code === 'database_busy') {
         const seconds = typeof e.data.retryAfterS === 'number' ? e.data.retryAfterS : 1;
         setRetryAt(Date.now() + seconds * 1000);

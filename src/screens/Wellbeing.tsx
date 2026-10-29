@@ -20,10 +20,11 @@ const scoreIcons = { energy: Zap, mood: Smile, sleep: Moon };
 const scoreWords: Record<'energy' | 'mood' | 'sleep', readonly [string, string, string, string, string]> = {
   energy: ['Без сил', 'Мало сил', 'Звично', 'Є сили', 'Багато сил'],
   mood: ['Дуже важко', 'Нелегко', 'Спокійно', 'Добре', 'Чудово'],
-  sleep: ['Не відпочив', 'Погано', 'Посередньо', 'Добре', 'Відновився'],
+  sleep: ['Не відпочили', 'Погано', 'Посередньо', 'Добре', 'Відновилися'], // neutral: the person's gender is not known
 };
 
-/** «Самопочуття» (SPEC.md §5.5): one record a day, saved on every tap — and it says so, with the time (D74). */
+/** «Самопочуття» (SPEC.md §5.5): one record a day — scores and symptoms saved on every tap, the note when its typing is
+ *  done; each says which (D74, D145). */
 export function Wellbeing() {
   const { date, shift } = useUi();
   const rec = useWellbeing(date);
@@ -34,18 +35,25 @@ export function Wellbeing() {
   const [savedAt, setSavedAt] = useState<{ date: string; hm: string } | null>(null);
   if (rec === undefined) return <Loading />;
   const w: W = rec ?? { date, symptoms: [] };
-  const put = async (patch: Partial<W>) => {
-    const ok = await saved(db.wellbeing.put({ ...w, ...patch, date }), t.toast.wellbeing);
+  /** D145: each write reads the stored record first and changes only its own field — a note saved on blur and a score
+   *  tapped in the same moment both stay (before, the later write put back the screen's older copy over the note). */
+  const put = async (change: Partial<W> | ((stored: W) => Partial<W>)) => {
+    const patch = typeof change === 'function' ? undefined : change;
+    const ok = await saved(() => db.transaction('rw', db.wellbeing, async () => {
+      const stored = (await db.wellbeing.get(date)) ?? { date, symptoms: [] };
+      await db.wellbeing.put({ ...stored, ...(typeof change === 'function' ? change(stored) : change), date });
+      return true;
+    }), t.toast.wellbeing);
     if (ok !== undefined) {
       setSavedAt({ date, hm: format(new Date(), 'HH:mm') });
-      if (patch.energy !== undefined) setLightOffer(patch.energy <= 2 ? date : undefined);
+      if (patch?.energy !== undefined) setLightOffer(patch.energy <= 2 ? date : undefined);
     }
   };
   const typed = note?.date === date ? note.text : (w.note ?? '');
   // D97: the typed note stays until it is written — closing the app right after the tap never loses it
   const saveNote = () => { const text = typed.trim() || undefined; if (text === w.note) { setNote(null); return; } void put({ note: text }).then(() => setNote(null)); };
   const chips = [...new Set([...L.defaults, ...w.symptoms])];
-  const toggle = (s: string) => put({ symptoms: w.symptoms.includes(s) ? w.symptoms.filter((x) => x !== s) : [...w.symptoms, s] });
+  const toggle = (s: string) => put((stored) => ({ symptoms: stored.symptoms.includes(s) ? stored.symptoms.filter((x) => x !== s) : [...stored.symptoms, s] }));
 
   return (
     <section className="space-y-4 pt-4">
@@ -66,11 +74,6 @@ export function Wellbeing() {
         <span>{L.journal}</span><span aria-hidden className="text-muted">›</span>
       </Link>
 
-      <div className="protocol-card space-y-2 p-5">
-        <p className="text-xs font-semibold uppercase tracking-wider text-accent">Коротка відмітка</p>
-        <h2 className="text-2xl font-semibold tracking-tight">Як ви сьогодні?</h2>
-        <p className="text-sm text-muted">Оберіть те, що найближче до вашого стану. Кожна відповідь зберігається одразу; можна змінити її пізніше.</p>
-      </div>
       {lightOffer === date && !dangerInText([typed, ...w.symptoms].join(' ')) && !crisisInText([typed, ...w.symptoms].join(' ')) && <LightDayControl date={date} onlyEnable />}
 
       {(['energy', 'mood', 'sleep'] as const).map((key) => { const Icon = scoreIcons[key]; return (
@@ -97,7 +100,7 @@ export function Wellbeing() {
               className={`min-h-tap rounded-full border px-3 ${w.symptoms.includes(s) ? 'border-warn bg-warn-bg text-warn' : 'border-line'}`}>{s}</button>
           ))}
         </div>
-        <form className="mt-3 flex gap-2" onSubmit={(e) => { e.preventDefault(); const s = own.trim(); if (s && !w.symptoms.includes(s)) void put({ symptoms: [...w.symptoms, s] }); setOwn(''); }}>
+        <form className="mt-3 flex gap-2" onSubmit={(e) => { e.preventDefault(); const s = own.trim(); if (s && !w.symptoms.includes(s)) void put((stored) => ({ symptoms: stored.symptoms.includes(s) ? stored.symptoms : [...stored.symptoms, s] })); setOwn(''); }}>
           <label className="flex-1"><span className="sr-only">{L.own}</span>
             <input value={own} onChange={(e) => setOwn(e.target.value)} placeholder={L.own} className="block min-h-tap w-full rounded-xl border border-line bg-bg px-3" /></label>
           <button type="submit" className="flex min-h-tap items-center gap-1 rounded-xl border border-accent px-3 text-accent"><Plus size={18} />{L.add}</button>
@@ -106,8 +109,10 @@ export function Wellbeing() {
 
       <div className="protocol-card rounded-2xl border border-line bg-surface p-5">
         <label className="block"><span className="font-medium">{L.note}</span>
-          <textarea value={typed} rows={3} onChange={(e) => setNote({ date, text: e.target.value })} onBlur={saveNote}
+          <textarea value={typed} rows={3} onChange={(e) => setNote({ date, text: e.target.value })} onBlur={saveNote} aria-describedby="note-state"
             className="mt-2 block w-full rounded-xl border border-line bg-bg p-3" /></label>
+        <p id="note-state" role="status" className={`mt-2 text-sm ${typed.trim() !== (w.note ?? '') ? 'text-warn' : 'text-muted'}`}>
+          {typed.trim() !== (w.note ?? '') ? L.noteUnsaved : w.note ? L.noteSaved : ''}</p>
         {typed.trim() !== (w.note ?? '') && (
           <button type="button" onPointerDown={(e) => e.preventDefault()} onClick={saveNote} className="mt-2 min-h-tap rounded-xl bg-accent px-3 font-medium text-surface">{L.saveNote}</button>
         )}

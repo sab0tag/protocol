@@ -93,7 +93,8 @@ export function Report() {
               <caption className="mb-1 text-left font-medium">{L.labs}</caption>
               <tbody>{r.labs.map((l) => (
                 <tr key={l.date + l.name} className="border-t border-line"><td className="py-1">{l.name}</td>
-                  <td className="py-1 text-right">{labNumber(l.value)} {l.unit}{l.target && <span className="block text-xs text-muted">{t.menu.target} {l.target}</span>}</td>
+                  <td className="py-1 text-right">{labNumber(l.value)} {l.unit}{l.reference && <span className="block text-xs text-muted">{t.progress.reference}: {l.reference}</span>}
+                    {l.target && <span className="block text-xs text-muted">{t.progress.target}: {l.target}</span>/* D144: two things, never one «норма» */}</td>
                   <td className="whitespace-nowrap py-1 pl-2 text-right text-muted">{format(parseISO(l.date), 'dd.MM')}</td></tr>
               ))}</tbody>
             </table>

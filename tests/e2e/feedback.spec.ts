@@ -27,7 +27,7 @@ test('every sheet has a visible ×; an empty «Як учора» offers the firs
   await expect(sheet).toBeHidden();
 
   await page.goto('./#/wellbeing');
-  await expect(page.getByText(/Зберігається одразу/)).toBeVisible();
+  await expect(page.getByText(/Оцінки й симптоми зберігаються одразу/)).toBeVisible();
   await page.getByRole('button', { name: 'Енергія: 4' }).click();
   await expect(page.getByText(/^Збережено о \d\d:\d\d$/)).toBeVisible();
   await page.getByRole('textbox', { name: 'Нотатка' }).fill('спав погано');
@@ -35,6 +35,26 @@ test('every sheet has a visible ×; an empty «Як учора» offers the firs
   await expect(page.getByRole('button', { name: 'Зберегти нотатку' })).toBeHidden();
   await page.reload();
   await expect(page.getByRole('textbox', { name: 'Нотатка' })).toHaveValue('спав погано');
+});
+
+test('«Самопочуття» says which part saves when: scores at once, the note when its typing is done — no intro card (ТЗ Wellbeing 2.0, D145)', async ({ browser }) => {
+  const page = await device(browser); // the example — every module on, in either build
+  await page.goto('./#/wellbeing');
+  await expect(page.getByText('Як ви сьогодні?')).toHaveCount(0); // straight to the scales
+  await expect(page.getByRole('button', { name: 'Сон: 1 — Не відпочили' })).toBeVisible(); // no guessed gender
+  const note = page.getByRole('textbox', { name: 'Нотатка' });
+  await note.fill('синтетична нотатка');
+  await expect(note).toHaveAccessibleDescription(/Ще не збережено/);
+  const stored = () => page.evaluate(async () => {
+    const open = indexedDB.open('protocol'); await new Promise((r) => { open.onsuccess = r; });
+    const get = open.result.transaction('wellbeing', 'readonly').objectStore('wellbeing').getAll(); await new Promise((r) => { get.onsuccess = r; });
+    open.result.close(); return (get.result as { note?: string }[]).map((w) => w.note ?? null);
+  });
+  expect(await stored()).not.toContain('синтетична нотатка'); // typing alone writes nothing
+  await page.getByRole('button', { name: 'Енергія: 3 — Звично' }).click(); // leaving the field saves the note, the tap saves the score
+  await expect(page.getByText('Нотатку збережено.')).toBeVisible();
+  await expect.poll(stored).toContain('синтетична нотатка');
+  await expect(page.getByRole('button', { name: 'Зберегти нотатку' })).toHaveCount(0);
 });
 
 test('a patient’s phrase: «чай з цукром, 2 куски хліба» — both found as said; an empty meal shows no zeros (D77, D78)', async ({ browser }) => {

@@ -42,3 +42,5 @@ Known limitations, still open:
 - The payload is still plaintext until it is erased (ACCESS-07-B). The issuer name is still client-supplied (ACCESS-07-A, AC-17).
 - `node:sqlite` is synchronous: waiting up to 5 s for a lock held by another process (today mainly `clinic:create`) stalls the whole API event loop. Accepted for the pilot; no automatic retries. Other API writes outside the clinic routes still surface a busy lock as 500.
 
+
+Review follow-up: leaving the import screen cancels a queued Retry-After retry before it can consume the one-time code. The browser regression verifies no second redemption request after navigation; the original busy/retry scenario still passes. Requests already sent retain the documented lost-response limitation.

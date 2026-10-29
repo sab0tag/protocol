@@ -1,6 +1,7 @@
 // D68: «Фото бланка» — Claude copies the values off a lab results form; the person checks each number against the paper,
 // fixes what is wrong, ticks what to keep, and only then they go to «Аналізи». The form's reference range is shown
-// beside the value, never taken for the doctor's target (the target stays as it was for that test).
+// beside the value as the laboratory's reference (D144: kept as such, editable like the number), never taken for the
+// doctor's target (the target stays as it was for that test).
 import { useLiveQuery } from 'dexie-react-hooks';
 import { FileScan } from 'lucide-react';
 import { useRef, useState } from 'react';
@@ -17,7 +18,7 @@ import { saved } from './Toast';
 
 const L = t.labsScan;
 const field = 'block min-h-tap w-full rounded-xl border border-line bg-bg px-2';
-interface Row { on: boolean; name: string; value: string; unit: string; reference: string | null }
+interface Row { on: boolean; name: string; value: string; unit: string; reference: string }
 
 export function LabsScan({ known }: { known: LabRow[] }) {
   const meta = useLiveQuery(async () => (await db.meta.get('sync')) ?? null, []);
@@ -42,7 +43,7 @@ export function LabsScan({ known }: { known: LabRow[] }) {
     try {
       const r = await readLabs(keys, await shrink(file, 2000, 0.85), known.map((k) => k.name)); // small print — more detail
       if (!r.readable || !r.items.length) { setError(r.note ?? L.unreadable); setState('none'); return; }
-      setRows(r.items.map((x) => ({ on: true, name: x.name, value: String(x.value).replace('.', ','), unit: x.unit, reference: x.reference })));
+      setRows(r.items.map((x) => ({ on: true, name: x.name, value: String(x.value).replace('.', ','), unit: x.unit, reference: x.reference ?? '' })));
       setDate(r.date && /^\d{4}-\d{2}-\d{2}$/.test(r.date) ? r.date : todayISO()); setNote(r.note ?? ''); setState('form');
     } catch (e) {
       const code = e instanceof ApiError ? (e.status === 0 ? 'offline' : e.code) : 'other';
@@ -53,7 +54,8 @@ export function LabsScan({ known }: { known: LabRow[] }) {
   const save = async () => {
     const out: LabResult[] = chosen.map((r) => {
       const target = known.find((k) => k.name === r.name.trim())?.target;
-      return { date, name: r.name.trim(), value: Number(r.value.replace(',', '.')), unit: r.unit.trim(), ...(target ? { target } : {}) };
+      return { date, name: r.name.trim(), value: Number(r.value.replace(',', '.')), unit: r.unit.trim(), ...(target ? { target } : {}),
+        ...(r.reference.trim() ? { reference: r.reference.trim() } : {}) };
     });
     await saved(db.labs.bulkPut(out), L.saved(out.length), () => db.labs.bulkDelete(out.map((x) => [x.date, x.name] as [string, string])));
     setState('none'); setRows([]);
@@ -88,7 +90,9 @@ export function LabsScan({ known }: { known: LabRow[] }) {
                 <input value={r.name} onChange={(e) => set(i, { name: e.target.value })} aria-label={L.name} className={field} />
                 <input inputMode="decimal" value={r.value} onChange={(e) => set(i, { value: e.target.value })} aria-label={`${L.value}: ${r.name}`} className={`${field} text-right tabular`} />
                 <input value={r.unit} onChange={(e) => set(i, { unit: e.target.value })} aria-label={`${L.unit}: ${r.name}`} className={field} />
-                {r.reference && <span className="col-start-2 col-end-5 -mt-1 text-xs text-muted">{L.reference(r.reference)}</span>}
+                <label className="col-start-2 col-end-5 -mt-1 flex items-center gap-2 text-xs text-muted">{L.referenceField}
+                  <input value={r.reference} onChange={(e) => set(i, { reference: e.target.value })} aria-label={`${L.referenceField}: ${r.name}`}
+                    className="min-h-[2.25rem] min-w-0 flex-1 rounded-lg border border-line bg-bg px-2 text-sm text-ink" /></label>
                 {(() => {
                   const h = labHint(known.find((k) => k.name === r.name.trim()), r.unit, Number(r.value.replace(',', '.')));
                   return h && <span className="col-start-2 col-end-5 -mt-1 text-xs text-warn">

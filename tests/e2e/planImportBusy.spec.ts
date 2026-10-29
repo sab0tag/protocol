@@ -1,6 +1,27 @@
 import { expect, test } from '@playwright/test';
 import { device } from './helpers';
 
+test('leaving during Retry-After cancels the queued redemption without consuming the code', async ({ browser }) => {
+  const page = await device(browser, 'skip');
+  await page.clock.install();
+  const code = 'd'.repeat(43);
+  const calls: unknown[] = [];
+  await page.route('**/v1/clinic/plans/redeem', async (route) => {
+    calls.push(route.request().postDataJSON().code);
+    await route.fulfill({ status: 503, headers: { 'Retry-After': '2' }, json: { error: 'database_busy' } });
+  });
+  await page.goto(`./#/plan/import?code=${code}`);
+  await page.getByRole('button', { name: 'Переглянути план', exact: true }).click();
+  await page.getByRole('button', { name: 'Повторити', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Завантажуємо…', exact: true })).toBeDisabled();
+  await page.getByRole('link', { name: 'План лікаря', exact: true }).click();
+  await expect(page).toHaveURL(/#\/plan$/);
+  await expect(page.getByRole('heading', { name: 'План від клініки', exact: true })).toHaveCount(0);
+  await page.clock.runFor(2500);
+  expect(calls).toEqual([code]);
+  await page.context().close();
+});
+
 // ACCESS-00-H: a busy server changed nothing, so the patient retries on the same screen with the code kept in memory.
 test('database_busy: the message and a Повторити button; the retry waits Retry-After, reuses the code, never puts it back in the URL or storage', async ({ browser }) => {
   const page = await device(browser, 'skip');
