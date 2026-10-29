@@ -133,3 +133,29 @@ test('sets typed but not recorded come back after the page reloads; gone once re
   await expect(page.getByRole('button', { name: 'Тренування записано' })).toBeVisible();
   expect(await page.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith('protocol.kept.workout')))).toEqual([]);
 });
+
+test('the exercise library is searched by name or movement, together with the level; nothing found says how back (аудит P3, D153)', async ({ browser }) => {
+  const page = await device(browser);
+  await page.goto('./#/exercises');
+  const search = page.getByRole('searchbox', { name: 'Пошук вправи' });
+  await search.fill('жим');
+  await expect(page.getByRole('status')).toHaveText(/^Знайдено: [1-9]\d*$/);
+  await expect(page.getByRole('button', { name: /^Жим стоячи однією рукою/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Гоблет-присід/ })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Складний', exact: true }).click();
+  await expect(page.getByRole('button', { name: /^Жим стоячи однією рукою/ })).toHaveCount(0); // a basic one — not of this level
+  await expect(page.getByRole('button', { name: /^Жим гирі догори дном/ })).toBeVisible();
+  await search.fill('присід');
+  await expect(page.getByRole('button', { name: /^Присід з гирею у стійці/ })).toBeVisible();
+  await search.fill('щось зовсім інше');
+  await expect(page.getByText('Нічого не знайдено — спробуйте інше слово або рівень «Усі».')).toBeVisible();
+  await page.getByRole('button', { name: 'Скинути пошук' }).click();
+  await expect(search).toHaveValue('');
+  await expect(page.getByRole('button', { name: 'Усі', exact: true })).toHaveAttribute('aria-pressed', 'true');
+
+  await page.goto('./#/workout'); // the same search where an exercise is added
+  await page.getByRole('button', { name: 'Додати вправу' }).click();
+  await page.getByRole('searchbox', { name: 'Пошук вправи' }).fill('ривок');
+  await expect(page.getByRole('button', { name: /^Ривок/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Махи двома руками/ })).toHaveCount(0);
+});
