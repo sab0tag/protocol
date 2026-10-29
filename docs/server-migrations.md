@@ -44,7 +44,7 @@ Check the live schema on a copy of the latest backup, not on the live file:
 
 ```
 gunzip -c /backups/protocol-YYYY-MM-DD.db.gz > /tmp/check.db
-DB_PATH=/tmp/check.db npm run db:migrate   # unversioned legacy: applied 1, 2, 3, 4; baseline-only: applied 2, 3, 4
+DB_PATH=/tmp/check.db npm run db:migrate   # unversioned legacy: applied 1, 2, 3, 4, 5; baseline-only: applied 2, 3, 4
 ```
 
 A refusal there lists exactly what differs; resolve it before the new API starts against the live database.
@@ -61,3 +61,8 @@ nothing uses them until `CLINIC_IDENTITY_V2=on`. See [sessions](access-03-sessio
 Current-version schema drift is checked inside the final write-locked transaction too, not only before a pending migration. API startup refuses versioned drift before listening. The manifest also compares SQL token definitions for tables and explicit indexes to detect CHECK changes, index expressions and partial predicates that PRAGMA metadata omits. Whitespace outside quoted values may differ; other unknown definition differences are refused conservatively for review, not silently normalized.
 
 Connection setup installs busy_timeout before requesting WAL mode so parallel CLIs also wait during journal initialization. A busy error while opening clinic:create is a retryable exit 4, not a malformed-database exit 2.
+
+Version 5 (`staff_onboarding`) adds invitation lifecycle, per-clinic token deadlines and nullable verified contact in
+sessions. Existing sessions remain valid but cannot accept an invitation until re-authentication supplies signed
+verified contact evidence. Migration does not link staff, send email or start token cutover. Clinic/member/delivery
+IDs and earlier checksums remain unchanged. See [ACCESS-04](access-04-onboarding.md) before enabling onboarding.

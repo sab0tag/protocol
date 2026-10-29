@@ -1,3 +1,5 @@
+import { StaffInvitations } from './clinic/invitations.ts';
+import { invitationMailer } from './clinic/invitationMail.ts';
 import { serve } from '@hono/node-server';
 import { createApp, DEFAULT_LIMITS } from './app.ts';
 import { ClinicDirectory } from './clinic/directory.ts';
@@ -48,7 +50,12 @@ const backups = env.BACKUP_DIR ?? '/backups';
 const vapid = vapidKeys(store, env);
 const send = webPushSender(vapid, env.VAPID_SUBJECT ?? 'https://protocol.beyondthesignal.to');
 const clinic = new ClinicDirectory(store.database);
+const invitations = (() => {
+  try { return identity ? new StaffInvitations(store.database, clinic, identity.cfg.appOrigin, invitationMailer(env)) : undefined; }
+  catch { console.error('staff invitation configuration refused'); process.exit(1); }
+})();
 const app = createApp({
+  invitations,
   store,
   clinic,
   planDelivery: new PlanDelivery(store.database, clinic),
@@ -102,6 +109,7 @@ const timer = setInterval(() => {
 const backupTimer = setInterval(() => {
   backupOnce(store, backups, new Date()).catch((e) => console.error('backup failed:', (e as Error).message));
   try { conciergeHousekeeping(store, `${backups}/concierge`, new Date()); } catch (e) { console.error('concierge log housekeeping failed:', (e as Error).message); } // D91
+  try { invitations?.housekeeping(); } catch { console.error('invitation housekeeping failed'); }
   try { identity?.sessions.housekeeping(); } catch (e) { console.error('session housekeeping failed:', (e as Error).message); } // ACCESS-03
   try { pilotHousekeeping(store, new Date()); } catch (e) { console.error('pilot housekeeping failed:', (e as Error).message); } // D119
 }, 3600_000);

@@ -12,7 +12,7 @@ import { IdentityError } from '../identity/errors.ts';
 /** The caller as the server knows it. `orgId` comes from the member record, never from the request. */
 export type Actor = LegacyActor & { session?: { hash: string; accountId: string; membershipId: string } };
 
-export interface Member { id: string; displayName: string; role: Role; active: boolean }
+export interface Member { id: string; displayName: string; role: Role; roles?: Role[]; active: boolean; linked?: boolean }
 export interface AuditEntry { at: number; actor: string; action: string; target: string | null }
 
 const hash = (s: string) => createHash('sha256').update(s).digest('hex');
@@ -32,7 +32,7 @@ export class ClinicDirectory {
   constructor(db: DatabaseSync, now: () => number = Date.now) {
     this.db = db;
     this.now = now;
-    this.policy = new ClinicPolicy(db);
+    this.policy = new ClinicPolicy(db, now);
     this.sessions = new Sessions(db, now);
     // tables: src/db/migrations (0001_baseline); constructors never change the schema
   }
@@ -97,6 +97,11 @@ export class ClinicDirectory {
     this.require(actor, 'clinic.profile.read'); return actor;
   }
 
+  private legacyCredential(orgId: string): void {
+    const transition = this.db.prepare('SELECT legacy_until FROM clinic_auth_transitions WHERE org = ?').get(orgId);
+    if (transition && Number(transition.legacy_until) <= this.now()) throw new ClinicError('forbidden');
+  }
+
   private fresh(actor: Actor): void {
     if (actor.session) this.sessions.require(actor.session.hash, { mfa: true, fresh: true });
   }
@@ -131,7 +136,7 @@ export class ClinicDirectory {
     const id = randomUUID(), token = newToken();
     immediate(this.db, () => {
       this.require(actor, 'staff.manage');
-      this.fresh(actor);
+      this.fresh(actor); this.legacyCredential(actor.orgId);
       this.db.prepare('INSERT INTO clinic_members (id, org, name, role, token_hash, created) VALUES (?, ?, ?, ?, ?, ?)')
         .run(id, actor.orgId, name, input.role, hash(token), this.now());
       projectLegacyMember(this.db, id);
@@ -143,7 +148,52 @@ export class ClinicDirectory {
   listStaff(actor: Actor): Member[] {
     this.require(actor, 'staff.manage');
     return (this.db.prepare('SELECT id, name, role, active FROM clinic_members WHERE org = ? ORDER BY created, id').all(actor.orgId) as
-      { id: string; name: string; role: Role; active: number }[]).map((m) => ({ id: m.id, displayName: m.name, role: m.role, active: !!m.active }));
+      { id: string; name: string; role: Role; active: number }[]).map((m) => ({ id: m.id, displayName: m.name, role: m.role, active: !!m.active, ...(actor.session ? this.staffIdentity(m.id) : {}) }));
+  }
+
+  private staffIdentity(memberId: string): { roles: Role[]; linked: boolean } {
+    const m = this.db.prepare('SELECT m.id, a.status, EXISTS(SELECT 1 FROM external_identities e WHERE e.account_id = a.id) AS verified FROM organization_memberships m JOIN accounts a ON a.id = m.account_id WHERE m.legacy_member_id = ?').get(memberId);
+    return { linked: m?.status === 'active' && m?.verified === 1, roles: m ? this.db.prepare('SELECT role FROM organization_membership_roles WHERE membership_id = ? ORDER BY role').all(m.id!).map(r => r.role).filter(isRole) : [] };
+  }
+
+  setRoles(actor: Actor, memberId: string, roles: Role[]): void {
+    if (!actor.session || !roles.length || roles.length > 2 || !roles.every(isRole) || new Set(roles).size !== roles.length) throw new ClinicError('bad_request');
+    immediate(this.db, () => {
+      this.require(actor, 'staff.manage'); this.fresh(actor);
+      const target = this.target(actor, memberId);
+      if (target.admin && target.active && !roles.includes('admin')) this.keepAnAdmin(actor.orgId, memberId);
+      const m = this.db.prepare('SELECT id FROM organization_memberships WHERE legacy_member_id = ? AND organization_id = ?').get(memberId, actor.orgId)!;
+      this.db.prepare('DELETE FROM organization_membership_roles WHERE membership_id = ?').run(m.id!);
+      for (const role of [...roles].sort()) this.db.prepare('INSERT INTO organization_membership_roles VALUES (?, ?)').run(m.id!, role);
+      // Removing the legacy role invalidates that old credential; adding a second role never widens it.
+      if (!roles.includes(target.role)) this.db.prepare('UPDATE clinic_members SET role = ?, token_hash = ? WHERE id = ? AND org = ?')
+        .run(roles.includes('admin') ? 'admin' : 'doctor', hash(newToken()), memberId, actor.orgId);
+      // Legacy bearer remains single-role; changing membership roles never silently broadens it.
+      this.db.prepare("UPDATE staff_invitations SET state = 'revoked' WHERE org = ? AND target_member = ? AND state IN ('sending','sent')").run(actor.orgId, memberId);
+      this.audit(actor.orgId, actor.memberId, `staff.roles.${[...roles].sort().join('+')}`, memberId);
+    });
+  }
+
+  authTransition(actor: Actor): { migratedAt: number | null; legacyUntil: number | null; unlinked: string[] } {
+    this.require(actor, 'staff.manage');
+    const row = this.db.prepare('SELECT migrated_at, legacy_until FROM clinic_auth_transitions WHERE org = ?').get(actor.orgId);
+    return { migratedAt: row ? Number(row.migrated_at) : null, legacyUntil: row ? Number(row.legacy_until) : null,
+      unlinked: this.listStaff(actor).filter(m => m.active && !m.linked).map(m => m.id) };
+  }
+
+  cutover(actor: Actor, graceHours: number): void {
+    if (!actor.session || !Number.isInteger(graceHours) || graceHours < 0 || graceHours > 168) throw new ClinicError('bad_request');
+    immediate(this.db, () => {
+      this.require(actor, 'staff.manage'); this.fresh(actor);
+      const state = this.authTransition(actor);
+      if (state.unlinked.length) throw new ClinicError('bad_request'); // migrate all active employees before disabling their access
+      const until = this.now() + graceHours * 3600_000;
+      if (state.legacyUntil !== null) {
+        if (until > state.legacyUntil) throw new ClinicError('bad_request'); // no extension/reset of the seven-day window
+        this.db.prepare('UPDATE clinic_auth_transitions SET legacy_until = ? WHERE org = ?').run(until, actor.orgId);
+      } else this.db.prepare('INSERT INTO clinic_auth_transitions VALUES (?, ?, ?)').run(actor.orgId, this.now(), until);
+      this.audit(actor.orgId, actor.memberId, 'org.identity.cutover', actor.orgId);
+    });
   }
 
   setRole(actor: Actor, memberId: string, role: Role): void {
@@ -178,7 +228,7 @@ export class ClinicDirectory {
     this.require(actor, 'staff.manage');
     return immediate(this.db, () => {
       this.require(actor, 'staff.manage');
-      this.fresh(actor);
+      this.fresh(actor); this.legacyCredential(actor.orgId);
       this.target(actor, memberId);
       const token = newToken();
       this.db.prepare('UPDATE clinic_members SET token_hash = ? WHERE id = ? AND org = ?').run(hash(token), memberId, actor.orgId);
@@ -217,8 +267,8 @@ export class ClinicDirectory {
       JOIN organization_memberships m ON m.legacy_member_id = l.id AND m.organization_id = l.org
       JOIN accounts a ON a.id = m.account_id
       WHERE l.org = ? AND l.active = 1 AND l.id != ? AND m.status = 'active'
-        AND ((l.role = 'admin' AND a.status IN ('pending_link', 'active')) OR (a.status = 'active' AND EXISTS
-          (SELECT 1 FROM organization_membership_roles r WHERE r.membership_id = m.id AND r.role = 'admin')))`).get(orgId, leaving) as { n: number };
+        AND ((l.role = 'admin' AND a.status IN ('pending_link', 'active') AND NOT EXISTS (SELECT 1 FROM clinic_auth_transitions t WHERE t.org = l.org AND t.legacy_until <= ?)) OR (a.status = 'active' AND EXISTS
+          (SELECT 1 FROM organization_membership_roles r WHERE r.membership_id = m.id AND r.role = 'admin')))`).get(orgId, leaving, this.now()) as { n: number };
     if (others.n === 0) throw new ClinicError('last_admin');
   }
 

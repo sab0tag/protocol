@@ -2,7 +2,7 @@ import { API_URL, ApiError } from './api';
 import type { ClinicPlanV1 } from '../domain/planImport';
 
 export interface ClinicMe { memberId: string; role: 'admin' | 'doctor'; displayName: string; organizationId: string; organizationName: string; roles?: ('admin' | 'doctor')[] }
-export interface StaffMember { id: string; displayName: string; role: 'admin' | 'doctor'; active: boolean }
+export interface StaffMember { id: string; displayName: string; role: 'admin' | 'doctor'; active: boolean; roles?: ('admin' | 'doctor')[]; linked?: boolean }
 export type ClinicAuth = string | { csrfToken: string; organizationId: string; signal?: AbortSignal; onDenied?: () => void };
 
 async function clinic<T>(token: ClinicAuth, method: string, path: string, body?: unknown): Promise<T> {
@@ -39,3 +39,12 @@ export const clinicRevoke = (t: ClinicAuth, id: string) => clinic<{ ok: true }>(
 export const clinicPlanStatus = (t: ClinicAuth, id: string) => clinic<{ status: 'pending' | 'redeemed' | 'revoked' | 'expired' | 'tampered' }>(t, 'GET', `/plans/${id}`);
 export interface ClinicStats { days: number; issued: number; redeemed: number; pending: number; expired: number; revoked: number; tampered?: number; byDoctor: { memberId: string; displayName: string; issued: number }[] }
 export const clinicStats = (t: ClinicAuth, days = 30) => clinic<ClinicStats>(t, 'GET', `/stats?days=${days}`);
+
+export interface StaffInvite { id: string; email: string; displayName: string; roles: string[]; expiresAt: number; state: string; targetMemberId: string | null }
+export const clinicInvitations = (a: ClinicAuth) => clinic<{ enabled: boolean; invitations: StaffInvite[] }>(a, 'GET', '/invitations');
+export const clinicInvite = (a: ClinicAuth, input: { email: string; displayName: string; roles: string[]; targetMemberId?: string }) => clinic<{ id: string; expiresAt: number }>(a, 'POST', '/invitations', input);
+export const clinicRevokeInvite = (a: ClinicAuth, id: string) => clinic<{ ok: true }>(a, 'DELETE', `/invitations/${id}`);
+export const clinicSetRoles = (a: ClinicAuth, id: string, roles: string[]) => clinic<{ ok: true }>(a, 'PUT', `/staff/${id}/roles`, { roles });
+export interface AuthTransition { migratedAt: number | null; legacyUntil: number | null; unlinked: string[] }
+export const clinicAuthTransition = (a: ClinicAuth) => clinic<AuthTransition>(a, 'GET', '/auth-transition');
+export const clinicCutover = (a: ClinicAuth, graceHours: number) => clinic<{ ok: true }>(a, 'POST', '/auth-transition', { graceHours, confirm: true });

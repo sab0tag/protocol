@@ -26,6 +26,7 @@ async function rig(issuerOverride?: string) {
   const browser = () => {
     const jar = new Map<string, string>();
     const req = async (path: string, init: RequestInit & { headers?: Record<string, string> } = {}) => {
+      t = Math.max(t, Date.now());
       const cookie = [...jar].map(([k, v]) => `${k}=${v}`).join('; ');
       const res = await app.request(`https://api.test${path}`, { ...init, headers: { ...(cookie ? { Cookie: cookie } : {}), ...init.headers } });
       for (const line of res.headers.getSetCookie()) {
@@ -77,7 +78,7 @@ describe('sign-in', () => {
     expect(start.status).toBe(302);
     const to = location(start);
     expect(to.origin).toBe(r.idp.issuer);
-    expect(Object.fromEntries(to.searchParams)).toMatchObject({ response_type: 'code', scope: 'openid', code_challenge_method: 'S256',
+    expect(Object.fromEntries(to.searchParams)).toMatchObject({ response_type: 'code', scope: 'openid email', code_challenge_method: 'S256',
       redirect_uri: 'https://api.test/v1/auth/callback', client_id: r.idp.clientId });
     for (const k of ['state', 'nonce', 'code_challenge']) expect(to.searchParams.get(k)!.length).toBeGreaterThanOrEqual(43);
     expect(to.searchParams.has('max_age')).toBe(false);
@@ -390,4 +391,14 @@ describe('startup', () => {
     expect(r.stderr).toMatch(/identity configuration refused: OIDC_REDIRECT_URI is required/);
     expect(r.stdout).not.toMatch(/protocol-api on/);
   }, 30_000);
+});
+
+
+describe('verified contact evidence for invitations', () => {
+  for (const emailVerified of [true, false, 'true'] as const) it(`uses only a signed boolean email_verified: ${emailVerified}`, async () => {
+    const r = await rig(), b = r.browser();
+    expect((await b.signIn({ email: 'Recipient@EXAMPLE.invalid', emailVerified })).status).toBe(303);
+    expect(r.db.prepare('SELECT verified_email FROM sessions ORDER BY created_at DESC LIMIT 1').get()?.verified_email).toBe(emailVerified === true ? 'Recipient@example.invalid' : null);
+    expect(JSON.stringify(await (await b.session()).json())).not.toContain('Recipient@');
+  });
 });

@@ -59,13 +59,14 @@ describe('ACCESS-02 additive migration', () => {
     ]);
     expect(rows(db, 'organization_membership_roles')).toEqual([{ membership_id: 'staff-a', role: 'doctor' }, { membership_id: 'staff-b', role: 'admin' }]);
     expect(rows(db, 'external_identities')).toEqual([]);
-    const dir = new ClinicDirectory(db);
-    expect(dir.authenticate('a'.repeat(43))).toEqual({ memberId: 'staff-a', orgId: 'org-a', role: 'doctor' });
-    expect(dir.authenticate('b'.repeat(43))).toBeNull();
     const snapshot = projection(db), history = rows(db, 'schema_migrations');
     expect(migrate(db, identityMigrations()).applied).toEqual([]);
     expect(projection(db)).toEqual(snapshot);
     expect(rows(db, 'schema_migrations')).toEqual(history);
+    migrate(db); // Current services require the current schema; prefix assertions above remain immutable.
+    const dir = new ClinicDirectory(db);
+    expect(dir.authenticate('a'.repeat(43))).toEqual({ memberId: 'staff-a', orgId: 'org-a', role: 'doctor' });
+    expect(dir.authenticate('b'.repeat(43))).toBeNull();
     db.close();
   });
 

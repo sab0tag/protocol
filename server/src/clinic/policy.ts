@@ -44,7 +44,8 @@ export function decide(authority: Authority, action: string, resource: Resource)
  */
 export class ClinicPolicy {
   private readonly db: DatabaseSync;
-  constructor(db: DatabaseSync) { this.db = db; }
+  private readonly now: () => number;
+  constructor(db: DatabaseSync, now: () => number = Date.now) { this.db = db; this.now = now; }
 
   require(subject: PolicySubject, action: PolicyAction, resource: Resource): void {
     const denial = decide(this.resolve(subject), action, resource);
@@ -54,6 +55,8 @@ export class ClinicPolicy {
   private resolve(subject: PolicySubject): Authority {
     if (subject.kind === 'legacy') {
       const { memberId, orgId } = subject.actor;
+      const transition = this.db.prepare('SELECT legacy_until FROM clinic_auth_transitions WHERE org = ?').get(orgId);
+      if (transition && Number(transition.legacy_until) <= this.now()) throw new ClinicError('unauthenticated');
       const row = this.db.prepare(`SELECT l.role, l.active, m.status, a.status AS account_status
         FROM clinic_members l JOIN organization_memberships m ON m.legacy_member_id = l.id AND m.organization_id = l.org
         JOIN accounts a ON a.id = m.account_id WHERE l.id = ? AND l.org = ?`).get(memberId, orgId) as
