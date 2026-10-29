@@ -48,6 +48,7 @@ test('daily hub excludes planned/skipped meals, preserves dates and explains com
   await expect(progress.getByRole('progressbar', { name: t.summary.kcal, exact: true })).toHaveAttribute('aria-valuenow', '25');
   await expect(page.locator('[data-plan-status=allergen]')).toHaveCount(2);
   await expect(page.locator('[data-plan-status=allergen]').first()).toContainText('молоко');
+  await expect(page.locator('.food-plan-check[data-plan-status=allergen]').first()).toHaveCSS('border-color', 'rgba(156, 40, 35, 0.55)'); // the allergen's own look (#65)
   await expect(page.locator('[data-plan-status=incomplete]')).toContainText(t.meal.planIncomplete);
   await expect(page.getByText(t.meal.planLimit, { exact: true })).toBeVisible();
   await expect(page.getByText('Тестова причина', { exact: true })).toBeVisible();

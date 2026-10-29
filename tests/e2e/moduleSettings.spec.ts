@@ -36,6 +36,7 @@ test('minimal day hides disabled actions and More stays short; food comes back w
   await expect(page.getByRole('button', { name: 'Сказати голосом', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Мені погано', exact: true })).toBeVisible();
   await expect(page.getByText('Збережена страва', { exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Як учора', exact: true })).toHaveCount(0); // food/menu off: nothing to copy
   await page.screenshot({ path: test.info().outputPath('minimal-day.png'), fullPage: true });
   const tabs = page.getByRole('navigation', { name: 'Розділи' });
   await expect(tabs.getByRole('link')).toHaveCount(3);
