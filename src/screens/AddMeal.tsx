@@ -260,7 +260,7 @@ export function AddMeal() {
               <Link to={`/dishes?describe=${encodeURIComponent(query.trim())}`} className="mt-1 inline-flex min-h-tap items-center text-sm text-accent underline">{t.dishes.breakdown.fromMeal}</Link></>
           )}
           {!id && !query && !free && photo.state === 'none' && items.length === 0 && all && <RecentMeals entries={all} date={date} initialTitle={title}
-            onAdd={(xs, mealTitle) => { setItems((ys) => [...ys, ...xs]); setTitle(mealTitle); }} />}
+            onAdd={(xs, mealTitle, targetDate) => { setItems((ys) => [...ys, ...xs]); setTitle(mealTitle); setDate(targetDate); setEaten(targetDate <= todayISO()); }} />}
           {!query && <FavoritesList limit={3} onAdd={(xs) => setItems((ys) => [...ys, ...xs])} />}
           {!query && all && (() => {
             const freq = frequentItems(all, todayISO()).filter((f) => !items.some((it) => it.name === f.item.name));
