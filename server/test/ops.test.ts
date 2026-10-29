@@ -14,7 +14,7 @@ const JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 1]).toString('base64');
 
 describe('AI spend and status', () => {
   it('counts calls and an estimate per vault and month; health tells a failing AI', async () => {
-    const store = new Store(':memory:');
+    const store = Store.migrated(':memory:');
     let fail = false;
     const app = createApp({ store, origins: [], recognize: async () => {
       if (fail) throw new Error('down');
@@ -46,7 +46,7 @@ describe('backup', () => {
   it('a checked gzipped copy once a day, old ones rotated, its age for /health', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'pbk-'));
     const dbPath = join(dir, 'live.db');
-    const store = new Store(dbPath);
+    const store = Store.migrated(dbPath);
     store.createVault(VAULT, (await import('node:crypto')).createHash('sha256').update(AUTH).digest('hex'), new Date());
     const now = new Date('2026-10-08T01:00:00Z');
     expect(await backupOnce(store, dir, now)).toBe('protocol-2026-10-08.db.gz');
@@ -76,7 +76,7 @@ describe('backup', () => {
 
 describe('pairing (D40)', () => {
   it('a sealed code left for 10 minutes, taken once', async () => {
-    const store = new Store(':memory:');
+    const store = Store.migrated(':memory:');
     let now = Date.parse('2026-10-08T10:00:00Z');
     const app = createApp({ store, origins: [], now: () => new Date(now) });
     const H = { Authorization: `Bearer ${AUTH}`, 'Content-Type': 'application/json' };

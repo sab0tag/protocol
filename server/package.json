@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "ai:smoke:openrouter": "node src/ai/smokeOpenRouter.ts",
     "stats:ops": "node --disable-warning=ExperimentalWarning src/statsCli.ts ops",
-    "stats:pilot": "node --disable-warning=ExperimentalWarning src/statsCli.ts pilot"
+    "stats:pilot": "node --disable-warning=ExperimentalWarning src/statsCli.ts pilot",
+    "db:migrate": "node --disable-warning=ExperimentalWarning src/db/migrateCli.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.131.0",

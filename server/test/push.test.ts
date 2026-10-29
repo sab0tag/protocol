@@ -10,7 +10,7 @@ const rid = (s: string) => s.padEnd(20, '_');
 const T0 = Date.parse('2026-10-08T10:00:00Z');
 
 function setup() {
-  const store = new Store(':memory:');
+  const store = Store.migrated(':memory:');
   const sent: { sub: string; payload: Record<string, unknown> }[] = [];
   let result: 'ok' | 'gone' | 'error' = 'ok';
   const send: Sender = async (sub, payload) => { sent.push({ sub, payload: JSON.parse(payload) }); return result; };
@@ -91,7 +91,7 @@ describe('push', () => {
   });
 
   it('VAPID keys are made once and kept', () => {
-    const store = new Store(':memory:');
+    const store = Store.migrated(':memory:');
     const a = vapidKeys(store, {}), b = vapidKeys(store, {});
     expect(a).toEqual(b);
     expect(a.publicKey.length).toBeGreaterThan(80);

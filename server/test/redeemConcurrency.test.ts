@@ -17,7 +17,7 @@ function setup() {
   const dir = mkdtempSync(join(tmpdir(), 'protocol-redeem-'));
   dirs.push(dir);
   const path = join(dir, 'db.sqlite');
-  const store = new Store(path);
+  const store = Store.migrated(path);
   const clinic = new ClinicDirectory(store.database);
   const delivery = new PlanDelivery(store.database, clinic);
   const org = clinic.createOrganization('Клініка', 'Адмін');

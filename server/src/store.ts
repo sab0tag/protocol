@@ -1,6 +1,7 @@
 // SQLite (node:sqlite): vaults, their encrypted records and daily counters. The server never sees plain data —
 // a record is an opaque key and an opaque ciphertext (SPEC.md D31).
 import { backup, DatabaseSync } from 'node:sqlite';
+import { migrate } from './db/migrate.ts';
 import { emptyPolicy, mergeReminderPolicy, reminderAllowed, type ReminderPolicy } from './reminderPolicy.ts';
 
 export interface StoredRecord { k: string; v: string | null; seq: number }
@@ -10,44 +11,18 @@ export class Store {
   /** For modules that own their own tables (clinic directory, plan delivery). */
   get database(): DatabaseSync { return this.db; }
 
+  /** Opens and brings the schema to the latest version. The startup path of the API (and tests); CLIs only validate. */
+  static migrated(path: string): Store {
+    const store = new Store(path);
+    try { migrate(store.database); } catch (e) { store.close(); throw e; }
+    return store;
+  }
+
+  /** A connection without any schema change. Use `Store.migrated` to serve, `assertCurrent` to validate. */
   constructor(path: string) {
     this.db = new DatabaseSync(path);
-    this.db.exec(`
-      PRAGMA journal_mode = WAL;
-      PRAGMA busy_timeout = 5000;
-      CREATE TABLE IF NOT EXISTS vaults (id TEXT PRIMARY KEY, auth TEXT NOT NULL, created TEXT NOT NULL, bytes INTEGER NOT NULL DEFAULT 0);
-      CREATE TABLE IF NOT EXISTS vault_protocols (vault TEXT PRIMARY KEY, minimum INTEGER NOT NULL);
-      CREATE TABLE IF NOT EXISTS records (vault TEXT NOT NULL, k TEXT NOT NULL, v TEXT, seq INTEGER NOT NULL, PRIMARY KEY (vault, k));
-      CREATE INDEX IF NOT EXISTS records_seq ON records (vault, seq);
-      CREATE TABLE IF NOT EXISTS counters (day TEXT NOT NULL, scope TEXT NOT NULL, n INTEGER NOT NULL, PRIMARY KEY (day, scope));
-      CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, n INTEGER NOT NULL);
-      INSERT OR IGNORE INTO meta (k, n) VALUES ('seq', 0);
-      CREATE TABLE IF NOT EXISTS settings (k TEXT PRIMARY KEY, v TEXT NOT NULL);
-      CREATE TABLE IF NOT EXISTS push_subs (vault TEXT NOT NULL, device TEXT NOT NULL, sub TEXT NOT NULL, updated INTEGER NOT NULL,
-        PRIMARY KEY (vault, device));
-      CREATE TABLE IF NOT EXISTS reminders (vault TEXT NOT NULL, device TEXT NOT NULL, rid TEXT NOT NULL, at INTEGER NOT NULL,
-        payload TEXT NOT NULL, next_at INTEGER NOT NULL, repeats_left INTEGER NOT NULL, repeat_every INTEGER NOT NULL, sent INTEGER NOT NULL DEFAULT 0,
-        PRIMARY KEY (vault, device, rid));
-      CREATE INDEX IF NOT EXISTS reminders_due ON reminders (next_at);
-      CREATE TABLE IF NOT EXISTS reminder_policies (vault TEXT PRIMARY KEY, body TEXT NOT NULL);
-      CREATE TABLE IF NOT EXISTS reminder_clients (vault TEXT NOT NULL, device TEXT NOT NULL, aware INTEGER NOT NULL,
-        PRIMARY KEY (vault, device));
-      CREATE TABLE IF NOT EXISTS usage (vault TEXT NOT NULL, month TEXT NOT NULL, kind TEXT NOT NULL, calls INTEGER NOT NULL,
-        usd_micro INTEGER NOT NULL, PRIMARY KEY (vault, month, kind));
-      CREATE TABLE IF NOT EXISTS spend_day (day TEXT PRIMARY KEY, usd_micro INTEGER NOT NULL);
-      CREATE TABLE IF NOT EXISTS pairs (pid TEXT PRIMARY KEY, blob TEXT NOT NULL, expires INTEGER NOT NULL);
-      CREATE TABLE IF NOT EXISTS acks (vault TEXT NOT NULL, rid TEXT NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (vault, rid));
-      CREATE TABLE IF NOT EXISTS device_tokens (h TEXT PRIMARY KEY, created INTEGER NOT NULL);
-      CREATE TABLE IF NOT EXISTS concierge_log (id TEXT PRIMARY KEY, vault TEXT NOT NULL, ts INTEGER NOT NULL, scenario TEXT NOT NULL,
-        record TEXT NOT NULL, outcome TEXT, edit TEXT);
-      CREATE INDEX IF NOT EXISTS concierge_log_vault ON concierge_log (vault, ts);
-      CREATE TABLE IF NOT EXISTS pushed (vault TEXT NOT NULL, rid TEXT NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (vault, rid));
-      CREATE TABLE IF NOT EXISTS vault_weeks (vault TEXT NOT NULL, week TEXT NOT NULL, PRIMARY KEY (vault, week));
-      CREATE TABLE IF NOT EXISTS pilot_members (pid TEXT PRIMARY KEY, secret_hash TEXT NOT NULL, joined TEXT NOT NULL);
-      CREATE TABLE IF NOT EXISTS pilot_weeks (pid TEXT NOT NULL, week TEXT NOT NULL, kind TEXT NOT NULL, src TEXT, body TEXT NOT NULL,
-        PRIMARY KEY (pid, week, kind));
-      CREATE TABLE IF NOT EXISTS pilot_sources (code TEXT PRIMARY KEY, label TEXT NOT NULL, issued TEXT NOT NULL);
-    `);
+    // Connection settings only. The schema belongs to the migrations (src/db/migrations); see `Store.migrated`.
+    try { this.db.exec('PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 5000;'); } catch (e) { this.db.close(); throw e; }
   }
 
   vaultAuth(id: string): string | undefined {

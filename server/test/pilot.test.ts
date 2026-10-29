@@ -10,7 +10,7 @@ const NOW = new Date('2026-11-04T10:00:00Z'); // Wednesday of 2026-W45
 const IP = '203.0.113.77';
 
 function setup(now = NOW) {
-  const store = new Store(':memory:');
+  const store = Store.migrated(':memory:');
   let at = now;
   const app = createApp({ store, origins: [], now: () => at });
   const call = (m: string, path: string, auth?: string, body?: unknown) => app.request(path, { method: m,
@@ -137,7 +137,7 @@ describe('pilot (D119)', () => {
   });
 
   it('nightly: records after 12 months go, and a member with nothing left', () => {
-    const store = new Store(':memory:');
+    const store = Store.migrated(':memory:');
     store.joinPilot('p_aaaaaaaaaa', 'h', '2025-W40');
     store.putPilotWeek('p_aaaaaaaaaa', '2025-W41', 'week', null, '{}');
     store.joinPilot('p_bbbbbbbbbb', 'h', '2026-W40');
@@ -164,7 +164,7 @@ describe('week keys', () => {
 
 describe('stats:pilot', () => {
   it('20 made-up participants: the summary table; a code of 4 is not shown on its own', () => {
-    const store = new Store(':memory:');
+    const store = Store.migrated(':memory:');
     store.putPilotSource('ENDO-01', 'Ендокринолог, клініка 1', '2026-10-01');
     store.putPilotSource('CARD-02', 'Кардіолог, клініка 2', '2026-10-01');
     for (let d = 0; d < 30; d += 1) store.bump('qr:ENDO-01', 1, new Date(Date.UTC(2026, 9, 26 + (d % 5))));
@@ -196,7 +196,7 @@ describe('stats:pilot', () => {
 
 describe('stats:ops', () => {
   it('new vaults, the weeks online, returns, reminders that came and the reactions to them', async () => {
-    const store = new Store(':memory:');
+    const store = Store.migrated(':memory:');
     const hash = (s: string) => createHash('sha256').update(s).digest('hex');
     const ids = ['a', 'b', 'c'].map((x) => x.repeat(32));
     for (const id of ids) store.createVault(id, hash('k'), new Date('2026-10-27T09:00:00Z')); // W44

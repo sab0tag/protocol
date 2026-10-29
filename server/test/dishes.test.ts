@@ -10,7 +10,7 @@ const dish = (key: string, o: Partial<BatchResult> = {}): BatchResult => ({ key,
   items: [{ said: 'гречка', base: 'Гречка варена', grams: 150, amountSaid: true, kcal: 110, protein: 4, fat: 1, carbs: 21, tags: [], allergens: [] }], ...o });
 
 function setup(reader: DishesReader, limits = DEFAULT_LIMITS) {
-  const store = new Store(':memory:');
+  const store = Store.migrated(':memory:');
   const app = createApp({ store, origins: [], dishes: reader, limits });
   const call = (body: unknown) => app.request(`/v1/vaults/${VAULT}/dishes`, { method: 'POST',
     headers: { Authorization: `Bearer ${AUTH}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });

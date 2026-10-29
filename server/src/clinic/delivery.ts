@@ -2,7 +2,7 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import type { DatabaseSync } from 'node:sqlite';
 import { ClinicError, type Actor, type ClinicDirectory } from './directory.ts';
 import { CarePlanV1 } from './carePlan.ts';
-import { immediate } from './tx.ts';
+import { immediate } from '../db/tx.ts';
 
 const hash = (s: string) => createHash('sha256').update(s).digest('hex');
 export const DEFAULT_TTL_MS = 24 * 60 * 60 * 1000;
@@ -38,12 +38,7 @@ export class PlanDelivery {
     this.dir = dir;
     this.now = now;
     this.fault = fault;
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS plan_delivery (id TEXT PRIMARY KEY, org TEXT NOT NULL, issued_by TEXT NOT NULL,
-        code_hash TEXT NOT NULL UNIQUE, plan TEXT, plan_hash TEXT NOT NULL, expires INTEGER NOT NULL,
-        status TEXT NOT NULL DEFAULT 'pending', created INTEGER NOT NULL);
-      CREATE INDEX IF NOT EXISTS plan_delivery_org ON plan_delivery (org, id);
-    `);
+    // tables: src/db/migrations (0001_baseline); constructors never change the schema
   }
 
   /** The doctor must confirm the patient's consent; the plan must belong to the doctor's own organization. */

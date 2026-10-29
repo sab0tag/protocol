@@ -4,7 +4,7 @@ import type { PhotoResult, Recognizer } from '../src/photo.ts';
 import { Store } from '../src/store.ts';
 import { ClinicDirectory } from '../src/clinic/directory.ts';
 import { PlanDelivery } from '../src/clinic/delivery.ts';
-import { DatabaseBusy } from '../src/clinic/tx.ts';
+import { DatabaseBusy } from '../src/db/tx.ts';
 
 const VAULT = 'a'.repeat(32);
 const AUTH = 'k'.repeat(43);
@@ -13,7 +13,7 @@ const RESULT: PhotoResult = { items: [{ name: 'яйце варене', match: '�
   kcal: 155, protein: 13, fat: 11, carbs: 1, confidence: 'high' }], note: null };
 
 function setup(over: { recognize?: Recognizer; limits?: Partial<typeof DEFAULT_LIMITS> } = {}) {
-  const store = new Store(':memory:');
+  const store = Store.migrated(':memory:');
   const app = createApp({ store, origins: ['https://protocol.test'], recognize: over.recognize, limits: { ...DEFAULT_LIMITS, ...over.limits } });
   const call = (method: string, path: string, body?: unknown, auth = AUTH, ip = '1.1.1.1') => app.request(path, {
     method, headers: { Authorization: `Bearer ${auth}`, 'Content-Type': 'application/json', 'X-Forwarded-For': ip },
@@ -131,7 +131,7 @@ describe('menu', () => {
   const MENU = { meals: [{ title: 'Сніданок' as const, time: '08:00', items: [{ name: 'Яйце варене', grams: 100, count: 2 }] }], tips: ['Зваріть яйця звечора'] };
 
   it('passes cleaned input to the maker and returns its menu', async () => {
-    const store = new Store(':memory:');
+    const store = Store.migrated(':memory:');
     let seen: unknown;
     const app = createApp({ store, origins: [], menu: async (input) => { seen = input; return { result: MENU }; } });
     const call = (body: unknown) => app.request(`/v1/vaults/${VAULT}/menu`, { method: 'POST',
@@ -156,7 +156,7 @@ describe('menu', () => {
 
 describe('label (D45)', () => {
   it('a package photo → per 100 g; counted with photos; off without a key', async () => {
-    const store = new Store(':memory:');
+    const store = Store.migrated(':memory:');
     const LABEL = { readable: true, name: 'Йогурт грецький 2 %', per100g: { kcal: 73, protein: 9.5, fat: 2, carbs: 3.9, calciumMg: null }, servingG: 140, note: null };
     const app = createApp({ store, origins: [], label: async () => ({ result: LABEL, usage: { model: 'claude-opus-5-5', input: 1500, output: 200 } }),
       limits: { ...DEFAULT_LIMITS, photosPerVaultPerDay: 1 } });
@@ -165,7 +165,7 @@ describe('label (D45)', () => {
     const r = await app.request(`/v1/vaults/${VAULT}/label`, { method: 'POST', headers: H, body: JSON.stringify({ image: JPEG }) });
     expect(await r.json()).toEqual(LABEL);
     expect((await app.request(`/v1/vaults/${VAULT}/label`, { method: 'POST', headers: H, body: JSON.stringify({ image: JPEG }) })).status).toBe(429);
-    const off = createApp({ store: new Store(':memory:'), origins: [] });
+    const off = createApp({ store: Store.migrated(':memory:'), origins: [] });
     await off.request(`/v1/vaults/${VAULT}`, { method: 'PUT', headers: H });
     expect((await off.request(`/v1/vaults/${VAULT}/label`, { method: 'POST', headers: H, body: JSON.stringify({ image: JPEG }) })).status).toBe(503);
   });
@@ -176,7 +176,7 @@ describe('workout (D63)', () => {
   const EX = (id: string, level = 1) => ({ id, name: id, level, pattern: 'squat', unilateral: false, timed: false });
 
   it('passes cleaned input to the maker; needs 3+ exercises; off without a key', async () => {
-    const store = new Store(':memory:');
+    const store = Store.migrated(':memory:');
     let seen: unknown;
     const app = createApp({ store, origins: [], workout: async (input) => { seen = input; return { result: RESULT }; } });
     const call = (body: unknown) => app.request(`/v1/vaults/${VAULT}/workout`, { method: 'POST',
@@ -198,7 +198,7 @@ describe('workout (D63)', () => {
 
 describe('labs (D68)', () => {
   it('a results form → values; the names known go along; counted with photos; off without a key', async () => {
-    const store = new Store(':memory:');
+    const store = Store.migrated(':memory:');
     let names: string[] = [];
     const RES = { readable: true, date: '2026-10-10', items: [{ name: 'Феритин', value: 310, unit: 'нг/мл', reference: '30–400' }], note: null };
     const app = createApp({ store, origins: [], labs: async (_img, n) => { names = n; return { result: RES }; },
@@ -211,7 +211,7 @@ describe('labs (D68)', () => {
     expect(await r.json()).toEqual(RES);
     expect(names).toEqual(['Феритин']);
     expect((await call({ image: JPEG })).status).toBe(429);
-    const off = createApp({ store: new Store(':memory:'), origins: [] });
+    const off = createApp({ store: Store.migrated(':memory:'), origins: [] });
     await off.request(`/v1/vaults/${VAULT}`, { method: 'PUT', headers: { Authorization: `Bearer ${AUTH}` } });
     expect((await off.request(`/v1/vaults/${VAULT}/labs`, { method: 'POST', headers: { Authorization: `Bearer ${AUTH}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ image: JPEG }) })).status).toBe(503);
@@ -220,7 +220,7 @@ describe('labs (D68)', () => {
 
 describe('a doctor’s conclusion (D80)', () => {
   it('a photo → a draft of the plan; counted with photos; off without a key', async () => {
-    const store = new Store(':memory:');
+    const store = Store.migrated(':memory:');
     const RES = { readable: true, date: '2026-10-12', doctor: 'Ендокринолог', note: null, tests: ['Глюкоза натще'], nextVisit: '2026-12-10',
       constraints: [{ tag: 'glycemic', title: 'Предіабет', reason: 'Без солодкого', allergens: [] }],
       prescriptions: [{ kind: 'supplement', title: 'Вітамін D3', dose: '2000 МО', times: [], frequency: '1 раз на день', withFood: true }],
@@ -234,7 +234,7 @@ describe('a doctor’s conclusion (D80)', () => {
     expect(r.status).toBe(200);
     expect(await r.json()).toEqual(RES);
     expect((await call({ image: JPEG })).status).toBe(429);
-    const off = createApp({ store: new Store(':memory:'), origins: [] });
+    const off = createApp({ store: Store.migrated(':memory:'), origins: [] });
     await off.request(`/v1/vaults/${VAULT}`, { method: 'PUT', headers: { Authorization: `Bearer ${AUTH}` } });
     expect((await off.request(`/v1/vaults/${VAULT}/conclusion`, { method: 'POST', headers: { Authorization: `Bearer ${AUTH}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ image: JPEG }) })).status).toBe(503);
@@ -243,7 +243,7 @@ describe('a doctor’s conclusion (D80)', () => {
 
 describe('a medicine package (D89)', () => {
   it('a photo → name and strength; counted with photos; off without a key', async () => {
-    const store = new Store(':memory:');
+    const store = Store.migrated(':memory:');
     const RES = { readable: true, name: 'Нурофєн Форте', inn: 'ібупрофен', strength: '400 мг', form: 'таблетки', note: null };
     const app = createApp({ store, origins: [], medbox: async () => ({ result: RES }), limits: { ...DEFAULT_LIMITS, photosPerVaultPerDay: 1 } });
     const call = (body: unknown) => app.request(`/v1/vaults/${VAULT}/medbox`, { method: 'POST',
@@ -253,7 +253,7 @@ describe('a medicine package (D89)', () => {
     expect(r.status).toBe(200);
     expect(await r.json()).toEqual(RES);
     expect((await call({ image: JPEG })).status).toBe(429);
-    const off = createApp({ store: new Store(':memory:'), origins: [] });
+    const off = createApp({ store: Store.migrated(':memory:'), origins: [] });
     await off.request(`/v1/vaults/${VAULT}`, { method: 'PUT', headers: { Authorization: `Bearer ${AUTH}` } });
     expect((await off.request(`/v1/vaults/${VAULT}/medbox`, { method: 'POST', headers: { Authorization: `Bearer ${AUTH}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ image: JPEG }) })).status).toBe(503);
@@ -263,7 +263,7 @@ describe('a medicine package (D89)', () => {
 describe('the concierge, scenario 1, and its log (D91)', () => {
   const names = ['Пиріжок з капустою печений', 'Пиріжок з картоплею', 'Вареники з картоплею', 'Чай без цукру'];
   const setup = (log = true) => {
-    const store = new Store(':memory:');
+    const store = Store.migrated(':memory:');
     let asked = '';
     const app = createApp({ store, origins: [], conciergeModel: 'test-model',
       notFound: async (text) => { asked = text; return { result: { candidates: ['Пиріжок з капустою печений', 'Вигадана страва', 'Пиріжок з картоплею', 'Вареники з картоплею', 'Чай без цукру'] } }; } });
@@ -296,7 +296,7 @@ describe('the concierge, scenario 1, and its log (D91)', () => {
     const { tmpdir } = await import('node:os');
     expect(scrubNames('бабусин пиріжок від Олени. Олена пекла з ЩД')).toBe('бабусин пиріжок від [ім’я]. Олена пекла з ЩД');
     expect(isoWeek(new Date('2026-10-18T12:00:00Z')).slice(0, 2)).toEqual([2026, 42]);
-    const store = new Store(':memory:');
+    const store = Store.migrated(':memory:');
     const tuesday = Date.parse('2026-10-13T10:00:00Z');
     store.logConcierge('c-1', VAULT, tuesday, 'not_found', { id: 'c-1', input: 'пиріжок від Олени', user: 'x' });
     store.logConcierge('c-old', VAULT, tuesday - 40 * 86_400_000, 'not_found', { id: 'c-old', input: 'старе' });
@@ -313,14 +313,14 @@ describe('the concierge, scenario 1, and its log (D91)', () => {
 
 describe('security review (D94)', () => {
   it('the per-IP limit counts the address the proxy saw, not one the client prepended', async () => {
-    const store = new Store(':memory:');
+    const store = Store.migrated(':memory:');
     const app = createApp({ store, origins: [], limits: { ...DEFAULT_LIMITS, vaultsPerIpPerDay: 1 } });
     const put = (vault: string, xff: string) => app.request(`/v1/vaults/${vault}`, { method: 'PUT', headers: { Authorization: `Bearer ${AUTH}`, 'X-Forwarded-For': xff } });
     expect((await put('a'.repeat(32), '1.1.1.1, 203.0.113.9')).status).toBe(201);
     expect((await put('b'.repeat(32), '9.9.9.9, 203.0.113.9')).status).toBe(429); // same real address, a different prefix
   });
   it('text AI has a ceiling for the whole server, across vaults', async () => {
-    const store = new Store(':memory:');
+    const store = Store.migrated(':memory:');
     const app = createApp({ store, origins: [], limits: { ...DEFAULT_LIMITS, aiPerDay: 1, vaultsPerIpPerDay: 10 },
       notFound: async () => ({ result: { candidates: [] } }) });
     const ask = async (vault: string) => {
@@ -335,7 +335,7 @@ describe('security review (D94)', () => {
 
 describe('step 0 without sync: a device token (D101)', () => {
   it('a token for a device, its hash kept; a conclusion of several pages read with it; a wrong one refused; a few tokens an address', async () => {
-    const store = new Store(':memory:');
+    const store = Store.migrated(':memory:');
     let pages = 0;
     const app = createApp({ store, origins: [], conclusion: async (imgs) => { pages = imgs.length; return { result: { readable: true } as never }; },
       limits: { ...DEFAULT_LIMITS, deviceTokensPerIpPerDay: 2 } });
@@ -357,7 +357,7 @@ describe('step 0 without sync: a device token (D101)', () => {
 
 describe('a dish described in words (D110)', () => {
   it('read for a device without sync, the base names passed on; empty text refused; its own daily limit', async () => {
-    const store = new Store(':memory:');
+    const store = Store.migrated(':memory:');
     let got: { text: string; foods: string[] } | undefined;
     const app = createApp({ store, origins: [], dish: async (x) => { got = x; return { result: { readable: true, name: 'Рол', portions: 1, items: [], note: '' } }; },
       limits: { ...DEFAULT_LIMITS, dishesPerDay: 2 } });
@@ -374,7 +374,7 @@ describe('a dish described in words (D110)', () => {
 
 describe('the assistant’s chat (D117)', () => {
   it('without sync by the device token; a sentence with a number and a name not in the base never leave the server', async () => {
-    const store = new Store(':memory:');
+    const store = Store.migrated(':memory:');
     let got: { text: string; history: unknown[]; names: string[] } | undefined;
     const app = createApp({ store, origins: [], chat: async (x) => { got = x;
       return { result: { topic: 'food', text: 'Добре підійде омлет. У ньому близько 20 г білка! Або йогурт.', items: [{ name: 'Омлет з 2 яєць', grams: 150 }, { name: 'Протеїновий батончик', grams: 60 }] } }; } });
@@ -391,7 +391,7 @@ describe('the assistant’s chat (D117)', () => {
 describe('AI cost control', () => {
   const MENU = { meals: [{ title: 'Сніданок' as const, time: '08:00', items: [{ name: 'Яйце варене', grams: 100, count: 2 }] }], tips: [] };
   const rig = (over: { limits?: Partial<typeof DEFAULT_LIMITS>; disabledAi?: string[]; cost?: number } = {}) => {
-    const store = new Store(':memory:');
+    const store = Store.migrated(':memory:');
     let calls = 0;
     const usage = { model: 'claude-opus-5', input: (over.cost ?? 1) * 1_000_000 / 5, output: 0 };
     const app = createApp({ store, origins: [], disabledAi: over.disabledAi, limits: { ...DEFAULT_LIMITS, ...over.limits },
@@ -436,7 +436,7 @@ describe('AI cost control', () => {
 
 describe('clinic plan redemption', () => {
   const rigPlan = () => {
-    const store = new Store(':memory:');
+    const store = Store.migrated(':memory:');
     const dir = new ClinicDirectory(store.database);
     const planDelivery = new PlanDelivery(store.database, dir);
     const org = dir.createOrganization('Клініка', 'Адмін');
@@ -471,7 +471,7 @@ describe('clinic plan redemption', () => {
     }
   });
   it('a busy database answers 503 database_busy with Retry-After, never 500', async () => {
-    const store = new Store(':memory:');
+    const store = Store.migrated(':memory:');
     const busyDelivery = { redeem: () => { throw new DatabaseBusy(); } } as unknown as PlanDelivery;
     const app = createApp({ store, origins: [], planDelivery: busyDelivery });
     const r = await app.request('/v1/clinic/plans/redeem', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: 'x'.repeat(43) }) });
@@ -487,7 +487,7 @@ describe('clinic plan redemption', () => {
     expect((await redeem('z'.repeat(43), '9.9.9.9')).status).toBe(429);
   });
   it('is off without clinic support', async () => {
-    const app = createApp({ store: new Store(':memory:'), origins: [] });
+    const app = createApp({ store: Store.migrated(':memory:'), origins: [] });
     const r = await app.request('/v1/clinic/plans/redeem', { method: 'POST', body: '{}' });
     expect(r.status).toBe(503);
   });

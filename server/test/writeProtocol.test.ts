@@ -13,7 +13,7 @@ const T0 = Date.parse('2026-10-27T12:00:00Z');
 const resources: Store[] = [], dirs: string[] = [];
 afterEach(() => { for (const s of resources.splice(0)) s.close(); for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true }); });
 const setup = (path = ':memory:') => {
-  const store = new Store(path); resources.push(store);
+  const store = Store.migrated(path); resources.push(store);
   const app = createApp({ store, origins: [], now: () => new Date(T0) });
   const call = (method: string, suffix: string, body?: unknown, vault = VAULT, auth = AUTH) => app.request(`/v1/vaults/${vault}${suffix}`, {
     method, headers: { Authorization: `Bearer ${auth}`, 'Content-Type': 'application/json' }, ...(body === undefined ? {} : { body: JSON.stringify(body) }),

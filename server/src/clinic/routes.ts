@@ -3,7 +3,7 @@ import { bodyLimit } from 'hono/body-limit';
 import { ClinicError, type Actor, type ClinicDirectory } from './directory.ts';
 import { isRole } from './roles.ts';
 import type { PlanDelivery } from './delivery.ts';
-import { DatabaseBusy, isBusy } from './tx.ts';
+import { DatabaseBusy, isBusy } from '../db/tx.ts';
 
 const STATUS: Record<ClinicError['code'], 400 | 401 | 403 | 404 | 409> = {
   unauthenticated: 401, forbidden: 403, not_found: 404, last_admin: 409, bad_request: 400,

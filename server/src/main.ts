@@ -20,7 +20,16 @@ import { tick, vapidKeys, webPushSender } from './push.ts';
 import { Store } from './store.ts';
 
 const env = process.env;
-const store = new Store(env.DB_PATH ?? './data/protocol.db');
+// Migrations run here, before anything is served (ACCESS-00-M). A database this build cannot bring to its latest
+// schema — newer, altered history, unrecognized, a failed step — stops the process: nothing serves a half-updated schema.
+const store = (() => {
+  try {
+    return Store.migrated(env.DB_PATH ?? './data/protocol.db');
+  } catch (e) {
+    console.error(`database migration refused: ${(e as Error).message}`);
+    process.exit(1);
+  }
+})();
 const effort = (env.PHOTO_EFFORT ?? 'low') as 'low' | 'medium' | 'high';
 const backups = env.BACKUP_DIR ?? '/backups';
 const vapid = vapidKeys(store, env);
