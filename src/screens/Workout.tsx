@@ -10,7 +10,7 @@ import { db } from '../data/db';
 import { usePlan, useWorkouts } from '../data/queries';
 import { atLocal, newId, todayISO } from '../domain/dates';
 import type { Workout as W, WorkoutExercise } from '../domain/types';
-import { blankExercise, EQUIPMENT, pressHint, programmeWeek, startingSet, workoutDay } from '../domain/workouts';
+import { blankExercise, EQUIPMENT, plannedPerSet, pressHint, programmeWeek, startingSet, timedExercise, workoutDay, workoutTally } from '../domain/workouts';
 import { EXERCISES, exerciseOf, type Exercise } from '../data/exercises';
 import { adviceFor, lastNumbers, motivation } from '../domain/progression';
 import { ExerciseCard, LevelBadge } from '../components/ExerciseCard';
@@ -44,7 +44,7 @@ export function Workout() {
     setAiAdvice(''); // a new day — the last day's advice is not about it
     const last = workouts.filter((w) => w.date < date).at(-1);
     const start = startingSet(last, last && first ? programmeWeek(first, last.date) : week, week); // D60
-    const base = existing ?? { id: newId(), date, durationMin: 30, equipment: EQUIPMENT, exercises: start.map(blankExercise) };
+    const base = existing ?? { id: newId(), date, equipment: EQUIPMENT, exercises: start.map(blankExercise) }; // D141: no minutes until typed
     base0.current = JSON.stringify(base);
     const k = kept<{ draft: W; advice: string }>(`workout:${date}`); // D87: sets typed before a locked phone reloaded the page
     setDraft(k?.draft ?? base);
@@ -65,6 +65,7 @@ export function Workout() {
 
   if (!workouts || !draft) return <Loading />;
   const activeExercise = Math.min(activeAt, Math.max(0, draft.exercises.length - 1)); // an AI draft may bring fewer exercises
+  const tally = workoutTally(draft.exercises); // D141: plan against fact
   const schedule = workoutDay(plan, workouts.filter((w) => w.date !== date), date);
   const add = (e: Exercise) => { setDraft({ ...draft, exercises: [...draft.exercises, blankExercise(e)] }); setPicking(null); };
   const replace = (i: number, e: Exercise) => { setDraft({ ...draft, exercises: draft.exercises.map((x, j) => (j === i ? blankExercise(e) : x)) }); setPicking(null); };
@@ -108,9 +109,11 @@ export function Workout() {
         </div>
         <div className="grid grid-cols-3 gap-2">
           <div className="rounded-2xl bg-bg p-3"><Dumbbell size={18} className="mb-2 text-accent" aria-hidden /><p className="text-xl font-semibold tabular">{draft.exercises.length}</p><p className="text-xs text-muted">Вправ</p></div>
-          <div className="rounded-2xl bg-bg p-3"><Check size={18} className="mb-2 text-accent" aria-hidden /><p className="text-xl font-semibold tabular">{draft.exercises.reduce((n, ex) => n + ex.sets.length, 0)}</p><p className="text-xs text-muted">{existing ? 'Підходів у записі' : 'Підходів у плані'}</p></div>
-          <div className="rounded-2xl bg-bg p-3"><Clock3 size={18} className="mb-2 text-accent" aria-hidden /><p className="text-xl font-semibold tabular">{existing ? existing.durationMin : '—'}</p><p className="text-xs text-muted">{existing ? 'Записано, хв' : 'Хвилин — після запису'}</p></div>
+          <div className="rounded-2xl bg-bg p-3"><Check size={18} className="mb-2 text-accent" aria-hidden /><p className="whitespace-nowrap text-xl font-semibold tabular">{tally.done}<span className="text-sm font-normal text-muted">{L.setsOf(tally.planned)}</span></p><p className="text-xs text-muted">{existing ? L.setsDone : L.setsFilled}</p></div>
+          <div className="rounded-2xl bg-bg p-3"><Clock3 size={18} className="mb-2 text-accent" aria-hidden /><p className="text-xl font-semibold tabular">{existing?.durationMin ?? '—'}</p><p className="text-xs text-muted">{!existing ? L.minutesLater : existing.durationMin != null ? L.minutesSaved : L.minutesNone}</p></div>
         </div>
+        {existing && (() => { const saved = workoutTally(existing.exercises); // the record as stored, not the edits on screen
+          return <p className="text-sm font-medium">{saved.done ? L.fact(saved.reps, saved.seconds) : L.noNumbers}</p>; })()}
         <button type="button" onClick={() => { exercisesHeading.current?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth', block: 'start' }); exercisesHeading.current?.focus({ preventScroll: true }); }} className="flex min-h-tap items-center justify-center rounded-xl bg-accent px-4 font-semibold text-surface">{existing ? 'Переглянути вправи' : 'Перейти до вправ'}</button>
       </section>
 
@@ -163,10 +166,12 @@ export function Workout() {
       )}
 
       <h2 ref={exercisesHeading} tabIndex={-1} id="workout-exercises" className="scroll-mt-6 text-lg font-semibold">Вправи тренування</h2>
+      <p className="-mt-2 text-sm text-muted">{L.planHint}</p>
       {draft.exercises.map((ex, i) => {
         if (focused && i !== activeExercise) return null;
         const lib = exerciseOf(ex);
-        const timed = lib?.timed ?? ex.name === 'Планка';
+        const timed = timedExercise(ex);
+        const perSet = plannedPerSet(ex.target);
         const hint = pressHint(ex);
         const rows: number[][] = [];
         ex.sets.forEach((s, j) => { const k = s.side === 'L' ? rows.length - 1 : rows.length; if (s.side === 'L' && k >= 0) rows[k]!.push(j); else rows.push([j]); });
@@ -183,7 +188,7 @@ export function Workout() {
               <button type="button" onClick={() => remove(i)} aria-label={`${E.remove}: ${ex.name}`}
                 className="flex min-h-tap min-w-tap items-center justify-center text-muted"><X size={18} aria-hidden /></button>
             </div>
-            <p className="mb-2 text-sm text-muted">{ex.target}</p>
+            <p className="mb-2 text-sm text-muted">{L.plan}<span>{ex.target}</span></p>
             {lib && !existing && (() => { // D61: the last numbers and what they suggest — the person decides
               const { last, advice: a } = adviceFor(lib, workouts, date);
               if (!last) return null;
@@ -215,7 +220,7 @@ export function Workout() {
                     return (
                       <label key={j} className="flex flex-1 items-center gap-1">
                         {s.side && <span className="w-4 text-sm font-semibold">{s.side === 'R' ? L.right : L.left}</span>}
-                        <input type="number" inputMode="numeric" min={0} aria-label={label}
+                        <input type="number" inputMode="numeric" min={0} aria-label={label} placeholder={perSet}
                           value={(timed ? s.seconds : s.reps) ?? ''}
                           onChange={(e) => {
                             const v = e.target.value === '' ? undefined : Math.max(0, Number(e.target.value));
@@ -250,8 +255,9 @@ export function Workout() {
 
       <div className="protocol-card rounded-2xl border border-line bg-surface p-3">
         <label className="block"><span className="text-sm text-muted">{L.duration}</span>
-          <input type="number" inputMode="numeric" min={0} value={draft.durationMin}
-            onChange={(e) => setDraft({ ...draft, durationMin: Math.max(0, Number(e.target.value) || 0) })}
+          <input type="number" inputMode="numeric" min={0} value={draft.durationMin ?? ''}
+            onChange={(e) => { const { durationMin: _, ...rest } = draft; // D141: an emptied field is no duration, not 0
+              setDraft(e.target.value === '' ? rest : { ...rest, durationMin: Math.max(0, Math.round(Number(e.target.value)) || 0) }); }}
             className="mt-1 block min-h-tap w-32 rounded-xl border border-line bg-bg px-3" /></label>
         <p className="mb-2 mt-3 text-sm text-muted">{L.feeling}</p>
         <div className="flex flex-wrap gap-2" role="group" aria-label={L.feeling}>

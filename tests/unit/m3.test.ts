@@ -3,7 +3,7 @@ import { FOODS } from '../../src/data/foods';
 import { examplePlan } from '../../src/data/seed.example';
 import { buildChecklist } from '../../src/domain/checklist';
 import type { DayEntry, Plan, Workout } from '../../src/domain/types';
-import { blankExercise, pressHint, programme, programmeWeek, workoutDay } from '../../src/domain/workouts';
+import { blankExercise, plannedPerSet, pressHint, programme, programmeWeek, workoutDay, workoutTally } from '../../src/domain/workouts';
 
 const foods = new Map(FOODS.map((f) => [f.id, f]));
 const DATE = '2026-10-04';
@@ -94,5 +94,24 @@ describe('workouts (§5.6, §9.2)', () => {
     const done = { ...press, sets: press.sets.map((s) => ({ ...s, reps: s.side === 'R' ? 8 : 6 })) };
     expect(pressHint(done)).toContain('по Л');
     expect(pressHint({ ...press, sets: press.sets.map((s) => ({ ...s, reps: 8 })) })).toBeUndefined();
+  });
+});
+
+describe('plan against fact (D141)', () => {
+  it('reads the plan of one set from the target, ranges kept', () => {
+    expect(plannedPerSet('3 × 10')).toBe('10');
+    expect(plannedPerSet('3 × 8 кожною ногою')).toBe('8');
+    expect(plannedPerSet('3 × 30-45 с')).toBe('30–45');
+    expect(plannedPerSet('як вийде')).toBeUndefined();
+  });
+  it('counts only typed sets as done; empty slots and zeros stay planned', () => {
+    const tally = workoutTally([
+      { exerciseId: 'goblet-squat', name: 'Гоблет-присід', target: '3 × 10', sets: [{ reps: 10 }, { reps: 8 }, {}] },
+      { exerciseId: 'row', name: 'Тяга в нахилі однією рукою', target: '3 × 10 кожною', sets: [{ side: 'R', reps: 10 }, { side: 'L', reps: 0 }] },
+      { exerciseId: 'plank', name: 'Планка', target: '2 × 30 с', sets: [{ seconds: 30 }, {}] },
+      { name: 'Планка', target: '1 × 20 с', sets: [{ seconds: 20 }] }, // an old record: known by its name
+    ]);
+    expect(tally).toEqual({ planned: 8, done: 5, reps: 28, seconds: 50 });
+    expect(workoutTally([])).toEqual({ planned: 0, done: 0, reps: 0, seconds: 0 });
   });
 });

@@ -37,6 +37,35 @@ export function blankExercise(t: ExerciseTemplate): WorkoutExercise {
   return { exerciseId: t.id, name: t.name, target: t.target, sets };
 }
 
+/** D141: the plan of one set as the target says it — «10» of «3 × 10 кожною», «30–45» of «3 × 30–45 с». */
+export function plannedPerSet(target: string): string | undefined {
+  const m = /×\s*(\d+(?:\s*[–-]\s*\d+)?)/.exec(target);
+  return m?.[1]!.replace(/\s*[–-]\s*/, '–');
+}
+
+/** Held for seconds, not counted in reps; an old record without a library id is known by its name. */
+export const timedExercise = (ex: WorkoutExercise): boolean => exerciseOf(ex)?.timed ?? ex.name === 'Планка';
+
+export interface WorkoutTally { planned: number; done: number; reps: number; seconds: number }
+
+/** D141: plan against fact. Every slot of the form is a planned set (each arm apart for one-arm work); a set is done
+ *  only when a number above zero was typed in it — an empty slot is not a set done, and the plan's numbers are never
+ *  counted as the person's. */
+export function workoutTally(exercises: WorkoutExercise[]): WorkoutTally {
+  const out: WorkoutTally = { planned: 0, done: 0, reps: 0, seconds: 0 };
+  for (const ex of exercises) {
+    const byTime = timedExercise(ex);
+    for (const s of ex.sets) {
+      out.planned += 1;
+      const v = byTime ? s.seconds : s.reps;
+      if (v == null || v <= 0) continue;
+      out.done += 1;
+      if (byTime) out.seconds += v; else out.reps += v;
+    }
+  }
+  return out;
+}
+
 /** «Наступного разу обома по Л»: in the press the left arm did fewer reps than the right. */
 export function pressHint(ex: WorkoutExercise): string | undefined {
   if (exerciseOf(ex)?.id !== 'press') return undefined;
