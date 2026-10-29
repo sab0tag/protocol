@@ -1,6 +1,6 @@
 import { t } from '../../src/i18n/uk';
 import { expect, test } from '@playwright/test';
-import { device, kyivOffset, seed, toast, ymd } from './helpers';
+import { device, kyivOffset, seed, syncOn, toast, ymd } from './helpers';
 
 test('«Зараз»: «Нагадати за 15 хв» hides it for 15 min; water from the dock with undo, counted in «Уже сьогодні»; a workout says it was saved', async ({ browser }) => {
   const page = await device(browser);
@@ -280,4 +280,29 @@ test('the time line tells waiting, deferred and unmarked apart — an unmarked d
     open.result.close(); return get.result.status;
   });
   expect(stored).toBe('planned'); // deferring writes no outcome
+});
+
+test('reminders say what they cannot promise, and only the schedule the server confirmed, with its horizon (ТЗ P2, D150)', async ({ browser }) => {
+  const page = await device(browser);
+  await page.goto('./#/reminders');
+  const limits = page.getByRole('region', { name: 'Що варто знати' });
+  await expect(limits).toContainText('Нагадування — допомога, а не гарантія');
+  await expect(limits).toContainText('на 30 днів уперед');
+  await syncOn(page);
+  await page.context().grantPermissions(['notifications']);
+  const setMeta = (patch: object) => page.evaluate(async (patch) => {
+    const open = indexedDB.open('protocol'); await new Promise((r) => { open.onsuccess = r; });
+    const tx = open.result.transaction('meta', 'readwrite'); const store = tx.objectStore('meta');
+    const get = store.get('sync'); await new Promise((r) => { get.onsuccess = r; });
+    store.put({ ...get.result, ...patch }); await new Promise((r) => { tx.oncomplete = r; }); open.result.close();
+  }, patch);
+  await setMeta({ reminders: { on: true } }); // as after «Увімкнути» — without a real push subscription in a headless browser
+  await page.goto('./#/reminders'); await page.reload();
+  await expect(page.getByText('Нагадування увімкнені на цьому пристрої')).toBeVisible();
+  await expect(page.getByText(/^Сервер ще не підтвердив розклад/)).toBeVisible(); // nothing claimed before the server has it
+  await setMeta({ scheduledAt: new Date('2026-10-20T09:30:00+03:00').getTime() });
+  await page.clock.setFixedTime(new Date('2026-10-29T10:00:00+02:00')); await page.reload();
+  await expect(page.getByText('Розклад отримано сервером 20.10 09:30; без нового відкриття Протоколу з інтернетом діє до 19.11.')).toBeVisible();
+  await page.clock.setFixedTime(new Date('2026-11-20T10:00:00+02:00')); await page.reload();
+  await expect(page.getByText(/^Розклад закінчився 19\.11/)).toBeVisible();
 });

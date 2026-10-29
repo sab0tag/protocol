@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { examplePlan } from '../../src/data/seed.example';
-import { dayFocus, reminders, type ReminderSettings } from '../../src/domain/reminders';
+import { dayFocus, reminders, scheduleStatus, SCHEDULE_DAYS, type ReminderSettings } from '../../src/domain/reminders';
 import type { DayEntry } from '../../src/domain/types';
 
 const plan = examplePlan(new Date('2026-10-01T12:00:00')); // Вітамін D at 08:30
@@ -166,5 +166,16 @@ describe('the evening nudge when the day is short of the plan (D116)', async () 
     expect(r.items[0]!.payload).toMatchObject({ t: 'Підказка на вечір', k: 'topup', u: './#/assistant?ask=topup' });
     expect(JSON.stringify(r.items[0]!.payload)).not.toMatch(/\d{2,}\s*(ккал|г)/);
     expect(keys(reminders({ entries: [], plan, settings: { ...OFF, topup: false }, now, days: 1, topupAt: '18:00' }))).toEqual([]);
+  });
+});
+
+describe('what the reminders screen may say about the schedule (D150)', () => {
+  it('nothing confirmed, then the server-accepted horizon, then its end', () => {
+    const now = new Date(2026, 9, 29, 10, 0);
+    expect(scheduleStatus(undefined, now)).toEqual({ kind: 'none' });
+    const sent = new Date(2026, 9, 20, 9, 30).getTime();
+    expect(scheduleStatus(sent, now)).toMatchObject({ kind: 'until', until: new Date(2026, 10, 19, 9, 30) });
+    expect(SCHEDULE_DAYS).toBe(30);
+    expect(scheduleStatus(sent, new Date(2026, 10, 19, 9, 31))).toMatchObject({ kind: 'ended' });
   });
 });
