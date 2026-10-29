@@ -73,3 +73,7 @@ startup refusal with an incomplete configuration.
 boundaries, adds clinic context selection and the specialist login UI. Credentialed CORS extends to protected clinic
 routes for the exact APP_ORIGIN; anonymous plan redemption remains non-credentialed. Invitations, approved placeholder
 linking, role-set administration and per-clinic legacy cutover still remain before real rollout.
+
+ACCESS-04-B adds verified contact evidence to sessions and requests `openid email`; only a signed boolean
+`email_verified=true` supplies the invitation address check. Existing sessions require re-authentication for that
+check. Email never selects or merges accounts. See [staff onboarding](access-04-onboarding.md).

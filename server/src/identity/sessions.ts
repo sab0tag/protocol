@@ -1,3 +1,4 @@
+import { address } from './address.ts';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import type { DatabaseSync } from 'node:sqlite';
 import { immediate } from '../db/tx.ts';
@@ -14,7 +15,7 @@ const hash = (s: string) => createHash('sha256').update(s).digest('hex');
 const secret = () => randomBytes(32).toString('base64url');
 
 export interface Session {
-  hash: string; accountId: string; issuer: string; createdAt: number; expiresAt: number; authTime: number; mfa: boolean; csrf: string;
+  hash: string; accountId: string; issuer: string; createdAt: number; expiresAt: number; authTime: number; mfa: boolean; csrf: string; verifiedEmail: string | null;
 }
 export interface Attempt { purpose: 'login' | 'step_up'; sessionHash: string | null; returnTo: string; nonce: string; codeVerifier: string; state: string }
 export type AttemptFailure = 'missing' | 'expired' | 'used' | 'mismatch';
@@ -67,7 +68,7 @@ export class Sessions {
    * gets a new active Account without any membership — it carries no clinical rights. Never merges by email or name.
    * A session already in this browser (`replacing`) is revoked: a new id after every sign-in (no fixation).
    */
-  signIn(p: { issuer: string; subject: string; authTime: number; mfa: boolean; replacing: string | null }): { token: string; session: Session } | SignInDenial {
+  signIn(p: { issuer: string; subject: string; authTime: number; mfa: boolean; verifiedEmail?: string | null; replacing: string | null }): { token: string; session: Session } | SignInDenial {
     const t = this.now();
     const out = immediate(this.db, () => {
       if (p.replacing) this.db.prepare('UPDATE sessions SET revoked_at = ? WHERE id_hash = ? AND revoked_at IS NULL').run(t, p.replacing);
@@ -84,7 +85,7 @@ export class Sessions {
         this.db.prepare('INSERT INTO external_identities (issuer, subject, account_id, created_at) VALUES (?, ?, ?, ?)').run(p.issuer, p.subject, accountId, t);
         this.audit(accountId, 'account.create', 'ok');
       }
-      const created = this.insert(accountId, p.issuer, p.authTime, p.mfa, t + ABSOLUTE_MS);
+      const created = this.insert(accountId, p.issuer, p.authTime, p.mfa, t + ABSOLUTE_MS, p.verifiedEmail);
       this.audit(accountId, 'login', p.mfa ? 'ok_mfa' : 'ok');
       return created;
     });
@@ -95,7 +96,7 @@ export class Sessions {
    * A fresh authentication for the same person: the verified identity must belong to the session's account, otherwise
    * nothing changes. The session is replaced by a new id with the new auth_time/MFA; its absolute end is kept.
    */
-  stepUp(p: { sessionHash: string; issuer: string; subject: string; authTime: number; mfa: boolean }): { token: string; session: Session } | SignInDenial {
+  stepUp(p: { sessionHash: string; issuer: string; subject: string; authTime: number; mfa: boolean; verifiedEmail?: string | null }): { token: string; session: Session } | SignInDenial {
     const t = this.now();
     return immediate(this.db, () => {
       const s = this.db.prepare('SELECT account_id, expires_at FROM sessions WHERE id_hash = ? AND revoked_at IS NULL AND expires_at > ?')
@@ -106,7 +107,7 @@ export class Sessions {
       if (!owner || owner.id !== s.account_id) { this.audit(s.account_id, 'step_up', 'account_mismatch'); return 'account_mismatch' as const; }
       if (owner.status !== 'active') { this.audit(owner.id, 'step_up', 'disabled'); return 'disabled' as const; }
       this.db.prepare('UPDATE sessions SET revoked_at = ? WHERE id_hash = ?').run(t, p.sessionHash);
-      const created = this.insert(owner.id, p.issuer, p.authTime, p.mfa, s.expires_at);
+      const created = this.insert(owner.id, p.issuer, p.authTime, p.mfa, s.expires_at, p.verifiedEmail);
       this.audit(owner.id, 'step_up', p.mfa ? 'ok_mfa' : 'ok');
       return created;
     });
@@ -135,10 +136,10 @@ export class Sessions {
     const t = this.now();
     const r = this.db.prepare(`SELECT s.*, a.status FROM sessions s JOIN accounts a ON a.id = s.account_id WHERE s.id_hash = ?`).get(hash) as
       { id_hash: string; account_id: string; issuer: string; created_at: number; last_seen_at: number; expires_at: number; revoked_at: number | null;
-        auth_time: number; mfa: number; csrf: string; status: string } | undefined;
+        auth_time: number; mfa: number; csrf: string; verified_email: string | null; status: string } | undefined;
     if (!r || r.revoked_at !== null || r.expires_at <= t || t - r.last_seen_at >= IDLE_MS || r.created_at > t || r.status !== 'active') return null;
     return { hash: r.id_hash, accountId: r.account_id, issuer: r.issuer, createdAt: r.created_at, expiresAt: r.expires_at,
-      authTime: r.auth_time, mfa: r.mfa === 1, csrf: r.csrf, lastSeen: r.last_seen_at };
+      authTime: r.auth_time, mfa: r.mfa === 1, csrf: r.csrf, verifiedEmail: r.verified_email, lastSeen: r.last_seen_at };
   }
 
   hashOf(token: string | undefined): string | null { return token && token.length <= 100 ? hash(token) : null; }
@@ -168,9 +169,9 @@ export class Sessions {
   }
 
   /** Category-only clinical denial; the actor comes from the stored session, never the request. */
-  denied(sessionHash: string, result: string): void {
+  denied(sessionHash: string, result: string, action = 'clinic.access'): void {
     const row = this.db.prepare('SELECT account_id FROM sessions WHERE id_hash = ?').get(sessionHash);
-    this.audit(typeof row?.account_id === 'string' ? row.account_id : null, 'clinic.access', result);
+    this.audit(typeof row?.account_id === 'string' ? row.account_id : null, action, result);
   }
 
   /** Records a refused callback before any account is known. Categories only. */
@@ -184,11 +185,11 @@ export class Sessions {
     this.db.prepare('DELETE FROM auth_audit WHERE at < ?').run(t - 180 * 86_400_000);
   }
 
-  private insert(accountId: string, issuer: string, authTime: number, mfa: boolean, expiresAt: number): { token: string; session: Session } {
+  private insert(accountId: string, issuer: string, authTime: number, mfa: boolean, expiresAt: number, verifiedEmail?: string | null): { token: string; session: Session } {
     const token = secret(), csrf = secret(), t = this.now();
-    this.db.prepare(`INSERT INTO sessions (id_hash, account_id, issuer, created_at, last_seen_at, expires_at, auth_time, mfa, csrf)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(hash(token), accountId, issuer, t, t, expiresAt, authTime, mfa ? 1 : 0, csrf);
-    return { token, session: { hash: hash(token), accountId, issuer, createdAt: t, expiresAt, authTime, mfa, csrf } };
+    this.db.prepare(`INSERT INTO sessions (id_hash, account_id, issuer, created_at, last_seen_at, expires_at, auth_time, mfa, csrf, verified_email)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(hash(token), accountId, issuer, t, t, expiresAt, authTime, mfa ? 1 : 0, csrf, address(verifiedEmail));
+    return { token, session: { hash: hash(token), accountId, issuer, createdAt: t, expiresAt, authTime, mfa, csrf, verifiedEmail: address(verifiedEmail) } };
   }
 
   private audit(accountId: string | null, action: string, result: string): void {

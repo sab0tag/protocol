@@ -1,3 +1,4 @@
+import { ClinicStaffAccess } from './ClinicStaffAccess';
 import { identityEnabled, identitySession, identityLogout, identityLoginURL, type IdentitySession, type IdentityContext } from '../sync/identityApi';
 import { useEffect, useRef, useState } from 'react';
 import qrcode from 'qrcode-generator';
@@ -88,8 +89,8 @@ export function ClinicPortalScreen() {
         <>
           <p className="text-sm text-muted">{me.displayName}, {me.organizationName} · {me.role === 'admin' ? 'адміністратор' : 'лікар'}{' '}
             <button className="min-h-tap underline" onClick={() => void signOut()}>Вийти</button></p>
-          {(me.roles ?? [me.role]).includes('admin') && <Staff token={token} />}
-          {(me.roles ?? [me.role]).includes('doctor') && <Issue token={token} me={me} />}
+          {(me.roles ?? [me.role]).includes('admin') && (typeof token === 'string' ? <Staff key={me.organizationId} token={token} /> : <ClinicStaffAccess key={me.organizationId} auth={token} />)}
+          {(me.roles ?? [me.role]).includes('doctor') && <Issue key={me.organizationId} token={token} me={me} />}
         </>
       ) : null}
       {session && error && <p role="alert" className="text-sm">{error}</p>}

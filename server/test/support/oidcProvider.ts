@@ -10,6 +10,7 @@ export interface NextSignIn {
   /** seconds; `null` leaves the claim out */
   authTime?: number | null;
   email?: string;
+  emailVerified?: boolean | string;
   deny?: boolean;
   wrong?: 'nonce' | 'iss' | 'aud' | 'expired' | 'signature';
 }
@@ -69,6 +70,7 @@ export async function startIdp(clientId = 'protocol-test', clientSecret = 'test-
       if (w.amr) claims.amr = w.amr;
       if (w.authTime !== null) claims.auth_time = w.authTime ?? now;
       if (w.email) claims.email = w.email;
+      if (w.emailVerified !== undefined) claims.email_verified = w.emailVerified;
       const token = await new SignJWT(claims).setProtectedHeader({ alg: 'RS256', kid: 'k1' })
         .setIssuer(w.wrong === 'iss' ? `${issuer}/other` : issuer).setAudience(w.wrong === 'aud' ? 'someone-else' : clientId)
         .setIssuedAt(w.wrong === 'expired' ? now - 7200 : now).setExpirationTime(w.wrong === 'expired' ? now - 3600 : now + 300)

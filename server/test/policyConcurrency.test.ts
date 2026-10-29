@@ -8,8 +8,8 @@ import { PlanDelivery } from '../src/clinic/delivery.ts';
 import { Sessions } from '../src/identity/sessions.ts';
 import { Store } from '../src/store.ts';
 
-for (const operation of ['issue', 'revoke', 'add', 'role', 'deactivate', 'rotate']) {
-  it(`rechecks ${operation} authority after another connection commits account disable`, async () => {
+for (const operation of ['issue', 'revoke', 'add', 'role', 'deactivate', 'rotate', 'credential-rotation']) {
+  it(`rechecks ${operation} authority after another connection commits ${operation === 'credential-rotation' ? 'credential rotation' : 'account disable'}`, async () => {
     const folder = mkdtempSync(join(tmpdir(), 'protocol-policy-')), path = join(folder, 'db.sqlite');
     const store = Store.migrated(path), db = store.database, dir = new ClinicDirectory(db);
     let worker: Worker | undefined;
@@ -25,7 +25,7 @@ for (const operation of ['issue', 'revoke', 'add', 'role', 'deactivate', 'rotate
       const memberId = clinical ? doctor.memberId : org.adminId;
       const flags = new SharedArrayBuffer(4);
       worker = new Worker(new URL('./support/policyWorker.ts', import.meta.url), { execArgv: [], workerData: {
-        path, operation, token: clinical ? doctor.token : org.token,
+        path, operation: operation === 'credential-rotation' ? 'add' : operation, token: clinical ? doctor.token : org.token,
         target: operation === 'revoke' ? delivery.deliveryId : doctor.memberId, plan, flags,
       } });
       const messages: string[] = [], readers: ((s: string) => void)[] = [];
@@ -38,7 +38,8 @@ for (const operation of ['issue', 'revoke', 'add', 'role', 'deactivate', 'rotate
       expect(await next()).toBe('ready');
       expect(await next()).toBe('preflight'); // cached actor + outside-transaction policy already passed
       db.exec('BEGIN IMMEDIATE');
-      db.prepare("UPDATE accounts SET status = 'disabled' WHERE id = ?").run(memberId);
+      if (operation === 'credential-rotation') db.prepare('UPDATE clinic_members SET token_hash = lower(hex(randomblob(32))) WHERE id = ?').run(memberId);
+      else db.prepare("UPDATE accounts SET status = 'disabled' WHERE id = ?").run(memberId);
       const snapshot = () => ['clinic_members', 'organization_memberships', 'organization_membership_roles', 'plan_delivery', 'clinic_audit']
         .map((t) => db.prepare(`SELECT * FROM ${t} ORDER BY rowid`).all());
       const before = snapshot();

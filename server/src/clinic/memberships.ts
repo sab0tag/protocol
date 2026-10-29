@@ -17,6 +17,10 @@ export function projectLegacyMember(db: DatabaseSync, memberId: string, replaceR
   }
   const membershipId = existing?.id ?? member.id;
   // The old single-role endpoint means replacement, never an implicit admin+doctor escalation.
+  if (existing && replaceRole) {
+    const roles = db.prepare('SELECT role FROM organization_membership_roles WHERE membership_id = ?').all(membershipId);
+    if (roles.length !== 1 || roles[0]?.role !== member.role) db.prepare('UPDATE organization_memberships SET roles_version = roles_version + 1 WHERE id = ?').run(membershipId);
+  }
   if (!existing || replaceRole) {
     db.prepare('DELETE FROM organization_membership_roles WHERE membership_id = ?').run(membershipId);
     db.prepare('INSERT INTO organization_membership_roles (membership_id, role) VALUES (?, ?)').run(membershipId, member.role);

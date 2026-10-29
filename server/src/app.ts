@@ -1,3 +1,4 @@
+import type { StaffInvitations } from './clinic/invitations.ts';
 // HTTP API (SPEC.md D31, D32). A vault is created by the first device: its id and auth key are derived from the
 // sync code on the device; the server keeps only a hash of the auth key and never the code or the encryption key.
 import { createHash, timingSafeEqual } from 'node:crypto';
@@ -71,6 +72,7 @@ export interface Deps {
   backupAgeH?: () => number | null;
   backups?: { list: () => string[]; records: (name: string, vault: string) => { k: string; v: string | null; seq: number }[] | null };
   origins: string[];
+  invitations?: StaffInvitations;
   identity?: Identity; // ACCESS-03 sign-in and sessions; only with CLINIC_IDENTITY_V2=on
   limits?: Limits;
   /** Kill switch: AI kinds (e.g. 'menu', 'photo') that answer `ai_off` without calling a provider. */
@@ -138,7 +140,7 @@ export function createApp(deps: Deps) {
   const general = cors({ origin: origins, allowMethods: ['GET', 'POST', 'PUT', 'DELETE'], allowHeaders: ['Authorization', 'Content-Type'], maxAge: 86400 });
   // Session/protected clinic routes allow credentials only for the exact app origin; anonymous redeem keeps general CORS.
   app.use('*', (c, next) => (deps.identity && (isIdentityPath(c.req.path) || (c.req.path.startsWith('/v1/clinic/') && c.req.path !== '/v1/clinic/plans/redeem')) ? next() : general(c, next)));
-  if (deps.identity) mountIdentity(app, deps.identity, { allow: (c, scope, perDay) => store.take(`${scope}:${ipKey(c)}`, perDay, now()), now: () => now().getTime() });
+  if (deps.identity) mountIdentity(app, deps.identity, { invitations: deps.invitations, allow: (c, scope, perDay) => store.take(`${scope}:${ipKey(c)}`, perDay, now()), now: () => now().getTime() });
   const DEVICE = /^[0-9a-f]{32}$/;
   /** D40: the server POSTs to a subscription's endpoint — only to the browsers' own push services, never to an
    *  address someone typed (that would let anyone make this server call any host). */
@@ -824,7 +826,7 @@ export function createApp(deps: Deps) {
     }
   });
 
-  if (deps.clinic && deps.planDelivery) mountClinic(app, { dir: deps.clinic, delivery: deps.planDelivery, identity: deps.identity, allow: (c) => store.take(`clinicreq:${ipKey(c)}`, 3000, now()) });
+  if (deps.clinic && deps.planDelivery) mountClinic(app, { dir: deps.clinic, delivery: deps.planDelivery, identity: deps.identity, invitations: deps.invitations, now: () => now().getTime(), allow: (c) => store.take(`clinicreq:${ipKey(c)}`, 3000, now()) });
 
   app.delete('/v1/pilot', (c) => {
     const pid = member(c);

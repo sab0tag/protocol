@@ -1,3 +1,6 @@
+import { mutationRequest, MutationError } from '../db/mutations.ts';
+import { InvitationError, type StaffInvitations } from '../clinic/invitations.ts';
+import { bodyLimit } from 'hono/body-limit';
 import type { Context, Hono } from 'hono';
 import { getCookie, setCookie, deleteCookie } from 'hono/cookie';
 import { IdentityError } from './errors.ts';
@@ -22,10 +25,10 @@ export const isIdentityPath = (path: string) => path.startsWith('/v1/auth/') || 
  *   exact Origin plus the session's CSRF token in `X-CSRF-Token` (a custom header also forces a preflight).
  * - Every protected request re-reads the session; there is no fallback that widens access when a check fails.
  */
-export function mountIdentity(app: Hono, id: Identity, o: { allow: (c: Context, scope: string, perDay: number) => boolean; now: () => number }): void {
+export function mountIdentity(app: Hono, id: Identity, o: { allow: (c: Context, scope: string, perDay: number) => boolean; invitations?: StaffInvitations; now: () => number }): void {
   const { cfg, oidc, sessions } = id;
   const credentialed = cors({ origin: (origin) => (origin === cfg.appOrigin ? origin : null), credentials: true,
-    allowMethods: ['GET', 'POST'], allowHeaders: ['Content-Type', 'X-CSRF-Token'], maxAge: 600 });
+    allowMethods: ['GET', 'POST'], allowHeaders: ['Content-Type', 'X-CSRF-Token', 'Idempotency-Key'], maxAge: 600 });
   app.use('*', async (c, next) => {
     const path = c.req.path;
     if (isIdentityPath(path)) { c.header('Cache-Control', 'no-store'); c.header('Referrer-Policy', 'no-referrer'); }
@@ -117,11 +120,11 @@ export function mountIdentity(app: Hono, id: Identity, o: { allow: (c: Context, 
         // the browser that asked must still hold the session being stepped up
         const s = current(c);
         if (!s || s.hash !== attempt.sessionHash) { sessions.refused('step_up', 'session_changed'); return failed(c, 'no_session'); }
-        const r = sessions.stepUp({ sessionHash: s.hash, issuer: who.issuer, subject: who.subject, authTime: who.authTime, mfa });
+        const r = sessions.stepUp({ sessionHash: s.hash, issuer: who.issuer, subject: who.subject, authTime: who.authTime, mfa, verifiedEmail: who.verifiedEmail });
         if (typeof r === 'string') return failed(c, r);
         setSession(c, r.token, r.session.expiresAt);
       } else {
-        const r = sessions.signIn({ issuer: who.issuer, subject: who.subject, authTime: who.authTime, mfa, replacing: sessions.hashOf(getCookie(c, SESSION, 'host')) });
+        const r = sessions.signIn({ issuer: who.issuer, subject: who.subject, authTime: who.authTime, mfa, verifiedEmail: who.verifiedEmail, replacing: sessions.hashOf(getCookie(c, SESSION, 'host')) });
         if (typeof r === 'string') { deleteCookie(c, SESSION, { prefix: 'host', path: '/', secure: true }); return failed(c, r); }
         setSession(c, r.token, r.session.expiresAt);
       }
@@ -144,6 +147,29 @@ export function mountIdentity(app: Hono, id: Identity, o: { allow: (c: Context, 
       csrfToken: s.csrf,
     });
   });
+
+  for (const operation of ['preview', 'accept'] as const) app.post(`/v1/session/invitations/${operation}`,
+    bodyLimit({ maxSize: 1000, onError: c => c.json({ error: 'too_large' }, 413) }), async c => {
+      const stop = limited(c, 'invitation:accept', 200); if (stop) return stop;
+      let actorHash: string | undefined;
+      try {
+        const s = mutation(c, true); if (s instanceof Response) return s; if (!s) return c.json({ error: 'unauthenticated' }, 401);
+        actorHash = s.hash;
+        if (!o.invitations) throw new InvitationError('unavailable');
+        const input = await c.req.json().catch(() => null);
+        if (typeof input?.code !== 'string') throw new InvitationError('bad_request');
+        return c.json(operation === 'preview' ? o.invitations.preview(s.hash,input.code) : o.invitations.accept(s.hash,input.code,mutationRequest(c,`${s.accountId}/invitation.accept`,input,o.now())));
+      } catch (e) {
+        if (actorHash && (e instanceof InvitationError || e instanceof IdentityError)) {
+          try { sessions.denied(actorHash,e.code,`invitation.${operation}`); }
+          catch (auditError) { if (isBusy(auditError) || auditError instanceof DatabaseBusy) return busy(c,auditError); return c.json({error:'identity_unavailable'},503); }
+        }
+        if (e instanceof MutationError) return c.json({ error: e.code }, e.code === 'mutation_key_required' ? 400 : e.code === 'mutation_failed' ? 503 : 409);
+        if (e instanceof InvitationError) return c.json({ error: `invitation_${e.code}` }, e.code === 'unavailable' ? 503 : e.code === 'not_found' ? 404 : e.code === 'conflict' ? 409 : e.code === 'recipient_mismatch' ? 403 : 400);
+        if (e instanceof IdentityError) return c.json({ error: e.code }, identityStatus(e));
+        return busy(c, e);
+      }
+    });
 
   app.post('/v1/session/logout', (c) => {
     const stop = limited(c, 'session:write', 2_000);

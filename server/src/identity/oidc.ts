@@ -1,3 +1,4 @@
+import { address } from './address.ts';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import * as client from 'openid-client';
 import type { IdentityConfig } from './config.ts';
@@ -14,6 +15,7 @@ export interface VerifiedSignIn {
   /** When the person actually authenticated (ms). 0 when the provider did not say — never treated as recent. */
   authTime: number;
   amr: string[];
+  verifiedEmail: string | null;
 }
 
 const STEP_UP_MAX_AGE_S = 600; // TZ §4.2: sensitive operations need authentication not older than 10 minutes
@@ -45,7 +47,7 @@ export class Oidc {
     const config = await this.config();
     return client.buildAuthorizationUrl(config, {
       redirect_uri: this.cfg.redirectUri.href,
-      scope: 'openid',
+      scope: 'openid email',
       code_challenge: await client.calculatePKCECodeChallenge(p.codeVerifier),
       code_challenge_method: 'S256',
       state: p.state,
@@ -84,6 +86,6 @@ export class Oidc {
     if (!claims || typeof claims.sub !== 'string' || !claims.sub) throw new IdpRejected('no subject');
     const amr = Array.isArray(claims.amr) ? claims.amr.filter((x): x is string => typeof x === 'string') : [];
     const authTime = typeof claims.auth_time === 'number' ? claims.auth_time * 1000 : 0;
-    return { issuer: config.serverMetadata().issuer, subject: claims.sub, authTime, amr };
+    return { issuer: config.serverMetadata().issuer, subject: claims.sub, authTime, amr, verifiedEmail: claims.email_verified === true ? address(claims.email) : null };
   }
 }

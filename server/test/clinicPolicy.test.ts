@@ -101,7 +101,7 @@ describe('live legacy and membership authority', () => {
   it('binds exact account, membership and organization; one person does not inherit another membership authority', () => {
     const { db, policy, subject, other, doctor, org } = rig();
     db.prepare("UPDATE accounts SET status = 'active' WHERE id = ?").run(doctor.memberId);
-    db.prepare("INSERT INTO organization_memberships VALUES ('second', ?, ?, NULL, 'active', 1)").run(doctor.memberId, other.orgId);
+    db.prepare("INSERT INTO organization_memberships (id, account_id, organization_id, legacy_member_id, status, created_at) VALUES ('second', ?, ?, NULL, 'active', 1)").run(doctor.memberId, other.orgId);
     db.exec("INSERT INTO organization_membership_roles VALUES ('second', 'admin')");
     const second: PolicySubject = { kind: 'membership', accountId: doctor.memberId, membershipId: 'second', orgId: other.orgId };
     expect(() => policy.require(second, 'staff.manage', organization(other.orgId))).not.toThrow();

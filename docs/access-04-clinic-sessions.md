@@ -73,3 +73,8 @@ and context cancellation. The anonymous patient import path is exercised indepen
 Local validation on Node 24: 291 server tests, 671 client tests, both typechecks and production build; seven selected
 browser scenarios pass. Full CI is required before merge. These synthetic checks do not certify a real Auth0 tenant
 or complete ACCESS-04 onboarding.
+
+## Follow-up: ACCESS-04-B
+
+[Staff onboarding](access-04-onboarding.md) implements the remaining invitation, explicit provisional linking, role-set
+UI and per-clinic token deadline. Real tenant/mail/restore operational gates remain before rollout.
