@@ -43,7 +43,8 @@ audit are now atomic too. A denied write rolls back without clinical changes or 
 transaction is introduced into anonymous redemption or audit.
 
 The database is still version 2; existing baseline and identity migration checksums remain unchanged. Existing
-operator schema validation and last-admin rules remain. Legacy tokens stay in tab memory. The anonymous QR/link
+operator schema validation remains. Last-admin checks count only staff with usable Account and membership status;
+a disabled peer cannot justify removing the final working administrator. Legacy tokens stay in tab memory. The anonymous QR/link
 redemption contract, expiry, retry and lost-response limitations are unchanged. Account disable intentionally
 suppresses legacy login as well as membership access; re-enabling one membership cannot override account disable.
 

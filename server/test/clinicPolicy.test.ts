@@ -57,6 +57,17 @@ describe('object policy matrix', () => {
 });
 
 describe('live legacy and membership authority', () => {
+  for (const disabled of ['account', 'membership'] as const) it(`does not count an admin with a disabled ${disabled} as the remaining admin`, () => {
+    const { dir, db, admin, org } = rig();
+    const peer = dir.addStaff(admin, { displayName: 'Disabled admin', role: 'admin' });
+    if (disabled === 'account') db.prepare("UPDATE accounts SET status = 'disabled' WHERE id = ?").run(peer.memberId);
+    else db.prepare("UPDATE organization_memberships SET status = 'inactive' WHERE id = ?").run(peer.memberId);
+    const before = db.prepare('SELECT * FROM clinic_audit').all();
+    expect(() => dir.deactivate(admin, org.adminId)).toThrow('last_admin');
+    expect(() => dir.setRole(admin, org.adminId, 'doctor')).toThrow('last_admin');
+    expect(db.prepare('SELECT * FROM clinic_audit').all()).toEqual(before);
+    expect(dir.profile(admin).role).toBe('admin');
+  });
   it('uses the live legacy role, ignoring forged/cached Actor role and additive role sets', () => {
     const { dir, db, doctor, admin } = rig();
     db.prepare('INSERT INTO organization_membership_roles VALUES (?, ?)').run(doctor.memberId, 'admin');

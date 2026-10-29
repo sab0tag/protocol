@@ -164,7 +164,11 @@ export class ClinicDirectory {
   }
 
   private keepAnAdmin(orgId: string, leaving: string): void {
-    const others = this.db.prepare("SELECT COUNT(*) AS n FROM clinic_members WHERE org = ? AND role = 'admin' AND active = 1 AND id != ?").get(orgId, leaving) as { n: number };
+    const others = this.db.prepare(`SELECT COUNT(*) AS n FROM clinic_members l
+      JOIN organization_memberships m ON m.legacy_member_id = l.id AND m.organization_id = l.org
+      JOIN accounts a ON a.id = m.account_id
+      WHERE l.org = ? AND l.role = 'admin' AND l.active = 1 AND l.id != ?
+        AND m.status = 'active' AND a.status IN ('pending_link', 'active')`).get(orgId, leaving) as { n: number };
     if (others.n === 0) throw new ClinicError('last_admin');
   }
 
