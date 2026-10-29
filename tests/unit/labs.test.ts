@@ -5,7 +5,7 @@ import { labDraft, labNumber, validateLab, type LabDraft } from '../../src/domai
 import type { LabResult } from '../../src/domain/types';
 
 const today = '2026-10-28';
-const draft: LabDraft = { date: '2026-10-27', name: ' Показник ', value: '5,1234', unit: ' од. ', target: ' < 6 ' };
+const draft: LabDraft = { date: '2026-10-27', name: ' Показник ', value: '5,1234', unit: ' од. ', target: ' < 6 ', reference: ' 3,9–5,6 ' };
 
 describe('manual laboratory validation and precision', () => {
   it.each(['', ' ', 'abc', 'NaN', 'Infinity', '1e999', '0x10', '1,2,3', '5 мг', '5,'])('rejects a non-finite or incomplete number: %j', value => {
@@ -19,9 +19,13 @@ describe('manual laboratory validation and precision', () => {
     expect(validateLab({ ...draft, date }, today)).toEqual({ ok: false, errors: { date: true } });
   });
   it('trims text, accepts a real leap day and never infers a unit or target', () => {
-    expect(validateLab({ ...draft, date: '2024-02-29', unit: ' ', target: '' }, today)).toEqual({ ok: true,
+    expect(validateLab({ ...draft, date: '2024-02-29', unit: ' ', target: '', reference: ' ' }, today)).toEqual({ ok: true,
       result: { date: '2024-02-29', name: 'Показник', value: 5.1234, unit: '' } });
     expect(validateLab({ ...draft, name: ' ' }, today)).toEqual({ ok: false, errors: { name: true } });
+  });
+  it('keeps the laboratory reference apart from the doctor target (D144)', () => {
+    expect(validateLab(draft, today)).toMatchObject({ ok: true, result: { target: '< 6', reference: '3,9–5,6' } });
+    expect(labDraft({ date: draft.date, name: 'Показник', value: 1, unit: '', reference: '1–2' })).toMatchObject({ reference: '1–2', target: '' });
   });
   it('round-trips stored precision through an edit, including small values', () => {
     for (const value of [0.004, 5.123456, 1e-7]) {

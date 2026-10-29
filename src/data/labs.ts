@@ -2,7 +2,7 @@ import type { ProtocolDB } from './db';
 import type { LabResult } from '../domain/types';
 
 export type LabWrite = 'saved' | 'exists' | 'changed';
-const same = (a: LabResult, b: LabResult) => (['date', 'name', 'value', 'unit', 'target', 'demo'] as const).every(key => a[key] === b[key]);
+const same = (a: LabResult, b: LabResult) => (['date', 'name', 'value', 'unit', 'target', 'reference', 'demo'] as const).every(key => a[key] === b[key]);
 
 /** A renamed/redated result moves atomically. Never overwrite another result or a newer local/synced edit. */
 export async function writeLab(target: ProtocolDB, result: LabResult, original?: LabResult): Promise<LabWrite> {
@@ -17,6 +17,7 @@ export async function writeLab(target: ProtocolDB, result: LabResult, original?:
     if ((!original || moved) && await target.labs.get(key)) return 'exists';
     const next = { ...current, ...result };
     if (!result.target) delete next.target;
+    if (!result.reference) delete next.reference;
     await target.labs.put(next);
     if (original && moved) await target.labs.delete([original.date, original.name]);
     return 'saved';

@@ -18,7 +18,8 @@ import { Link } from 'react-router-dom';
 const L = t.progress;
 const field = 'mt-1 block min-h-tap w-full min-w-0 rounded-xl border border-line bg-bg px-3';
 const dm = (date: string) => format(parseISO(date), 'dd.MM');
-const blank = (): LabDraft => ({ date: todayISO(), name: '', value: '', unit: '', target: '' });
+const blank = (): LabDraft => ({ date: todayISO(), name: '', value: '', unit: '', target: '', reference: '' });
+const signed = (n: number) => `${n > 0 ? '+' : n < 0 ? '−' : '±'}${labNumber(Math.abs(n))}`;
 
 export function Labs() {
   const labs = useLabs();
@@ -63,6 +64,7 @@ export function Labs() {
       if (original && (original.date !== validation.result.date || original.name !== validation.result.name)) opener.current = add.current;
       const next = { ...original, ...validation.result };
       if (!validation.result.target) delete next.target;
+      if (!validation.result.reference) delete next.reference;
       toast(t.toast.lab(validation.result.name), original ? { undo: async () => {
         try {
           const result = await writeLab(db, original, next);
@@ -101,8 +103,11 @@ export function Labs() {
             <input value={lab.unit} onChange={(e) => setLab({ ...lab, unit: e.target.value })} className={field} /></label>
           <label className="col-span-2 block min-w-0 sm:col-span-1"><span className="text-sm text-muted">{L.date}</span>
             <input name="date" aria-label={L.date} type="date" required max={todayISO()} value={lab.date} onChange={(e) => setLab({ ...lab, date: e.target.value })} className={field} {...invalid('date')} />{error('date')}</label>
+          <label className="col-span-2 block min-w-0 sm:col-span-1"><span className="text-sm text-muted">{L.reference}</span>
+            <input value={lab.reference} onChange={(e) => setLab({ ...lab, reference: e.target.value })} placeholder="3,9–5,6" className={field} /></label>
           <label className="col-span-2 block min-w-0 sm:col-span-1"><span className="text-sm text-muted">{L.target}</span>
             <input value={lab.target} onChange={(e) => setLab({ ...lab, target: e.target.value })} placeholder="< 5,6" className={field} /></label>
+          <p className="col-span-2 text-xs text-muted">{L.referenceHint}</p>
           {message && <p role="alert" className="col-span-2 text-sm text-warn">{message}</p>}
           <button type="submit" className="min-h-tap rounded-xl bg-accent px-3 font-medium text-surface">{t.plan.save}</button>
           <button type="button" onClick={() => setOpen(false)} className="min-h-tap rounded-xl border border-line px-3">{t.plan.cancel}</button>
@@ -111,22 +116,22 @@ export function Labs() {
       )}
       {rows.length ? (
         <>
-        <div className="overflow-x-auto protocol-card rounded-2xl border border-line bg-surface p-3">
-          <table className="w-full text-sm tabular">
-            <thead><tr className="text-left text-muted"><th className="py-1 font-normal">{L.labName}</th><th className="text-right font-normal">{L.was}</th>
-              <th className="text-right font-normal">{L.nowCol}</th><th className="text-right font-normal">{L.target}</th></tr></thead>
-            <tbody>{rows.map((row) => (
-              <tr key={row.name} className="border-t border-line">
-                <td className="py-2">{row.name}</td>
-                <td className="text-right">{labNumber(row.was.value)} <span className="text-xs text-muted">{row.was.unit}</span><span className="block text-xs text-muted">{dm(row.was.date)}</span></td>
-                <td className="text-right font-medium">{row.now.date === row.was.date ? '—' : <>{labNumber(row.now.value)} <span className="text-xs font-normal text-muted">{row.now.unit}</span></>}
-                  {row.now.date !== row.was.date && <span className="block text-xs font-normal text-muted">{dm(row.now.date)}</span>}</td>
-                <td className="text-right">{row.target ?? '—'}</td>
-              </tr>
-            ))}</tbody>
-          </table>
-          {rows.some(row => row.was.unit !== row.now.unit) && <p className="mt-2 text-xs text-muted">{L.labUnitsDiffer}</p>}
-        </div>
+        <ul aria-label={L.labs} className="space-y-3">{rows.map((row) => ( // D144: one card per test — no table to scroll at 320 px
+          <li key={row.name} className="protocol-card rounded-2xl border border-line bg-surface p-3">
+            <div className="flex items-start justify-between gap-3">
+              <h3 className="min-w-0 break-words font-semibold">{row.name}</h3>
+              <p className="shrink-0 text-right tabular"><span className="text-xl font-semibold">{labNumber(row.now.value)}</span> <span className="text-sm text-muted">{row.now.unit}</span>
+                <span className="block text-xs text-muted">{dm(row.now.date)}</span></p>
+            </div>
+            <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
+              <dt className="text-muted">{L.previous}</dt>
+              <dd className="tabular">{row.previous ? <>{labNumber(row.previous.value)} {row.previous.unit} · {dm(row.previous.date)}
+                <span className="block text-xs text-muted">{row.change !== undefined ? L.change(signed(row.change), row.now.unit) : L.unitsOther}</span></> : L.noPrevious}</dd>
+              <dt className="text-muted">{L.reference}</dt><dd>{row.reference ?? L.notStated}</dd>
+              <dt className="text-muted">{L.target}</dt><dd>{row.target ?? L.notStated}</dd>
+            </dl>
+          </li>
+        ))}</ul>
         <details onToggle={e => setHistoryOpen(e.currentTarget.open)} className="protocol-card rounded-2xl border border-line bg-surface p-3">
           <summary className="min-h-tap cursor-pointer py-2 font-medium">{L.labHistory} · {labs.length}</summary>
           {historyOpen && <ul className="divide-y divide-line">{[...labs].sort((a, b) => b.date.localeCompare(a.date) || a.name.localeCompare(b.name)).map(result => (
