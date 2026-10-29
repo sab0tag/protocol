@@ -17,7 +17,7 @@ test('empty assistant suggestions stay beside the daily context instead of leavi
 });
 
 test('the assistant: the code answers «що добрати», the model the rest — a food failing the plan is never shown, medicines get the app’s words, a danger sign the 103 card (D117)', async ({ browser }) => {
-  const page = await device(browser); // the example plan: lactose, glycemia, oxalate; Вітамін D; no sync — the device token
+  const page = await device(browser, 'example', { sw: false }); // the example plan: lactose, glycemia, oxalate; Вітамін D; no sync — the device token
   let calls = 0, sent: { text: string; names: string[]; context: { day: { kcal: number } } } | undefined;
   await page.route('**/concierge/chat', async (r) => {
     calls++; sent = r.request().postDataJSON();
@@ -59,7 +59,7 @@ test('the assistant: the code answers «що добрати», the model the res
 });
 
 test('the assistant at its hardest (D130): despair gets the crisis card, a pressing chest the 103 card — no model, the talk cleared; a model saying «call now» is never softened; «Нова розмова»', async ({ browser }) => {
-  const page = await device(browser);
+  const page = await device(browser, 'example', { sw: false });
   const asked: { text: string; history: { text: string }[] }[] = [];
   await page.context().route('**/concierge/chat', async (r) => {
     const b = r.request().postDataJSON() as { text: string; history: { text: string }[] };
@@ -96,7 +96,7 @@ test('the assistant at its hardest (D130): despair gets the crisis card, a press
 });
 
 test('a talk kept from before D130 is cleaned on opening: its words of danger or despair are not shown and never sent (D132)', async ({ browser }) => {
-  const page = await device(browser);
+  const page = await device(browser, 'example', { sw: false });
   const today = await page.evaluate(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; });
   await page.evaluate((key) => localStorage.setItem(key, JSON.stringify({ at: Date.now(), v: [
     { id: '1', role: 'user', text: 'набридло все, не хочу більше жити' },
@@ -116,7 +116,7 @@ test('a talk kept from before D130 is cleaned on opening: its words of danger or
 });
 
 test('open, fill and send are told apart: a filled question waits in the field and nothing goes to the model (ТЗ Assistant 2.0, D143)', async ({ browser }) => {
-  const page = await device(browser);
+  const page = await device(browser, 'example', { sw: false });
   let calls = 0;
   await page.route('**/concierge/chat', async (r) => { calls++; await r.fulfill({ json: { topic: 'food', text: 'ok', items: [] } }); });
   await page.goto('./#/assistant');

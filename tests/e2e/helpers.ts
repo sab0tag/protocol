@@ -1,13 +1,16 @@
 import { expect, type Browser, type Page } from '@playwright/test';
 import { examplePlan } from '../../src/data/seed.example';
 
-/** A fresh «device»: the app loaded, its service worker settled, then — `example`: the example plan put into the own
+/** A fresh «device»: the app loaded, its service worker settled (unless `sw: false`), then — `example`: the example plan put into the own
  *  database on a clean history (a fixture); `demo`: «Подивитись на прикладі», the example's own database (D98); `skip`: nothing. */
-export async function device(browser: Browser, start: 'example' | 'demo' | 'skip' = 'example'): Promise<Page> {
-  const ctx = await browser.newContext();
+export async function device(browser: Browser, start: 'example' | 'demo' | 'skip' = 'example', opts: { sw?: boolean } = {}): Promise<Page> {
+  // `sw: false` — no service worker. For tests that stub the network: requests the worker sends can pass Playwright's
+  // routing (page and context alike) and reach the real e2e server, which has no AI key — an intermittent «ІІ вимкнений».
+  const sw = opts.sw ?? true;
+  const ctx = await browser.newContext(sw ? {} : { serviceWorkers: 'block' });
   const page = await ctx.newPage();
   await page.goto('./');
-  await page.evaluate(() => navigator.serviceWorker.ready);
+  if (sw) await page.evaluate(() => navigator.serviceWorker.ready);
   await page.waitForTimeout(500);
   if (start === 'demo') { // D98: the example's own database, opened as a person opens it
     await page.getByRole('button', { name: 'Подивитись на прикладі' }).click();

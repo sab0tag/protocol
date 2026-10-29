@@ -5,7 +5,7 @@ import { device, syncOn, toast } from './helpers';
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGP8z8DAwMDAxMDAwMDAAAANHQEDasKb6QAAAABJRU5ErkJggg==', 'base64');
 
 test('a package photo (model stubbed) → checked numbers → own food, added to the meal', async ({ browser }) => {
-  const page = await device(browser);
+  const page = await device(browser, 'example', { sw: false });
   await syncOn(page);
   let sent = '';
   await page.route('**/label', async (r) => {

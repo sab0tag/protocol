@@ -21,10 +21,15 @@ import type { Sender } from './push.ts';
 import type { Store } from './store.ts';
 import { parseReminderPolicy } from './reminderPolicy.ts';
 import { BudgetGuard } from './ai/budgets.ts';
-import { RedeemFailure, type PlanDelivery } from './clinic/delivery.ts';
+import { RedeemFailure, type PlanDelivery, type RedeemError } from './clinic/delivery.ts';
+import { DatabaseBusy, isBusy } from './db/tx.ts';
 import { mountClinic } from './clinic/routes.ts';
+import { isIdentityPath, mountIdentity, type Identity } from './identity/routes.ts';
 import type { ClinicDirectory } from './clinic/directory.ts';
 import { latestWeek, parsePilot, PID, SECRET, SRC, weekAdd, weekKey } from './pilot.ts';
+
+/** `used` is one domain error with one status, whether the code was spent long ago or a moment ago by a concurrent call. */
+const REDEEM_STATUS: Record<RedeemError, 404 | 409 | 410> = { invalid: 404, used: 409, expired: 410, revoked: 410, tampered: 410 };
 
 export interface Limits {
   vaultsPerIpPerDay: number;
@@ -66,6 +71,7 @@ export interface Deps {
   backupAgeH?: () => number | null;
   backups?: { list: () => string[]; records: (name: string, vault: string) => { k: string; v: string | null; seq: number }[] | null };
   origins: string[];
+  identity?: Identity; // ACCESS-03 sign-in and sessions; only with CLINIC_IDENTITY_V2=on
   limits?: Limits;
   /** Kill switch: AI kinds (e.g. 'menu', 'photo') that answer `ai_off` without calling a provider. */
   disabledAi?: readonly string[];
@@ -129,7 +135,10 @@ export function createApp(deps: Deps) {
     if (hold.ok) hold.commit(usd);
   };
 
-  app.use('*', cors({ origin: origins, allowMethods: ['GET', 'POST', 'PUT', 'DELETE'], allowHeaders: ['Authorization', 'Content-Type'], maxAge: 86400 }));
+  const general = cors({ origin: origins, allowMethods: ['GET', 'POST', 'PUT', 'DELETE'], allowHeaders: ['Authorization', 'Content-Type'], maxAge: 86400 });
+  // session routes have their own credentialed CORS for exactly the app origin (ACCESS-03); nothing else gets credentials
+  app.use('*', (c, next) => (deps.identity && isIdentityPath(c.req.path) ? next() : general(c, next)));
+  if (deps.identity) mountIdentity(app, deps.identity, { allow: (c, scope, perDay) => store.take(`${scope}:${ipKey(c)}`, perDay, now()), now: () => now().getTime() });
   const DEVICE = /^[0-9a-f]{32}$/;
   /** D40: the server POSTs to a subscription's endpoint — only to the browsers' own push services, never to an
    *  address someone typed (that would let anyone make this server call any host). */
@@ -796,14 +805,22 @@ export function createApp(deps: Deps) {
   /** Patient side, no account: a one-time code gives the plan once. The plan is never logged and never cached. */
   app.post('/v1/clinic/plans/redeem', bodyLimit({ maxSize: 1_000, onError: (c) => c.json({ error: 'too_large' }, 413) }), async (c) => {
     if (!deps.planDelivery) return c.json({ error: 'clinic_off' }, 503);
-    if (!store.take(`planredeem:${ipKey(c)}`, 30, now())) return c.json({ error: 'too_many' }, 429);
+    let allowed: boolean;
+    try { allowed = store.take(`planredeem:${ipKey(c)}`, 30, now()); } catch (e) {
+      // the rate-limit counter is a write too: under a held lock it must also end as a retryable 503, not a 500
+      if (!isBusy(e)) throw e;
+      c.header('Retry-After', '1'); return c.json({ error: 'database_busy' }, 503);
+    }
+    if (!allowed) return c.json({ error: 'too_many' }, 429);
     const body = await c.req.json().catch(() => null) as { code?: unknown } | null;
     c.header('Cache-Control', 'no-store');
     try {
-      return c.json({ plan: deps.planDelivery.redeem(typeof body?.code === 'string' ? body.code : '') });
+      return c.json(deps.planDelivery.redeemWithProvenance(typeof body?.code === 'string' ? body.code : ''));
     } catch (e) {
+      // A busy write lock is retryable and changed nothing: no payload, no `used`, never an unhandled 500.
+      if (e instanceof DatabaseBusy) { c.header('Retry-After', '1'); return c.json({ error: 'database_busy' }, 503); }
       if (!(e instanceof RedeemFailure)) throw e;
-      return c.json({ error: e.code }, e.code === 'invalid' ? 404 : 410);
+      return c.json({ error: e.code }, REDEEM_STATUS[e.code]);
     }
   });
 

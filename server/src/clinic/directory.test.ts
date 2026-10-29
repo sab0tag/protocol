@@ -1,10 +1,13 @@
 import { DatabaseSync } from 'node:sqlite';
+import { migrate } from '../db/migrate.ts';
 import { describe, expect, it } from 'vitest';
 import { ClinicDirectory, ClinicError, type Actor } from './directory.ts';
 import { can } from './roles.ts';
 
 const rig = () => {
-  const dir = new ClinicDirectory(new DatabaseSync(':memory:'));
+  const db = new DatabaseSync(':memory:');
+  migrate(db);
+  const dir = new ClinicDirectory(db);
   const a = dir.createOrganization('Клініка А', 'Адмін А');
   const b = dir.createOrganization('Клініка Б', 'Адмін Б');
   const adminA = dir.authenticate(a.token)!, adminB = dir.authenticate(b.token)!;
