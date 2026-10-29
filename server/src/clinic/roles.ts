@@ -10,5 +10,5 @@ const TABLE: Readonly<Record<Role, ReadonlySet<Action>>> = {
   doctor: new Set<Action>(['plan.create', 'plan.edit_own_draft', 'plan.confirm', 'plan.issue']),
 };
 
-export const can = (role: Role, action: Action): boolean => TABLE[role].has(action);
+export const can = (role: Role, action: Action): boolean => isRole(role) && TABLE[role].has(action);
 export const isRole = (x: unknown): x is Role => x === 'admin' || x === 'doctor';

@@ -53,6 +53,7 @@ export class PlanDelivery {
     const plan = JSON.stringify(parsed.data);
     const id = randomUUID(), code = randomBytes(32).toString('base64url'), expires = this.now() + ttl;
     immediate(this.db, () => {
+      this.dir.require(actor, 'plan.issue');
       this.db.prepare('INSERT INTO plan_delivery (id, org, issued_by, code_hash, plan, plan_hash, expires, created) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
         .run(id, actor.orgId, actor.memberId, hash(code), plan, hash(plan), expires, this.now());
       this.dir.record(actor, 'plan.issue', id);
@@ -62,8 +63,9 @@ export class PlanDelivery {
 
   /** Revokes the caller's own pending delivery. A colleague's or another organization's id looks non-existent. */
   revoke(actor: Actor, deliveryId: string): void {
-    this.dir.require(actor, 'plan.issue');
+    this.dir.require(actor, 'delivery.revoke_own', { kind: 'delivery', orgId: actor.orgId, authorMemberId: actor.memberId });
     immediate(this.db, () => {
+      this.dir.require(actor, 'delivery.revoke_own', this.deliveryResource(actor, deliveryId));
       const r = this.db.prepare("UPDATE plan_delivery SET status = 'revoked', plan = NULL WHERE id = ? AND org = ? AND issued_by = ? AND status = 'pending'")
         .run(deliveryId, actor.orgId, actor.memberId);
       if (!r.changes) throw new ClinicError('not_found');
@@ -73,12 +75,20 @@ export class PlanDelivery {
 
   /** Status of the caller's own delivery. A colleague's or another organization's id looks non-existent. */
   status(actor: Actor, deliveryId: string): DeliveryStatus {
-    this.dir.require(actor, 'plan.issue');
+    this.dir.require(actor, 'delivery.status.read_own', this.deliveryResource(actor, deliveryId));
     const r = this.db.prepare('SELECT status, expires FROM plan_delivery WHERE id = ? AND org = ? AND issued_by = ?')
       .get(deliveryId, actor.orgId, actor.memberId) as { status: string; expires: number } | undefined;
     if (!r) throw new ClinicError('not_found');
     if (r.status === 'pending' && r.expires <= this.now()) return 'expired';
     return r.status as DeliveryStatus;
+  }
+
+  private deliveryResource(actor: Actor, deliveryId: string): { kind: 'delivery'; orgId: string; authorMemberId: string } {
+    this.dir.require(actor, 'plan.issue');
+    const row = this.db.prepare('SELECT org, issued_by FROM plan_delivery WHERE id = ? AND org = ? AND issued_by = ?')
+      .get(deliveryId, actor.orgId, actor.memberId) as { org: string; issued_by: string } | undefined;
+    if (!row) throw new ClinicError('not_found');
+    return { kind: 'delivery', orgId: row.org, authorMemberId: row.issued_by };
   }
 
   /**
@@ -139,7 +149,7 @@ export class PlanDelivery {
 
   /** Aggregate counts for the clinic's admins (PR-14): numbers only, never plan content or anything about a patient. */
   stats(actor: Actor, days = 30): ClinicStats {
-    this.dir.require(actor, 'stats.view');
+    this.dir.require(actor, 'org.stats.read');
     const d = Math.min(Math.max(1, Math.floor(days) || 30), 365);
     const since = this.now() - d * 24 * 60 * 60 * 1000, t = this.now();
     const rows = this.db.prepare(
