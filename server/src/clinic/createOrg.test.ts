@@ -23,7 +23,7 @@ it('refuses without DB_PATH or with a path where no database is — never founds
 
 it('founds the clinic in the live database; the printed token signs its admin in; bad names are a message, not a stack', () => {
   const path = join(mkdtempSync(join(tmpdir(), 'clinic-')), 'live.db');
-  new Store(path).close();
+  Store.migrated(path).close();
   const r = run(['Клініка', 'Адмін'], path);
   expect(r.code).toBe(0);
   const token = /admin token[^:]*: (\S+)/.exec(r.out)![1]!;

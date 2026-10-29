@@ -22,7 +22,7 @@ import type { Store } from './store.ts';
 import { parseReminderPolicy } from './reminderPolicy.ts';
 import { BudgetGuard } from './ai/budgets.ts';
 import { RedeemFailure, type PlanDelivery, type RedeemError } from './clinic/delivery.ts';
-import { DatabaseBusy, isBusy } from './clinic/tx.ts';
+import { DatabaseBusy, isBusy } from './db/tx.ts';
 import { mountClinic } from './clinic/routes.ts';
 import type { ClinicDirectory } from './clinic/directory.ts';
 import { latestWeek, parsePilot, PID, SECRET, SRC, weekAdd, weekKey } from './pilot.ts';

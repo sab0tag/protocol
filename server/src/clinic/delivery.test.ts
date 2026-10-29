@@ -1,11 +1,13 @@
 import { createHash } from 'node:crypto';
 import { DatabaseSync } from 'node:sqlite';
 import { describe, expect, it } from 'vitest';
+import { migrate } from '../db/migrate.ts';
 import { ClinicDirectory } from './directory.ts';
 import { PlanDelivery, MAX_TTL_MS, type RedeemStep } from './delivery.ts';
 
 const rig = () => {
   const db = new DatabaseSync(':memory:');
+  migrate(db);
   let t = 1_000_000;
   const now = () => t;
   const dir = new ClinicDirectory(db, now);
@@ -176,6 +178,7 @@ describe('stats with tampered deliveries', () => {
 describe('redeem atomicity under technical faults', () => {
   const faulty = (failAt: RedeemStep, damage = false) => {
     const db = new DatabaseSync(':memory:');
+    migrate(db);
     const dir = new ClinicDirectory(db);
     let armed = true;
     const del = new PlanDelivery(db, dir, Date.now, (step) => { if (armed && step === failAt) { armed = false; throw new Error(`fault at ${step}`); } });

@@ -1,5 +1,6 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import type { DatabaseSync } from 'node:sqlite';
+import { immediate } from '../db/tx.ts';
 import { can, isRole, type Action, type Role } from './roles.ts';
 
 /** The caller as the server knows it. `orgId` comes from the member record, never from the request. */
@@ -29,30 +30,25 @@ export class ClinicDirectory {
   constructor(db: DatabaseSync, now: () => number = Date.now) {
     this.db = db;
     this.now = now;
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS clinic_orgs (id TEXT PRIMARY KEY, name TEXT NOT NULL, created INTEGER NOT NULL);
-      CREATE TABLE IF NOT EXISTS clinic_members (id TEXT PRIMARY KEY, org TEXT NOT NULL, name TEXT NOT NULL, role TEXT NOT NULL,
-        token_hash TEXT NOT NULL UNIQUE, active INTEGER NOT NULL DEFAULT 1, created INTEGER NOT NULL);
-      CREATE INDEX IF NOT EXISTS clinic_members_org ON clinic_members (org);
-      CREATE TABLE IF NOT EXISTS clinic_audit (id INTEGER PRIMARY KEY AUTOINCREMENT, org TEXT NOT NULL, at INTEGER NOT NULL,
-        actor TEXT NOT NULL, action TEXT NOT NULL, target TEXT);
-      CREATE INDEX IF NOT EXISTS clinic_audit_org ON clinic_audit (org, id);
-    `);
+    // tables: src/db/migrations (0001_baseline); constructors never change the schema
   }
 
-  /** Founds a tenant with its first admin. The returned token is shown once; only its hash is stored. */
-  createOrganization(name: string, adminName: string): { orgId: string; adminId: string; token: string } {
+  /**
+   * Founds a tenant with its first admin. The returned token is shown once; only its hash is stored. One `BEGIN IMMEDIATE`
+   * transaction owns the whole operation; `guard` runs first inside it, under the write lock (the CLI re-checks the
+   * schema version there), and anything it throws leaves no organization, admin or audit entry behind.
+   */
+  createOrganization(name: string, adminName: string, guard?: () => void): { orgId: string; adminId: string; token: string } {
     const n = name.trim(), a = adminName.trim();
     if (!n || !a || n.length > 200 || a.length > 200) throw new ClinicError('bad_request');
     const orgId = randomUUID(), adminId = randomUUID(), token = newToken();
-    this.db.exec('BEGIN'); // never an organization without its admin
-    try {
+    immediate(this.db, () => { // never an organization without its admin
+      guard?.();
       this.db.prepare('INSERT INTO clinic_orgs (id, name, created) VALUES (?, ?, ?)').run(orgId, n, this.now());
       this.db.prepare('INSERT INTO clinic_members (id, org, name, role, token_hash, created) VALUES (?, ?, ?, ?, ?, ?)')
         .run(adminId, orgId, a, 'admin', hash(token), this.now());
       this.audit(orgId, adminId, 'org.create', orgId);
-      this.db.exec('COMMIT');
-    } catch (e) { this.db.exec('ROLLBACK'); throw e; }
+    });
     return { orgId, adminId, token };
   }
 

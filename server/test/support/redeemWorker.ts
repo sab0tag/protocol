@@ -9,7 +9,7 @@ import { parentPort, workerData } from 'node:worker_threads';
 import { createApp } from '../../src/app.ts';
 import { ClinicDirectory } from '../../src/clinic/directory.ts';
 import { PlanDelivery, RedeemFailure } from '../../src/clinic/delivery.ts';
-import { DatabaseBusy } from '../../src/clinic/tx.ts';
+import { DatabaseBusy } from '../../src/db/tx.ts';
 import { Store } from '../../src/store.ts';
 
 interface Data { role: 'hold' | 'slow' | 'http' | 'domain'; path: string; code?: string; holdMs?: number; rollback?: boolean; sab: SharedArrayBuffer }

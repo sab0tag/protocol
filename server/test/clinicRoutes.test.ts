@@ -5,7 +5,7 @@ import { PlanDelivery } from '../src/clinic/delivery.ts';
 import { Store } from '../src/store.ts';
 
 function rig() {
-  const store = new Store(':memory:');
+  const store = Store.migrated(':memory:');
   const clinic = new ClinicDirectory(store.database);
   const planDelivery = new PlanDelivery(store.database, clinic);
   const app = createApp({ store, origins: [], clinic, planDelivery });
@@ -121,7 +121,7 @@ describe('clinic API', () => {
     expect(log).not.toMatch(/План|Лікар/);
   });
   it('is absent without clinic support', async () => {
-    const app = createApp({ store: new Store(':memory:'), origins: [] });
+    const app = createApp({ store: Store.migrated(':memory:'), origins: [] });
     expect((await app.request('/v1/clinic/me')).status).toBe(404);
   });
 
