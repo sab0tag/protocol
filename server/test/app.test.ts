@@ -472,7 +472,7 @@ describe('clinic plan redemption', () => {
   });
   it('a busy database answers 503 database_busy with Retry-After, never 500', async () => {
     const store = Store.migrated(':memory:');
-    const busyDelivery = { redeem: () => { throw new DatabaseBusy(); } } as unknown as PlanDelivery;
+    const busyDelivery = { redeemWithProvenance: () => { throw new DatabaseBusy(); } } as unknown as PlanDelivery;
     const app = createApp({ store, origins: [], planDelivery: busyDelivery });
     const r = await app.request('/v1/clinic/plans/redeem', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: 'x'.repeat(43) }) });
     expect(r.status).toBe(503);

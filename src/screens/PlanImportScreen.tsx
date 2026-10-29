@@ -4,7 +4,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { db } from '../data/db';
 import { saveClinicImport } from '../data/carePlans';
 import { activeProfileId } from '../data/profiles';
-import { confirmImport, previewClinicPlan, type ImportPreview } from '../domain/planImport';
+import { confirmImport, previewClinicRedemption, type ImportPreview } from '../domain/planImport';
 import { ApiError, redeemClinicPlan } from '../sync/api';
 
 const MESSAGE: Record<string, string> = {
@@ -47,7 +47,7 @@ export function PlanImportScreen() {
     if (!mounted.current) return; // Leaving must not spend a one-time code on a queued retry.
     setRetryAt(null);
     try {
-      const pv = previewClinicPlan(await redeemClinicPlan(code));
+      const pv = previewClinicRedemption(await redeemClinicPlan(code));
       if (!mounted.current) return;
       if (!pv) { setError('План має невідомий формат. Оновіть застосунок або попросіть клініку видати новий.'); setState('idle'); return; }
       setPreview(pv); setTicked(new Set(pv.items.map((i) => i.key))); setState('idle');
@@ -84,7 +84,13 @@ export function PlanImportScreen() {
         </div>
       ) : (
         <div className="space-y-3">
-          <p className="text-sm">{preview.plan.title} — {preview.plan.clinician.displayName}, {preview.plan.clinician.organizationName}</p>
+          <p className="break-words text-sm">{preview.plan.title} — {preview.plan.clinician.displayName}, {preview.plan.clinician.organizationName}</p>
+          {preview.snapshot ? (
+            <div className="space-y-1 break-words text-sm">
+              <p>Видано клінікою: {preview.snapshot.issuer.displayName}, {preview.snapshot.issuer.organizationName}.</p>
+              <p className="text-muted">Автор у джерелі: {preview.snapshot.source.clinician.displayName}, {preview.snapshot.source.clinician.organizationName}. Це імʼя не підтверджене сервером.</p>
+            </div>
+          ) : <p className="text-sm text-muted">Імʼя автора в цьому документі не підтверджене сервером.</p>}
           <p className="text-sm text-muted">Це чернетка від клініки. Нічого не вмикається автоматично.</p>
           <ul className="space-y-2">
             {preview.items.map((i) => (

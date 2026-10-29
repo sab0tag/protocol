@@ -810,7 +810,7 @@ export function createApp(deps: Deps) {
     const body = await c.req.json().catch(() => null) as { code?: unknown } | null;
     c.header('Cache-Control', 'no-store');
     try {
-      return c.json({ plan: deps.planDelivery.redeem(typeof body?.code === 'string' ? body.code : '') });
+      return c.json(deps.planDelivery.redeemWithProvenance(typeof body?.code === 'string' ? body.code : ''));
     } catch (e) {
       // A busy write lock is retryable and changed nothing: no payload, no `used`, never an unhandled 500.
       if (e instanceof DatabaseBusy) { c.header('Retry-After', '1'); return c.json({ error: 'database_busy' }, 503); }
