@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import { device, kyivOffset, seed, syncOn, toast, ymd } from './helpers';
 
 test('a 2-day menu (model stubbed): checked by the plan, a line added to one meal, accepted with undo, a meal confirmed by ticks, then «Що купити»', async ({ browser }) => {
-  const page = await device(browser);
+  const page = await device(browser, 'example', { sw: false });
   await syncOn(page);
   const asked: { date: string; avoid: string[] }[] = [];
   await page.route('**/menu', async (r) => {
@@ -64,7 +64,7 @@ test('a 2-day menu (model stubbed): checked by the plan, a line added to one mea
 });
 
 test('a menu made but not accepted comes back after the page reloads (a locked phone); gone once accepted (D87)', async ({ browser }) => {
-  const page = await device(browser);
+  const page = await device(browser, 'example', { sw: false });
   await syncOn(page);
   await page.route('**/menu', (r) => r.fulfill({ json: { tips: [], meals: [
     { title: 'Сніданок', time: '08:00', items: [{ name: 'Яйце варене', grams: 100, count: 2 }] }] } }));

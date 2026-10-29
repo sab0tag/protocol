@@ -16,7 +16,7 @@ async function startReview(page: Page) {
   return input;
 }
 test('review survives reload, requires fresh confirmation, and is consumed atomically on activation', async ({ browser }) => {
-  const page = await device(browser, 'skip'); await startReview(page);
+  const page = await device(browser, 'skip', { sw: false }); await startReview(page);
   await page.getByRole('checkbox', { name: 'Тестове призначення 1 таб.', exact: true }).check();
   await page.reload();
   await expect(page.getByRole('region', { name: 'Незавершена перевірка' })).toBeVisible();
@@ -45,7 +45,7 @@ test('review survives reload, requires fresh confirmation, and is consumed atomi
   await page.context().close();
 });
 test('a stale tab cannot replace or activate a newer review', async ({ browser }) => {
-  const page = await device(browser, 'skip'); const input = await startReview(page);
+  const page = await device(browser, 'skip', { sw: false }); const input = await startReview(page);
   const other = await page.context().newPage(); await other.goto('./#/plan/scan');
   await other.getByRole('button', { name: 'Продовжити перевірку', exact: true }).click();
   await other.getByRole('textbox', { name: 'Час прийому: Тестове призначення', exact: true }).fill('09:15, 21:30');

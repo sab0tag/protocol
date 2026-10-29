@@ -47,7 +47,7 @@ test('advice from the own records: far beyond the target twice → the next leve
 });
 
 test('«Скласти тренування з ІІ» (model stubbed): the chosen levels go, the answer is a checked draft with advice, nothing recorded (D63)', async ({ browser }) => {
-  const page = await device(browser);
+  const page = await device(browser, 'example', { sw: false });
   await syncOn(page);
   let sent: { exercises: { id: string; level: number }[] } | undefined;
   await page.route('**/workout', async (r) => {
@@ -70,7 +70,7 @@ test('«Скласти тренування з ІІ» (model stubbed): the chose
 });
 
 test('a reply that comes after moving to another day is dropped — never written over that day (review #1, #2)', async ({ browser }) => {
-  const page = await device(browser);
+  const page = await device(browser, 'example', { sw: false });
   await syncOn(page);
   await page.route('**/workout', async (r) => {
     await new Promise((ok) => setTimeout(ok, 1500));

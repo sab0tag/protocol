@@ -4,7 +4,7 @@ import { device, seed, syncOn, toast } from './helpers';
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGP8z8DAwMDAxMDAwMDAAAANHQEDasKb6QAAAABJRU5ErkJggg==', 'base64');
 
 test('a lab form photo (model stubbed) → numbers checked against the paper → only the ticked go to «Аналізи» (D68)', async ({ browser }) => {
-  const page = await device(browser);
+  const page = await device(browser, 'example', { sw: false });
   await syncOn(page);
   await page.route('**/labs', (r) => r.fulfill({ json: { readable: true, date: '2026-10-10', note: null, items: [
     { name: 'Феритин', value: 310, unit: 'нг/мл', reference: '30–400' }, { name: 'Глюкоза натще', value: 5.4, unit: 'ммоль/л', reference: '3,9–5,5' }] } }));
@@ -27,7 +27,7 @@ test('a lab form photo (model stubbed) → numbers checked against the paper →
 });
 
 test('a doctor’s conclusion, two pages, no account (model stubbed) → «Ось що я прочитав» with ✓ ? ✗ → medicines ticked one by one, only with a dose → «План» (D80, D101)', async ({ browser }) => {
-  const page = await device(browser, 'skip'); // an empty plan, no sync — the device token is taken from the real local server
+  const page = await device(browser, 'skip', { sw: false }); // an empty plan, no sync — the device token is taken from the real local server
   const w = (sure: string, page = 1) => ({ page, box: [0.1, 0.3, 0.6, 0.05], sure });
   let auth = '', pages = 0;
   await page.route('**/conclusion', async (r) => {
@@ -86,7 +86,7 @@ test('a doctor’s conclusion, two pages, no account (model stubbed) → «Ос�
 });
 
 test('before the paper leaves the phone: the header comes painted over, a finger paints more, the top is cut — only that is sent (D112)', async ({ browser }) => {
-  const page = await device(browser, 'skip');
+  const page = await device(browser, 'skip', { sw: false });
   // a white page 400 × 600, as a photo
   const jpeg = Buffer.from(await page.evaluate(() => { const c = document.createElement('canvas'); c.width = 400; c.height = 600;
     const x = c.getContext('2d')!; x.fillStyle = '#fff'; x.fillRect(0, 0, 400, 600); return c.toDataURL('image/jpeg', 0.95).split(',')[1]!; }), 'base64');
@@ -124,13 +124,12 @@ test('before the paper leaves the phone: the header comes painted over, a finger
 });
 
 test('onboarding starts from the doctor’s paper: photo → hide what is personal → each medicine confirmed or put aside → «Почати» → «День» with its doses (D113)', async ({ browser }) => {
-  const ctx = await browser.newContext();
+  const ctx = await browser.newContext({ serviceWorkers: 'block' }); // the model is stubbed: no worker to send past the route
   const page = await ctx.newPage();
   // the morning: a medicine comes in «from now» (D103) — run in the evening, today's 08:00 and 20:00 would both be behind it
   const now = new Date();
   await page.clock.setFixedTime(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 4, 0)));
   await page.goto('./');
-  await page.evaluate(() => navigator.serviceWorker.ready);
   const w = (sure: string) => ({ page: 1, box: [0.1, 0.4, 0.7, 0.03], sure });
   await page.route('**/conclusion', (r) => r.fulfill({ json: { readable: true, date: '2026-10-16', doctor: 'Ендокринолог', note: null, diagnosis: null, diet: null,
     constraints: [], tests: [], nextVisit: null, targets: [], unread: [],
@@ -170,7 +169,7 @@ test('onboarding starts from the doctor’s paper: photo → hide what is person
 });
 
 test('a later visit: the new paper against the plan — new, and a medicine it does not name is closed only when asked (D115)', async ({ browser }) => {
-  const page = await device(browser); // the example plan: Вітамін D 2000 МО at 08:30
+  const page = await device(browser, 'example', { sw: false }); // the example plan: Вітамін D 2000 МО at 08:30
   const w = { page: 1, box: [0.1, 0.4, 0.7, 0.03], sure: 'yes' };
   await page.route('**/conclusion', (r) => r.fulfill({ json: { readable: true, date: '2026-10-19', doctor: 'Ендокринолог', note: null, diagnosis: null, diet: null,
     constraints: [], tests: [], nextVisit: null, targets: [], unread: [], prescriptions: [

@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import { device, seed, syncOn, toast } from './helpers';
 
 test('scenario 1 (model stubbed): only names of the base, nothing written without a tap, the outcome told on save — edited, with what (D91)', async ({ browser }) => {
-  const page = await device(browser, 'skip');
+  const page = await device(browser, 'skip', { sw: false });
   await syncOn(page);
   const sent: { body: Record<string, unknown> }[] = [], outcomes: Record<string, unknown>[] = [];
   await page.route('**/concierge/not-found', async (r) => { sent.push({ body: r.request().postDataJSON() }); await r.fulfill({ json: { candidates: ['Вареники з картоплею', 'Млинці'], id: 'c-2026-10-18-abc123' } }); });
@@ -31,7 +31,7 @@ test('scenario 1 (model stubbed): only names of the base, nothing written withou
 });
 
 test('a danger sign in the words — the 103 card, no model; «Чому?» answers from the plan itself (D91)', async ({ browser }) => {
-  const page = await device(browser); // the example plan: lactose, glycemia, oxalates
+  const page = await device(browser, 'example', { sw: false }); // the example plan: lactose, glycemia, oxalates
   let asked = false;
   await page.route('**/concierge/**', async (r) => { asked = true; await r.abort(); });
   await page.goto('./#/meal/new');
@@ -49,7 +49,7 @@ test('a danger sign in the words — the 103 card, no model; «Чому?» answe
 });
 
 test('«Журнал помічника»: off by default, the own records with what was done, deleted in one tap (D91)', async ({ browser }) => {
-  const page = await device(browser, 'skip');
+  const page = await device(browser, 'skip', { sw: false });
   await syncOn(page);
   let deleted = false;
   await page.route('**/concierge/log', async (r) => {
