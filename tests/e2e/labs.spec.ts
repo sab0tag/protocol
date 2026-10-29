@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { device, syncOn, toast } from './helpers';
+import { device, seed, syncOn, toast } from './helpers';
 
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGP8z8DAwMDAxMDAwMDAAAANHQEDasKb6QAAAABJRU5ErkJggg==', 'base64');
 
@@ -13,14 +13,17 @@ test('a lab form photo (model stubbed) → numbers checked against the paper →
   const [chooser] = await Promise.all([page.waitForEvent('filechooser'), page.getByRole('button', { name: 'Дозволити й вибрати фото' }).click()]);
   await chooser.setFiles({ name: 'labs.png', mimeType: 'image/png', buffer: PNG });
   const form = page.getByRole('region', { name: 'Звірте кожне число з бланком' });
-  await expect(form.getByText('На бланку референс: 30–400')).toBeVisible();
+  await expect(form.getByRole('textbox', { name: 'Референс з бланка: Феритин' })).toHaveValue('30–400'); // the form's range, editable (D144)
   await form.getByRole('checkbox', { name: 'Записати: Глюкоза натще' }).uncheck();
   await form.getByRole('textbox', { name: 'Значення: Феритин' }).fill('301');
   await form.getByRole('button', { name: 'Записати вибране (1)' }).click();
   await expect(toast(page)).toContainText('Записано показників: 1');
-  await expect(page.getByRole('cell', { name: /^Феритин/ })).toBeVisible();
-  await expect(page.getByText('301')).toBeVisible();
-  await expect(page.getByRole('cell', { name: /^Глюкоза натще/ })).toHaveCount(0);
+  const list = page.getByRole('list', { name: 'Аналізи', exact: true });
+  const ferritin = list.getByRole('listitem').filter({ has: page.getByRole('heading', { name: 'Феритин' }) });
+  await expect(ferritin).toContainText('301');
+  await expect(ferritin).toContainText(/Референс лабораторії\s*30–400/); // kept as the lab's range…
+  await expect(ferritin).toContainText(/Ціль лікаря\s*не вказано/); // …never as the doctor's target
+  await expect(list.getByRole('heading', { name: 'Глюкоза натще' })).toHaveCount(0);
 });
 
 test('a doctor’s conclusion, two pages, no account (model stubbed) → «Ось що я прочитав» with ✓ ? ✗ → medicines ticked one by one, only with a dose → «План» (D80, D101)', async ({ browser }) => {
@@ -190,4 +193,37 @@ test('a later visit: the new paper against the plan — new, and a medicine it d
   await page.goto('./#/plan/prescriptions');
   await expect(page.getByText('Еутирокс')).toBeVisible();
   await expect(page.getByRole('listitem').filter({ hasText: 'Вітамін D' }).first()).toContainText('курс закінчився'); // closed, its history stays
+});
+
+test('one card per test: the latest, the previous with its change, the lab range and the doctor target apart — also in the report (ТЗ Labs 2.0, D144)', async ({ browser }) => {
+  const page = await device(browser, 'skip');
+  await page.clock.setFixedTime(new Date('2026-10-28T12:00:00+02:00'));
+  await seed(page, [
+    { store: 'labs', value: { date: '2026-08-01', name: 'Синтетична глюкоза', value: 5.6, unit: 'ммоль/л', reference: '3,9–5,5' } },
+    { store: 'labs', value: { date: '2026-10-01', name: 'Синтетична глюкоза', value: 5.2, unit: 'ммоль/л', reference: '4,1–5,9' } },
+  ]);
+  await page.goto('./#/progress/labs');
+  await page.getByRole('button', { name: 'Додати результат', exact: true }).click();
+  const form = page.getByRole('form', { name: 'Додати результат', exact: true });
+  await form.getByRole('combobox', { name: 'Показник', exact: true }).fill('Синтетичний ТТГ');
+  await form.getByRole('textbox', { name: 'Значення', exact: true }).fill('1,5');
+  await form.getByLabel('Дата', { exact: true }).fill('2026-10-20');
+  await form.getByRole('textbox', { name: 'Референс лабораторії', exact: true }).fill('0,4–4,0');
+  await form.getByRole('textbox', { name: 'Ціль лікаря', exact: true }).fill('< 2,5');
+  await form.getByRole('button', { name: 'Зберегти', exact: true }).click();
+  await expect(form).toHaveCount(0);
+  const card = (name: string) => page.getByRole('list', { name: 'Аналізи', exact: true }).getByRole('listitem')
+    .filter({ has: page.getByRole('heading', { name, exact: true }) });
+  await expect(card('Синтетична глюкоза')).toContainText(/Попередній\s*5,6 ммоль\/л · 01\.08/);
+  await expect(card('Синтетична глюкоза')).toContainText('зміна −0,4 ммоль/л');
+  await expect(card('Синтетична глюкоза')).toContainText(/Референс лабораторії\s*4,1–5,9/); // the latest form's own range
+  await expect(card('Синтетичний ТТГ')).toContainText(/Попередній\s*перший результат/);
+  await expect(card('Синтетичний ТТГ')).toContainText(/Референс лабораторії\s*0,4–4,0/);
+  await expect(card('Синтетичний ТТГ')).toContainText(/Ціль лікаря\s*< 2,5/);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  await page.goto('./#/report');
+  await page.getByLabel('З', { exact: true }).fill('2026-10-01');
+  const main = page.getByRole('region', { name: 'Головне' });
+  await expect(main).toContainText('Референс лабораторії: 0,4–4,0');
+  await expect(main).toContainText('Ціль лікаря: < 2,5');
 });

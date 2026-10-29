@@ -39,6 +39,23 @@ describe('progress (§5.7)', () => {
     expect(rows.find((r) => r.name === 'Феритин')).toMatchObject({ was: { value: 520 }, now: { value: 410 }, target: '< 300' });
     expect(rows).toHaveLength(2);
   });
+  it('labs: the previous result and the change, the lab range apart from the doctor target (D144)', () => {
+    const rows = labRows([
+      { date: '2026-06-01', name: 'Глюкоза', value: 6.3, unit: 'ммоль/л', reference: '3,9–5,5', target: '< 5,6' },
+      { date: '2026-08-01', name: 'Глюкоза', value: 5.6, unit: 'ммоль/л', reference: '3,9–5,5' },
+      { date: '2026-10-01', name: 'Глюкоза', value: 5.2, unit: 'ммоль/л', reference: '4,1–5,9' },
+      { date: '2026-08-01', name: 'Феритин', value: 410, unit: 'нг/мл' },
+      { date: '2026-10-01', name: 'Феритин', value: 41, unit: 'мкг/л' },
+      { date: '2026-10-01', name: 'ТТГ', value: 1.5, unit: 'мМО/л' },
+    ]);
+    const by = (n: string) => rows.find((r) => r.name === n)!;
+    expect(by('Глюкоза')).toMatchObject({ previous: { value: 5.6 }, change: -0.4, reference: '4,1–5,9', target: '< 5,6' }); // not −0.39999…
+    expect(by('Феритин').previous?.value).toBe(410);
+    expect(by('Феритин').change).toBeUndefined(); // other units — no arithmetic across them
+    expect(by('ТТГ')).not.toHaveProperty('previous');
+    expect(by('ТТГ')).not.toHaveProperty('reference');
+    expect(by('ТТГ')).not.toHaveProperty('target');
+  });
 });
 
 describe('patterns (§6.4)', () => {

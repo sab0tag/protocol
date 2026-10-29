@@ -55,15 +55,23 @@ export function weightSummary(logs: WeightLog[]): { start?: WeightLog; now?: Wei
   return { ...(start ? { start } : {}), ...(now ? { now } : {}), ...(start && now ? { delta: r1(now.kg - start.kg) } : {}) };
 }
 
-export interface LabRow { name: string; unit: string; was: LabResult; now: LabResult; target?: string }
+export interface LabRow { name: string; unit: string; was: LabResult; now: LabResult; previous?: LabResult; change?: number; target?: string; reference?: string }
 
-/** One row per test: the first result («було»), the latest, and the latest stated target. */
+const decimals = (n: number) => (String(n).split('.')[1] ?? '').length;
+
+/** One row per test (D144, ТЗ Labs 2.0): the latest result, the one before it and the change between them — only in
+ *  the same unit, with no more decimals than the numbers had; the doctor's latest stated target; and the latest
+ *  result's own laboratory reference (a range belongs to the lab and the date that printed it). `was` — the first. */
 export function labRows(labs: LabResult[]): LabRow[] {
   const by = new Map<string, LabResult[]>();
   for (const l of [...labs].sort((a, b) => a.date.localeCompare(b.date))) by.set(l.name, [...(by.get(l.name) ?? []), l]);
   return [...by.entries()].map(([name, rs]) => {
+    const now = rs.at(-1)!, previous = rs.at(-2);
     const target = [...rs].reverse().find((r) => r.target)?.target;
-    return { name, unit: rs.at(-1)!.unit, was: rs[0]!, now: rs.at(-1)!, ...(target ? { target } : {}) };
+    const same = previous && unitKey(previous.unit) === unitKey(now.unit);
+    const change = same ? Number((now.value - previous.value).toFixed(Math.max(decimals(now.value), decimals(previous.value)))) : undefined;
+    return { name, unit: now.unit, was: rs[0]!, now, ...(previous ? { previous } : {}), ...(change !== undefined ? { change } : {}),
+      ...(target ? { target } : {}), ...(now.reference ? { reference: now.reference } : {}) };
   });
 }
 
