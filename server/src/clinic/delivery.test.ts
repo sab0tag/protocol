@@ -107,7 +107,8 @@ describe('plan delivery', () => {
       schema: (db) => { const v = JSON.stringify({ schemaVersion: 2 }); db.prepare('UPDATE plan_delivery SET plan = ?, plan_hash = ?').run(v, sha(v)); },
       org: (db) => {
         const row = db.prepare('SELECT plan FROM plan_delivery').get() as { plan: string };
-        const v = JSON.stringify({ ...JSON.parse(row.plan), organizationId: 'інша' });
+        const snapshot = JSON.parse(row.plan);
+        const v = JSON.stringify({ ...snapshot, plan: { ...snapshot.plan, organizationId: 'інша' } });
         db.prepare('UPDATE plan_delivery SET plan = ?, plan_hash = ?').run(v, sha(v));
       },
     };

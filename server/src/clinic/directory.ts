@@ -72,6 +72,18 @@ export class ClinicDirectory {
     this.policy.require({ kind: 'legacy', actor }, action, resource);
   }
 
+  /** Issue-time identity snapshot. Caller holds the write transaction containing authorization and delivery. */
+  issuer(actor: Actor): { memberId: string; membershipId: string; organizationId: string; displayName: string; organizationName: string } {
+    if (!this.db.isTransaction) throw new Error('issuer snapshot requires the delivery transaction');
+    this.require(actor, 'plan.issue');
+    const me = this.profile(actor);
+    const m = this.db.prepare('SELECT id FROM organization_memberships WHERE legacy_member_id = ? AND organization_id = ?')
+      .get(actor.memberId, actor.orgId) as { id: string } | undefined;
+    if (!m) throw new ClinicError('unauthenticated');
+    return { memberId: me.memberId, membershipId: m.id, organizationId: me.organizationId,
+      displayName: me.displayName, organizationName: me.organizationName };
+  }
+
   /** What the portal needs to compose a plan: the caller's own name and organization. */
   profile(actor: Actor): { memberId: string; role: Role; displayName: string; organizationId: string; organizationName: string } {
     this.require(actor, 'clinic.profile.read');

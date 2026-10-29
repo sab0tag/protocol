@@ -1,7 +1,7 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import type { DatabaseSync } from 'node:sqlite';
 import { ClinicError, type Actor, type ClinicDirectory } from './directory.ts';
-import { CarePlanV1 } from './carePlan.ts';
+import { CarePlanV1, DeliverySnapshotV1, type RedeemedPlan } from './carePlan.ts';
 import { immediate } from '../db/tx.ts';
 
 const hash = (s: string) => createHash('sha256').update(s).digest('hex');
@@ -16,11 +16,11 @@ export class RedeemFailure extends Error {
 }
 
 /** Why a stored payload was rejected. Goes to the audit log as a category only — never the payload itself. */
-type TamperKind = 'missing' | 'hash' | 'json' | 'schema' | 'org';
+type TamperKind = 'missing' | 'hash' | 'json' | 'schema' | 'org' | 'snapshot';
 /** Points between SQL statements of `redeem`, for fault-injection tests. */
 export type RedeemStep = 'read' | 'transition' | 'audit';
 
-interface Row { id: string; org: string; status: string; expires: number; plan: string | null; plan_hash: string }
+interface Row { id: string; org: string; status: string; expires: number; plan: string | null; plan_hash: string; issued_by: string; created: number; format: number }
 
 /**
  * One-time plan hand-over (spec PR-12, ACCESS-00-H). The code that goes into a link or QR is a random secret and never
@@ -50,12 +50,18 @@ export class PlanDelivery {
     if (!parsed.success || parsed.data.organizationId !== actor.orgId) throw new ClinicError('bad_request');
     const ttl = input.ttlMs ?? DEFAULT_TTL_MS;
     if (!Number.isFinite(ttl) || ttl <= 0 || ttl > MAX_TTL_MS) throw new ClinicError('bad_request');
-    const plan = JSON.stringify(parsed.data);
-    const id = randomUUID(), code = randomBytes(32).toString('base64url'), expires = this.now() + ttl;
+    const id = randomUUID(), code = randomBytes(32).toString('base64url');
+    let expires = 0;
     immediate(this.db, () => {
-      this.dir.require(actor, 'plan.issue');
-      this.db.prepare('INSERT INTO plan_delivery (id, org, issued_by, code_hash, plan, plan_hash, expires, created) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
-        .run(id, actor.orgId, actor.memberId, hash(code), plan, hash(plan), expires, this.now());
+      const issuer = this.dir.issuer(actor), created = this.now(), issuedAt = new Date(created).toISOString();
+      expires = created + ttl;
+      const snapshot: DeliverySnapshotV1 = { schemaVersion: 1, snapshotId: id, issuedAt, issuer,
+        source: { planId: parsed.data.planId, issuedAt: parsed.data.issuedAt, clinician: parsed.data.clinician },
+        plan: { ...parsed.data, issuedAt, clinician: { displayName: issuer.displayName, organizationName: issuer.organizationName } } };
+      if (!DeliverySnapshotV1.safeParse(snapshot).success) throw new ClinicError('bad_request');
+      const plan = JSON.stringify(snapshot);
+      this.db.prepare('INSERT INTO plan_delivery (id, org, issued_by, code_hash, plan, plan_hash, expires, created, format) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 2)')
+        .run(id, actor.orgId, actor.memberId, hash(code), plan, hash(plan), expires, created);
       this.dir.record(actor, 'plan.issue', id);
     });
     return { deliveryId: id, code, expiresAt: expires };
@@ -97,11 +103,14 @@ export class PlanDelivery {
    * verification ends in the terminal `tampered` state — a committed business outcome, not a rollback. A lost response
    * after commit is not recoverable yet (ACCESS-07-C).
    */
-  redeem(code: string): CarePlanV1 {
+  redeem(code: string): CarePlanV1 { return this.redeemWithProvenance(code).plan; }
+
+  /** Keeps the old plan field for older clients; provenance is only trusted on this server redemption path. */
+  redeemWithProvenance(code: string): RedeemedPlan {
     if (typeof code !== 'string' || code.length < 20 || code.length > 200) throw new RedeemFailure('invalid');
     const h = hash(code);
-    const out = immediate(this.db, (): CarePlanV1 | RedeemError => {
-      const row = this.db.prepare('SELECT id, org, status, expires, plan, plan_hash FROM plan_delivery WHERE code_hash = ?').get(h) as Row | undefined;
+    const out = immediate(this.db, (): RedeemedPlan | RedeemError => {
+      const row = this.db.prepare('SELECT id, org, status, expires, plan, plan_hash, issued_by, created, format FROM plan_delivery WHERE code_hash = ?').get(h) as Row | undefined;
       this.fault?.('read');
       if (!row) return 'invalid';
       if (row.status === 'revoked') return 'revoked';
@@ -136,15 +145,27 @@ export class PlanDelivery {
     if (r.changes !== 1) throw new Error('delivery changed under an immediate transaction');
   }
 
-  private verify(row: Row): CarePlanV1 | TamperKind {
+  private verify(row: Row): RedeemedPlan | TamperKind {
     if (row.plan === null) return 'missing';
     if (hash(row.plan) !== row.plan_hash) return 'hash';
     let json: unknown;
     try { json = JSON.parse(row.plan); } catch { return 'json'; }
-    const parsed = CarePlanV1.safeParse(json);
+    if (row.format === 1) {
+      const parsed = CarePlanV1.safeParse(json);
+      if (!parsed.success) return 'schema';
+      if (parsed.data.organizationId !== row.org) return 'org';
+      return { plan: parsed.data }; // no historical issuer snapshot exists: never synthesize one from today's name
+    }
+    if (row.format !== 2) return 'snapshot';
+    const parsed = DeliverySnapshotV1.safeParse(json);
     if (!parsed.success) return 'schema';
-    if (parsed.data.organizationId !== row.org) return 'org';
-    return parsed.data;
+    const { plan, ...snapshot } = parsed.data;
+    if (snapshot.issuer.organizationId !== row.org || plan.organizationId !== row.org) return 'org';
+    if (snapshot.snapshotId !== row.id || snapshot.issuer.memberId !== row.issued_by ||
+      Date.parse(snapshot.issuedAt) !== row.created || plan.issuedAt !== snapshot.issuedAt ||
+      plan.planId !== snapshot.source.planId || plan.clinician.displayName !== snapshot.issuer.displayName ||
+      plan.clinician.organizationName !== snapshot.issuer.organizationName) return 'snapshot';
+    return { plan, snapshot };
   }
 
   /** Aggregate counts for the clinic's admins (PR-14): numbers only, never plan content or anything about a patient. */

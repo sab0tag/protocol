@@ -44,13 +44,15 @@ Check the live schema on a copy of the latest backup, not on the live file:
 
 ```
 gunzip -c /backups/protocol-YYYY-MM-DD.db.gz > /tmp/check.db
-DB_PATH=/tmp/check.db npm run db:migrate   # unversioned legacy: applied 1, 2; baseline-only: applied 2
+DB_PATH=/tmp/check.db npm run db:migrate   # unversioned legacy: applied 1, 2, 3; baseline-only: applied 2, 3
 ```
 
 A refusal there lists exactly what differs; resolve it before the new API starts against the live database.
 
-The current version is 2 (ACCESS-02 identity/membership expand). See [the upgrade contract](access-02-memberships.md)
-for backfill, legacy write compatibility and rollback restrictions. Migration 0001 is still immutable.
+The current version is 3 (ACCESS-07-A delivery snapshot format). Migration 0003 adds a format discriminator; existing
+deliveries remain format 1 with unchanged payloads/hashes, new authenticated issues use format 2. See
+[identity expand](access-02-memberships.md) and [delivery snapshots](access-07-a-snapshots.md) for compatibility and
+rollback restrictions. Applied migrations 0001 and 0002 remain immutable.
 
 ## Review verification
 Current-version schema drift is checked inside the final write-locked transaction too, not only before a pending migration. API startup refuses versioned drift before listening. The manifest also compares SQL token definitions for tables and explicit indexes to detect CHECK changes, index expressions and partial predicates that PRAGMA metadata omits. Whitespace outside quoted values may differ; other unknown definition differences are refused conservatively for review, not silently normalized.

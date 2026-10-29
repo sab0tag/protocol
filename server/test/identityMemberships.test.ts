@@ -6,6 +6,7 @@ import { projectLegacyMember } from '../src/clinic/memberships.ts';
 import { MIGRATIONS, migrate } from '../src/db/migrate.ts';
 import { Store } from '../src/store.ts';
 
+const identityMigrations = () => MIGRATIONS().slice(0, 2);
 const hash = (s: string) => createHash('sha256').update(s).digest('hex');
 const rows = (db: DatabaseSync, table: string) => db.prepare(`SELECT * FROM ${table} ORDER BY rowid`).all().map((r) => ({ ...r }));
 const baseline = () => {
@@ -32,11 +33,11 @@ const rig = () => {
 const projection = (db: DatabaseSync) => Object.fromEntries(['accounts', 'organization_memberships', 'organization_membership_roles', 'clinic_orgs', 'clinic_members', 'clinic_audit'].map((t) => [t, rows(db, t)]));
 
 describe('ACCESS-02 additive migration', () => {
-  it('ships baseline unchanged followed by identity expand; fresh installs reach version 2', () => {
-    expect(MIGRATIONS().map((m) => [m.version, m.name])).toEqual([[1, 'baseline'], [2, 'identity_memberships']]);
+  it('the identity migration prefix preserves baseline and reaches version 2', () => {
+    expect(identityMigrations().map((m) => [m.version, m.name])).toEqual([[1, 'baseline'], [2, 'identity_memberships']]);
     expect(MIGRATIONS()[0]!.checksum).toBe('fdcbe811adc0a88ba9eb04d03372b431d8266eb68758e3dc466a32228be3b74d');
     const db = new DatabaseSync(':memory:');
-    expect(migrate(db).applied).toEqual([1, 2]);
+    expect(migrate(db, identityMigrations()).applied).toEqual([1, 2]);
     expect(rows(db, 'accounts')).toEqual([]);
     expect(db.prepare('PRAGMA foreign_key_check').all()).toEqual([]);
     db.close();
@@ -46,7 +47,7 @@ describe('ACCESS-02 additive migration', () => {
     const db = baseline();
     const tables = ['clinic_orgs', 'clinic_members', 'plan_delivery', 'clinic_audit'];
     const before = Object.fromEntries(tables.map((t) => [t, rows(db, t)]));
-    expect(migrate(db).applied).toEqual([2]);
+    expect(migrate(db, identityMigrations()).applied).toEqual([2]);
     expect(Object.fromEntries(tables.map((t) => [t, rows(db, t)]))).toEqual(before);
     expect(rows(db, 'accounts')).toEqual([
       { id: 'staff-a', status: 'pending_link', created_at: 11 },
@@ -62,7 +63,7 @@ describe('ACCESS-02 additive migration', () => {
     expect(dir.authenticate('a'.repeat(43))).toEqual({ memberId: 'staff-a', orgId: 'org-a', role: 'doctor' });
     expect(dir.authenticate('b'.repeat(43))).toBeNull();
     const snapshot = projection(db), history = rows(db, 'schema_migrations');
-    expect(migrate(db).applied).toEqual([]);
+    expect(migrate(db, identityMigrations()).applied).toEqual([]);
     expect(projection(db)).toEqual(snapshot);
     expect(rows(db, 'schema_migrations')).toEqual(history);
     db.close();
@@ -73,7 +74,7 @@ describe('ACCESS-02 additive migration', () => {
     if (corruption === 'role') db.exec("UPDATE clinic_members SET role = 'superuser' WHERE id = 'staff-a'");
     else db.exec("UPDATE clinic_members SET org = 'missing' WHERE id = 'staff-a'");
     const before = rows(db, 'clinic_members');
-    expect(() => migrate(db)).toThrow(/migration_failed/);
+    expect(() => migrate(db, identityMigrations())).toThrow(/migration_failed/);
     expect(db.isTransaction).toBe(false);
     expect(db.prepare("SELECT name FROM sqlite_master WHERE name = 'accounts'").get()).toBeUndefined();
     expect(rows(db, 'clinic_members')).toEqual(before);

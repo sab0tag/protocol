@@ -1,6 +1,7 @@
 /** PR-13: a plan handed over by a clinic. It is shown as a preview first; only items the person ticks are stored, as a
  *  draft with `pending` verification. Nothing is activated and no reminder or obligation is created by importing. */
 import type { CarePlan, CarePlanItem } from './carePlans';
+import type { ClinicSnapshot } from './clinicSnapshot';
 
 export interface ClinicPlanV1 {
   schemaVersion: 1;
@@ -15,7 +16,7 @@ export interface ClinicPlanV1 {
   followUp?: string;
 }
 export interface PreviewItem { key: string; kind: CarePlanItem['kind']; title: string; detail: string }
-export interface ImportPreview { plan: ClinicPlanV1; items: PreviewItem[] }
+export interface ImportPreview { plan: ClinicPlanV1; items: PreviewItem[]; snapshot?: ClinicSnapshot }
 
 const isStr = (x: unknown, max: number, min = 0): x is string => typeof x === 'string' && x.length >= min && x.length <= max;
 const strs = (x: unknown, max: number, len: number): x is string[] => Array.isArray(x) && x.length <= max && x.every((s) => isStr(s, len, 1));
@@ -29,7 +30,8 @@ export function parseClinicPlan(raw: unknown): ClinicPlanV1 | null {
   const c = p.clinician as Record<string, unknown> | undefined;
   if (p.schemaVersion !== 1 || !isStr(p.planId, 64, 1) || !isStr(p.organizationId, 128, 1) || !isStr(p.issuedAt, 40, 10) ||
     Number.isNaN(Date.parse(p.issuedAt as string)) || !isStr(p.title, 200, 1) || !c || !isStr(c.displayName, 200, 1) ||
-    !isStr(c.organizationName, 200, 1) || !strs(p.restrictions, 100, 500) || !strs(p.tests, 100, 500) ||
+    !isStr(c.organizationName, 200, 1) || Object.keys(c).some(k => !['displayName', 'organizationName'].includes(k)) ||
+    !strs(p.restrictions, 100, 500) || !strs(p.tests, 100, 500) ||
     (p.followUp !== undefined && !isStr(p.followUp, 500))) return null;
   const meds = p.medications;
   if (!Array.isArray(meds) || meds.length > 100) return null;
@@ -54,14 +56,42 @@ export function previewClinicPlan(raw: unknown): ImportPreview | null {
   return { plan, items };
 }
 
+const object = (x: unknown): Record<string, unknown> | null => x !== null && typeof x === 'object' && !Array.isArray(x) ? x as Record<string, unknown> : null;
+const exact = (x: Record<string, unknown>, keys: string[]) => Object.keys(x).every(k => keys.includes(k));
+const date = (x: unknown) => isStr(x, 40, 10) && !Number.isNaN(Date.parse(x));
+
+/** Only for the response fetched from the configured API by redeemClinicPlan. File/pasted JSON always uses
+ * previewClinicPlan, which cannot accept or certify an issuer. This receipt is not an offline authenticity proof. */
+export function previewClinicRedemption(raw: unknown): ImportPreview | null {
+  const response = object(raw);
+  if (!response || !exact(response, ['plan', 'snapshot'])) return null;
+  const preview = previewClinicPlan(response.plan);
+  if (!preview) return null;
+  if (response.snapshot === undefined) return preview; // legacy server/document: keep unverified authorship
+  const s = object(response.snapshot), issuer = object(s?.issuer), source = object(s?.source), clinician = object(source?.clinician);
+  if (!s || !issuer || !source || !clinician || s.schemaVersion !== 1 ||
+    !exact(s, ['schemaVersion', 'snapshotId', 'issuedAt', 'issuer', 'source']) ||
+    !isStr(s.snapshotId, 36, 36) || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s.snapshotId) || !date(s.issuedAt) ||
+    !exact(issuer, ['memberId', 'membershipId', 'organizationId', 'displayName', 'organizationName']) ||
+    !['memberId', 'membershipId', 'organizationId'].every(k => isStr(issuer[k], 128, 1)) ||
+    !isStr(issuer.displayName, 200, 1) || !isStr(issuer.organizationName, 200, 1) ||
+    !exact(source, ['planId', 'issuedAt', 'clinician']) || !date(source.issuedAt) ||
+    !exact(clinician, ['displayName', 'organizationName']) || !isStr(clinician.displayName, 200, 1) || !isStr(clinician.organizationName, 200, 1)) return null;
+  const p = preview.plan;
+  if (issuer.organizationId !== p.organizationId || issuer.displayName !== p.clinician.displayName ||
+    issuer.organizationName !== p.clinician.organizationName || s.issuedAt !== p.issuedAt || source.planId !== p.planId) return null;
+  return { ...preview, snapshot: structuredClone(s) as unknown as ClinicSnapshot };
+}
+
 /** Builds the draft to store. `accepted` are the preview keys the person ticked; unknown keys are ignored, none = nothing to import. */
 export function confirmImport(preview: ImportPreview, accepted: readonly string[], personId: string): { plan: CarePlan; items: CarePlanItem[] } | null {
   const chosen = preview.items.filter((i) => accepted.includes(i.key));
   if (!chosen.length) return null;
-  const p = preview.plan, planId = JSON.stringify(['clinic-plan', p.planId]);
+  const p = preview.plan, planId = preview.snapshot ? JSON.stringify(['clinic-snapshot', preview.snapshot.snapshotId]) : JSON.stringify(['clinic-plan', p.planId]);
   const source = `${p.clinician.displayName}, ${p.clinician.organizationName}`;
   const plan: CarePlan = { id: planId, personId, title: p.title, clinicianRef: source, status: 'draft', version: 1,
-    source: { kind: 'clinic', clinicPlanId: p.planId, organizationName: p.clinician.organizationName, issuedAt: p.issuedAt } };
+    source: { kind: 'clinic', clinicPlanId: p.planId, organizationName: p.clinician.organizationName, issuedAt: p.issuedAt,
+      ...(preview.snapshot ? { redemption: structuredClone(preview.snapshot) } : {}) } };
   const items = chosen.map((i): CarePlanItem => ({
     id: JSON.stringify([planId, i.key]), personId, planId, kind: i.kind, provenance: { verification: 'pending', text: i.detail ? `${i.title}: ${i.detail}` : i.title },
     content: { type: 'prescription', value: {
