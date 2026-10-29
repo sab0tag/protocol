@@ -1,5 +1,6 @@
 import type { Context, Hono } from 'hono';
 import { getCookie, setCookie, deleteCookie } from 'hono/cookie';
+import { IdentityError } from './errors.ts';
 import { cors } from 'hono/cors';
 import * as client from 'openid-client';
 import { DatabaseBusy, isBusy } from '../db/tx.ts';
@@ -25,11 +26,12 @@ export function mountIdentity(app: Hono, id: Identity, o: { allow: (c: Context, 
   const { cfg, oidc, sessions } = id;
   const credentialed = cors({ origin: (origin) => (origin === cfg.appOrigin ? origin : null), credentials: true,
     allowMethods: ['GET', 'POST'], allowHeaders: ['Content-Type', 'X-CSRF-Token'], maxAge: 600 });
-  app.use('/v1/session', credentialed);
-  app.use('/v1/session/*', credentialed);
-  app.use('/v1/sessions/*', credentialed);
-  app.use('/v1/auth/*', async (c, next) => { c.header('Cache-Control', 'no-store'); c.header('Referrer-Policy', 'no-referrer'); await next(); });
-  app.use('/v1/session*', async (c, next) => { c.header('Cache-Control', 'no-store'); await next(); });
+  app.use('*', async (c, next) => {
+    const path = c.req.path;
+    if (isIdentityPath(path)) { c.header('Cache-Control', 'no-store'); c.header('Referrer-Policy', 'no-referrer'); }
+    if (path === '/v1/auth/config' || path === '/v1/session' || path.startsWith('/v1/session/') || path.startsWith('/v1/sessions/')) return credentialed(c, next);
+    return next();
+  });
 
   const back = (path: string, query?: Record<string, string>) => {
     const u = new URL(path, cfg.appOrigin);
@@ -59,6 +61,8 @@ export function mountIdentity(app: Hono, id: Identity, o: { allow: (c: Context, 
     if (c.req.header('X-CSRF-Token') !== s.csrf) return c.json({ error: 'csrf' }, 403);
     return s;
   };
+
+  app.get('/v1/auth/config', c => c.json({ enabled: true }));
 
   app.get('/v1/auth/login', async (c) => {
     const stop = limited(c, 'auth:login', 200);
@@ -167,3 +171,15 @@ export function mountIdentity(app: Hono, id: Identity, o: { allow: (c: Context, 
   });
 }
 
+
+/** Shared with the clinic boundary: malformed/expired cookies cannot fall back to bearer authentication. */
+export function sessionToken(c: Context, _id: Identity): string | undefined {
+  const raw = c.req.header('Cookie') ?? '';
+  const parsed = getCookie(c, SESSION, 'host');
+  if (/(?:^|;\s*)__Host-psess=/.test(raw) && !parsed) throw new IdentityError('unauthorized');
+  return parsed;
+}
+export function safeMutation(c: Context, id: Identity, s: Session): void {
+  if (c.req.header('Origin') !== id.cfg.appOrigin || c.req.header('X-CSRF-Token') !== s.csrf) throw new IdentityError('forbidden');
+}
+export const identityStatus = (e: IdentityError): 401 | 403 | 503 => e.code === 'unauthorized' ? 401 : e.code === 'identity_unavailable' ? 503 : 403;

@@ -66,3 +66,10 @@ issuer, audience, expiry or **signature**; cancelled sign-in and unreachable pro
 absolute expiry; logout and revoke-all with Origin/CSRF; credentialed CORS limited to the app origin and session
 routes; housekeeping; step-up parameters, rotation, kept absolute end, another person, stale `auth_time`, no session;
 startup refusal with an incomplete configuration.
+
+## Follow-up: ACCESS-04-A
+
+[Clinical session integration](access-04-clinic-sessions.md) applies MFA and live membership roles at clinical service
+boundaries, adds clinic context selection and the specialist login UI. Credentialed CORS extends to protected clinic
+routes for the exact APP_ORIGIN; anonymous plan redemption remains non-credentialed. Invitations, approved placeholder
+linking, role-set administration and per-clinic legacy cutover still remain before real rollout.

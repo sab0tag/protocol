@@ -6,9 +6,11 @@ import { ClinicError } from './errors.ts';
 import { ClinicPolicy, type LegacyActor, type PolicyAction, type Resource } from './policy.ts';
 export { ClinicError, type DirectoryError } from './errors.ts';
 import { projectLegacyMember } from './memberships.ts';
+import { Sessions } from '../identity/sessions.ts';
+import { IdentityError } from '../identity/errors.ts';
 
 /** The caller as the server knows it. `orgId` comes from the member record, never from the request. */
-export type Actor = LegacyActor;
+export type Actor = LegacyActor & { session?: { hash: string; accountId: string; membershipId: string } };
 
 export interface Member { id: string; displayName: string; role: Role; active: boolean }
 export interface AuditEntry { at: number; actor: string; action: string; target: string | null }
@@ -25,11 +27,13 @@ export class ClinicDirectory {
   private readonly db: DatabaseSync;
   private readonly now: () => number;
   private readonly policy: ClinicPolicy;
+  private readonly sessions: Sessions;
 
   constructor(db: DatabaseSync, now: () => number = Date.now) {
     this.db = db;
     this.now = now;
     this.policy = new ClinicPolicy(db);
+    this.sessions = new Sessions(db, now);
     // tables: src/db/migrations (0001_baseline); constructors never change the schema
   }
 
@@ -69,7 +73,32 @@ export class ClinicDirectory {
 
   /** Every service operation re-resolves live authority; role on the Actor is never trusted. */
   require(actor: Actor, action: PolicyAction, resource: Resource = { kind: 'organization', orgId: actor.orgId }): void {
-    this.policy.require({ kind: 'legacy', actor }, action, resource);
+    if (actor.session) {
+      const s = this.sessions.require(actor.session.hash, { mfa: true });
+      if (s.accountId !== actor.session.accountId) throw new IdentityError('unauthorized');
+      const member = this.db.prepare('SELECT m.legacy_member_id FROM organization_memberships m JOIN clinic_members l ON l.id = m.legacy_member_id AND l.org = m.organization_id WHERE m.id = ? AND m.account_id = ? AND m.organization_id = ? AND l.active = 1')
+        .get(actor.session.membershipId, s.accountId, actor.orgId);
+      // ACCESS-04 creates/migrates the legacy staff shadow; no implicit clinical identity is created here.
+      if (!member || member.legacy_member_id !== actor.memberId) throw new IdentityError('unauthorized');
+      this.policy.require({ kind: 'membership', accountId: s.accountId, membershipId: actor.session.membershipId, orgId: actor.orgId }, action, resource);
+    } else this.policy.require({ kind: 'legacy', actor }, action, resource);
+  }
+
+  authenticateSession(hash: string, orgId?: string): Actor {
+    const s = this.sessions.require(hash, { mfa: true }), contexts = this.sessions.contexts(s.accountId);
+    const selected = orgId ? contexts.find(m => m.organizationId === orgId) : contexts.length === 1 ? contexts[0] : undefined;
+    if (!selected) throw new IdentityError('context_required');
+    const m = this.db.prepare('SELECT legacy_member_id FROM organization_memberships WHERE id = ?').get(selected.membershipId);
+    if (typeof m?.legacy_member_id !== 'string') throw new IdentityError('forbidden');
+    const role = selected.roles.includes('admin') ? 'admin' : selected.roles.includes('doctor') ? 'doctor' : null;
+    if (!role) throw new IdentityError('forbidden');
+    const actor: Actor = { memberId: m.legacy_member_id, orgId: selected.organizationId, role,
+      session: { hash, accountId: s.accountId, membershipId: selected.membershipId } };
+    this.require(actor, 'clinic.profile.read'); return actor;
+  }
+
+  private fresh(actor: Actor): void {
+    if (actor.session) this.sessions.require(actor.session.hash, { mfa: true, fresh: true });
   }
 
   /** Issue-time identity snapshot. Caller holds the write transaction containing authorization and delivery. */
@@ -85,12 +114,14 @@ export class ClinicDirectory {
   }
 
   /** What the portal needs to compose a plan: the caller's own name and organization. */
-  profile(actor: Actor): { memberId: string; role: Role; displayName: string; organizationId: string; organizationName: string } {
+  profile(actor: Actor): { memberId: string; role: Role; displayName: string; organizationId: string; organizationName: string; roles: Role[] } {
     this.require(actor, 'clinic.profile.read');
     const r = this.db.prepare('SELECT m.name AS name, m.role AS role, m.active AS active, o.name AS org FROM clinic_members m JOIN clinic_orgs o ON o.id = m.org WHERE m.id = ? AND m.org = ?')
       .get(actor.memberId, actor.orgId) as { name: string; role: Role; active: number; org: string } | undefined;
     if (!r || !r.active) throw new ClinicError('unauthenticated');
-    return { memberId: actor.memberId, role: r.role, displayName: r.name, organizationId: actor.orgId, organizationName: r.org };
+    const roles = actor.session ? this.sessions.contexts(actor.session.accountId).find(m => m.membershipId === actor.session!.membershipId)?.roles : undefined;
+    const role: Role = roles ? roles.includes('admin') ? 'admin' : 'doctor' : r.role;
+    return { memberId: actor.memberId, role, displayName: r.name, organizationId: actor.orgId, organizationName: r.org, roles: roles ? roles.filter(isRole) : [r.role] };
   }
 
   addStaff(actor: Actor, input: { displayName: string; role: Role }): { memberId: string; token: string } {
@@ -100,6 +131,7 @@ export class ClinicDirectory {
     const id = randomUUID(), token = newToken();
     immediate(this.db, () => {
       this.require(actor, 'staff.manage');
+      this.fresh(actor);
       this.db.prepare('INSERT INTO clinic_members (id, org, name, role, token_hash, created) VALUES (?, ?, ?, ?, ?, ?)')
         .run(id, actor.orgId, name, input.role, hash(token), this.now());
       projectLegacyMember(this.db, id);
@@ -119,8 +151,9 @@ export class ClinicDirectory {
     if (!isRole(role)) throw new ClinicError('bad_request');
     immediate(this.db, () => {
       this.require(actor, 'staff.manage');
+      this.fresh(actor);
       const m = this.target(actor, memberId);
-      if (m.role === 'admin' && role !== 'admin' && m.active) this.keepAnAdmin(actor.orgId, memberId);
+      if (m.admin && role !== 'admin' && m.active) this.keepAnAdmin(actor.orgId, memberId);
       this.db.prepare('UPDATE clinic_members SET role = ? WHERE id = ? AND org = ?').run(role, memberId, actor.orgId);
       projectLegacyMember(this.db, memberId);
       this.audit(actor.orgId, actor.memberId, `staff.role.${role}`, memberId);
@@ -131,8 +164,9 @@ export class ClinicDirectory {
     this.require(actor, 'staff.manage');
     immediate(this.db, () => {
       this.require(actor, 'staff.manage');
+      this.fresh(actor);
       const m = this.target(actor, memberId);
-      if (m.role === 'admin' && m.active) this.keepAnAdmin(actor.orgId, memberId);
+      if (m.admin && m.active) this.keepAnAdmin(actor.orgId, memberId);
       this.db.prepare('UPDATE clinic_members SET active = 0 WHERE id = ? AND org = ?').run(memberId, actor.orgId);
       projectLegacyMember(this.db, memberId, false);
       this.audit(actor.orgId, actor.memberId, 'staff.deactivate', memberId);
@@ -144,6 +178,7 @@ export class ClinicDirectory {
     this.require(actor, 'staff.manage');
     return immediate(this.db, () => {
       this.require(actor, 'staff.manage');
+      this.fresh(actor);
       this.target(actor, memberId);
       const token = newToken();
       this.db.prepare('UPDATE clinic_members SET token_hash = ? WHERE id = ? AND org = ?').run(hash(token), memberId, actor.orgId);
@@ -167,20 +202,23 @@ export class ClinicDirectory {
    */
   recordSystem(orgId: string, actor: 'patient_link', action: string, target: string): void { this.audit(orgId, actor, action, target); }
 
-  private target(actor: Actor, memberId: string): { role: Role; active: boolean } {
+  private target(actor: Actor, memberId: string): { role: Role; active: boolean; admin: boolean } {
     const m = this.db.prepare('SELECT role, active FROM clinic_members WHERE id = ? AND org = ?').get(memberId, actor.orgId) as
       { role: Role; active: number } | undefined;
     if (!m) throw new ClinicError('not_found');
     this.require(actor, 'staff.manage', { kind: 'staff', orgId: actor.orgId });
-    return { role: m.role, active: !!m.active };
+    const membershipAdmin = this.db.prepare(`SELECT 1 FROM organization_memberships ms JOIN organization_membership_roles r ON r.membership_id = ms.id
+      WHERE ms.legacy_member_id = ? AND ms.organization_id = ? AND r.role = 'admin'`).get(memberId, actor.orgId);
+    return { role: m.role, active: !!m.active, admin: m.role === 'admin' || !!membershipAdmin };
   }
 
   private keepAnAdmin(orgId: string, leaving: string): void {
     const others = this.db.prepare(`SELECT COUNT(*) AS n FROM clinic_members l
       JOIN organization_memberships m ON m.legacy_member_id = l.id AND m.organization_id = l.org
       JOIN accounts a ON a.id = m.account_id
-      WHERE l.org = ? AND l.role = 'admin' AND l.active = 1 AND l.id != ?
-        AND m.status = 'active' AND a.status IN ('pending_link', 'active')`).get(orgId, leaving) as { n: number };
+      WHERE l.org = ? AND l.active = 1 AND l.id != ? AND m.status = 'active'
+        AND ((l.role = 'admin' AND a.status IN ('pending_link', 'active')) OR (a.status = 'active' AND EXISTS
+          (SELECT 1 FROM organization_membership_roles r WHERE r.membership_id = m.id AND r.role = 'admin')))`).get(orgId, leaving) as { n: number };
     if (others.n === 0) throw new ClinicError('last_admin');
   }
 

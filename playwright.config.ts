@@ -12,7 +12,7 @@ export default defineConfig({
     permissions: ['notifications', 'clipboard-read', 'clipboard-write'] },
   webServer: [
     { command: 'npm run build:e2e && vite preview --outDir dist-e2e --port 4318 --strictPort', url: 'http://localhost:4318/', reuseExistingServer: !process.env.CI, timeout: 120_000 },
-    { command: 'rm -rf .e2e && mkdir -p .e2e && node --disable-warning=ExperimentalWarning server/src/main.ts', url: 'http://localhost:8099/health', reuseExistingServer: false,
+    { command: 'rm -rf .e2e && mkdir -p .e2e && node --disable-warning=ExperimentalWarning tests/e2e/support/apiWithIdentity.ts', url: 'http://localhost:8099/health', reuseExistingServer: false,
       env: { PORT: '8099', DB_PATH: '.e2e/api.db', BACKUP_DIR: '.e2e', ALLOWED_ORIGINS: 'http://localhost:4318', VAULTS_PER_IP_PER_DAY: '1000', DEVICE_TOKENS_PER_IP_PER_DAY: '1000', PILOT_JOINS_PER_IP_PER_DAY: '1000' } },
   ],
 });
