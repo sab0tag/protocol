@@ -410,6 +410,7 @@ export function AddMeal() {
             <div className="border-t border-line p-3">
 
 
+              <label className="mb-2 block"><span className="text-sm text-muted">Дата прийому</span><input type="date" value={date} onChange={(e) => { setDate(e.target.value); setEaten(e.target.value <= todayISO()); }} required className={field} /></label>
               <div className="grid grid-cols-2 gap-3">
                 <label className="block"><span className="text-sm text-muted">{t.meal.name}</span>
                   <input value={title} onChange={(e) => setTitle(e.target.value)} className={field} /></label>
