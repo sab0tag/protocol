@@ -1,4 +1,4 @@
-# ACCESS-01-IDP — identity provider for staff login
+# ACCESS-01-IDP — identity provider for staff and optional patient accounts
 
 Status: accepted for implementation, 2026-10-29. Selected provider: managed Auth0, EU tenant.
 No provider account, paid subscription, external credentials or production setting has been created by this ADR.
@@ -36,6 +36,54 @@ Select the EU region when creating the tenant; Auth0 does not support moving an 
 Confirm actual MFA entitlement and cost before provisioning. TOTP through an authenticator is the proposed pilot
 factor; assurance claims and recovery must be verified against the selected plan before real staff login.
 
+## Account scope and cost model
+
+Use the same Auth0 EU provider for optional patient sign-in and staff sign-in. One Protocol Account may own a
+personal adult profile and multiple clinic memberships; logging into the personal context creates no clinical
+permission. Local-only patients do not register and remain independent of identity-provider availability.
+
+The initial login cohort is staff; remote patient binding is not enabled until ACCESS-06. Do not extrapolate a
+staff-only quote to the patient rollout: budget for the union of active signed-in staff and patients, counting a
+person with both contexts once according to the contracted MAU definition. Local anonymous users are outside this
+identity cohort. No production MAU count or budget has been approved. Before enabling patient sign-in, compare
+actual pricing at 100, 1,000 and 10,000 patient MAU plus staff, including MFA factors and recovery costs. These are
+planning scenarios, not a committed cohort size or tariff promise.
+
+## Fresh authentication and invitations
+
+For role changes, adult-profile binding, grant creation/extension and account deletion, the BFF requires a
+verified authentication time no older than 600 seconds. If stale or absent, request re-authentication with
+`max_age=600` / `prompt=login`; validate the signed ID token's `auth_time` server-side using the OIDC library.
+Provider SSO alone must not refresh the local assurance timestamp. Reject missing/future/out-of-window claims;
+use an explicitly bounded clock skew and tests. Recheck freshness at the protected service operation.
+
+For Auth0 staff login/step-up, require `amr` to contain `mfa` in the cryptographically verified ID token. Requesting
+an MFA `acr_values` value is a challenge request, not proof of completion. Missing/insufficient assurance denies
+clinical access and requires a new challenge; no UI boolean or client claim can override it. Patient-only fresh
+login may use the available account verification method; it does not inherit the staff MFA/clinical permission.
+Before launch, test missing `amr`, stale/missing `auth_time`, remembered-browser/SSO flows and callback replay with
+the actual tenant. For another provider, name and test its precise assurance mapping in a revised ADR.
+
+Protocol owns the 72-hour invitation secret, lifecycle, recipient address, selected membership/roles and
+acceptance transaction. Protocol's mail adapter sends the membership invitation. The IdP sends its own address
+verification/recovery messages and proves the verified address; its organization/invitation features never grant
+membership. No invitation email is sent by this ADR, and a delivery provider still needs separate configuration.
+
+## Identity deletion and hosting alternatives
+
+| Option | Per-person deletion and remaining data terms |
+| --- | --- |
+| Selected Auth0 EU | Delete the exact external user through the Management API. Confirm deletion completion, authentication-log retention and backup expiry in the actual plan/DPA before live use; API success is not a promise of immediate erasure from all backups. |
+| Self-hosted Keycloak | Admin REST user deletion; Protocol's operator owns deletion processing, logs, backup retention/expiry and restoration safeguards. Define and test these operational timelines before choosing this option. |
+| Managed Keycloak in the EU | A viable middle option if vendor contracts cover EU placement, patches, support, MFA/recovery, per-user deletion and backup expiry; review the actual supplier/price before selection. It is not provisioned or selected here. |
+| ZITADEL Cloud | User v2 Delete User API marks the user deleted. Verify remaining event/log retention and backup timelines in the selected service agreement; do not infer total backup erasure from API deletion. |
+
+A Protocol deletion flow first revokes local/server sessions and disables access, then tracks provider deletion
+with retries and confirmation. Keep the disabled identity mapping while deletion is pending so stale provider
+sessions cannot recreate access. Clinical receipt/audit retention is a separate Protocol policy, not something
+an IdP deletion API implicitly implements. No provider deletion or destructive operation is performed by this ADR.
+The exact contractual deletion timeline and backup expiry are pre-enablement gates, not assumed vendor facts.
+
 ## Acceptance before enabling a real login
 
 1. Provider is selected: managed Auth0 EU. Before provisioning, assign tenant administration and confirm the actual
@@ -50,7 +98,9 @@ factor; assurance claims and recovery must be verified against the selected plan
 5. Record the serving topology before callback/cookie integration: the current app and API use separate hosts;
    use an explicitly reviewed same-origin proxy/BFF or a narrowly allowed same-site API configuration. Do not widen
    CORS, cookie Domain, deployment visibility or production routes silently to make login work.
-6. Confirm identifier/auth-log retention and region, invitation/email delivery, key/JWKS rotation and recovery drill.
+6. Confirm the MAU cohort/plan, per-person deletion completion and provider backup/log retention terms, identifier
+   region, Protocol invitation delivery, key/JWKS rotation and recovery drill. Verify the 10-minute step-up contract
+   and Auth0 `amr`/`auth_time` handling described above.
    Export/retirement of the provider must preserve Protocol account IDs and not affect local patient access.
 
 ACCESS-02 and ACCESS-05 are already merged. This accepted provider decision allows ACCESS-03 implementation and
@@ -62,6 +112,11 @@ operational gates above are satisfied. No bypass of session, MFA or object polic
 - Auth0 tenant locality: https://support.auth0.com/center/s/article/Tenant-Creation-in-a-Specific-Sub-region
 - Auth0 region changes: https://support.auth0.com/center/s/article/Change-the-Location-of-Existing-Tenant
 - Auth0 MFA entitlements: https://support.auth0.com/center/s/article/Entitlements-for-Enterprise-MFA-Feature
+- Auth0 MFA assurance: https://support.auth0.com/center/s/article/configure-auth0-for-salesforce-multi-factor-authentication-compliance
+- OIDC claim/state/nonce checks: https://github.com/panva/openid-client/blob/main/docs/interfaces/AuthorizationCodeGrantChecks.md
+- Auth0 individual deletion: https://support.auth0.com/center/s/article/Deleting-Inactive-Users
+- Keycloak user deletion: https://www.keycloak.org/docs-api/latest/rest-api/
+- ZITADEL user deletion: https://zitadel.com/docs/reference/api/user/zitadel.user.v2.UserService.DeleteUser
 - Auth0 pricing (recheck before purchase): https://auth0.com/pricing
 - Keycloak production requirements: https://www.keycloak.org/server/configuration-production
 - Keycloak containers: https://www.keycloak.org/server/containers
