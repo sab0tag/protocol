@@ -114,3 +114,26 @@ test('a talk kept from before D130 is cleaned on opening: its words of danger or
   await expect(page.getByText('Гречка з яйцем.')).toBeVisible();
   expect(JSON.stringify(sent!.history)).not.toMatch(/жити|грудях/);
 });
+
+test('open, fill and send are told apart: a filled question waits in the field and nothing goes to the model (ТЗ Assistant 2.0, D143)', async ({ browser }) => {
+  const page = await device(browser);
+  let calls = 0;
+  await page.route('**/concierge/chat', async (r) => { calls++; await r.fulfill({ json: { topic: 'food', text: 'ok', items: [] } }); });
+  await page.goto('./#/assistant');
+  const quick = page.getByRole('group', { name: 'Швидкі запитання' });
+  await expect(quick.getByRole('button', { name: /^Що добрати до вечора\?\s*рахує застосунок, без ІІ$/ })).toBeVisible();
+  await expect(quick.getByRole('button', { name: /^Що з’їсти на вечерю\?\s*одразу запит до ІІ$/ })).toBeVisible();
+  const input = page.getByRole('textbox', { name: 'Питання помічнику' });
+  await quick.getByRole('button', { name: /^У мене вдома лише…/ }).click();
+  await expect(input).toHaveValue('У мене вдома лише ');
+  await expect(input).toBeFocused();
+  await page.keyboard.type('гречка');
+  await expect(input).toHaveValue('У мене вдома лише гречка');
+  await page.getByRole('button', { name: /^Що приготувати на вечерю\?/ }).click();
+  await expect(input).toHaveValue('Що приготувати на вечерю з урахуванням мого плану?');
+  await expect(input).toBeFocused();
+  await page.getByRole('button', { name: /^Як проходить мій тиждень\?/ }).click();
+  await expect(page).toHaveURL(/#\/week$/); // opening a section asks nothing
+  expect(calls).toBe(0);
+  await expect(page.getByRole('button', { name: 'Дозволити й запитати' })).toHaveCount(0);
+});
