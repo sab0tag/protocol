@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+import { mutationHousekeeping, type Mutation } from '../src/db/mutations.ts';
 import { Worker } from 'node:worker_threads';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -172,7 +174,7 @@ describe('invitation HTTP boundary', () => {
     const app = createApp({ store: r.store, clinic: r.dir, planDelivery: new PlanDelivery(r.db, r.dir, r.now), origins: [cfg.appOrigin],
       identity: { cfg, oidc: new Oidc(cfg), sessions: r.sessions }, invitations: r.invites, now: () => new Date(r.now()) });
     const req = (path: string, token: string, csrf: string | null, body: unknown, origin = cfg.appOrigin) => app.request(`https://api.test${path}`, { method: 'POST',
-      headers: { Cookie: `__Host-psess=${token}`, Origin: origin, 'X-Clinic-Id': r.org.orgId, 'Content-Type': 'application/json', ...(csrf ? { 'X-CSRF-Token': csrf } : {}) }, body: JSON.stringify(body) });
+      headers: { Cookie: `__Host-psess=${token}`, Origin: origin, 'X-Clinic-Id': r.org.orgId, 'Content-Type': 'application/json', 'Idempotency-Key': crypto.randomUUID(), ...(csrf ? { 'X-CSRF-Token': csrf } : {}) }, body: JSON.stringify(body) });
     expect((await req('/v1/clinic/invitations', r.adminLogin.token, null, r.input)).status).toBe(403);
     expect((await req('/v1/clinic/invitations', r.adminLogin.token, r.adminLogin.session.csrf, r.input, 'https://evil.test')).status).toBe(403);
     const created = await req('/v1/clinic/invitations', r.adminLogin.token, r.adminLogin.session.csrf, r.input);
@@ -233,4 +235,88 @@ it('rotating a credential invalidates cached legacy authority before any service
   const next = r.dir.rotateToken(r.admin, r.org.adminId);
   expect(() => r.dir.addStaff(cached,{ displayName:'Denied cached actor',role:'doctor' })).toThrow('unauthenticated');
   expect(r.dir.authenticate(next)).not.toBeNull(); expect(r.dir.authenticate(r.org.token)).toBeNull();
+});
+
+
+const receipt = (scope: string, input: unknown, at: number, key = crypto.randomUUID()): Mutation => ({ scope, at,
+  keyHash: createHash('sha256').update(key).digest('hex'), requestHash: createHash('sha256').update(JSON.stringify(input)).digest('hex') });
+describe('actor-scoped mutation receipts and optimistic role edits', () => {
+  it('replays the invitation result without a second email, rejects another payload, and never resurrects a revoked invitation', async () => {
+    const r = rig(), m = receipt('admin/create',r.input,r.now());
+    const one = await r.invites.invite(r.admin,r.input,m); expect(await r.invites.invite(r.admin,r.input,m)).toEqual(one); expect(r.mail).toHaveLength(1);
+    await expect(r.invites.invite(r.admin,{...r.input,roles:['admin']},{...m,requestHash:'different'})).rejects.toThrow('mutation_conflict');
+    r.invites.revoke(r.admin,one.id); expect(await r.invites.invite(r.admin,r.input,m)).toEqual(one); expect(r.mail).toHaveLength(1); expect(r.invites.list(r.admin)[0]?.state).toBe('revoked');
+  });
+  it('rejects a duplicate while SMTP is pending and replays only the committed result', async () => {
+    const r = rig(); let release!: () => void, begun!: () => void;
+    const wait = new Promise<void>(resolve => { release = resolve; }), ready = new Promise<void>(resolve => { begun = resolve; });
+    const service = new StaffInvitations(r.db,r.dir,'https://app.test',async m => { r.mail.push(m); begun(); await wait; },r.now);
+    const m = receipt('admin/create',r.input,r.now()), first = service.invite(r.admin,r.input,m); await ready;
+    await expect(service.invite(r.admin,r.input,m)).rejects.toThrow('mutation_in_progress'); release(); const result = await first;
+    expect(await service.invite(r.admin,r.input,m)).toEqual(result); expect(r.mail).toHaveLength(1);
+  });
+  it('does not resend on replay of a failed submission', async () => {
+    const r = rig(), service = new StaffInvitations(r.db,r.dir,'https://app.test',async m => { r.mail.push(m); throw Error('synthetic failure'); },r.now);
+    const m = receipt('admin/create',r.input,r.now()); await expect(service.invite(r.admin,r.input,m)).rejects.toThrow('unavailable');
+    await expect(service.invite(r.admin,r.input,m)).rejects.toThrow('mutation_failed'); expect(r.mail).toHaveLength(1);
+  });
+  it('replays an accepted membership for that account only, without a second audit or membership', async () => {
+    const r = rig(); await r.invites.invite(r.admin,r.input); const s = r.login('recipient'), other = r.login('other');
+    const m = receipt(`${s.session.accountId}/accept`,{code:r.code()},r.now()), first = r.invites.accept(s.session.hash,r.code(),m);
+    expect(r.invites.accept(s.session.hash,r.code(),m)).toEqual(first);
+    expect(() => r.invites.accept(other.session.hash,r.code(),m)).toThrow('not_found');
+    expect(r.db.prepare("SELECT count(*) AS n FROM clinic_audit WHERE action = 'staff.invite.accept'").get()?.n).toBe(1);
+    r.sessions.revoke(s.session); expect(() => r.invites.accept(s.session.hash,r.code(),m)).toThrow('unauthorized');
+  });
+  it('checks role version once, replays the prior write, and refuses a stale different edit', () => {
+    const r = rig(), version = r.dir.listStaff(r.admin).find(s=>s.id===r.doctor.memberId)!.rolesVersion!;
+    const m = receipt('admin/roles',{id:r.doctor.memberId,roles:['admin','doctor'],version},r.now());
+    r.dir.setRoles(r.admin,r.doctor.memberId,['admin','doctor'],version,m);
+    r.dir.setRoles(r.admin,r.doctor.memberId,['admin','doctor'],version,m);
+    const member = r.dir.listStaff(r.admin).find(s=>s.id===r.doctor.memberId)!; expect(member.rolesVersion).toBe(version+1); expect(member.roles).toEqual(['admin','doctor']);
+    expect(() => r.dir.setRoles(r.admin,r.doctor.memberId,['doctor'],version)).toThrow('conflict');
+    expect(() => r.dir.setRoles(r.admin,r.doctor.memberId,['doctor'],version,{...m,requestHash:'different'})).toThrow('mutation_conflict');
+    expect(r.dir.listStaff(r.admin).find(s=>s.id===r.doctor.memberId)!.rolesVersion).toBe(version+1);
+  });
+  it('a lost cutoff response does not move or extend the deadline on retry', async () => {
+    const r = rig(); await r.invites.invite(r.admin,r.input); const s = r.login('recipient'); r.invites.accept(s.session.hash,r.code());
+    const m = receipt('admin/cutover',{graceHours:168},r.now()); r.dir.cutover(r.admin,168,m);
+    const before = r.dir.authTransition(r.admin); r.tick(1000); r.dir.cutover(r.admin,168,m); expect(r.dir.authTransition(r.admin)).toEqual(before);
+    expect(() => r.dir.cutover(r.admin,168)).toThrow('bad_request');
+  });
+  it('rolls back the mutation receipt together with a failed business audit', async () => {
+    const r = rig(); await r.invites.invite(r.admin,r.input); const s = r.login('recipient'), m = receipt('recipient/accept',{code:r.code()},r.now());
+    r.db.exec("CREATE TEMP TRIGGER fail_receipt BEFORE INSERT ON clinic_audit WHEN NEW.action = 'staff.invite.accept' BEGIN SELECT RAISE(ABORT, 'synthetic'); END");
+    expect(() => r.invites.accept(s.session.hash,r.code(),m)).toThrow('synthetic'); expect(r.db.prepare('SELECT * FROM staff_mutations').all()).toEqual([]);
+    r.db.exec('DROP TRIGGER fail_receipt'); expect(r.invites.accept(s.session.hash,r.code(),m)).toBeDefined();
+  });
+  it('HTTP requires the key and handles canonical request hashes without exposing request bodies', async () => {
+    const r = rig(), cfg = { issuer: new URL('https://issuer.test/'), clientId:'synthetic',clientSecret:'synthetic',redirectUri:new URL('https://api.test/v1/auth/callback'),appOrigin:'https://app.test',mfaAmr:'mfa' };
+    const app = createApp({store:r.store,origins:[cfg.appOrigin],clinic:r.dir,planDelivery:new PlanDelivery(r.db,r.dir,r.now),identity:{cfg,oidc:new Oidc(cfg),sessions:r.sessions},invitations:r.invites,now:()=>new Date(r.now())});
+    const key = crypto.randomUUID(), headers = { Cookie:`__Host-psess=${r.adminLogin.token}`, Origin:cfg.appOrigin,'X-CSRF-Token':r.adminLogin.session.csrf,'X-Clinic-Id':r.org.orgId,'Content-Type':'application/json' };
+    const req = (body:unknown,k?:string) => app.request('https://api.test/v1/clinic/invitations',{method:'POST',headers:{...headers,...(k?{'Idempotency-Key':k}:{})},body:JSON.stringify(body)});
+    expect((await req(r.input)).status).toBe(400);
+    const first = await req(r.input,key); expect(first.status).toBe(201); const result = await first.json();
+    const reordered = {targetMemberId:r.input.targetMemberId,roles:r.input.roles,displayName:r.input.displayName,email:r.input.email};
+    expect(await (await req(reordered,key)).json()).toEqual(result); expect(r.mail).toHaveLength(1);
+    expect((await req({...r.input,roles:['admin']},key)).status).toBe(409);
+    const records = JSON.stringify(r.db.prepare('SELECT * FROM staff_mutations').all()); expect(records).not.toContain(r.input.email); expect(records).not.toContain(r.code()); expect(records).not.toContain(key);
+  });
+});
+
+
+it('accepting an invitation advances the role version so an old admin form cannot overwrite accepted roles', async () => {
+  const r = rig(), oldVersion = r.dir.listStaff(r.admin).find(s=>s.id===r.doctor.memberId)!.rolesVersion!;
+  await r.invites.invite(r.admin,{...r.input,roles:['admin','doctor']}); const s = r.login('recipient'); r.invites.accept(s.session.hash,r.code());
+  expect(() => r.dir.setRoles(r.admin,r.doctor.memberId,['doctor'],oldVersion)).toThrow('conflict');
+  const member = r.dir.listStaff(r.admin).find(s=>s.id===r.doctor.memberId)!; expect(member.roles).toEqual(['admin','doctor']); expect(member.rolesVersion).toBe(oldVersion+1);
+});
+
+
+it('24-hour mutation cleanup does not extend the original invitation expiry', async () => {
+  const r = rig(), m = receipt('create',r.input,r.now()); const created = await r.invites.invite(r.admin,r.input,m);
+  expect(r.db.prepare('SELECT expires_at FROM staff_mutations').get()?.expires_at).toBe(r.now()+86400_000);
+  r.tick(86400_000); mutationHousekeeping(r.db,r.now());
+  expect(r.db.prepare('SELECT * FROM staff_mutations').all()).toEqual([]);
+  expect(r.db.prepare('SELECT expires_at FROM staff_invitations WHERE id = ?').get(created.id)?.expires_at).toBe(created.expiresAt);
 });

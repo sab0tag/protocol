@@ -1,3 +1,4 @@
+import { mutationRequest, MutationError } from '../db/mutations.ts';
 import { InvitationError, type StaffInvitations } from '../clinic/invitations.ts';
 import { bodyLimit } from 'hono/body-limit';
 import type { Context, Hono } from 'hono';
@@ -27,7 +28,7 @@ export const isIdentityPath = (path: string) => path.startsWith('/v1/auth/') || 
 export function mountIdentity(app: Hono, id: Identity, o: { allow: (c: Context, scope: string, perDay: number) => boolean; invitations?: StaffInvitations; now: () => number }): void {
   const { cfg, oidc, sessions } = id;
   const credentialed = cors({ origin: (origin) => (origin === cfg.appOrigin ? origin : null), credentials: true,
-    allowMethods: ['GET', 'POST'], allowHeaders: ['Content-Type', 'X-CSRF-Token'], maxAge: 600 });
+    allowMethods: ['GET', 'POST'], allowHeaders: ['Content-Type', 'X-CSRF-Token', 'Idempotency-Key'], maxAge: 600 });
   app.use('*', async (c, next) => {
     const path = c.req.path;
     if (isIdentityPath(path)) { c.header('Cache-Control', 'no-store'); c.header('Referrer-Policy', 'no-referrer'); }
@@ -155,8 +156,9 @@ export function mountIdentity(app: Hono, id: Identity, o: { allow: (c: Context, 
         if (!o.invitations) throw new InvitationError('unavailable');
         const input = await c.req.json().catch(() => null);
         if (typeof input?.code !== 'string') throw new InvitationError('bad_request');
-        return c.json(o.invitations[operation](s.hash, input.code));
+        return c.json(operation === 'preview' ? o.invitations.preview(s.hash,input.code) : o.invitations.accept(s.hash,input.code,mutationRequest(c,`${s.accountId}/invitation.accept`,input,o.now())));
       } catch (e) {
+        if (e instanceof MutationError) return c.json({ error: e.code }, e.code === 'mutation_key_required' ? 400 : e.code === 'mutation_failed' ? 503 : 409);
         if (e instanceof InvitationError) return c.json({ error: `invitation_${e.code}` }, e.code === 'unavailable' ? 503 : e.code === 'not_found' ? 404 : e.code === 'conflict' ? 409 : e.code === 'recipient_mismatch' ? 403 : 400);
         if (e instanceof IdentityError) return c.json({ error: e.code }, identityStatus(e));
         return busy(c, e);

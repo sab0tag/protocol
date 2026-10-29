@@ -826,7 +826,7 @@ export function createApp(deps: Deps) {
     }
   });
 
-  if (deps.clinic && deps.planDelivery) mountClinic(app, { dir: deps.clinic, delivery: deps.planDelivery, identity: deps.identity, invitations: deps.invitations, allow: (c) => store.take(`clinicreq:${ipKey(c)}`, 3000, now()) });
+  if (deps.clinic && deps.planDelivery) mountClinic(app, { dir: deps.clinic, delivery: deps.planDelivery, identity: deps.identity, invitations: deps.invitations, now: () => now().getTime(), allow: (c) => store.take(`clinicreq:${ipKey(c)}`, 3000, now()) });
 
   app.delete('/v1/pilot', (c) => {
     const pid = member(c);

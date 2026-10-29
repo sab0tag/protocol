@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ApiError } from '../sync/api';
 import { identitySession, identityLoginURL, invitationPreview, invitationAccept, type IdentitySession, type InvitationPreview } from '../sync/identityApi';
 
@@ -21,6 +21,7 @@ const messages: Record<string, string> = {
   offline: 'Немає зʼєднання. Спробуйте ще раз.', database_busy: 'Сервіс тимчасово зайнятий. Спробуйте ще раз.',
 };
 export function ClinicInvitationScreen() {
+  const acceptKey = useRef(crypto.randomUUID());
   const [code] = useState(captureCode), [session, setSession] = useState<IdentitySession | null>(null);
   const [previewAccount, setPreviewAccount] = useState<string | null>(null);
   const [preview, setPreview] = useState<InvitationPreview | null>(null), [agreed, setAgreed] = useState(false);
@@ -41,13 +42,13 @@ export function ClinicInvitationScreen() {
       // Refresh CSRF after a step-up in another tab; the verified contact always comes from the server session.
       const current = await identitySession(); setSession(current);
       if (accept && current.account.id !== previewAccount) { setPreview(null); setAgreed(false); throw new ApiError(409, 'identity_changed'); }
-      if (accept) { await invitationAccept(current, code); pendingCode = null; setAccepted(true); setPreview(null); }
+      if (accept) { await invitationAccept(current, code, acceptKey.current); pendingCode = null; setAccepted(true); setPreview(null); }
       else { setPreview(await invitationPreview(current, code)); setPreviewAccount(current.account.id); setAgreed(false); }
     } catch (e) { setError(messages[e instanceof ApiError ? e.code : ''] ?? 'Не вдалося виконати дію. Перевірте вхід і спробуйте ще раз.'); }
     finally { setBusy(false); }
   }
   const button = 'min-h-tap rounded-xl bg-accent px-4 text-white disabled:opacity-50';
-  return <section className="space-y-4 pt-4">
+  return <section className="min-w-0 space-y-4 break-words pt-4">
     <h1 className="text-2xl font-semibold">Запрошення до клініки</h1>
     {accepted ? <><p role="status">Запрошення прийнято. Доступ до клініки додано.</p><a className="underline min-h-tap inline-flex items-center" href="#/clinic">Відкрити кабінет</a></> : !code ?
       <p role="alert">Відкрийте посилання з листа-запрошення. Код не зберігається на пристрої.</p> : <>

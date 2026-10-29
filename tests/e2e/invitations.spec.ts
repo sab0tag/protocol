@@ -54,3 +54,24 @@ test('operator invitation claims an existing admin ID; clinic cutover rejects it
     expect(profile.memberId).toBe(member); expect(profile.roles).toEqual(['admin']); await expect(page.getByLabel('Назва плану')).toHaveCount(0);
   } finally { await context.close(); }
 });
+
+test('lost invitation response retries the same key and does not submit a second SMTP message', async ({ browser }) => {
+  const context = await browser.newContext({ ignoreHTTPSErrors: true, serviceWorkers: 'block' });
+  try {
+    const page = await context.newPage(); await page.goto('./#/clinic'); await page.getByRole('link', { name: 'Увійти через захищений сервіс' }).click();
+    await page.getByRole('button', { name: 'Continue as Admin', exact: true }).click();
+    await page.getByRole('combobox', { name: 'Клініка', exact: true }).selectOption({ label: 'Synthetic OIDC Clinic' });
+    await page.getByLabel('Імʼя запрошеного').fill('Synthetic retry invite'); await page.getByLabel('Адреса запрошеного').fill('retry@example.invalid');
+    const count = inbox().length, keys: string[] = []; let loseFirst = true;
+    await page.route('**/v1/clinic/invitations', async route => {
+      if (route.request().method() !== 'POST') return route.continue();
+      keys.push(route.request().headers()['idempotency-key']!);
+      if (loseFirst) { loseFirst = false; const response = await route.fetch(); expect(response.status()).toBe(201); await route.abort('failed'); }
+      else await route.continue();
+    });
+    await page.getByRole('button', { name: 'Надіслати запрошення', exact: true }).click(); await expect(page.getByRole('alert')).toContainText('Немає зʼєднання');
+    expect(inbox()).toHaveLength(count+1);
+    await page.getByRole('button', { name: 'Надіслати запрошення', exact: true }).click(); await expect(page.getByRole('status')).toContainText('Запрошення передано поштовому серверу');
+    expect(keys).toHaveLength(2); expect(keys[0]).toBe(keys[1]); expect(inbox()).toHaveLength(count+1);
+  } finally { await context.close(); }
+});

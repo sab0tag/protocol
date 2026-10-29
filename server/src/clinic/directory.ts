@@ -1,3 +1,4 @@
+import { bindMutation, performMutation, type Mutation } from '../db/mutations.ts';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import type { DatabaseSync } from 'node:sqlite';
 import { immediate } from '../db/tx.ts';
@@ -12,7 +13,7 @@ import { IdentityError } from '../identity/errors.ts';
 /** The caller as the server knows it. `orgId` comes from the member record, never from the request. */
 export type Actor = LegacyActor & { session?: { hash: string; accountId: string; membershipId: string } };
 
-export interface Member { id: string; displayName: string; role: Role; roles?: Role[]; active: boolean; linked?: boolean }
+export interface Member { id: string; displayName: string; role: Role; roles?: Role[]; rolesVersion?: number; active: boolean; linked?: boolean }
 export interface AuditEntry { at: number; actor: string; action: string; target: string | null }
 
 const hash = (s: string) => createHash('sha256').update(s).digest('hex');
@@ -151,26 +152,31 @@ export class ClinicDirectory {
       { id: string; name: string; role: Role; active: number }[]).map((m) => ({ id: m.id, displayName: m.name, role: m.role, active: !!m.active, ...(actor.session ? this.staffIdentity(m.id) : {}) }));
   }
 
-  private staffIdentity(memberId: string): { roles: Role[]; linked: boolean } {
-    const m = this.db.prepare('SELECT m.id, a.status, EXISTS(SELECT 1 FROM external_identities e WHERE e.account_id = a.id) AS verified FROM organization_memberships m JOIN accounts a ON a.id = m.account_id WHERE m.legacy_member_id = ?').get(memberId);
-    return { linked: m?.status === 'active' && m?.verified === 1, roles: m ? this.db.prepare('SELECT role FROM organization_membership_roles WHERE membership_id = ? ORDER BY role').all(m.id!).map(r => r.role).filter(isRole) : [] };
+  private staffIdentity(memberId: string): { roles: Role[]; rolesVersion: number; linked: boolean } {
+    const m = this.db.prepare('SELECT m.id, m.roles_version, a.status, EXISTS(SELECT 1 FROM external_identities e WHERE e.account_id = a.id) AS verified FROM organization_memberships m JOIN accounts a ON a.id = m.account_id WHERE m.legacy_member_id = ?').get(memberId);
+    return { rolesVersion: Number(m?.roles_version ?? 1), linked: m?.status === 'active' && m?.verified === 1, roles: m ? this.db.prepare('SELECT role FROM organization_membership_roles WHERE membership_id = ? ORDER BY role').all(m.id!).map(r => r.role).filter(isRole) : [] };
   }
 
-  setRoles(actor: Actor, memberId: string, roles: Role[]): void {
+  setRoles(actor: Actor, memberId: string, roles: Role[], version?: number, mutation?: Mutation): void {
     if (!actor.session || !roles.length || roles.length > 2 || !roles.every(isRole) || new Set(roles).size !== roles.length) throw new ClinicError('bad_request');
     immediate(this.db, () => {
       this.require(actor, 'staff.manage'); this.fresh(actor);
+      return performMutation(this.db,bindMutation(mutation,`${actor.session!.accountId}/${actor.session!.membershipId}/${actor.orgId}/staff.roles/${memberId}`), () => {
+      const current = this.db.prepare('SELECT roles_version FROM organization_memberships WHERE legacy_member_id = ? AND organization_id = ?').get(memberId,actor.orgId);
+      if (version !== undefined && current && current.roles_version !== version) throw new ClinicError('conflict');
       const target = this.target(actor, memberId);
       if (target.admin && target.active && !roles.includes('admin')) this.keepAnAdmin(actor.orgId, memberId);
       const m = this.db.prepare('SELECT id FROM organization_memberships WHERE legacy_member_id = ? AND organization_id = ?').get(memberId, actor.orgId)!;
       this.db.prepare('DELETE FROM organization_membership_roles WHERE membership_id = ?').run(m.id!);
       for (const role of [...roles].sort()) this.db.prepare('INSERT INTO organization_membership_roles VALUES (?, ?)').run(m.id!, role);
+      this.db.prepare('UPDATE organization_memberships SET roles_version = roles_version + 1 WHERE id = ?').run(m.id!);
       // Removing the legacy role invalidates that old credential; adding a second role never widens it.
       if (!roles.includes(target.role)) this.db.prepare('UPDATE clinic_members SET role = ?, token_hash = ? WHERE id = ? AND org = ?')
         .run(roles.includes('admin') ? 'admin' : 'doctor', hash(newToken()), memberId, actor.orgId);
       // Legacy bearer remains single-role; changing membership roles never silently broadens it.
       this.db.prepare("UPDATE staff_invitations SET state = 'revoked' WHERE org = ? AND target_member = ? AND state IN ('sending','sent')").run(actor.orgId, memberId);
       this.audit(actor.orgId, actor.memberId, `staff.roles.${[...roles].sort().join('+')}`, memberId);
+      });
     });
   }
 
@@ -181,10 +187,11 @@ export class ClinicDirectory {
       unlinked: this.listStaff(actor).filter(m => m.active && !m.linked).map(m => m.id) };
   }
 
-  cutover(actor: Actor, graceHours: number): void {
+  cutover(actor: Actor, graceHours: number, mutation?: Mutation): void {
     if (!actor.session || !Number.isInteger(graceHours) || graceHours < 0 || graceHours > 168) throw new ClinicError('bad_request');
     immediate(this.db, () => {
       this.require(actor, 'staff.manage'); this.fresh(actor);
+      return performMutation(this.db,bindMutation(mutation,`${actor.session!.accountId}/${actor.session!.membershipId}/${actor.orgId}/auth-transition`), () => {
       const state = this.authTransition(actor);
       if (state.unlinked.length) throw new ClinicError('bad_request'); // migrate all active employees before disabling their access
       const until = this.now() + graceHours * 3600_000;
@@ -193,6 +200,7 @@ export class ClinicDirectory {
         this.db.prepare('UPDATE clinic_auth_transitions SET legacy_until = ? WHERE org = ?').run(until, actor.orgId);
       } else this.db.prepare('INSERT INTO clinic_auth_transitions VALUES (?, ?, ?)').run(actor.orgId, this.now(), until);
       this.audit(actor.orgId, actor.memberId, 'org.identity.cutover', actor.orgId);
+      });
     });
   }
 

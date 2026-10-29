@@ -1,3 +1,4 @@
+import { mutationHousekeeping } from './db/mutations.ts';
 import { StaffInvitations } from './clinic/invitations.ts';
 import { invitationMailer } from './clinic/invitationMail.ts';
 import { serve } from '@hono/node-server';
@@ -109,6 +110,7 @@ const timer = setInterval(() => {
 const backupTimer = setInterval(() => {
   backupOnce(store, backups, new Date()).catch((e) => console.error('backup failed:', (e as Error).message));
   try { conciergeHousekeeping(store, `${backups}/concierge`, new Date()); } catch (e) { console.error('concierge log housekeeping failed:', (e as Error).message); } // D91
+  try { mutationHousekeeping(store.database,Date.now()); } catch { console.error('mutation housekeeping failed'); }
   try { invitations?.housekeeping(); } catch { console.error('invitation housekeeping failed'); }
   try { identity?.sessions.housekeeping(); } catch (e) { console.error('session housekeeping failed:', (e as Error).message); } // ACCESS-03
   try { pilotHousekeeping(store, new Date()); } catch (e) { console.error('pilot housekeeping failed:', (e as Error).message); } // D119

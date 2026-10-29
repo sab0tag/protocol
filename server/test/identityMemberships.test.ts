@@ -93,10 +93,10 @@ describe('identity constraints and legacy authority', () => {
     expect(() => db.prepare('INSERT INTO organization_membership_roles VALUES (?, ?)').run(doctor.memberId, 'admin')).toThrow();
     expect(() => db.prepare('INSERT INTO organization_membership_roles VALUES (?, ?)').run(doctor.memberId, 'superuser')).toThrow();
     const other = dir.createOrganization('Other clinic', 'Other admin');
-    db.prepare('INSERT INTO organization_memberships VALUES (?, ?, ?, NULL, ?, ?)').run('other-membership', accountId, other.orgId, 'active', 1);
-    expect(() => db.prepare('INSERT INTO organization_memberships VALUES (?, ?, ?, NULL, ?, ?)').run('duplicate', accountId, other.orgId, 'active', 1)).toThrow();
+    db.prepare('INSERT INTO organization_memberships (id, account_id, organization_id, legacy_member_id, status, created_at) VALUES (?, ?, ?, NULL, ?, ?)').run('other-membership', accountId, other.orgId, 'active', 1);
+    expect(() => db.prepare('INSERT INTO organization_memberships (id, account_id, organization_id, legacy_member_id, status, created_at) VALUES (?, ?, ?, NULL, ?, ?)').run('duplicate', accountId, other.orgId, 'active', 1)).toThrow();
     expect(() => db.prepare('INSERT INTO organization_membership_roles VALUES (?, ?)').run('missing', 'doctor')).toThrow();
-    expect(() => db.prepare('INSERT INTO organization_memberships VALUES (?, ?, ?, NULL, ?, ?)').run('bad', 'missing-account', other.orgId, 'active', 1)).toThrow();
+    expect(() => db.prepare('INSERT INTO organization_memberships (id, account_id, organization_id, legacy_member_id, status, created_at) VALUES (?, ?, ?, NULL, ?, ?)').run('bad', 'missing-account', other.orgId, 'active', 1)).toThrow();
     const actor = dir.authenticate(doctor.token)!;
     expect(actor.role).toBe('doctor');
     expect(() => dir.require(actor, 'staff.manage')).toThrow('forbidden');
