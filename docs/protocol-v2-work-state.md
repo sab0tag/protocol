@@ -67,57 +67,15 @@ Branch `feat/protocol-plan-backup`, stacked on storage PR #36 (head `dad4cc8`). 
 - 534 client tests, build/typecheck and 55 focused backup/domain/storage/legacy cases passed. Browser backup/upgrade/preference cases 3/3 passed. Confirmation visually checked 320/1024 light/dark; no personal screenshots or medical records published.
 - Next: complete #36/#37 CI/review; implement encrypted sync compatibility and old-client write protection before enabling live multi-plan consumers. New source data must never be silently omitted by a claimed complete backup/sync.
 
-## R5 fourth boundary — old-client server gate
+## Calm visual polish — 28 October 2026
 
-Branch `feat/protocol-sync-write-gate`, stacked on backup PR #37. API adds a persistent authenticated per-vault minimum protocol, default 1. The current client still advertises 1. Only an explicit capable-client request opts a vault into 2; no startup/UI code does so.
+Branch `feat/protocol-calm-polish`, base main `28fd5f5`. Owner priorities: expressive landscape/readable header; uniform card spacing/radii/control heights; typography hierarchy; elapsed/nearest/upcoming timeline; small iPhone navigation; helpful empty states; restrained motion.
 
-- Opted-in vaults reject old record reads/writes and stale reminder/policy submissions before advancing cursors or changing records. Transition clears old queued schedules atomically, preserves ciphertext/history/preferences, and protects fresh schedules from obsolete asynchronous push snapshots.
-- 73 server tests, server typecheck; 534 client tests and build/typecheck passed. Three focused Chromium sync/backup cases passed, including actual server opt-in with an unchanged old client's cursor/ciphertext and an upgrade message.
-- Next deployment boundary: independent Hetzner API container, not Vercel. No server deployment or real-vault opt-in performed. Deploy only with the owner's separate production command; keep default floor 1. See `protocol-v2-sync-protocol.md` for the concrete rollout/rollback sequence.
-- Normalized encrypted transport and conflict/version recovery remain to implement before protocol 2 is advertised by a real client or live multi-plan consumers are enabled.
-
-## Integration blocker / latest checkpoint
-
-- #35 merged `08a0908` after CI run 40574749672 passed. #36 merged `62d912c` after CI run 40575971243 passed.
-- #37 head `181fe016989bd37c4abb0ea2612973cea98ab473` passed all CI jobs (run 40577370600), review threads empty, marked ready. Automatic approval review rejected its main merge, stating that a separate main-merge command was missing, despite the owner's current instruction authorizing needed merges. No workaround/alternate merge path is used. PR remains open and ready pending explicit resolution of that rejection.
-- The sync-gate branch is published as a separate PR stacked on #37; it can be reviewed and checked while the merge is blocked. Do not claim either #37 or the gate is merged. No Hetzner deployment or real-vault upgrade has occurred.
-
-
-## Conflict resolution: calm polish on current main (28 October 2026)
-
-Original #44 is dirty against main after #39/#41. Integration branch `integration/calm-polish-on-main` starts from current main and ports the nine implementation/test files from #44, retaining current main history and its #39/#41 changes. Original docs history is preserved and this note appended instead of replacing it. Full CI and visual preview are required before merge; no production deployment or patient data is authorized. Original #44 remains open for historical review; merge the integration PR only after verification.
-
-
-### Integration #53 CI regression triage (28 Oct)
-First remote CI: check and server passed; e2e failed in four cases. Fixed genuine Today ordering regression (example-data warning now before schedule); restored missing localized sync client-upgrade explanation while retaining protocol refusal; disambiguated storage test's page-level h1 from new Today summary h2 without weakening visibility assertion. Dish-list model-mock scenario returned failed instead of check; cause still under investigation, not bypassed. Re-run CI required. Assistant #52 second pass failed because prompt chips remained 154px from context; moved chips immediately after context in commit f9c7a194; subsequent CI passed. No merges until integration checks green.
-
-
-### Food 2.0 integration after #53 (28 Oct 2026)
-Original #47 was stacked on #44 and conflicts with current main. Branch `integration/food-on-main` ports food-only implementation, domain, translations, warning styles, and focused tests onto merged #53. Existing Today/sync fixes and tests are retained. Original #47 is not to be merged directly. Full CI, E2E and preview review are required before merge. No patient data or production authorization.
-
-## Daily nutrition hub (28 October 2026)
-
-Current base `1115980` already includes Food/Wellbeing/Progress/Assistant integration and the latest prescription-clock, photo-consent and report-outcome fixes. Original #44/#47 are historical branches and are not merged directly.
-
-`feat/protocol-nutrition-overview` adds `/food` («Моє харчування») as the food tab: date-scoped actual totals, source targets, preserved planned/skipped outcomes, expandable meal composition and original edit links, visible restriction reasons and limited rule-check claims. Existing entry methods/editor remain unchanged. Unknown/estimated composition cannot silently look complete. No new journal writes, fabricated targets, pantry/preparation data or overall score. See `nutrition-overview.md` for checks and the remaining catalog/recommendation scope. Full CI and preview status live in the PR; main/production remain unchanged.
-
-Marketing #48 was refreshed by merging current main into its own branch. Its 8 focused browser tests pass again. Published visual verification remains blocked by Vercel authentication in the available browser; no protection settings changed.
-## Sheet keyboard integration (28 October 2026)
-
-PR #66 refreshed on main `d1a56f7`, preserving the catalog, lab-correction, AI routing and clinic work already merged there. The Sheet focus lifecycle keeps the background inert, wraps native Tab navigation, preserves editing focus across callback changes and restores the original opener through sheet replacement.
-
-The first CI run had four failing new browser scenarios: the backdrop click did not wait for the reopened dialog; the symptom save button has a different disabled label; the medicine scenario searched an obsolete accessible name; the add chooser was requested from an empty day where it is deliberately absent. Updated the fixtures and locators without changing the product's names, empty-state behavior, timeouts or focus assertions. Browser coverage now exercises both 320px and 1024px layouts, plus current lab/import interactions. The standard CI browser configuration is unchanged.
-
-Baseline on the refreshed tree: 601 client and 141 server unit tests, client production build and both typechecks passed. Final browser/CI results are recorded in #66; merge only after green checks. Next independent integration: #65 daily nutrition hub, followed by onboarding #60 and the workout #45 → #46 → #49 stack. Existing production access and real data remain untouched.
-
-
-### Nutrition integration refinement
-Refreshed #65 on main d1a56f7 plus #66. Preserve estimated parent recipes as incomplete even if descendants resolve to known foods; do not show a confirmed allergen or clear result from an estimated parent. New domain and browser regressions exercise this case. Existing actual totals, date modes, unknown-goal behavior, catalog filters/favorites and explicit save remain intact. Focused nutrition/catalog/entry browser checks: 9 passed before Sheet integration; final combined checks/CI are recorded in the PR.
-
-## First-run value and synthetic preview (28 October 2026)
-
-PR #60 refreshed on main plus #65/#66. First run explains photo → verification → daily plan and shows three explicitly fictional examples of supported medication reminders, restriction checks and reports. The preview does not write prescriptions or entries, call AI, or add another required step. Actual OCR consent, redaction, per-line verification, manual entry, skip and isolated demo remain unchanged. No unsupported follow-up reminder or broad doctor-data-access claim is introduced. Copy remains in the Ukrainian dictionary; decorative icons are hidden from assistive technology.
-
-598 client tests and build/typecheck passed before combining the already checked #65/#66 changes; 16 focused browser scenarios passed, including new zero-record/zero-AI preview assertions at 320/1024px, actual OCR confirmation, skipped onboarding, demo isolation and import recovery. Visual inspection prompted a shorter preview so the photo action stays in the first mobile viewport; the final integration run asserts that. Merge order: #66 → #65 → #60. Final CI/combined regression evidence is recorded in #60; separate production operations remain out of scope.
-### Nutrition CI follow-up
-Run 40764040481 passed client/server checks and 153 browser cases, with one repeated failure in the existing meal pinning scenario. Its artifacts showed the tap opening medicine-time choices or Assistant rather than meal actions while the scroll-triggered dock was changing position. The unchanged scenario passed locally. Center the recorded row before tapping and require its exact meal dialog before pinning; no product behavior, timeout or favorite assertion is relaxed. Three clean repeated local runs pass. Refresh the branch onto merged #66 and clinic analytics #83 before the new full CI run; keep main merging blocked until that run is green.
+- Shared card spacing 16/20 px, existing semantic radii and 44 px control minimum. Titles, explanatory labels and numeric values have distinct treatments.
+- Landscape framing/overlays revised, greeting scales to screen width with text shadow; local offline asset preserved.
+- Timeline uses local date/time to distinguish elapsed, next actionable and future rows. Unknown-time entries stay untimed. Clock classification never marks a medicine/meal missed or changes source records. Clock refreshes every 30 seconds and on focus.
+- Active bottom tab has a visible surface; all five tabs retain >=44 px targets at 320/375/390/1024. Empty timeline adds a calm explanation; the existing food-recording action stays primary without a competing empty-state CTA.
+- Card entry 180 ms, checkbox confirmation 150 ms and existing save toast; new motion is absent for reduced-motion users.
+- Production build passed; 536 client unit tests passed; targeted browser scenario passed across four widths/light/dark and reduced-motion with unchanged statuses. Representative mobile image inspected. Full fresh browser regression running. First browser attempts failed because Chromium was missing after the environment reset; restored the external runtime without changing repo test assertions/configuration.
+- Next: resolve actual regression failures if any, publish PR/CI/preview and inspect remaining captures. Do not claim complete until verified; do not merge/deploy production as part of this styling pass without resolving the prior approval block.
+- Regression follow-up: empty timeline must keep the existing primary food action, not introduce a second CTA. Restored that contract and updated exact text assertions to the new localized hint, retaining the existing absence-of-extra-action check. Day + polish cases 10/10 passed after the fix. Final remote CI remains the completion gate.
