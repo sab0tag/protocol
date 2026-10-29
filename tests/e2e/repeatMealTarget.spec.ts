@@ -8,6 +8,8 @@ test('repeat a past meal into a chosen future date without modifying the source'
   await seed(page, [{ store: 'entries', value: source }]);
   await page.goto('./#/meal/new');
   await page.getByLabel('Дата нового прийому').fill('2026-11-05');
+  await page.getByRole('tab', { name: 'Сніданок' }).click();
+  await expect(page.locator('[data-testid="recent-meal-add"]').first()).toBeVisible();
   await page.locator('[data-testid="recent-meal-add"]').first().click();
   await expect(page.getByLabel('Дата нового прийому')).toHaveCount(0);
   await page.getByRole('button', { name: t.meal.mealLine }).click();
