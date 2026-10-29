@@ -1,17 +1,8 @@
-import { expect, test, type Browser } from '@playwright/test';
-
-/** No service worker on these pages: its fetches can bypass Playwright's routing intermittently in a full run (the real
- *  server then answers «Код не знайдено»), and plan import does not need it. */
-async function plainPage(browser: Browser) {
-  const page = await (await browser.newContext({ serviceWorkers: 'block' })).newPage();
-  await page.goto('./');
-  await page.getByRole('button', { name: /^Пропустити/ }).click();
-  await expect(page).toHaveURL(/#\/$/);
-  return page;
-}
+import { expect, test } from '@playwright/test';
+import { device } from './helpers';
 
 test('leaving during Retry-After cancels the queued redemption without consuming the code', async ({ browser }) => {
-  const page = await plainPage(browser);
+  const page = await device(browser, 'skip', { sw: false });
   const code = 'd'.repeat(43);
   const calls: unknown[] = [];
   await page.route('**/v1/clinic/plans/redeem', async (route) => {
@@ -33,7 +24,7 @@ test('leaving during Retry-After cancels the queued redemption without consuming
 
 // ACCESS-00-H: a busy server changed nothing, so the patient retries on the same screen with the code kept in memory.
 test('database_busy: the message and a Повторити button; the retry waits Retry-After, reuses the code, never puts it back in the URL or storage', async ({ browser }) => {
-  const page = await plainPage(browser);
+  const page = await device(browser, 'skip', { sw: false });
   const code = 'c'.repeat(43);
   const plan = { schemaVersion: 1, planId: '11111111-1111-4111-8111-111111111111', organizationId: 'org-1', issuedAt: '2026-10-01T10:00:00+03:00',
     clinician: { displayName: 'Лікар', organizationName: 'Клініка' }, title: 'План після повтору',

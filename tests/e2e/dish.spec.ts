@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import { device, toast } from './helpers';
 
 test('a dish of one’s own described in words → ingredients with grams and КБЖУ, corrected, saved → found in «Записати їжу» (D110)', async ({ browser }) => {
-  const page = await device(browser, 'skip'); // no sync — the device token
+  const page = await device(browser, 'skip', { sw: false }); // no sync — the device token
   let auth = '', sent: { text: string; foods: string[] } | undefined;
   await page.context().route('**/dish', async (r) => {
     auth = r.request().headers().authorization ?? ''; sent = r.request().postDataJSON();

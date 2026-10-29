@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import { t } from '../../src/i18n/uk';
 
 for (const width of [320, 1024]) test(`onboarding explains the verified plan using an isolated synthetic preview at ${width}px`, async ({ browser }) => {
-  const context = await browser.newContext({ viewport: { width, height: 844 } });
+  const context = await browser.newContext({ viewport: { width, height: 844 }, serviceWorkers: 'block' }); // counted AI calls must not pass the route via the worker
   const page = await context.newPage();
   let aiCalls = 0;
   await page.route('**/conclusion', route => { aiCalls++; return route.abort(); });

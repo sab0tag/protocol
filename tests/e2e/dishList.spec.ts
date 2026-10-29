@@ -11,7 +11,7 @@ const LIST = `Сирники домашні — сир 5 % 400 г, 2 яйця, �
 /** The model's answer, faked: the e2e server has no AI key; what is checked is the app — what goes, how much, what it does. */
 async function fakeModel(page: Page) {
   const asked: { dishes: { key: string; text: string }[] }[] = [];
-  await page.context().route('**/v1/device/dishes', async (route) => { // the context's: a request through the service worker too
+  await page.context().route('**/v1/device/dishes', async (route) => { // pages using it open without a service worker (device sw: false)
     const body = route.request().postDataJSON() as { dishes: { key: string; text: string }[] };
     asked.push(body);
     await route.fulfill({ json: { dishes: body.dishes.map((d) => ({ key: d.key, readable: true, name: d.text.split(/[:—]/)[0]!.trim(), portions: 2, note: '',
@@ -28,7 +28,7 @@ const openList = async (page: Page) => {
 };
 
 test('a list: the repeat merged, «вже є», one made here, a name alone a draft — exactly one request to the model (D123)', async ({ browser }) => {
-  const page = await device(browser, 'skip');
+  const page = await device(browser, 'skip', { sw: false });
   const asked = await fakeModel(page);
   await openList(page);
   await page.getByRole('region', { name: 'Додати страви списком' }).getByRole('textbox').fill(LIST);

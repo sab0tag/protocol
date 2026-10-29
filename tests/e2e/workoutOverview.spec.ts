@@ -34,7 +34,7 @@ test('one exercise at a time: next/back, removing the last one stays in range, a
 });
 
 test('one exercise at a time: an AI draft with fewer exercises keeps the shown exercise in range', async ({ browser }) => {
-  const page = await device(browser);
+  const page = await device(browser, 'example', { sw: false });
   await syncOn(page);
   await page.route('**/workout', (r) => r.fulfill({ json: { advice: 'Коротко сьогодні.', exercises: [{ id: 'swing', sets: 3, reps: 12, seconds: null }] } }));
   await page.goto('./#/workout');
