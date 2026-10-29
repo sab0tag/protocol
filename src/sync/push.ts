@@ -137,7 +137,7 @@ async function sendSchedule(keys: Keys, force: boolean) {
     await putReminders(keys, meta.device, body);
   }
   last = sig;
-  await db.meta.update('sync', { scheduledAt: Date.now() }); // D148: the server has it — only now may the screen say so
+  await db.meta.update('sync', { scheduledAt: Date.now() }); // D150: the server has it — only now may the screen say so
 }
 
 /** On start: make sure the server still has a fresh subscription for this device. */

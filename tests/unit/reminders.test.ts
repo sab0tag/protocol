@@ -169,7 +169,7 @@ describe('the evening nudge when the day is short of the plan (D116)', async () 
   });
 });
 
-describe('what the reminders screen may say about the schedule (D148)', () => {
+describe('what the reminders screen may say about the schedule (D150)', () => {
   it('nothing confirmed, then the server-accepted horizon, then its end', () => {
     const now = new Date(2026, 9, 29, 10, 0);
     expect(scheduleStatus(undefined, now)).toEqual({ kind: 'none' });

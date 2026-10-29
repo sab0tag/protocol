@@ -41,7 +41,7 @@ const isMed = (p: Prescription) => p.kind === 'medication' || p.kind === 'supple
 /** D35: how far ahead daily reminders are sent. */
 export const SCHEDULE_DAYS = 30;
 
-/** D148: what the reminders screen may say about the schedule — only what the server confirmed, and until when it
+/** D150: what the reminders screen may say about the schedule — only what the server confirmed, and until when it
  *  lasts without the app being opened online again. */
 export function scheduleStatus(scheduledAt: number | undefined, now: Date): { kind: 'none' } | { kind: 'until' | 'ended'; sent: Date; until: Date } {
   if (!scheduledAt) return { kind: 'none' };

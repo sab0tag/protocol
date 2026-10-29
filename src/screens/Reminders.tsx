@@ -61,7 +61,7 @@ export function Reminders() {
           : on ? (
             <>
               <p className="flex items-center gap-2 font-medium text-accent"><BellRing size={18} aria-hidden />{L.isOn}</p>
-              {(() => { const st = scheduleStatus(meta.scheduledAt, new Date()), f = (d: Date) => format(d, 'dd.MM HH:mm'); // D148
+              {(() => { const st = scheduleStatus(meta.scheduledAt, new Date()), f = (d: Date) => format(d, 'dd.MM HH:mm'); // D150
                 return <p className={`text-sm ${st.kind === 'ended' ? 'text-warn' : 'text-muted'}`}>{st.kind === 'none' ? L.scheduleNone
                   : st.kind === 'until' ? L.scheduleUntil(f(st.sent), format(st.until, 'dd.MM')) : L.scheduleEnded(format(st.until, 'dd.MM'))}</p>; })()}
               <div className="flex flex-wrap gap-2">

@@ -282,7 +282,7 @@ test('the time line tells waiting, deferred and unmarked apart — an unmarked d
   expect(stored).toBe('planned'); // deferring writes no outcome
 });
 
-test('reminders say what they cannot promise, and only the schedule the server confirmed, with its horizon (ТЗ P2, D148)', async ({ browser }) => {
+test('reminders say what they cannot promise, and only the schedule the server confirmed, with its horizon (ТЗ P2, D150)', async ({ browser }) => {
   const page = await device(browser);
   await page.goto('./#/reminders');
   const limits = page.getByRole('region', { name: 'Що варто знати' });
