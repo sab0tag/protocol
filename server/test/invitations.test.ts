@@ -181,6 +181,8 @@ describe('invitation HTTP boundary', () => {
     expect(created.status).toBe(201); expect(JSON.stringify(await created.json())).not.toContain(r.code());
     const wrong = r.login('wrong', 'other@example.invalid');
     expect((await req('/v1/session/invitations/accept', wrong.token, wrong.session.csrf, { code: r.code(), email: r.input.email, email_verified: true })).status).toBe(403);
+    expect(r.db.prepare("SELECT account_id, result FROM auth_audit WHERE action = 'invitation.accept'").all()).toEqual([{account_id:wrong.session.accountId,result:'recipient_mismatch'}]);
+    expect(JSON.stringify(r.db.prepare("SELECT * FROM auth_audit WHERE action = 'invitation.accept'").all())).not.toContain(r.code());
     const right = r.login('recipient');
     expect((await req('/v1/session/invitations/preview', right.token, null, { code: r.code() })).status).toBe(403);
     expect((await req('/v1/session/invitations/preview', right.token, right.session.csrf, { code: r.code() })).status).toBe(200);

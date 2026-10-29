@@ -169,9 +169,9 @@ export class Sessions {
   }
 
   /** Category-only clinical denial; the actor comes from the stored session, never the request. */
-  denied(sessionHash: string, result: string): void {
+  denied(sessionHash: string, result: string, action = 'clinic.access'): void {
     const row = this.db.prepare('SELECT account_id FROM sessions WHERE id_hash = ?').get(sessionHash);
-    this.audit(typeof row?.account_id === 'string' ? row.account_id : null, 'clinic.access', result);
+    this.audit(typeof row?.account_id === 'string' ? row.account_id : null, action, result);
   }
 
   /** Records a refused callback before any account is known. Categories only. */

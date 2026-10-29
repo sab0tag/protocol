@@ -132,7 +132,7 @@ introduced: these use the protected clinic/session paths accepted by #118.
 
 ## Validation and operational gates
 
-Tests cover signed email evidence, wrong/unverified recipient, secret hashing, expiry/revoke/resend, mail failure and
+Tests cover signed email evidence, wrong/unverified recipient, category-only denial audit without the secret/address, secret hashing, expiry/revoke/resend, mail failure and
 in-flight revoke, legacy authorship preservation, role/context isolation, audit rollback, independent-connection
 acceptance race, bootstrap schema guard, cutover maximum/non-extension and denial with identity routes disabled.
 Browser fixtures use a real local TLS SMTP server and signed synthetic HTTPS OIDC provider, with no external mail.

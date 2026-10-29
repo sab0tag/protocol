@@ -151,13 +151,19 @@ export function mountIdentity(app: Hono, id: Identity, o: { allow: (c: Context, 
   for (const operation of ['preview', 'accept'] as const) app.post(`/v1/session/invitations/${operation}`,
     bodyLimit({ maxSize: 1000, onError: c => c.json({ error: 'too_large' }, 413) }), async c => {
       const stop = limited(c, 'invitation:accept', 200); if (stop) return stop;
+      let actorHash: string | undefined;
       try {
         const s = mutation(c, true); if (s instanceof Response) return s; if (!s) return c.json({ error: 'unauthenticated' }, 401);
+        actorHash = s.hash;
         if (!o.invitations) throw new InvitationError('unavailable');
         const input = await c.req.json().catch(() => null);
         if (typeof input?.code !== 'string') throw new InvitationError('bad_request');
         return c.json(operation === 'preview' ? o.invitations.preview(s.hash,input.code) : o.invitations.accept(s.hash,input.code,mutationRequest(c,`${s.accountId}/invitation.accept`,input,o.now())));
       } catch (e) {
+        if (actorHash && (e instanceof InvitationError || e instanceof IdentityError)) {
+          try { sessions.denied(actorHash,e.code,`invitation.${operation}`); }
+          catch (auditError) { if (isBusy(auditError) || auditError instanceof DatabaseBusy) return busy(c,auditError); return c.json({error:'identity_unavailable'},503); }
+        }
         if (e instanceof MutationError) return c.json({ error: e.code }, e.code === 'mutation_key_required' ? 400 : e.code === 'mutation_failed' ? 503 : 409);
         if (e instanceof InvitationError) return c.json({ error: `invitation_${e.code}` }, e.code === 'unavailable' ? 503 : e.code === 'not_found' ? 404 : e.code === 'conflict' ? 409 : e.code === 'recipient_mismatch' ? 403 : 400);
         if (e instanceof IdentityError) return c.json({ error: e.code }, identityStatus(e));
