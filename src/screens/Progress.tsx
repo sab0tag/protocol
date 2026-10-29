@@ -21,13 +21,13 @@ const signed = (n: number) => `${n > 0 ? '+' : n < 0 ? '−' : ''}${kg(Math.abs(
 const dm = (d: string) => format(parseISO(d), 'dd.MM');
 
 /** D146 (ТЗ Progress 2.0): a card is a real number, the period it is counted over, and the way to the records behind it. */
-function Card({ icon: Icon, title, value, detail, period, to, link }: { icon: LucideIcon; title: string; value: string; detail: string; period: string; to?: string; link: string }) {
+function Card({ icon: Icon, title, value, detail, period, to, link }: { icon: LucideIcon; title: string; value: string; detail: string; period?: string; to?: string; link: string }) {
   return (
     <article className="protocol-card flex flex-col p-4">
       <Icon size={19} className="mb-2 text-accent" aria-hidden /><h2 className="text-xs text-muted">{title}</h2>
       <p className="mt-1 text-xl font-semibold tabular">{value}</p>
       <p className="mt-1 text-xs text-muted">{detail}</p>
-      <p className="mt-1 text-xs text-muted">{period}</p>
+      {period && <p className="mt-1 text-xs text-muted">{period}</p>}
       {to && <Link to={to} className="mt-auto inline-flex min-h-tap items-end pt-1 text-sm text-accent underline-offset-4 hover:underline">{link}</Link>}
     </article>
   );
@@ -60,9 +60,9 @@ export function Progress() {
       </SceneHeader>
       <ExampleNotice plan={plan} />
       <section aria-label="Огляд прогресу" className="grid grid-cols-2 gap-3">
-        {can('wellbeing.weight') && <Card icon={Scale} title={L.weight} value={sum.now ? `${kg(sum.now.kg)} ${L.kg}` : L.noWeightShort}
+        {can('wellbeing.weight') && <Card icon={Scale} title={L.weight} value={sum.now ? `${kg(sum.now.kg)} ${L.kg}` : '—'}
           detail={sum.delta != null ? L.cardWeightDelta(dm(sum.start!.date), signed(sum.delta)) : L.cardWeightFirst}
-          period={sum.now ? L.cardLast(dm(sum.now.date)) : L.cardNoPeriod} to="/weight" link={L.cardWeightLink} />}
+          {...(sum.now ? { period: L.cardLast(dm(sum.now.date)) } : {})} to="/weight" link={L.cardWeightLink} />}
         {can('wellbeing.log') && <Card icon={HeartPulse} title={t.well.title} value={L.cardDays(wellDays)} detail={L.cardWellDetail}
           period={week} to="/wellbeing/journal" link={L.cardWellLink} />}
         {can('workout.log') && <Card icon={Dumbbell} title={L.cardActivity} value={String(weekly.workouts)} detail={L.cardWorkouts}

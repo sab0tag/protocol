@@ -135,3 +135,22 @@ test('the plan history opens separately and explains that sync is required', asy
   await page.getByRole('link', { name: 'Налаштувати синхронізацію' }).click();
   await expect(page).toHaveURL(/#\/sync$/);
 });
+
+test('empty parts say what goes there and how — no bare «Поки нічого», no empty history (аудит P2, D149)', async ({ browser }) => {
+  const page = await device(browser, 'skip');
+  await page.goto('./#/plan');
+  const sections = page.getByRole('navigation', { name: 'Розділи плану' });
+  await expect(sections).not.toContainText('Поки нічого');
+  await expect(sections.getByRole('link', { name: /Призначення/ })).toContainText('Ще немає — додайте або сфотографуйте висновок');
+  await page.goto('./#/plan/prescriptions');
+  await expect(page.getByText('Призначень ще немає — додайте зі слів лікаря або з фото висновку.')).toBeVisible();
+  await page.goto('./#/plan/goals');
+  await expect(page.getByText('Цілей ще немає — внесіть, як домовились із лікарем.')).toBeVisible();
+  await page.goto('./#/weight');
+  await expect(page.getByText('Історія вимірів')).toHaveCount(0); // nothing to open yet
+  await expect(page.getByRole('form', { name: 'Записати вагу' })).toBeVisible();
+  await page.goto('./#/progress');
+  const weight = page.getByRole('region', { name: 'Огляд прогресу' }).getByRole('article').filter({ has: page.getByRole('heading', { name: 'Вага', exact: true }) });
+  await expect(weight).toContainText('Додайте перше вимірювання');
+  await expect(weight).not.toContainText('Немає записів'); // said once, not three times
+});

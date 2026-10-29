@@ -53,7 +53,7 @@ export function WeightReview({ weights }: { weights: WeightLog[] }) {
     }), L.reviewed); } finally { lock.current = false; setBusy(false); }
   };
   return <div className="mt-4 space-y-3 border-t border-line pt-4">
-    <details open={quality.pending.length > 0} id="weight-history">
+    {weights.length > 0 && <details open={quality.pending.length > 0} id="weight-history">{/* D149: no empty history to open */}
       <summary className="min-h-tap cursor-pointer py-2 font-medium">{L.history}</summary>
       <ul className="divide-y divide-line">{[...weights].reverse().slice(0, limit).map(row => {
         const problem = quality.pending.find(p => p.record === row)?.reason;
@@ -74,7 +74,7 @@ export function WeightReview({ weights }: { weights: WeightLog[] }) {
         </li>;
       })}</ul>
       {weights.length > limit && <button type="button" className="min-h-tap text-accent underline" onClick={() => setLimit(limit + 30)}>{L.more}</button>}
-    </details>
+    </details>}
     <form aria-label={editing ? L.edit : P.addWeight} className="grid grid-cols-1 items-end gap-3 min-[380px]:grid-cols-2 sm:grid-cols-[1fr_1fr_auto]" onSubmit={e => { e.preventDefault(); void save(); }}>
       <label className="block min-w-0"><span className="text-sm text-muted">{P.date}</span><input required type="date" value={date} max={todayISO()} onChange={e => setDate(e.target.value)} className={field} /></label>
       <label className="block min-w-0"><span className="text-sm text-muted">{P.weight}, {P.kg}</span><input ref={input} required inputMode="decimal" value={value} onChange={e => setValue(e.target.value)} className={field} /></label>
