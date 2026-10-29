@@ -29,3 +29,18 @@ test('a profile photo stays on this device and can be changed or removed', async
   await page.getByRole('button', { name: 'Видалити фото' }).click();
   await expect(page.getByRole('img', { name: 'Фото профілю' })).toHaveCount(0);
 });
+
+test('every row of «Ще» says in a line what is inside; the link is still named by its title (аудит P3, D154)', async ({ browser }) => {
+  const page = await device(browser);
+  await page.goto('./#/more/settings');
+  const data = page.getByRole('link', { name: 'Імпорт / експорт', exact: true });
+  await expect(data).toHaveAccessibleDescription('Резервна копія у файл і відновлення з неї.');
+  await expect(page.getByRole('link', { name: 'Швидкі дії', exact: true })).toHaveAccessibleDescription(/запис одним дотиком/);
+  await page.goto('./#/more/app');
+  await expect(page.getByRole('link', { name: 'Пілот', exact: true })).toHaveAccessibleDescription(/лише за згодою/);
+  for (const category of ['food', 'health', 'settings', 'app']) {
+    await page.goto(`./#/more/${category}`);
+    const rows = page.locator('main ul a');
+    for (let i = 0; i < await rows.count(); i++) expect(await rows.nth(i).getAttribute('aria-describedby'), `${category} row ${i}`).toBeTruthy();
+  }
+});

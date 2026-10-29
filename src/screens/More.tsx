@@ -45,7 +45,7 @@ const GROUP_META = {
 export const MORE_GROUPS = MORE_ROUTE_GROUPS.map(({ id, routes }) => ({
   id,
   ...GROUP_META[id],
-  links: routes.map((routeId: MoreRouteId) => ({ routeId, to: ROUTES[routeId].path, ...LINKS[routeId] })),
+  links: routes.map((routeId: MoreRouteId) => ({ routeId, to: ROUTES[routeId].path, ...LINKS[routeId], hint: t.more.links[routeId] })), // D154
 }));
 
 /** D137: a switched-off module's rows leave «Ще»; a group left without rows goes too. Without the rollout flag the
