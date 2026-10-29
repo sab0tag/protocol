@@ -4,6 +4,8 @@ import { ClinicError, type Actor, type ClinicDirectory } from './directory.ts';
 import { isRole } from './roles.ts';
 import type { PlanDelivery } from './delivery.ts';
 import { DatabaseBusy, isBusy } from '../db/tx.ts';
+import { IdentityError } from '../identity/errors.ts';
+import { identityStatus, sessionToken, safeMutation, type Identity } from '../identity/routes.ts';
 
 const STATUS: Record<ClinicError['code'], 400 | 401 | 403 | 404 | 409> = {
   unauthenticated: 401, forbidden: 403, not_found: 404, last_admin: 409, bad_request: 400,
@@ -15,7 +17,7 @@ const ID = /^[0-9a-f-]{36}$/;
  * record, never from the URL or body. Responses carry ids and statuses only — no plan content is ever returned here.
  * `allow` is a per-address request budget; tokens are 256-bit, so it only limits abuse.
  */
-export function mountClinic(app: Hono, o: { dir: ClinicDirectory; delivery: PlanDelivery; allow: (c: Context) => boolean }): void {
+export function mountClinic(app: Hono, o: { dir: ClinicDirectory; delivery: PlanDelivery; identity?: Identity; allow: (c: Context) => boolean }): void {
   const { dir, delivery } = o;
   const small = bodyLimit({ maxSize: 20_000, onError: (c) => c.json({ error: 'too_large' }, 413) });
   const plan = bodyLimit({ maxSize: 100_000, onError: (c) => c.json({ error: 'too_large' }, 413) });
@@ -26,12 +28,25 @@ export function mountClinic(app: Hono, o: { dir: ClinicDirectory; delivery: Plan
     let allowed: boolean;
     try { allowed = o.allow(c); } catch (e) { if (isBusy(e)) return busy(); throw e; }
     if (!allowed) return c.json({ error: 'too_many' }, 429);
-    const m = /^Bearer (\S{20,100})$/.exec(c.req.header('Authorization') ?? '');
-    const actor = dir.authenticate(m?.[1]);
-    if (!actor) return c.json({ error: 'unauthorized' }, 401);
+    let sessionHash: string | undefined;
     try {
+      const authorization = c.req.header('Authorization'), cookie = o.identity ? sessionToken(c, o.identity) : undefined;
+      let actor: Actor | null;
+      if (cookie !== undefined) {
+        if (authorization) throw new IdentityError('forbidden'); // ambiguity is never a legacy fallback
+        const s = o.identity!.sessions.authenticate(cookie); sessionHash = s.id_hash;
+        if (!['GET', 'HEAD'].includes(c.req.method)) safeMutation(c, o.identity!, s);
+        actor = dir.authenticateSession(s.id_hash, c.req.header('X-Clinic-Id'));
+      } else {
+        const m = /^Bearer (\S{20,100})$/.exec(authorization ?? ''); actor = dir.authenticate(m?.[1]);
+      }
+      if (!actor) return c.json({ error: 'unauthorized' }, 401);
       return c.json((await f(actor)) as object, status);
     } catch (e) {
+      if (sessionHash && o.identity && (e instanceof IdentityError || e instanceof ClinicError && ['forbidden', 'not_found', 'unauthenticated'].includes(e.code))) {
+        try { o.identity.sessions.denied('access_denied', sessionHash); } catch (auditError) { if (isBusy(auditError)) return busy(); return c.json({ error: 'identity_unavailable' }, 503); }
+      }
+      if (e instanceof IdentityError) return c.json({ error: e.code }, identityStatus(e));
       if (e instanceof ClinicError) return c.json({ error: e.code }, STATUS[e.code]);
       if (e instanceof DatabaseBusy || isBusy(e)) return busy();
       throw e;

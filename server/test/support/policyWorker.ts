@@ -3,9 +3,9 @@ import { ClinicDirectory } from '../../src/clinic/directory.ts';
 import { PlanDelivery } from '../../src/clinic/delivery.ts';
 import { Store } from '../../src/store.ts';
 
-const d = workerData as { path: string; token: string; operation: string; target: string; plan: unknown; flags: SharedArrayBuffer };
+const d = workerData as { path: string; token: string; operation: string; target: string; plan: unknown; flags: SharedArrayBuffer; sessionHash?: string; orgId?: string };
 const store = new Store(d.path), dir = new ClinicDirectory(store.database);
-const actor = dir.authenticate(d.token)!;
+const actor = d.sessionHash ? dir.authenticateSession(d.sessionHash, d.orgId) : dir.authenticate(d.token)!;
 const delivery = new PlanDelivery(store.database, dir);
 const require = dir.require.bind(dir);
 let first = true;

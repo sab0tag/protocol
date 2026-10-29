@@ -119,9 +119,9 @@ it('migration 3 preserves existing payloads/hash/IDs and never certifies a legac
     db.prepare('INSERT INTO plan_delivery VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
       .run('old-delivery', org.orgId, org.adminId, sha(code), payload, sha(payload), Date.now() + 60_000, 'pending', 100);
     const before = db.prepare('SELECT * FROM plan_delivery').get()!;
-    expect(migrate(db).applied).toEqual([3]);
+    expect(migrate(db, MIGRATIONS().slice(0, 3)).applied).toEqual([3]);
     expect(db.prepare('SELECT * FROM plan_delivery').get()).toEqual({ ...before, format: 1 });
-    expect(migrate(db).applied).toEqual([]);
+    expect(migrate(db, MIGRATIONS().slice(0, 3)).applied).toEqual([]);
     expect(() => assertCurrent(db, MIGRATIONS().slice(0, 2))).toThrow('newer_schema');
     const got = new PlanDelivery(db, dir).redeemWithProvenance(code);
     expect(got).toEqual({ plan: legacy });

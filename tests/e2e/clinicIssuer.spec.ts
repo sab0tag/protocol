@@ -15,9 +15,9 @@ for (const width of [320, 390]) test(`real clinic issue → QR screen → patien
   const patientContext = await browser.newContext({ serviceWorkers: 'block', viewport: { width, height: 844 }, colorScheme: width === 320 ? 'dark' : 'light' });
   try {
     const doctor = await doctorContext.newPage();
-    await doctor.goto('./'); await doctor.getByRole('button', { name: /^Пропустити/ }).click();
-    await expect(doctor).toHaveURL(/#\/$/);
     await doctor.goto('./#/clinic');
+    await expect(doctor.getByRole('status').filter({ hasText: 'Перевіряємо сесію…' })).toHaveCount(0);
+    await doctor.getByText('Службовий токен (тимчасово)', { exact: true }).click();
     await doctor.getByLabel('Токен доступу').fill(staff.token);
     await doctor.getByRole('button', { name: 'Увійти', exact: true }).click();
     await doctor.getByLabel('Назва плану').fill('Синтетичний план для передачі');
@@ -37,8 +37,6 @@ for (const width of [320, 390]) test(`real clinic issue → QR screen → patien
     await expect(doctor.locator('div.bg-white > svg')).toBeVisible();
 
     const patient = await patientContext.newPage();
-    await patient.goto('./'); await patient.getByRole('button', { name: /^Пропустити/ }).click();
-    await expect(patient).toHaveURL(/#\/$/);
     await patient.goto(`./#/plan/import?code=${issued.code}`);
     await patient.getByRole('button', { name: 'Переглянути план', exact: true }).click();
     await expect(patient.getByText(`Видано клінікою: ${actualName}, Синтетична клініка.`, { exact: true })).toBeVisible();

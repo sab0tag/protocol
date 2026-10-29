@@ -126,3 +126,12 @@ operational gates above are satisfied. No bypass of session, MFA or object polic
 - ZITADEL portal region/tier caveat: https://help.zitadel.com/customer-portal-instances
 
 No numeric budget is assumed. Sources and vendor entitlements can change; recheck at provisioning time.
+
+
+## ACCESS-03 topology implementation
+
+The implementation selects the same-origin BFF option: host-only cookies belong to the public app origin;
+identity/session and cookie-clinic paths are reverse-proxied to the existing API. It does not enable credentialed
+cross-origin requests or change cookie Domain. Callback/logout targets are fixed server configuration. Local
+Vite proxies and synthetic HTTPS issuer tests verify the flow; production proxy routing and tenant settings remain
+pre-enablement gates. See [ACCESS-03](../access-03-identity.md). No production setting is changed by this decision.

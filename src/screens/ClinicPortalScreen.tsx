@@ -1,12 +1,15 @@
-import { useEffect, useState } from 'react';
+import { identityEnabled, identitySession, identityLogout, type IdentitySession, type IdentityContext } from '../sync/identityApi';
+import { useEffect, useRef, useState } from 'react';
 import qrcode from 'qrcode-generator';
 import { composePlan, patientLink, type PlanForm } from '../domain/clinicPlanDraft';
 import { ApiError } from '../sync/api';
-import { clinicAddStaff, clinicDeactivate, clinicIssue, clinicMe, clinicPlanStatus, clinicRevoke, clinicStaff, clinicStats, type ClinicMe, type ClinicStats, type StaffMember } from '../sync/clinicApi';
+import { clinicAddStaff, clinicDeactivate, clinicIssue, clinicMe, clinicPlanStatus, clinicRevoke, clinicStaff, clinicStats, type ClinicAuth, type ClinicMe, type ClinicStats, type StaffMember } from '../sync/clinicApi';
 
 const ERR: Record<string, string> = {
-  unauthorized: 'Токен не підходить або доступ вимкнено.', offline: 'Немає зʼєднання.', forbidden: 'Недостатньо прав.',
+  unauthorized: 'Вхід не підтверджено або доступ вимкнено.', offline: 'Немає зʼєднання.', forbidden: 'Недостатньо прав.',
   too_many: 'Забагато запитів. Спробуйте пізніше.', bad_request: 'Сервер не прийняв дані.', not_found: 'Не знайдено.', last_admin: 'Не можна прибрати останнього адміністратора.',
+  mfa_required: 'Потрібне підтвердження входу другим фактором.', step_up_required: 'Підтвердіть вхід ще раз для цієї дії.',
+  context_required: 'Оберіть клініку.', identity_unavailable: 'Сервіс входу тимчасово недоступний.',
   database_busy: 'Сервіс тимчасово зайнятий. Спробуйте ще раз.',
 };
 const FORM: Record<string, string> = {
@@ -15,40 +18,84 @@ const FORM: Record<string, string> = {
 const say = (e: unknown) => ERR[e instanceof ApiError ? e.code : ''] ?? 'Не вдалося виконати дію.';
 const qrSvg = (text: string) => { const q = qrcode(0, 'M'); q.addData(text); q.make(); return q.createSvgTag({ cellSize: 4, margin: 2, scalable: true }); };
 
-/** Staff screen. The token lives in this tab's memory only: a reload signs out, nothing is written to the device. */
+/** Staff BFF session; the temporary legacy token and CSRF/context state live only in tab memory. */
 export function ClinicPortalScreen() {
-  const [token, setToken] = useState(''), [input, setInput] = useState('');
+  const [token, setToken] = useState<ClinicAuth>(''), [input, setInput] = useState('');
+  const [enabled, setEnabled] = useState(false), [checking, setChecking] = useState(true);
+  const [session, setSession] = useState<IdentitySession | null>(null);
+  const active = useRef<AbortController | null>(null), ending = useRef(false);
   const [me, setMe] = useState<ClinicMe | null>(null), [error, setError] = useState('');
 
+  useEffect(() => {
+    let live = true;
+    void (async () => {
+      const on = await identityEnabled(); if (!live) return; setEnabled(on);
+      if (on) {
+        try {
+          const s = await identitySession(); if (!live) return; setSession(s);
+          if (s.contexts.length === 1) await openContext(s, s.contexts[0]!);
+        } catch (e) { if (live && !(e instanceof ApiError && e.status === 401)) setError(say(e)); }
+      }
+      if (live) setChecking(false);
+    })();
+    return () => { live = false; active.current?.abort(); };
+  }, []);
+  async function openContext(s: IdentitySession, context: IdentityContext) {
+    active.current?.abort(); const controller = new AbortController(); active.current = controller;
+    setMe(null); setToken(''); setError('');
+    const auth: ClinicAuth = { csrfToken: s.csrfToken, organizationId: context.organizationId, signal: controller.signal,
+      onDenied: () => { if (!controller.signal.aborted) { controller.abort(); setMe(null); setToken(''); setSession(null); setError(ERR.unauthorized!); } } };
+    try { const profile = await clinicMe(auth); if (!controller.signal.aborted) { setToken(auth); setMe(profile); } }
+    catch (e) { if (!controller.signal.aborted) setError(say(e)); }
+  }
   async function signIn() {
     setError('');
     try { const m = await clinicMe(input.trim()); setToken(input.trim()); setInput(''); setMe(m); } catch (e) { setError(say(e)); }
   }
-  const signOut = () => { setToken(''); setMe(null); };
+  const signOut = async (all = false) => {
+    if (ending.current) return; ending.current = true;
+    active.current?.abort(); setToken(''); setMe(null); setError('');
+    if (session) {
+      try { const out = await identityLogout(session, all); setSession(null); window.location.assign(out.logoutUrl); }
+      catch (e) { setError(say(e)); } // keep the session controls visible so a failed logout can be retried
+    }
+    ending.current = false;
+  };
 
   return (
     <section className="space-y-4 pt-4">
       <h1 className="text-2xl font-semibold">Кабінет клініки</h1>
-      {!me ? (
-        <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); void signIn(); }}>
+      {enabled && !session && !checking && <a href="/v1/identity/login" className="inline-flex min-h-tap items-center rounded-xl bg-accent px-4 text-white">Увійти через захищений сервіс</a>}
+      {checking && <p role="status">Перевіряємо сесію…</p>}
+      {session && <div className="space-y-2 text-sm">
+        {session.contexts.length === 0 && <p>Для цього облікового запису немає доступних клінік. Потрібне запрошення адміністратора.</p>}
+        {session.contexts.length > 1 && <label>Клініка<select className="ml-2 min-h-tap border" value={me?.organizationId ?? ''} onChange={e => {
+          const context = session.contexts.find(c => c.organizationId === e.target.value); if (context) void openContext(session, context);
+        }}><option value="" disabled>Оберіть клініку</option>{session.contexts.map(c => <option key={c.membershipId} value={c.organizationId}>{c.organizationName}</option>)}</select></label>}
+        <a className="mr-4 inline-flex min-h-tap items-center underline" href="/v1/identity/login?step_up=1">Підтвердити вхід ще раз</a>
+        <button className="min-h-tap underline" onClick={() => void signOut(true)}>Завершити всі сесії</button>
+      </div>}
+      {!checking && !me && !session ? (
+        <details open={!enabled}><summary className="min-h-tap cursor-pointer text-sm">Службовий токен (тимчасово)</summary><form className="space-y-3" onSubmit={(e) => { e.preventDefault(); void signIn(); }}>
           <label className="block text-sm">Токен доступу
             <input className="mt-1 block min-h-tap w-full rounded-xl border px-3" type="password" autoComplete="off" value={input} onChange={(e) => setInput(e.target.value)} />
           </label>
           {error && <p role="alert" className="text-sm">{error}</p>}
-          <button className="min-h-tap rounded-xl bg-accent px-4 text-white disabled:opacity-50" disabled={input.trim().length < 20}>Увійти</button>
-        </form>
-      ) : (
+          <button className="min-h-tap rounded-xl bg-accent px-4 text-white disabled:opacity-50" disabled={checking || input.trim().length < 20}>Увійти</button>
+        </form></details>
+      ) : me ? (
         <>
           <p className="text-sm text-muted">{me.displayName}, {me.organizationName} · {me.role === 'admin' ? 'адміністратор' : 'лікар'}{' '}
-            <button className="underline" onClick={signOut}>Вийти</button></p>
+            <button className="min-h-tap underline" onClick={() => void signOut()}>Вийти</button></p>
           {me.role === 'admin' ? <Staff token={token} /> : <Issue token={token} me={me} />}
         </>
-      )}
+      ) : null}
+      {session && error && <p role="alert" className="text-sm">{error}</p>}
     </section>
   );
 }
 
-function Staff({ token }: { token: string }) {
+function Staff({ token }: { token: ClinicAuth }) {
   const [staff, setStaff] = useState<StaffMember[]>([]), [name, setName] = useState(''), [role, setRole] = useState<'doctor' | 'admin'>('doctor');
   const [issued, setIssued] = useState(''), [error, setError] = useState(''), [stats, setStats] = useState<ClinicStats | null>(null);
   const load = () => clinicStaff(token).then(setStaff).catch((e) => setError(say(e)));
@@ -92,7 +139,7 @@ function Staff({ token }: { token: string }) {
   );
 }
 
-function Issue({ token, me }: { token: string; me: ClinicMe }) {
+function Issue({ token, me }: { token: ClinicAuth; me: ClinicMe }) {
   const [form, setForm] = useState<PlanForm>({ title: '', medications: '', restrictions: '', tests: '', followUp: '' });
   const [consent, setConsent] = useState(false), [error, setError] = useState('');
   const [sent, setSent] = useState<{ id: string; link: string; expiresAt: number; status: string } | null>(null);

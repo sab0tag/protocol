@@ -79,7 +79,7 @@ function OnboardingGate({ children }: { children: ReactNode }) {
   const plan = usePlan();
   const onboarded = useUi((s) => s.onboarded);
   const { pathname } = useLocation();
-  if (plan && !plan.onboardedAt && !onboarded && pathname !== '/welcome' && pathname !== '/sync') return <Navigate to="/welcome" replace />;
+  if (plan && !plan.onboardedAt && !onboarded && !['/welcome', '/sync', '/clinic', '/plan/import'].includes(pathname)) return <Navigate to="/welcome" replace />;
   return <>{children}</>;
 }
 

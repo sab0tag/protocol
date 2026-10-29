@@ -1,3 +1,4 @@
+import { mountIdentity, type Identity } from './identity/routes.ts';
 // HTTP API (SPEC.md D31, D32). A vault is created by the first device: its id and auth key are derived from the
 // sync code on the device; the server keeps only a hash of the auth key and never the code or the encryption key.
 import { createHash, timingSafeEqual } from 'node:crypto';
@@ -51,6 +52,7 @@ export interface Limits {
 export const DEFAULT_LIMITS: Limits = { vaultsPerIpPerDay: 5, vaultBytes: 50_000_000, photosPerVaultPerDay: 30, photosPerDay: 150, menusPerVaultPerDay: 15, workoutsPerVaultPerDay: 10, conciergePerVaultPerDay: 60, aiPerDay: 800, deviceTokensPerIpPerDay: 5, devicePhotosPerDay: 10, dishesPerDay: 20, listDishesPerDay: 50, pilotJoinsPerIpPerDay: 10, aiDayUsdMicro: 25_000_000, aiMonthUsdMicro: 400_000_000 };
 
 export interface Deps {
+  identity?: Identity; // same-origin BFF only; disabled unless explicitly configured
   store: Store;
   recognize?: Recognizer; // absent = photos are off (no API key)
   menu?: MenuMaker; // the same
@@ -133,6 +135,7 @@ export function createApp(deps: Deps) {
     if (hold.ok) hold.commit(usd);
   };
 
+  mountIdentity(app, deps.identity, (c, bucket, n) => store.take(`identity:${bucket}:${Math.floor(now().getTime() / 600000)}:${ipKey(c)}`, n, now()));
   app.use('*', cors({ origin: origins, allowMethods: ['GET', 'POST', 'PUT', 'DELETE'], allowHeaders: ['Authorization', 'Content-Type'], maxAge: 86400 }));
   const DEVICE = /^[0-9a-f]{32}$/;
   /** D40: the server POSTs to a subscription's endpoint — only to the browsers' own push services, never to an
@@ -819,7 +822,7 @@ export function createApp(deps: Deps) {
     }
   });
 
-  if (deps.clinic && deps.planDelivery) mountClinic(app, { dir: deps.clinic, delivery: deps.planDelivery, allow: (c) => store.take(`clinicreq:${ipKey(c)}`, 3000, now()) });
+  if (deps.clinic && deps.planDelivery) mountClinic(app, { dir: deps.clinic, delivery: deps.planDelivery, identity: deps.identity, allow: (c) => store.take(`clinicreq:${ipKey(c)}`, 3000, now()) });
 
   app.delete('/v1/pilot', (c) => {
     const pid = member(c);

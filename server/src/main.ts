@@ -1,3 +1,5 @@
+import { auth0Provider, configFromEnv } from './identity/oidc.ts';
+import { Sessions } from './identity/sessions.ts';
 import { serve } from '@hono/node-server';
 import { createApp, DEFAULT_LIMITS } from './app.ts';
 import { ClinicDirectory } from './clinic/directory.ts';
@@ -35,7 +37,17 @@ const backups = env.BACKUP_DIR ?? '/backups';
 const vapid = vapidKeys(store, env);
 const send = webPushSender(vapid, env.VAPID_SUBJECT ?? 'https://protocol.beyondthesignal.to');
 const clinic = new ClinicDirectory(store.database);
+const identity = await (async () => {
+  try {
+    const config = configFromEnv(env);
+    return config ? { sessions: new Sessions(store.database), provider: await auth0Provider(config), origin: config.publicOrigin } : undefined;
+  } catch {
+    console.error('identity initialization refused: check secure configuration and provider availability');
+    process.exit(1);
+  }
+})();
 const app = createApp({
+  identity,
   store,
   clinic,
   planDelivery: new PlanDelivery(store.database, clinic),
@@ -88,6 +100,7 @@ const timer = setInterval(() => {
 const backupTimer = setInterval(() => {
   backupOnce(store, backups, new Date()).catch((e) => console.error('backup failed:', (e as Error).message));
   try { conciergeHousekeeping(store, `${backups}/concierge`, new Date()); } catch (e) { console.error('concierge log housekeeping failed:', (e as Error).message); } // D91
+  try { identity?.sessions.cleanup(); } catch { console.error('identity housekeeping failed'); }
   try { pilotHousekeeping(store, new Date()); } catch (e) { console.error('pilot housekeeping failed:', (e as Error).message); } // D119
 }, 3600_000);
 setTimeout(() => backupOnce(store, backups, new Date()).catch((e) => console.error('backup failed:', (e as Error).message)), 60_000);
