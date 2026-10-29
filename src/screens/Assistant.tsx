@@ -55,6 +55,9 @@ export function Assistant() {
   const [askConsent, setAskConsent] = useState<string | null>(null);
   const stop = useRef<() => void>(() => undefined);
   const end = useRef<HTMLDivElement>(null);
+  const field = useRef<HTMLInputElement>(null);
+  /** D143: a filled question waits in the field, the caret at its end — sending stays the person's tap. */
+  const fill = (q: string) => { setText(q); requestAnimationFrame(() => { field.current?.focus(); field.current?.setSelectionRange(q.length, q.length); }); };
   useEffect(() => { keep(`assistant:${date}`, msgs); end.current?.scrollIntoView({ block: 'end' }); }, [msgs, date]);
 
   const targets = useMemo(() => (plan ? effectiveTargets(plan, date) : {}), [plan, date]);
@@ -147,9 +150,10 @@ export function Assistant() {
       <ExampleNotice plan={plan} />
       <p className="protocol-card rounded-2xl border border-line bg-surface p-3 text-sm">{facts.length ? `${L.today} ${facts.join(' · ')}` : L.noTargetsShort}</p>
       {msgs.length === 0 && (
-        <div className="flex flex-wrap gap-2" aria-label="Швидкі запитання">
+        <div role="group" className="flex flex-wrap gap-2" aria-label="Швидкі запитання">
           {L.chips.map((c, i) => (
-            <button key={c} type="button" onClick={() => (i === 1 ? setText(c) : void ask(c))} className="min-h-tap rounded-full border border-line px-3 text-sm">{c}</button>
+            <button key={c} type="button" onClick={() => (i === 1 ? fill(c) : void ask(c))} className="min-h-tap rounded-2xl border border-line px-3 py-1 text-left text-sm">
+              {c.trim()}{i === 1 ? '…' : ''}<span className="block text-xs text-muted">{L.chipHints[i]}</span></button>
           ))}
         </div>
       )}
@@ -194,7 +198,7 @@ export function Assistant() {
 
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <button type="button" onClick={() => navigate('/')} className="min-h-tap rounded-xl border border-line bg-bg p-3 text-left text-sm font-medium">Що мені зараз важливо? <span className="mt-1 block text-xs font-normal text-muted">Відкрити план дня →</span></button>
-            <button type="button" onClick={() => setText('Що приготувати на вечерю з урахуванням мого плану?')} className="min-h-tap rounded-xl border border-line bg-bg p-3 text-left text-sm font-medium">Що приготувати на вечерю? <span className="mt-1 block text-xs font-normal text-muted">Підставити запит для перевірки →</span></button>
+            <button type="button" onClick={() => fill('Що приготувати на вечерю з урахуванням мого плану?')} className="min-h-tap rounded-xl border border-line bg-bg p-3 text-left text-sm font-medium">Що приготувати на вечерю? <span className="mt-1 block text-xs font-normal text-muted">Підставити запит для перевірки →</span></button>
             <button type="button" onClick={() => navigate('/week')} className="min-h-tap rounded-xl border border-line bg-bg p-3 text-left text-sm font-medium">Як проходить мій тиждень? <span className="mt-1 block text-xs font-normal text-muted">Відкрити підсумок →</span></button>
             <button type="button" onClick={() => navigate('/report')} className="min-h-tap rounded-xl border border-line bg-bg p-3 text-left text-sm font-medium">Що підготувати до лікаря? <span className="mt-1 block text-xs font-normal text-muted">Відкрити звіт →</span></button>
           </div>
@@ -208,7 +212,7 @@ export function Assistant() {
             {listening ? <Square size={20} aria-hidden /> : <Mic size={22} aria-hidden />}</button>
         )}
         <label className="flex-1"><span className="sr-only">{L.input}</span>
-          <input value={text} onChange={(e) => setText(e.target.value)} placeholder={L.placeholder} className="block min-h-12 w-full rounded-xl border border-line bg-surface px-3" /></label>
+          <input ref={field} value={text} onChange={(e) => setText(e.target.value)} placeholder={L.placeholder} className="block min-h-12 w-full rounded-xl border border-line bg-surface px-3" /></label>
         <button type="submit" disabled={!text.trim() || busy} aria-label={L.send} className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-accent text-accent disabled:opacity-40"><Send size={20} aria-hidden /></button>
       </form>
     </section>
