@@ -103,7 +103,11 @@ export function migrate(db: DatabaseSync, migrations: Migration[] = MIGRATIONS()
       const history = readHistory(db);
       verifyHistory(history, migrations);
       const next = migrations[history.length];
-      if (!next) return null;
+      if (!next) {
+        const drift = compare(describe(db), expectedManifest(migrations, history.length));
+        if (drift.length) throw new SchemaError('schema_drift', drift);
+        return null;
+      }
       if (next.version === 1) {
         if (isEmpty(db)) baseline = 'fresh';
         else {

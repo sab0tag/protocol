@@ -267,6 +267,9 @@ export interface LabResult {
   name: string;
   value: number;
   unit: string;
+  /** D144: the doctor's own goal for this person — never the form's range. */
   target?: string;
+  /** D144: the laboratory's reference interval, as printed on its form. */
+  reference?: string;
   demo?: true; // D79
 }

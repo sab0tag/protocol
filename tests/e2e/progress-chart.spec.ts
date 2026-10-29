@@ -55,3 +55,27 @@ test('progress summary uses honest weekly rings and weight history remains a lin
   }
   await page.context().close();
 });
+
+test('every overview card is a real number, its period and the way to its records — no «деталі нижче» (ТЗ Progress 2.0, D146)', async ({ browser }) => {
+  const page = await device(browser, 'demo'); // weights, wellbeing, workouts and a plan, in a database of its own
+  await page.goto('./#/progress');
+  const overview = page.getByRole('region', { name: 'Огляд прогресу' });
+  const card = (title: string) => overview.getByRole('article').filter({ has: page.getByRole('heading', { name: title, exact: true }) });
+  await expect(overview.getByRole('article')).toHaveCount(4);
+  await expect(overview).not.toContainText('Ваші записи');
+  await expect(overview).not.toContainText('Деталі — у підсумку нижче');
+  await expect(card('Вага')).toContainText(/Останнє вимірювання \d\d\.\d\d/);
+  await expect(card('Вага')).toContainText(/Від \d\d\.\d\d: [+−]?[\d,]+ кг/);
+  for (const title of ['Самопочуття', 'Активність', 'План']) await expect(card(title)).toContainText(/За 7 днів: \d\d\.\d\d–\d\d\.\d\d/);
+  await expect(card('Самопочуття')).toContainText(/[0-7] з 7 дн\./);
+  await expect(card('План')).toContainText(/\d+ %/);
+  await card('Самопочуття').getByRole('link', { name: 'Щоденник →' }).click();
+  await expect(page).toHaveURL(/#\/wellbeing\/journal$/);
+  await page.goBack();
+  await card('Вага').getByRole('link', { name: 'Вимірювання →' }).click();
+  await expect(page).toHaveURL(/#\/weight$/);
+  await page.goBack();
+  await card('План').getByRole('link', { name: 'Тиждень по днях →' }).click();
+  await expect(page).toHaveURL(/#\/week$/);
+  await page.context().close();
+});

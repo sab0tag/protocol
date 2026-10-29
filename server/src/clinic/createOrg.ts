@@ -5,7 +5,7 @@
 // applies migrations at startup; this command refuses any database that is not exactly at the latest version.
 import { existsSync } from 'node:fs';
 import { assertCurrent, SchemaError } from '../db/migrate.ts';
-import { DatabaseBusy } from '../db/tx.ts';
+import { DatabaseBusy, isBusy } from '../db/tx.ts';
 import { Store } from '../store.ts';
 import { ClinicDirectory, ClinicError } from './directory.ts';
 
@@ -29,7 +29,10 @@ export function createOrg(args: string[], dbPath: string | undefined, out: (s: s
   let store: Store;
   try {
     store = new Store(dbPath); // the same connection settings as the API (WAL, busy_timeout = 5000), no schema change
-  } catch (e) { err(`cannot open ${dbPath} as a database: ${(e as Error).message}`); return 2; }
+  } catch (e) {
+    if (isBusy(e)) { err('refused: the database is busy — nothing was created, retry'); return 4; }
+    err(`cannot open ${dbPath} as a database: ${(e as Error).message}`); return 2;
+  }
   try {
     assertCurrent(store.database); // preflight, for a clear message before taking the write lock
     // …and again under the write lock in the same transaction that creates the clinic: no gap for a migration in between

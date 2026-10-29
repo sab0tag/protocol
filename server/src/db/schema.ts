@@ -6,14 +6,16 @@ import type { DatabaseSync } from 'node:sqlite';
  * whatever text created them. SQLite's internal objects and the migration history table are left out.
  */
 export interface Column { name: string; type: string; notnull: number; dflt: string | null; pk: number; hidden: number }
-export interface Index { name: string; unique: number; origin: string; partial: number; columns: (string | null)[]; desc: number[]; collations: string[] }
+export interface Index { name: string; unique: number; origin: string; partial: number; columns: (string | null)[]; desc: number[]; collations: string[]; definition: string | null }
 export interface TableShape {
-  columns: Column[]; indexes: Index[]; foreignKeys: unknown[]; withoutRowid: number; strict: number; autoincrement: boolean;
+  columns: Column[]; indexes: Index[]; foreignKeys: unknown[]; withoutRowid: number; strict: number; autoincrement: boolean; definition: string;
 }
 export interface Manifest { tables: Record<string, TableShape>; views: Record<string, string>; triggers: Record<string, string> }
 
 export const HISTORY_TABLE = 'schema_migrations';
-const squash = (sql: string) => sql.replace(/\s+/g, ' ').trim();
+// PRAGMAs omit CHECK clauses, index expressions and partial-index predicates. Compare known SQL definitions too,
+// preserving quoted literals and token boundaries while allowing different whitespace outside quoted values.
+const definition = (sql: string) => JSON.stringify(sql.match(/'(?:''|[^'])*'|"(?:""|[^"])*"|`(?:``|[^`])*`|\[[^\]]*\]|[A-Za-z_][A-Za-z_0-9$]*|[0-9]+(?:\.[0-9]+)?|[^\s]/g) ?? []);
 
 export function describe(db: DatabaseSync): Manifest {
   const objects = db.prepare(
@@ -21,8 +23,8 @@ export function describe(db: DatabaseSync): Manifest {
   ).all(HISTORY_TABLE) as { type: string; name: string; tbl: string; sql: string | null }[];
   const out: Manifest = { tables: {}, views: {}, triggers: {} };
   for (const o of objects) {
-    if (o.type === 'view') out.views[o.name] = squash(o.sql ?? '');
-    else if (o.type === 'trigger') out.triggers[o.name] = squash(o.sql ?? '');
+    if (o.type === 'view') out.views[o.name] = definition(o.sql ?? '');
+    else if (o.type === 'trigger') out.triggers[o.name] = definition(o.sql ?? '');
     else if (o.type === 'table') out.tables[o.name] = table(db, o.name, o.sql ?? '');
     // explicit indexes are described with their table (index_list), so they are not listed twice
   }
@@ -36,11 +38,12 @@ function table(db: DatabaseSync, name: string, sql: string): TableShape {
     { name: string; unique: number; origin: string; partial: number }[]).map((i) => {
     const keys = (db.prepare(`SELECT name, "desc", coll FROM pragma_index_xinfo(?) WHERE key = 1 ORDER BY seqno`).all(i.name) as
       { name: string | null; desc: number; coll: string }[]);
-    return { name: i.name, unique: i.unique, origin: i.origin, partial: i.partial, columns: keys.map((k) => k.name), desc: keys.map((k) => k.desc), collations: keys.map((k) => k.coll) };
+    const sql = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'index' AND name = ?").get(i.name) as { sql: string | null };
+    return { name: i.name, unique: i.unique, origin: i.origin, partial: i.partial, columns: keys.map((k) => k.name), desc: keys.map((k) => k.desc), collations: keys.map((k) => k.coll), definition: sql.sql === null ? null : definition(sql.sql) };
   });
   const foreignKeys = db.prepare(`SELECT * FROM pragma_foreign_key_list(?) ORDER BY id, seq`).all(name).map((r) => ({ ...r }));
   const info = db.prepare('SELECT wr, strict FROM pragma_table_list WHERE name = ? AND schema = ?').get(name, 'main') as { wr: number; strict: number };
-  return { columns, indexes, foreignKeys, withoutRowid: info.wr, strict: info.strict, autoincrement: /\bAUTOINCREMENT\b/i.test(sql) };
+  return { columns, indexes, foreignKeys, withoutRowid: info.wr, strict: info.strict, autoincrement: /\bAUTOINCREMENT\b/i.test(sql), definition: definition(sql) };
 }
 
 /** Differences between an actual and an expected manifest, as readable lines. `allowMissing` accepts absent tables,
@@ -64,6 +67,7 @@ function tableDiff(name: string, a: TableShape, e: TableShape, allowMissingIndex
   const same = (x: unknown, y: unknown) => JSON.stringify(x) === JSON.stringify(y);
   if (!same(a.columns, e.columns)) out.push(`table ${name}: columns differ`);
   if (!same(a.foreignKeys, e.foreignKeys)) out.push(`table ${name}: foreign keys differ`);
+  if (a.definition !== e.definition) out.push(`table ${name}: definition differs`);
   if (a.withoutRowid !== e.withoutRowid || a.strict !== e.strict || a.autoincrement !== e.autoincrement) out.push(`table ${name}: table options differ`);
   const ai = new Map(a.indexes.map((i) => [i.name, i])), ei = new Map(e.indexes.map((i) => [i.name, i]));
   for (const [n, i] of ai) {

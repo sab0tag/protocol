@@ -107,6 +107,7 @@ group('migrate', () => {
   for (const [what, change] of [
     ['an extra column', 'ALTER TABLE vaults ADD COLUMN note TEXT'],
     ['an extra table', 'CREATE TABLE stray (x)'],
+    ['an extra CHECK constraint', 'DROP TABLE vaults; CREATE TABLE vaults (id TEXT PRIMARY KEY, auth TEXT NOT NULL, created TEXT NOT NULL, bytes INTEGER NOT NULL DEFAULT 0 CHECK (bytes >= 0))'],
     ['an index with the same name on other columns', 'DROP INDEX records_seq; CREATE INDEX records_seq ON records (seq)'],
     ['a dropped implicit unique index', "DROP TABLE plan_delivery; CREATE TABLE plan_delivery (id TEXT PRIMARY KEY, org TEXT NOT NULL, issued_by TEXT NOT NULL, code_hash TEXT NOT NULL, plan TEXT, plan_hash TEXT NOT NULL, expires INTEGER NOT NULL, status TEXT NOT NULL DEFAULT 'pending', created INTEGER NOT NULL); CREATE INDEX plan_delivery_org ON plan_delivery (org, id)"],
     ['a view', 'CREATE VIEW v AS SELECT id FROM vaults'],
@@ -166,6 +167,10 @@ group('migrate', () => {
     migrate(db);
     db.exec('ALTER TABLE vaults ADD COLUMN note TEXT');
     expect(fail(() => assertCurrent(db)).code).toBe('schema_drift');
+    const before = { schema: describe(db), data: dump(db), history: history(db) };
+    expect(fail(() => migrate(db)).code).toBe('schema_drift');
+    expect({ schema: describe(db), data: dump(db), history: history(db) }).toEqual(before);
+    expect(db.isTransaction).toBe(false);
     expect(fail(() => migrate(db, withNext('CREATE TABLE later (x)'))).code).toBe('schema_drift');
     expect(history(db)).toHaveLength(1);
   });
@@ -181,6 +186,36 @@ group('migrate', () => {
     expect(() => loadMigrations(write({ '0001_a.sql': '', '0003_c.sql': '' }))).toThrow(/without gaps/);
     expect(() => loadMigrations(write({ '0001_a.sql': '', 'notes.txt': '' }))).toThrow(/unexpected file/);
     expect(() => loadMigrations(write({ '1_a.sql': '' }))).toThrow(/unexpected file/);
+  });
+
+  it('validation rejects changed index expressions and partial predicates even when their PRAGMA shapes match', () => {
+    for (const [expected, changed] of [
+      ['CREATE INDEX expression_idx ON vaults (lower(auth))', 'CREATE INDEX expression_idx ON vaults (upper(auth))'],
+      ['CREATE INDEX expression_idx ON vaults (auth) WHERE bytes > 0', 'CREATE INDEX expression_idx ON vaults (auth) WHERE bytes > 1'],
+    ]) {
+      const db = new DatabaseSync(':memory:');
+      const migrations = withNext(expected!);
+      migrate(db, migrations);
+      db.exec(`DROP INDEX expression_idx; ${changed}`);
+      expect(fail(() => migrate(db, migrations)).code).toBe('schema_drift');
+      expect(fail(() => assertCurrent(db, migrations)).code).toBe('schema_drift');
+      db.close();
+    }
+  });
+
+  it('SQL signatures preserve whitespace inside quoted view and trigger values', () => {
+    for (const [expected, changed] of [
+      ["CREATE VIEW label AS SELECT 'a b' AS text", "DROP VIEW label; CREATE VIEW label AS SELECT 'a  b' AS text"],
+      ["CREATE TRIGGER label AFTER INSERT ON vaults BEGIN INSERT INTO settings (k, v) VALUES (NEW.id, 'a b'); END", "DROP TRIGGER label; CREATE TRIGGER label AFTER INSERT ON vaults BEGIN INSERT INTO settings (k, v) VALUES (NEW.id, 'a  b'); END"],
+    ]) {
+      const db = new DatabaseSync(':memory:');
+      const migrations = withNext(expected!);
+      migrate(db, migrations);
+      db.exec(changed!);
+      expect(fail(() => migrate(db, migrations)).code).toBe('schema_drift');
+      expect(fail(() => assertCurrent(db, migrations)).code).toBe('schema_drift');
+      db.close();
+    }
   });
 });
 
@@ -227,18 +262,23 @@ group('db:migrate command', () => {
 });
 
 group('API startup', () => {
-  it('a database the build refuses stops the process before it serves anything', async () => {
+  for (const versioned of [false, true]) it(`a refused ${versioned ? 'versioned' : 'legacy'} database stops the process before serving`, async () => {
     const { spawnSync } = await import('node:child_process');
     const path = join(tmp(), 'bad.db');
-    const db = new DatabaseSync(path); db.exec(LEGACY); db.exec('CREATE TABLE stray (x)'); db.close();
+    const db = new DatabaseSync(path);
+    if (versioned) migrate(db); else db.exec(LEGACY);
+    db.exec('CREATE TABLE stray (x)');
+    const before = { schema: describe(db), history: versioned ? history(db) : null };
+    db.close();
     const r = spawnSync(process.execPath, ['--disable-warning=ExperimentalWarning', 'src/main.ts'], {
       cwd: new URL('..', import.meta.url), env: { ...process.env, DB_PATH: path, PORT: '0', BACKUP_DIR: tmp(), ANTHROPIC_API_KEY: '' }, encoding: 'utf8', timeout: 20_000,
     });
     expect(r.status).toBe(1);
-    expect(r.stderr).toMatch(/database migration refused: unrecognized_schema: unexpected table stray/);
+    expect(r.stderr).toContain(`database migration refused: ${versioned ? 'schema_drift' : 'unrecognized_schema'}: unexpected table stray`);
     expect(r.stdout).not.toMatch(/protocol-api on/);
     const after = new DatabaseSync(path);
-    expect(hasHistory(after)).toBe(false);
+    expect(hasHistory(after)).toBe(versioned);
+    expect({ schema: describe(after), history: versioned ? history(after) : null }).toEqual(before);
     after.close();
   }, 30_000);
 });

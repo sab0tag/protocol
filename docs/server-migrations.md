@@ -10,7 +10,7 @@ The server's SQLite schema is changed only by versioned migrations in `server/sr
   file stops the server (`checksum_mismatch`). Fix forward with a new migration.
 - Each migration runs in one `BEGIN IMMEDIATE` transaction together with its history row. A failure rolls the whole
   step back and is not recorded; the server does not start.
-- After every step the whole schema must equal the schema produced by the migrations so far on an empty database
+- On every startup, including a no-op with no pending migrations, and after every step, the whole schema must equal the schema produced by the migrations so far on an empty database
   (`schema_drift` otherwise). Manual changes to the live schema are therefore refused too.
 - No destructive down-migrations. Roll the application back only to a version that understands the current schema;
   restoring data goes through a backup and is tested separately.
@@ -48,3 +48,8 @@ DB_PATH=/tmp/check.db npm run db:migrate   # expect: applied 1 (baseline: legacy
 ```
 
 A refusal there lists exactly what differs; resolve it before the new API starts against the live database.
+
+## Review verification
+Current-version schema drift is checked inside the final write-locked transaction too, not only before a pending migration. API startup refuses versioned drift before listening. The manifest also compares SQL token definitions for tables and explicit indexes to detect CHECK changes, index expressions and partial predicates that PRAGMA metadata omits. Whitespace outside quoted values may differ; other unknown definition differences are refused conservatively for review, not silently normalized.
+
+Connection setup installs busy_timeout before requesting WAL mode so parallel CLIs also wait during journal initialization. A busy error while opening clinic:create is a retryable exit 4, not a malformed-database exit 2.

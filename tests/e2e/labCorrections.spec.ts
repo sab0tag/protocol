@@ -24,7 +24,7 @@ test('manual lab errors are explained and the exact numeric precision reaches hi
   await form.getByRole('textbox', { name: 'Од.', exact: true }).fill('од.');
   await form.getByRole('button', { name: 'Зберегти', exact: true }).click();
   await expect(form).toHaveCount(0);
-  await expect(page.getByRole('table')).toContainText('0,004123');
+  await expect(page.getByRole('list', { name: 'Аналізи', exact: true })).toContainText('0,004123');
   await page.getByText(/^Історія та виправлення/).click();
   await expect(page.getByRole('button', { name: 'Редагувати результат: Тестовий показник, 2026-10-27', exact: true })).toBeVisible();
   await page.goto('./#/report');
@@ -93,5 +93,5 @@ test('a result changed while its editor is open is not overwritten, and the draf
   await expect(form.getByRole('textbox', { name: 'Значення', exact: true })).toHaveValue('6,78');
   await form.getByRole('button', { name: 'Скасувати', exact: true }).click();
   await page.reload();
-  await expect(page.getByRole('table')).toContainText('8,9');
+  await expect(page.getByRole('list', { name: 'Аналізи', exact: true })).toContainText('8,9');
 });

@@ -92,7 +92,7 @@ describe('clinic:create on a current database', () => {
     await Promise.all([a.next(), b.next()]);
     const f = new Int32Array(sab); Atomics.store(f, 0, 1); Atomics.notify(f, 0);
     const [ra, rb] = await Promise.all([a.next(), b.next()]);
-    expect([ra.result.code, rb.result.code]).toEqual([0, 0]);
+    expect([ra.result.code, rb.result.code], JSON.stringify([ra.result, rb.result])).toEqual([0, 0]);
     await Promise.all([a.exit, b.exit]);
     expect(state(path).rows).toEqual({ orgs: 2, members: 2, audit: 2 });
   }, 30_000);
