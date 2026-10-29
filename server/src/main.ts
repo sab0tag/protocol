@@ -18,6 +18,9 @@ import { pilotHousekeeping } from './pilot.ts';
 import { claudeRecognizer } from './photo.ts';
 import { tick, vapidKeys, webPushSender } from './push.ts';
 import { Store } from './store.ts';
+import { identityConfig } from './identity/config.ts';
+import { Oidc } from './identity/oidc.ts';
+import { Sessions } from './identity/sessions.ts';
 
 const env = process.env;
 // Migrations run here, before anything is served (ACCESS-00-M). A database this build cannot bring to its latest
@@ -30,6 +33,16 @@ const store = (() => {
     process.exit(1);
   }
 })();
+// ACCESS-03: staff sign-in only with CLINIC_IDENTITY_V2=on; an incomplete configuration stops the start.
+const identity = (() => {
+  try {
+    const cfg = identityConfig(env);
+    return cfg ? { cfg, oidc: new Oidc(cfg), sessions: new Sessions(store.database) } : undefined;
+  } catch (e) {
+    console.error(`identity configuration refused: ${(e as Error).message}`);
+    process.exit(1);
+  }
+})();
 const effort = (env.PHOTO_EFFORT ?? 'low') as 'low' | 'medium' | 'high';
 const backups = env.BACKUP_DIR ?? '/backups';
 const vapid = vapidKeys(store, env);
@@ -39,6 +52,7 @@ const app = createApp({
   store,
   clinic,
   planDelivery: new PlanDelivery(store.database, clinic),
+  ...(identity ? { identity } : {}),
   push: { publicKey: vapid.publicKey, send },
   backupAgeH: () => backupAgeH(backups, new Date()),
   backups: { list: () => listBackups(backups), records: (name, vault) => backupRecords(backups, name, vault) },
@@ -88,6 +102,7 @@ const timer = setInterval(() => {
 const backupTimer = setInterval(() => {
   backupOnce(store, backups, new Date()).catch((e) => console.error('backup failed:', (e as Error).message));
   try { conciergeHousekeeping(store, `${backups}/concierge`, new Date()); } catch (e) { console.error('concierge log housekeeping failed:', (e as Error).message); } // D91
+  try { identity?.sessions.housekeeping(); } catch (e) { console.error('session housekeeping failed:', (e as Error).message); } // ACCESS-03
   try { pilotHousekeeping(store, new Date()); } catch (e) { console.error('pilot housekeeping failed:', (e as Error).message); } // D119
 }, 3600_000);
 setTimeout(() => backupOnce(store, backups, new Date()).catch((e) => console.error('backup failed:', (e as Error).message)), 60_000);

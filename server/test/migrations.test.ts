@@ -255,8 +255,8 @@ group('db:migrate command', () => {
     expect(run(undefined).code).toBe(2);
     const path = join(dir, 'legacy.db');
     const db = new DatabaseSync(path); db.exec(LEGACY); db.close();
-    expect(run(path)).toMatchObject({ code: 0, out: expect.stringMatching(/applied 1, 2, 3 \(baseline: legacy\)/) });
-    expect(run(path)).toMatchObject({ code: 0, out: 'up to date at 3' });
+    expect(run(path)).toMatchObject({ code: 0, out: expect.stringMatching(/applied 1, 2, 3, 4 \(baseline: legacy\)/) });
+    expect(run(path)).toMatchObject({ code: 0, out: 'up to date at 4' });
     const bad = join(dir, 'bad.db');
     const b = new DatabaseSync(bad); b.exec(LEGACY); b.exec('CREATE TABLE stray (x)'); b.close();
     expect(run(bad)).toMatchObject({ code: 3, err: expect.stringMatching(/unrecognized_schema/) });
