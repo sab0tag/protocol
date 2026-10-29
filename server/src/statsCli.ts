@@ -2,7 +2,8 @@
 // npm run stats:pilot -- --from 2026-W44 --to 2026-W52 [--out DIR]   — the pilot's summary table, Markdown (and CSV with --out)
 // npm run stats:pilot -- --source ENDO-01 "Ендокринолог, клініка 1"  — add (or rename) a source code
 // Reads DB_PATH; prints no vault id and no pid.
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { assertCurrent, SchemaError } from './db/migrate.ts';
 import { join } from 'node:path';
 import { WEEK, SRC, weekKey } from './pilot.ts';
 import { opsStats, pilotStats, MIN_GROUP, table } from './stats.ts';
@@ -10,7 +11,14 @@ import { Store } from './store.ts';
 
 const [cmd, ...args] = process.argv.slice(2);
 const arg = (name: string) => { const i = args.indexOf(`--${name}`); return i >= 0 ? args[i + 1] : undefined; };
-const store = new Store(process.env.DB_PATH ?? './data/protocol.db');
+// Validation only (ACCESS-00-M): never creates a database or changes its schema.
+const path = process.env.DB_PATH ?? './data/protocol.db';
+if (!existsSync(path)) { console.error(`no database at ${path}`); process.exit(2); }
+const store = new Store(path);
+try { assertCurrent(store.database); } catch (e) {
+  if (!(e instanceof SchemaError)) throw e;
+  console.error(`refused: schema ${e.message}`); process.exit(3);
+}
 const now = new Date();
 
 if (cmd === 'ops') {

@@ -5,7 +5,7 @@ import { PlanDelivery } from '../src/clinic/delivery.ts';
 import { Store } from '../src/store.ts';
 
 function rig() {
-  const store = new Store(':memory:');
+  const store = Store.migrated(':memory:');
   const clinic = new ClinicDirectory(store.database);
   const planDelivery = new PlanDelivery(store.database, clinic);
   const app = createApp({ store, origins: [], clinic, planDelivery });
@@ -17,7 +17,7 @@ function rig() {
   };
   const plan = (orgId: string) => ({ schemaVersion: 1, planId: crypto.randomUUID(), organizationId: orgId, issuedAt: '2026-10-01T10:00:00+03:00',
     clinician: { displayName: 'Лікар', organizationName: 'Клініка А' }, title: 'План', medications: [], restrictions: [], tests: [] });
-  return { app, call, a, b, plan };
+  return { app, call, a, b, plan, store };
 }
 
 describe('clinic API', () => {
@@ -76,6 +76,31 @@ describe('clinic API', () => {
     expect((await call(other.token, 'DELETE', `/plans/${d.json.deliveryId}`)).status).toBe(404);
     expect((await call(doc, 'GET', `/plans/${d.json.deliveryId}`)).json.status).toBe('pending');
   });
+  it('a colleague of the same clinic gets 404 on status and revoke; the delivery stays pending for its author', async () => {
+    const { app, call, a, plan } = rig();
+    const author = (await call(a.token, 'POST', '/staff', { displayName: 'Автор', role: 'doctor' })).json.token;
+    const colleague = (await call(a.token, 'POST', '/staff', { displayName: 'Колега', role: 'doctor' })).json.token;
+    const d = (await call(author, 'POST', '/plans', { plan: plan(a.orgId), patientConsent: true })).json;
+    expect((await call(colleague, 'GET', `/plans/${d.deliveryId}`))).toMatchObject({ status: 404, json: { error: 'not_found' } });
+    expect((await call(colleague, 'DELETE', `/plans/${d.deliveryId}`))).toMatchObject({ status: 404, json: { error: 'not_found' } });
+    expect((await call(a.token, 'GET', `/plans/${d.deliveryId}`)).status).toBe(403);
+    expect((await call(author, 'GET', `/plans/${d.deliveryId}`)).json.status).toBe('pending');
+    const r = await app.request('/v1/clinic/plans/redeem', { method: 'POST', body: JSON.stringify({ code: d.code }), headers: { 'Content-Type': 'application/json' } });
+    expect(r.status).toBe(200);
+    expect((await call(author, 'GET', `/plans/${d.deliveryId}`)).json.status).toBe('redeemed');
+  });
+  it('the author sees tampered and cannot revoke it; stats count it apart from redeemed', async () => {
+    const { app, call, a, plan, store } = rig();
+    const doc = (await call(a.token, 'POST', '/staff', { displayName: 'Лікар', role: 'doctor' })).json.token;
+    const d = (await call(doc, 'POST', '/plans', { plan: plan(a.orgId), patientConsent: true })).json;
+    store.database.prepare("UPDATE plan_delivery SET plan = replace(plan, 'План', 'Інший')").run();
+    const r = await app.request('/v1/clinic/plans/redeem', { method: 'POST', body: JSON.stringify({ code: d.code }), headers: { 'Content-Type': 'application/json' } });
+    expect(r.status).toBe(410);
+    expect((await call(doc, 'GET', `/plans/${d.deliveryId}`)).json.status).toBe('tampered');
+    expect((await call(doc, 'DELETE', `/plans/${d.deliveryId}`)).status).toBe(404);
+    expect((await call(doc, 'GET', `/plans/${d.deliveryId}`)).json.status).toBe('tampered');
+    expect((await call(a.token, 'GET', '/stats')).json).toMatchObject({ issued: 1, tampered: 1, redeemed: 0, pending: 0 });
+  });
   it('issues a plan with consent, only for the own organization, and can revoke it', async () => {
     const { app, call, a, b, plan } = rig();
     const doc = (await call(a.token, 'POST', '/staff', { displayName: 'Лікар', role: 'doctor' })).json.token;
@@ -96,7 +121,7 @@ describe('clinic API', () => {
     expect(log).not.toMatch(/План|Лікар/);
   });
   it('is absent without clinic support', async () => {
-    const app = createApp({ store: new Store(':memory:'), origins: [] });
+    const app = createApp({ store: Store.migrated(':memory:'), origins: [] });
     expect((await app.request('/v1/clinic/me')).status).toBe(404);
   });
 
@@ -113,5 +138,37 @@ describe('clinic API', () => {
     expect(s).toMatchObject({ days: 7, issued: 2, pending: 1, revoked: 1, redeemed: 0, expired: 0 });
     expect(s.byDoctor).toEqual([{ memberId: expect.any(String), displayName: 'Лікар', issued: 2 }]);
     expect(JSON.stringify(s)).not.toMatch(/План|code/);
+  });
+});
+
+
+describe('live policy at HTTP boundary', () => {
+  for (const disabled of ['account', 'membership'] as const) it(`blocks every protected route after ${disabled} disable without changing data`, async () => {
+    const { call, a, store } = rig();
+    const d = (await call(a.token, 'POST', '/staff', { displayName: 'Doctor', role: 'doctor' })).json;
+    if (disabled === 'account') store.database.prepare("UPDATE accounts SET status = 'disabled' WHERE id = ?").run(a.adminId);
+    else store.database.prepare("UPDATE organization_memberships SET status = 'inactive' WHERE id = ?").run(a.adminId);
+    const before = store.database.prepare('SELECT * FROM clinic_audit').all();
+    for (const [method, path, body] of [
+      ['GET', '/me'], ['GET', '/staff'], ['GET', '/audit'], ['GET', '/stats'],
+      ['POST', '/staff', { displayName: 'Hidden', role: 'admin' }],
+      ['PUT', `/staff/${d.memberId}/role`, { role: 'admin' }],
+      ['DELETE', `/staff/${d.memberId}`], ['POST', `/staff/${d.memberId}/token`],
+      ['POST', '/plans', {}], ['GET', `/plans/${crypto.randomUUID()}`], ['DELETE', `/plans/${crypto.randomUUID()}`],
+    ] as const) {
+      const r = await call(a.token, method, path, body);
+      expect(r).toMatchObject({ status: 401, cache: 'no-store', json: { error: 'unauthorized' } });
+    }
+    expect(store.database.prepare('SELECT * FROM clinic_audit').all()).toEqual(before);
+    expect(store.database.prepare('SELECT role, active FROM clinic_members WHERE id = ?').get(d.memberId)).toEqual({ role: 'doctor', active: 1 });
+    store.close();
+  });
+  it('SQL-added membership roles never enable staff or statistics routes on a legacy doctor token', async () => {
+    const { call, a, store } = rig();
+    const d = (await call(a.token, 'POST', '/staff', { displayName: 'Doctor', role: 'doctor' })).json;
+    store.database.prepare('INSERT INTO organization_membership_roles VALUES (?, ?)').run(d.memberId, 'admin');
+    for (const path of ['/staff', '/audit', '/stats']) expect((await call(d.token, 'GET', path)).status).toBe(403);
+    expect((await call(d.token, 'GET', '/me')).json.role).toBe('doctor');
+    store.close();
   });
 });

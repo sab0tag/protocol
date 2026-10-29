@@ -1,10 +1,11 @@
 /** R5 expand phase. Source plans stay separate; this module does not replace the legacy journal,
  * activate instructions, compute obligations, or grant access to another person's records. */
 import type { Constraint, Mode, Plan, Prescription, Targets } from './types';
+import type { ClinicSnapshot } from './clinicSnapshot';
 
 export type CarePlanStatus = 'draft' | 'active' | 'paused' | 'completed' | 'archived';
 export type PlanSource = { kind: 'legacy'; recordId: 'main' } | { kind: 'manual' } | { kind: 'document'; documentId: string }
-  | { kind: 'clinic'; clinicPlanId: string; organizationName: string; issuedAt: string };
+  | { kind: 'clinic'; clinicPlanId: string; organizationName: string; issuedAt: string; redemption?: ClinicSnapshot };
 export interface CarePlan {
   id: string;
   personId: string;

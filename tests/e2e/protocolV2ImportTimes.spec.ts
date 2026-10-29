@@ -4,7 +4,7 @@ import { device } from './helpers';
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGP8z8DAwMDAxMDAwMDAAAANHQEDasKb6QAAAABJRU5ErkJggg==', 'base64');
 
 test('import never invents times, rejects incomplete clocks, and revokes a confirmation after editing', async ({ browser }) => {
-  const page = await device(browser, 'skip');
+  const page = await device(browser, 'skip', { sw: false });
   const source = { kind: 'medication', dose: '1 таб.', durationDays: null, withFood: true, page: 1, box: [0.1, 0.3, 0.6, 0.05], sure: 'yes' };
   await page.route('**/conclusion', (r) => r.fulfill({ json: {
     readable: true, date: '2026-10-26', doctor: 'Лікар', diagnosis: null, note: null, diet: null,

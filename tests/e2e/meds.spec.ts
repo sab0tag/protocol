@@ -33,7 +33,7 @@ test('the medicines register: Latin typing finds it, no dose filled, one INN twi
 });
 
 test('a package photo (model stubbed): the name found in the register; the strength said, not put in the dose (D89)', async ({ browser }) => {
-  const page = await device(browser, 'skip');
+  const page = await device(browser, 'skip', { sw: false });
   await syncOn(page);
   await page.route('**/medbox', (r) => r.fulfill({ json: { readable: true, name: 'Еутирокс', inn: 'левотироксин', strength: '100 мкг', form: 'таблетки', note: null } }));
   await page.goto('./#/plan/prescriptions');

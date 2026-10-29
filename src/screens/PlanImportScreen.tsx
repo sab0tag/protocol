@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ChevronLeft } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { db } from '../data/db';
 import { saveClinicImport } from '../data/carePlans';
 import { activeProfileId } from '../data/profiles';
-import { confirmImport, previewClinicPlan, type ImportPreview } from '../domain/planImport';
+import { confirmImport, previewClinicRedemption, type ImportPreview } from '../domain/planImport';
 import { ApiError, redeemClinicPlan } from '../sync/api';
 
 const MESSAGE: Record<string, string> = {
@@ -15,6 +15,7 @@ const MESSAGE: Record<string, string> = {
   revoked: 'Клініка скасувала цей код.',
   tampered: 'План не пройшов перевірку. Попросіть клініку видати новий.',
   too_many: 'Забагато спроб. Спробуйте пізніше.',
+  database_busy: 'Сервіс тимчасово зайнятий. Спробуйте ще раз',
 };
 
 /** The code is read from the QR link once and removed from the address bar; the plan is only a preview until confirmed. */
@@ -25,15 +26,37 @@ export function PlanImportScreen() {
   const [ticked, setTicked] = useState<Set<string>>(new Set());
   const [state, setState] = useState<'idle' | 'loading' | 'saved' | 'already'>('idle');
   const [error, setError] = useState('');
+  // A busy server changed nothing: the code stays in this page's memory only (not the URL, not storage) for a retry.
+  const [retryAt, setRetryAt] = useState<number | null>(null);
+  const mounted = useRef(false);
+  const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      if (retryTimer.current !== null) clearTimeout(retryTimer.current);
+    };
+  }, []);
 
   async function load() {
     if (code && params.has('code')) setParams({}, { replace: true });
     setState('loading'); setError('');
+    const wait = retryAt === null ? 0 : retryAt - Date.now();
+    if (wait > 0) await new Promise<void>((resolve) => { retryTimer.current = setTimeout(resolve, wait); });
+    retryTimer.current = null;
+    if (!mounted.current) return; // Leaving must not spend a one-time code on a queued retry.
+    setRetryAt(null);
     try {
-      const pv = previewClinicPlan(await redeemClinicPlan(code));
+      const pv = previewClinicRedemption(await redeemClinicPlan(code));
+      if (!mounted.current) return;
       if (!pv) { setError('План має невідомий формат. Оновіть застосунок або попросіть клініку видати новий.'); setState('idle'); return; }
       setPreview(pv); setTicked(new Set(pv.items.map((i) => i.key))); setState('idle');
     } catch (e) {
+      if (!mounted.current) return;
+      if (e instanceof ApiError && e.code === 'database_busy') {
+        const seconds = typeof e.data.retryAfterS === 'number' ? e.data.retryAfterS : 1;
+        setRetryAt(Date.now() + seconds * 1000);
+      }
       setError(MESSAGE[e instanceof ApiError ? e.code : ''] ?? 'Не вдалося отримати план.'); setState('idle');
     }
   }
@@ -55,13 +78,19 @@ export function PlanImportScreen() {
           <p className="text-sm text-muted">Клініка передає план одноразовим кодом. Ви побачите його і самі оберете, що зберегти. Код спрацьовує лише один раз.</p>
           {error && <p role="alert" className="text-sm">{error}</p>}
           <button className="min-h-tap rounded-xl bg-accent px-4 text-white disabled:opacity-50" disabled={!code || state === 'loading'} onClick={load}>
-            {state === 'loading' ? 'Завантажуємо…' : 'Переглянути план'}
+            {state === 'loading' ? 'Завантажуємо…' : retryAt !== null ? 'Повторити' : 'Переглянути план'}
           </button>
           {!code && <p className="text-sm text-muted">Відскануйте QR-код від клініки.</p>}
         </div>
       ) : (
         <div className="space-y-3">
-          <p className="text-sm">{preview.plan.title} — {preview.plan.clinician.displayName}, {preview.plan.clinician.organizationName}</p>
+          <p className="break-words text-sm">{preview.plan.title} — {preview.plan.clinician.displayName}, {preview.plan.clinician.organizationName}</p>
+          {preview.snapshot ? (
+            <div className="space-y-1 break-words text-sm">
+              <p>Видано клінікою: {preview.snapshot.issuer.displayName}, {preview.snapshot.issuer.organizationName}.</p>
+              <p className="text-muted">Автор у джерелі: {preview.snapshot.source.clinician.displayName}, {preview.snapshot.source.clinician.organizationName}. Це імʼя не підтверджене сервером.</p>
+            </div>
+          ) : <p className="text-sm text-muted">Імʼя автора в цьому документі не підтверджене сервером.</p>}
           <p className="text-sm text-muted">Це чернетка від клініки. Нічого не вмикається автоматично.</p>
           <ul className="space-y-2">
             {preview.items.map((i) => (

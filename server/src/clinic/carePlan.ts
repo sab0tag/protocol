@@ -6,7 +6,7 @@ export const CarePlanV1 = z.object({
   planId: z.string().uuid(),
   organizationId: z.string().min(1).max(128),
   issuedAt: z.string().datetime({ offset: true }),
-  clinician: z.object({ displayName: z.string().min(1).max(200), organizationName: z.string().min(1).max(200) }),
+  clinician: z.object({ displayName: z.string().min(1).max(200), organizationName: z.string().min(1).max(200) }).strict(),
   title: z.string().min(1).max(200),
   medications: z.array(z.object({
     name: z.string().min(1).max(200),
@@ -14,12 +14,32 @@ export const CarePlanV1 = z.object({
     frequency: z.string().min(1).max(200),
     duration: z.string().max(200),
     instructions: z.string().max(1000),
-  })).max(100),
+  }).strict()).max(100),
   restrictions: z.array(z.string().min(1).max(500)).max(100),
   tests: z.array(z.string().min(1).max(500)).max(100),
   followUp: z.string().max(500).optional(),
 }).strict();
 export type CarePlanV1 = z.infer<typeof CarePlanV1>;
+
+/** Only the server constructs this document. It is not an accepted issue request or an offline signature. */
+export const DeliverySnapshotV1 = z.object({
+  schemaVersion: z.literal(1),
+  snapshotId: z.string().uuid(),
+  issuedAt: z.string().datetime({ offset: true }),
+  issuer: z.object({
+    memberId: z.string().min(1).max(128), membershipId: z.string().min(1).max(128),
+    organizationId: z.string().min(1).max(128), displayName: z.string().min(1).max(200),
+    organizationName: z.string().min(1).max(200),
+  }).strict(),
+  source: z.object({
+    planId: z.string().uuid(), issuedAt: z.string().datetime({ offset: true }),
+    clinician: z.object({ displayName: z.string().min(1).max(200), organizationName: z.string().min(1).max(200) }).strict(),
+  }).strict(),
+  plan: CarePlanV1,
+}).strict();
+export type DeliverySnapshotV1 = z.infer<typeof DeliverySnapshotV1>;
+export type SnapshotProvenance = Omit<DeliverySnapshotV1, 'plan'>;
+export interface RedeemedPlan { plan: CarePlanV1; snapshot?: SnapshotProvenance }
 
 /** Import remains a preview until the patient explicitly confirms each applicable item. */
 export function validateCarePlanV1(input: unknown): CarePlanV1 {
