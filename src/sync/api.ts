@@ -174,6 +174,9 @@ export async function redeemClinicPlan(code: string): Promise<unknown> {
     throw new ApiError(0, 'offline');
   }
   const data = await res.json().catch(() => ({})) as { error?: string; plan?: unknown };
-  if (!res.ok) throw new ApiError(res.status, data.error ?? 'error', data);
+  if (!res.ok) {
+    const ra = Number(res.headers.get('Retry-After'));
+    throw new ApiError(res.status, data.error ?? 'error', { ...data, ...(Number.isFinite(ra) && ra > 0 ? { retryAfterS: Math.min(ra, 30) } : {}) });
+  }
   return data.plan;
 }

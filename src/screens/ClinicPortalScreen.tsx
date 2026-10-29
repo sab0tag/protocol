@@ -7,6 +7,7 @@ import { clinicAddStaff, clinicDeactivate, clinicIssue, clinicMe, clinicPlanStat
 const ERR: Record<string, string> = {
   unauthorized: 'Токен не підходить або доступ вимкнено.', offline: 'Немає зʼєднання.', forbidden: 'Недостатньо прав.',
   too_many: 'Забагато запитів. Спробуйте пізніше.', bad_request: 'Сервер не прийняв дані.', not_found: 'Не знайдено.', last_admin: 'Не можна прибрати останнього адміністратора.',
+  database_busy: 'Сервіс тимчасово зайнятий. Спробуйте ще раз.',
 };
 const FORM: Record<string, string> = {
   title: 'Вкажіть назву плану.', medication: 'У кожному рядку ліків потрібні назва, доза й частота.', empty: 'Додайте хоча б один пункт.', invalid: 'Занадто довгий текст.',
@@ -66,7 +67,7 @@ function Staff({ token }: { token: string }) {
       {stats && (
         <div className="text-sm">
           <h2 className="font-medium">Плани за {stats.days} днів</h2>
-          <p>Видано: {stats.issued} · отримано: {stats.redeemed} · очікують: {stats.pending} · прострочено: {stats.expired} · скасовано: {stats.revoked}</p>
+          <p>Видано: {stats.issued} · отримано: {stats.redeemed} · очікують: {stats.pending} · прострочено: {stats.expired} · скасовано: {stats.revoked}{stats.tampered ? <> · пошкоджено: {stats.tampered}</> : null}</p>
           {stats.byDoctor.map((d) => <p key={d.memberId} className="text-muted">{d.displayName || 'Колишній співробітник'}: {d.issued}</p>)}
         </div>
       )}
@@ -115,7 +116,7 @@ function Issue({ token, me }: { token: string; me: ClinicMe }) {
       <p className="text-sm">Покажіть пацієнту цей QR. Код одноразовий і діє до {new Date(sent.expiresAt).toLocaleString('uk-UA')}. Після закриття екрана його не можна відновити.</p>
       {/* the QR is drawn by qrcode-generator from our own link */}
       <div className="mx-auto w-64 rounded-xl bg-white p-2" dangerouslySetInnerHTML={{ __html: qrSvg(sent.link) }} />
-      <p className="text-sm" role="status">Статус: {({ pending: 'очікує', redeemed: 'отримано', revoked: 'скасовано', expired: 'прострочено' } as Record<string, string>)[sent.status] ?? 'невідомо'}</p>
+      <p className="text-sm" role="status">Статус: {({ pending: 'очікує', redeemed: 'отримано', revoked: 'скасовано', expired: 'прострочено', tampered: 'план пошкоджено — видайте новий' } as Record<string, string>)[sent.status] ?? 'невідомо'}</p>
       <div className="flex gap-3">
         <button className="min-h-tap underline" onClick={refresh}>Оновити статус</button>
         {sent.status === 'pending' && <button className="min-h-tap underline" onClick={revoke}>Скасувати</button>}

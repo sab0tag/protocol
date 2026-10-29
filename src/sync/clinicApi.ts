@@ -28,6 +28,6 @@ export const clinicRotate = (t: string, id: string) => clinic<{ token: string }>
 export const clinicIssue = (t: string, plan: ClinicPlanV1) =>
   clinic<{ deliveryId: string; code: string; expiresAt: number }>(t, 'POST', '/plans', { plan, patientConsent: true });
 export const clinicRevoke = (t: string, id: string) => clinic<{ ok: true }>(t, 'DELETE', `/plans/${id}`);
-export const clinicPlanStatus = (t: string, id: string) => clinic<{ status: 'pending' | 'redeemed' | 'revoked' | 'expired' }>(t, 'GET', `/plans/${id}`);
-export interface ClinicStats { days: number; issued: number; redeemed: number; pending: number; expired: number; revoked: number; byDoctor: { memberId: string; displayName: string; issued: number }[] }
+export const clinicPlanStatus = (t: string, id: string) => clinic<{ status: 'pending' | 'redeemed' | 'revoked' | 'expired' | 'tampered' }>(t, 'GET', `/plans/${id}`);
+export interface ClinicStats { days: number; issued: number; redeemed: number; pending: number; expired: number; revoked: number; tampered?: number; byDoctor: { memberId: string; displayName: string; issued: number }[] }
 export const clinicStats = (t: string, days = 30) => clinic<ClinicStats>(t, 'GET', `/stats?days=${days}`);

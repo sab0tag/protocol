@@ -3,6 +3,7 @@ import { bodyLimit } from 'hono/body-limit';
 import { ClinicError, type Actor, type ClinicDirectory } from './directory.ts';
 import { isRole } from './roles.ts';
 import type { PlanDelivery } from './delivery.ts';
+import { DatabaseBusy, isBusy } from './tx.ts';
 
 const STATUS: Record<ClinicError['code'], 400 | 401 | 403 | 404 | 409> = {
   unauthenticated: 401, forbidden: 403, not_found: 404, last_admin: 409, bad_request: 400,
@@ -20,8 +21,11 @@ export function mountClinic(app: Hono, o: { dir: ClinicDirectory; delivery: Plan
   const plan = bodyLimit({ maxSize: 100_000, onError: (c) => c.json({ error: 'too_large' }, 413) });
 
   const run = async (c: Context, f: (actor: Actor) => unknown | Promise<unknown>, status: 200 | 201 = 200): Promise<Response> => {
-    if (!o.allow(c)) return c.json({ error: 'too_many' }, 429);
     c.header('Cache-Control', 'no-store');
+    const busy = () => { c.header('Retry-After', '1'); return c.json({ error: 'database_busy' }, 503); };
+    let allowed: boolean;
+    try { allowed = o.allow(c); } catch (e) { if (isBusy(e)) return busy(); throw e; }
+    if (!allowed) return c.json({ error: 'too_many' }, 429);
     const m = /^Bearer (\S{20,100})$/.exec(c.req.header('Authorization') ?? '');
     const actor = dir.authenticate(m?.[1]);
     if (!actor) return c.json({ error: 'unauthorized' }, 401);
@@ -29,6 +33,7 @@ export function mountClinic(app: Hono, o: { dir: ClinicDirectory; delivery: Plan
       return c.json((await f(actor)) as object, status);
     } catch (e) {
       if (e instanceof ClinicError) return c.json({ error: e.code }, STATUS[e.code]);
+      if (e instanceof DatabaseBusy || isBusy(e)) return busy();
       throw e;
     }
   };

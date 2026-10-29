@@ -29,3 +29,18 @@ This document defines the security boundary for the next PR. It does not activat
 
 ## Privacy and launch gate
 No patient diary data returns to the clinic. Real medical data, credentials and access tokens must not appear in source control, CI fixtures or analytics. Legal/privacy review and threat-model sign-off required before a real-patient pilot.
+
+## Status after ACCESS-00-H (access TZ v1.2)
+Delivered on the existing staff-token model, without DDL:
+- `status`/`revoke` filter by `id + org + issued_by`. A colleague in the same clinic and another clinic both get 404 and the row is unchanged.
+- `redeem` runs in one `BEGIN IMMEDIATE` transaction: read, status change, payload erase and the `patient_link` audit entry. The plan is returned only after commit. The API connection sets `busy_timeout = 5000`.
+- HTTP contract: `invalid` 404, `used` 409 (always), `expired`/`revoked`/`tampered` 410, busy lock 503 `database_busy` with `Retry-After: 1`. The rate-limit counter write maps a busy lock to the same 503.
+- A payload that fails verification (missing, hash, JSON, schema, organization) ends in the terminal `tampered` state, committed together with the erase and one audit entry carrying only the delivery id and the category.
+
+Known limitations, still open:
+- A response lost after commit is not recoverable (ACCESS-07-C, AC-12). The patient must ask for a new code.
+- The payload is still plaintext until it is erased (ACCESS-07-B). The issuer name is still client-supplied (ACCESS-07-A, AC-17).
+- `node:sqlite` is synchronous: waiting up to 5 s for a lock held by another process (today mainly `clinic:create`) stalls the whole API event loop. Accepted for the pilot; no automatic retries. Other API writes outside the clinic routes still surface a busy lock as 500.
+
+
+Review follow-up: leaving the import screen cancels a queued Retry-After retry before it can consume the one-time code. The browser regression verifies no second redemption request after navigation; the original busy/retry scenario still passes. Requests already sent retain the documented lost-response limitation.

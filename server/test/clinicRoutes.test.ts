@@ -17,7 +17,7 @@ function rig() {
   };
   const plan = (orgId: string) => ({ schemaVersion: 1, planId: crypto.randomUUID(), organizationId: orgId, issuedAt: '2026-10-01T10:00:00+03:00',
     clinician: { displayName: 'Лікар', organizationName: 'Клініка А' }, title: 'План', medications: [], restrictions: [], tests: [] });
-  return { app, call, a, b, plan };
+  return { app, call, a, b, plan, store };
 }
 
 describe('clinic API', () => {
@@ -75,6 +75,31 @@ describe('clinic API', () => {
     expect((await call(other.token, 'GET', `/plans/${d.json.deliveryId}`)).status).toBe(404);
     expect((await call(other.token, 'DELETE', `/plans/${d.json.deliveryId}`)).status).toBe(404);
     expect((await call(doc, 'GET', `/plans/${d.json.deliveryId}`)).json.status).toBe('pending');
+  });
+  it('a colleague of the same clinic gets 404 on status and revoke; the delivery stays pending for its author', async () => {
+    const { app, call, a, plan } = rig();
+    const author = (await call(a.token, 'POST', '/staff', { displayName: 'Автор', role: 'doctor' })).json.token;
+    const colleague = (await call(a.token, 'POST', '/staff', { displayName: 'Колега', role: 'doctor' })).json.token;
+    const d = (await call(author, 'POST', '/plans', { plan: plan(a.orgId), patientConsent: true })).json;
+    expect((await call(colleague, 'GET', `/plans/${d.deliveryId}`))).toMatchObject({ status: 404, json: { error: 'not_found' } });
+    expect((await call(colleague, 'DELETE', `/plans/${d.deliveryId}`))).toMatchObject({ status: 404, json: { error: 'not_found' } });
+    expect((await call(a.token, 'GET', `/plans/${d.deliveryId}`)).status).toBe(403);
+    expect((await call(author, 'GET', `/plans/${d.deliveryId}`)).json.status).toBe('pending');
+    const r = await app.request('/v1/clinic/plans/redeem', { method: 'POST', body: JSON.stringify({ code: d.code }), headers: { 'Content-Type': 'application/json' } });
+    expect(r.status).toBe(200);
+    expect((await call(author, 'GET', `/plans/${d.deliveryId}`)).json.status).toBe('redeemed');
+  });
+  it('the author sees tampered and cannot revoke it; stats count it apart from redeemed', async () => {
+    const { app, call, a, plan, store } = rig();
+    const doc = (await call(a.token, 'POST', '/staff', { displayName: 'Лікар', role: 'doctor' })).json.token;
+    const d = (await call(doc, 'POST', '/plans', { plan: plan(a.orgId), patientConsent: true })).json;
+    store.database.prepare("UPDATE plan_delivery SET plan = replace(plan, 'План', 'Інший')").run();
+    const r = await app.request('/v1/clinic/plans/redeem', { method: 'POST', body: JSON.stringify({ code: d.code }), headers: { 'Content-Type': 'application/json' } });
+    expect(r.status).toBe(410);
+    expect((await call(doc, 'GET', `/plans/${d.deliveryId}`)).json.status).toBe('tampered');
+    expect((await call(doc, 'DELETE', `/plans/${d.deliveryId}`)).status).toBe(404);
+    expect((await call(doc, 'GET', `/plans/${d.deliveryId}`)).json.status).toBe('tampered');
+    expect((await call(a.token, 'GET', '/stats')).json).toMatchObject({ issued: 1, tampered: 1, redeemed: 0, pending: 0 });
   });
   it('issues a plan with consent, only for the own organization, and can revoke it', async () => {
     const { app, call, a, b, plan } = rig();
