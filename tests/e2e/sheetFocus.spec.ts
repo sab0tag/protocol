@@ -1,5 +1,5 @@
 import { expect, test, type Browser } from '@playwright/test';
-import { device as freshDevice } from './helpers';
+import { device as freshDevice, kyivOffset } from './helpers';
 import { t } from '../../src/i18n/uk';
 
 for (const width of [320, 1024]) test.describe(`${width}px modal keyboard flow`, () => {
@@ -54,6 +54,9 @@ test('a symptom sheet recalculates its last tab stop when save becomes enabled',
 
 test('choosing another medicine time preserves input focus and the dynamic form stays inside the sheet', async ({ browser }) => {
   const page = await device(browser);
+  // before the 08:30 dose: still «заплановано» — after its hour the line says «не відмічено» (D142)
+  await page.clock.setFixedTime(new Date(`${new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Kyiv' }).format(new Date())}T08:00:00${kyivOffset()}`));
+  await page.reload();
   const opener = page.getByRole('region', { name: t.day.upcoming, exact: true }).getByRole('button', { name: `Вітамін D, ${t.status.planned}`, exact: true });
   await opener.click();
   const dialog = page.getByRole('dialog');
