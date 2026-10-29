@@ -260,7 +260,7 @@ export function AddMeal() {
               <Link to={`/dishes?describe=${encodeURIComponent(query.trim())}`} className="mt-1 inline-flex min-h-tap items-center text-sm text-accent underline">{t.dishes.breakdown.fromMeal}</Link></>
           )}
           {!id && !query && !free && photo.state === 'none' && items.length === 0 && all && <RecentMeals entries={all} date={date} initialTitle={title}
-            onAdd={(xs, mealTitle) => { setItems((ys) => [...ys, ...xs]); setTitle(mealTitle); }} />}
+            onAdd={(xs, mealTitle, targetDate) => { setItems((ys) => [...ys, ...xs]); setTitle(mealTitle); setDate(targetDate); setEaten(targetDate <= todayISO()); }} />}
           {!query && <FavoritesList limit={3} onAdd={(xs) => setItems((ys) => [...ys, ...xs])} />}
           {!query && all && (() => {
             const freq = frequentItems(all, todayISO()).filter((f) => !items.some((it) => it.name === f.item.name));
@@ -410,6 +410,7 @@ export function AddMeal() {
             <div className="border-t border-line p-3">
 
 
+              <label className="mb-2 block"><span className="text-sm text-muted">Дата прийому</span><input type="date" value={date} onChange={(e) => { setDate(e.target.value); setEaten(e.target.value <= todayISO()); }} required className={field} /></label>
               <div className="grid grid-cols-2 gap-3">
                 <label className="block"><span className="text-sm text-muted">{t.meal.name}</span>
                   <input value={title} onChange={(e) => setTitle(e.target.value)} className={field} /></label>
