@@ -1,6 +1,7 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import type { DatabaseSync } from 'node:sqlite';
 import { immediate } from '../db/tx.ts';
+import { IdentityError } from './errors.ts';
 
 /** TZ §4.2: idle 30 minutes, absolute 12 hours; a sign-in attempt lives 10 minutes; step-up is fresh for 10 minutes. */
 export const IDLE_MS = 30 * 60_000;
@@ -24,7 +25,7 @@ export type SignInDenial = 'disabled' | 'not_linked' | 'account_mismatch' | 'ses
 export const clinicalAccess = (s: Session): 'ok' | 'mfa_required' => (s.mfa ? 'ok' : 'mfa_required');
 
 /** Authentication is recent enough for a sensitive operation (role change, binding, grant, deletion). */
-export const isRecent = (s: Session, now: number) => s.authTime > 0 && now - s.authTime <= RECENT_MS;
+export const isRecent = (s: Session, now: number) => Number.isSafeInteger(s.authTime) && s.authTime > 0 && s.authTime <= now && now - s.authTime <= RECENT_MS;
 
 /**
  * Server sessions and sign-in attempts (ACCESS-03). The browser holds random secrets in Secure/HttpOnly cookies; the
@@ -114,15 +115,30 @@ export class Sessions {
   /** The live session behind a cookie, or null: unknown, revoked, idle, past its absolute end, or the account not active. */
   authenticate(token: string | undefined): Session | null {
     if (!token || token.length > 100) return null;
+    const s = this.live(hash(token));
+    if (s && this.now() - s.lastSeen >= TOUCH_MS) this.db.prepare('UPDATE sessions SET last_seen_at = ? WHERE id_hash = ? AND revoked_at IS NULL').run(this.now(), s.hash);
+    if (!s) return null;
+    const { lastSeen: _lastSeen, ...session } = s;
+    return session;
+  }
+
+  /** Service checks never extend idle time, including inside the caller's write transaction. */
+  require(hash: string, options: { mfa?: boolean; fresh?: boolean } = {}): Session {
+    const s = this.live(hash);
+    if (!s) throw new IdentityError('unauthorized');
+    if (options.mfa && clinicalAccess(s) !== 'ok') throw new IdentityError('mfa_required');
+    if (options.fresh && !isRecent(s, this.now())) throw new IdentityError('step_up_required');
+    return s;
+  }
+
+  private live(hash: string): (Session & { lastSeen: number }) | null {
     const t = this.now();
-    const row = this.db.prepare(`SELECT s.id_hash, s.account_id, s.issuer, s.created_at, s.last_seen_at, s.expires_at, s.revoked_at, s.auth_time, s.mfa, s.csrf,
-      a.status FROM sessions s JOIN accounts a ON a.id = s.account_id WHERE s.id_hash = ?`).get(hash(token)) as
+    const r = this.db.prepare(`SELECT s.*, a.status FROM sessions s JOIN accounts a ON a.id = s.account_id WHERE s.id_hash = ?`).get(hash) as
       { id_hash: string; account_id: string; issuer: string; created_at: number; last_seen_at: number; expires_at: number; revoked_at: number | null;
         auth_time: number; mfa: number; csrf: string; status: string } | undefined;
-    if (!row || row.revoked_at !== null || row.expires_at <= t || t - row.last_seen_at > IDLE_MS || row.status !== 'active') return null;
-    if (t - row.last_seen_at >= TOUCH_MS) this.db.prepare('UPDATE sessions SET last_seen_at = ? WHERE id_hash = ? AND revoked_at IS NULL').run(t, row.id_hash);
-    return { hash: row.id_hash, accountId: row.account_id, issuer: row.issuer, createdAt: row.created_at, expiresAt: row.expires_at,
-      authTime: row.auth_time, mfa: row.mfa === 1, csrf: row.csrf };
+    if (!r || r.revoked_at !== null || r.expires_at <= t || t - r.last_seen_at >= IDLE_MS || r.created_at > t || r.status !== 'active') return null;
+    return { hash: r.id_hash, accountId: r.account_id, issuer: r.issuer, createdAt: r.created_at, expiresAt: r.expires_at,
+      authTime: r.auth_time, mfa: r.mfa === 1, csrf: r.csrf, lastSeen: r.last_seen_at };
   }
 
   hashOf(token: string | undefined): string | null { return token && token.length <= 100 ? hash(token) : null; }
@@ -149,6 +165,12 @@ export class Sessions {
       .all(accountId) as { id: string; organization_id: string; name: string }[];
     return rows.map((r) => ({ membershipId: r.id, organizationId: r.organization_id, organizationName: r.name,
       roles: (this.db.prepare('SELECT role FROM organization_membership_roles WHERE membership_id = ? ORDER BY role').all(r.id) as { role: string }[]).map((x) => x.role) }));
+  }
+
+  /** Category-only clinical denial; the actor comes from the stored session, never the request. */
+  denied(sessionHash: string, result: string): void {
+    const row = this.db.prepare('SELECT account_id FROM sessions WHERE id_hash = ?').get(sessionHash);
+    this.audit(typeof row?.account_id === 'string' ? row.account_id : null, 'clinic.access', result);
   }
 
   /** Records a refused callback before any account is known. Categories only. */

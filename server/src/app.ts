@@ -136,8 +136,8 @@ export function createApp(deps: Deps) {
   };
 
   const general = cors({ origin: origins, allowMethods: ['GET', 'POST', 'PUT', 'DELETE'], allowHeaders: ['Authorization', 'Content-Type'], maxAge: 86400 });
-  // session routes have their own credentialed CORS for exactly the app origin (ACCESS-03); nothing else gets credentials
-  app.use('*', (c, next) => (deps.identity && isIdentityPath(c.req.path) ? next() : general(c, next)));
+  // Session/protected clinic routes allow credentials only for the exact app origin; anonymous redeem keeps general CORS.
+  app.use('*', (c, next) => (deps.identity && (isIdentityPath(c.req.path) || (c.req.path.startsWith('/v1/clinic/') && c.req.path !== '/v1/clinic/plans/redeem')) ? next() : general(c, next)));
   if (deps.identity) mountIdentity(app, deps.identity, { allow: (c, scope, perDay) => store.take(`${scope}:${ipKey(c)}`, perDay, now()), now: () => now().getTime() });
   const DEVICE = /^[0-9a-f]{32}$/;
   /** D40: the server POSTs to a subscription's endpoint — only to the browsers' own push services, never to an
@@ -824,7 +824,7 @@ export function createApp(deps: Deps) {
     }
   });
 
-  if (deps.clinic && deps.planDelivery) mountClinic(app, { dir: deps.clinic, delivery: deps.planDelivery, allow: (c) => store.take(`clinicreq:${ipKey(c)}`, 3000, now()) });
+  if (deps.clinic && deps.planDelivery) mountClinic(app, { dir: deps.clinic, delivery: deps.planDelivery, identity: deps.identity, allow: (c) => store.take(`clinicreq:${ipKey(c)}`, 3000, now()) });
 
   app.delete('/v1/pilot', (c) => {
     const pid = member(c);
