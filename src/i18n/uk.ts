@@ -243,6 +243,7 @@ export const t = {
     recordFood: 'Записати їжу',
     quick: 'Швидкі дії',
     rhythm: 'Ритм дня',
+    deferredUntil: (hm: string) => `Відкладено до ${hm}`, unmarked: 'Не відмічено', // D142: ТЗ 4.1 — not «пропущено»
     upcoming: 'Найближче',
     anytime: 'Сьогодні, будь-коли:',
     nearest: 'Найближче', elapsed: 'Час минув',

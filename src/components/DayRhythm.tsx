@@ -1,6 +1,9 @@
+import { useLiveQuery } from 'dexie-react-hooks';
 import { useEffect, useState } from 'react';
-import { rhythmPresentation } from '../domain/rhythmPresentation';
-// «Ритм дня» (SPEC.md §14.1, D53): the day as a time line — done is a filled dot with «Записано», ahead is an open
+import { db } from '../data/db';
+import { pendingStatus, rhythmPresentation, type PendingStatus } from '../domain/rhythmPresentation';
+import { localSnoozed, SNOOZED } from '../sync/push';
+// «Ритм дня» (SPEC.md §14.1, D53, D142): the day as a time line — done is a filled dot with «Записано», ahead is an open
 // circle, skipped is quiet. A whole row is the button (the row's sheet, D46); a dose of the plan asks when (D52).
 import { Dumbbell, Pill, Plus, Undo2 } from 'lucide-react';
 import type { CheckItem } from '../domain/checklist';
@@ -21,9 +24,13 @@ export function DayRhythm({ date, rhythm, foods, onEntry, onDose, onAnytime, onA
     const refresh = () => setNow(new Date());
     const timer = window.setInterval(refresh, 30_000);
     window.addEventListener('focus', refresh);
-    return () => { clearInterval(timer); window.removeEventListener('focus', refresh); };
+    window.addEventListener(SNOOZED, refresh);
+    return () => { clearInterval(timer); window.removeEventListener('focus', refresh); window.removeEventListener(SNOOZED, refresh); };
   }, []);
+  const synced = useLiveQuery(async () => (await db.meta.get('sync'))?.snoozed ?? {}, [], {});
+  const snoozed = { ...localSnoozed, ...synced };
   const phases = rhythmPresentation(rhythm.nodes, date, now);
+  const pending = (n: RhythmNode) => pendingStatus(n, date, now, snoozed);
   const empty = rhythm.nodes.length === 0 && rhythm.anytime.length === 0;
   return (
     <section aria-labelledby="rhythm" className="protocol-card mb-4 p-4 sm:p-5">
@@ -45,14 +52,17 @@ export function DayRhythm({ date, rhythm, foods, onEntry, onDose, onAnytime, onA
       )}
       {rhythm.nodes.length === 0
         ? empty && <p className="py-4 text-muted">{L.empty}</p>
-        : <ol className="relative space-y-1">{rhythm.nodes.map((n, k) => <Node key={k} phase={phases[k]!} node={n} last={k === rhythm.nodes.length - 1} foods={foods} onEntry={onEntry} onDose={onDose} />)}</ol>}
+        : <ol className="relative space-y-1">{rhythm.nodes.map((n, k) => <Node key={k} phase={phases[k]!} pending={pending(n)} node={n} last={k === rhythm.nodes.length - 1} foods={foods} onEntry={onEntry} onDose={onDose} />)}</ol>}
       {!empty && <button type="button" onClick={onAdd} className="protocol-action-secondary mt-3 w-full"><Plus size={18} aria-hidden />{addLabel}</button>}
     </section>
   );
 }
 
-function Node({ node, phase, last, foods, onEntry, onDose }: {
-  phase: 'past' | 'current' | 'future' | 'untimed'; node: RhythmNode; last: boolean; foods?: Map<string, Food>; onEntry: (e: DayEntry) => void; onDose: (i: CheckItem) => void;
+/** D142: the word for what waits — the dose line keeps «за планом» while nothing is said about it. */
+const pendingWord = (p: PendingStatus, planned: string) => p.state === 'deferred' ? L.deferredUntil(p.until) : p.state === 'unmarked' ? L.unmarked : planned;
+
+function Node({ node, phase, pending, last, foods, onEntry, onDose }: {
+  phase: 'past' | 'current' | 'future' | 'untimed'; pending: PendingStatus; node: RhythmNode; last: boolean; foods?: Map<string, Food>; onEntry: (e: DayEntry) => void; onDose: (i: CheckItem) => void;
 }) {
   const line = !last && <span className="absolute left-[4.5rem] top-7 -bottom-1 w-px bg-line" aria-hidden />;
   if (node.kind === 'deadline') return (
@@ -65,10 +75,10 @@ function Node({ node, phase, last, foods, onEntry, onDose }: {
     const note = i.detail?.split(' · ').filter((x) => x !== i.time).join(' · ');
     return (
       <li className="protocol-rhythm-node relative" data-phase={phase} aria-current={phase === 'current' ? 'step' : undefined}>
-        <button type="button" onClick={() => onDose(i)} aria-label={`${i.title}, ${t.status.planned}`}
+        <button type="button" onClick={() => onDose(i)} aria-label={`${i.title}, ${pendingWord(pending, t.status.planned)}`}
           className="grid min-h-tap w-full grid-cols-[3.5rem_1.5rem_1fr] items-start gap-x-2 rounded-xl px-2 py-3 text-left transition-colors hover:bg-accent/5 focus-visible:outline-offset-0">
-          <span className="tabular text-muted">{node.at}</span><Dot state="ahead" />
-          <span className="min-w-0"><span className="protocol-rhythm-phase">{phase === 'current' ? L.nearest : phase === 'past' ? L.elapsed : null}</span><span className="block font-medium">{i.title}</span><span className="block text-sm text-muted">{[note, L.byPlan].filter(Boolean).join(' · ')}</span></span>
+          <span className="tabular text-muted">{node.at}</span><Dot state={pending.state === 'unmarked' ? 'unmarked' : 'ahead'} />
+          <span className="min-w-0"><span className="protocol-rhythm-phase">{phase === 'current' ? L.nearest : phase === 'past' ? L.elapsed : null}</span><span className="block font-medium">{i.title}</span><span className="block text-sm text-muted">{[note, pendingWord(pending, L.byPlan)].filter(Boolean).join(' · ')}</span></span>
         </button>{line}
       </li>
     );
@@ -77,12 +87,12 @@ function Node({ node, phase, last, foods, onEntry, onDose }: {
   const detail = e.kind === 'meal' ? e.items?.map((x) => `${x.name} ${amountText(x)}`).join(', ') : undefined;
   const carbs = e.kind === 'meal' && e.items?.length && foods ? round(mealNutrients(e.items, foods).carbs) : null;
   const sym = e.kind === 'symptom'; // D56
-  const state = sym ? 'symptom' : e.status === 'done' ? 'done' : e.status === 'skipped' ? 'skipped' : 'ahead';
+  const state = sym ? 'symptom' : e.status === 'done' ? 'done' : e.status === 'skipped' ? 'skipped' : pending.state === 'unmarked' ? 'unmarked' : 'ahead';
   const word = sym ? [t.symptom.word, e.severity ? t.symptom.level(e.severity) : ''].filter(Boolean).join(' · ')
-    : e.status === 'done' ? L.recorded : e.status === 'skipped' ? t.status.skipped : t.status.planned;
+    : e.status === 'done' ? L.recorded : e.status === 'skipped' ? t.status.skipped : pendingWord(pending, t.status.planned);
   return (
     <li className="protocol-rhythm-node relative" data-phase={phase} aria-current={phase === 'current' ? 'step' : undefined}>
-      <button type="button" onClick={() => onEntry(e)} aria-label={`${e.title}, ${sym ? t.symptom.word : t.status[e.status]}${e.timeUnknown ? `, ${L.timeUnknown}` : ''}`}
+      <button type="button" onClick={() => onEntry(e)} aria-label={`${e.title}, ${sym ? t.symptom.word : e.status === 'planned' ? pendingWord(pending, t.status.planned) : t.status[e.status]}${e.timeUnknown ? `, ${L.timeUnknown}` : ''}`}
         className={`grid min-h-tap w-full grid-cols-[3.5rem_1.5rem_1fr_auto] items-start gap-x-2 rounded-xl px-2 py-3 text-left transition-colors hover:bg-accent/5 focus-visible:outline-offset-0 ${state === 'skipped' ? 'opacity-60' : ''}`}>
         <span className="tabular text-muted" title={e.timeUnknown ? L.timeUnknown : undefined}>{e.timeUnknown ? '—' : node.at}</span><Dot state={state} />
         <span className="min-w-0">
@@ -97,7 +107,8 @@ function Node({ node, phase, last, foods, onEntry, onDose }: {
   );
 }
 
-function Dot({ state }: { state: 'done' | 'ahead' | 'skipped' | 'symptom' }) {
-  const look = state === 'done' ? 'h-3 w-3 bg-accent' : state === 'symptom' ? 'h-3 w-3 bg-warn' : state === 'ahead' ? 'h-3 w-3 border-2 border-muted bg-bg' : 'h-2 w-2 bg-line';
+function Dot({ state }: { state: 'done' | 'ahead' | 'unmarked' | 'skipped' | 'symptom' }) {
+  const look = state === 'done' ? 'h-3 w-3 bg-accent' : state === 'symptom' ? 'h-3 w-3 bg-warn' : state === 'ahead' ? 'h-3 w-3 border-2 border-muted bg-bg'
+    : state === 'unmarked' ? 'h-3 w-3 border-2 border-dashed border-muted bg-bg' : 'h-2 w-2 bg-line'; // D142: unknown, not missed
   return <span className="relative z-10 flex h-6 items-center justify-center" aria-hidden><span className={`rounded-full ${look}`} /></span>;
 }

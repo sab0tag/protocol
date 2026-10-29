@@ -154,6 +154,8 @@ export async function snooze(key: string, until: number) {
   const kept = Object.fromEntries(Object.entries(meta?.snoozed ?? {}).filter(([, t]) => t > now - 86_400_000));
   if (meta) await db.meta.update('sync', { snoozed: { ...kept, [key]: until } });
   else localSnoozed[key] = until;
+  window.dispatchEvent(new Event(SNOOZED)); // D142: «Ритм дня» says «відкладено» at once, not on its next tick
 }
+export const SNOOZED = 'protocol:snoozed';
 /** Without sync the snooze lives in memory only (no reminders then anyway). */
 export const localSnoozed: Record<string, number> = {};

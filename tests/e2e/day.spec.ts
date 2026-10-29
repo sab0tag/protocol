@@ -65,8 +65,12 @@ test('«Не відмічено» is folded and asks when — or «не пам�
   await expect(water).toHaveAttribute('aria-label', /зараз 0 з/);
 });
 
+const kyivDay = () => new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Kyiv' }).format(new Date());
+
 test('the new «День»: the plan on an empty day, a dose asks when, main numbers by choice, the week strip (D53)', async ({ browser }) => {
   const page = await device(browser);
+  await page.clock.setFixedTime(new Date(`${kyivDay()}T08:00:00${kyivOffset()}`)); // before the 08:30 dose: still «заплановано» (D142)
+  await page.reload();
   const rhythm = page.getByRole('region', { name: 'Найближче' });
   await expect(rhythm.getByRole('button', { name: 'Вітамін D, Заплановано' })).toBeVisible(); // nothing recorded, the plan is there
   await rhythm.getByRole('button', { name: 'Вітамін D, Заплановано' }).click();
@@ -253,4 +257,27 @@ test('the real service worker builds reminder text from local data (notification
   await push({ t: 'Ліки', b: '—', k: 'med', h: '08:30', n: 1 }, '⏰ Ще раз: Ліки — Вітамін D 2000 МО під час їжі');
   await push({ t: 'План на сьогодні', b: '—', k: 'morning', d: today }, 'План на сьогодні — ліки: 08:30');
   await push({ t: 'Вода', b: '—', k: 'water', d: today }, 'Вода — Випито 0 з 2,5 л — склянка води?'); // D70
+});
+
+test('the time line tells waiting, deferred and unmarked apart — an unmarked dose is never «пропущено» (ТЗ 4.1, D142)', async ({ browser }) => {
+  const page = await device(browser);
+  const day = kyivDay();
+  await page.clock.setFixedTime(new Date(`${day}T10:00:00${kyivOffset()}`));
+  await seed(page, [{ store: 'entries', value: { id: 'late-lunch', at: `${day}T09:50:00${kyivOffset()}`, kind: 'meal', status: 'planned', title: 'Обід',
+    items: [{ foodId: 'kefir', name: 'Кефір 2,5 %', grams: 250 }] } }]);
+  await page.goto('./#/'); await page.reload();
+  const rhythm = page.getByRole('region', { name: 'Найближче' });
+  const dose = rhythm.getByRole('button', { name: 'Вітамін D, Не відмічено' }); // 08:30, its hour has passed
+  await expect(dose).toBeVisible();
+  await expect(dose).not.toContainText('Пропущено');
+  await expect(rhythm.getByRole('button', { name: /^Обід, Заплановано/ })).toBeVisible(); // 09:50 — still in its window
+  await page.getByRole('region', { name: 'Зараз' }).getByRole('button', { name: 'Нагадати за 15 хв' }).click();
+  await expect(rhythm.getByRole('button', { name: /^Обід, Відкладено до 10:15/ })).toBeVisible();
+  await expect(rhythm.getByRole('button', { name: /^Обід, / })).toContainText('Відкладено до 10:15');
+  const stored = await page.evaluate(async () => {
+    const open = indexedDB.open('protocol'); await new Promise((r) => { open.onsuccess = r; });
+    const get = open.result.transaction('entries', 'readonly').objectStore('entries').get('late-lunch'); await new Promise((r) => { get.onsuccess = r; });
+    open.result.close(); return get.result.status;
+  });
+  expect(stored).toBe('planned'); // deferring writes no outcome
 });
