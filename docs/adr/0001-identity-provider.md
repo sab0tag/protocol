@@ -1,7 +1,7 @@
 # ACCESS-01-IDP — identity provider for staff login
 
-Status: proposed, owner decision required before ACCESS-03 integration. Reviewed 2026-10-29. No provider account,
-subscription, external credentials or production setting has been created by this ADR.
+Status: accepted for implementation, 2026-10-29. Selected provider: managed Auth0, EU tenant.
+No provider account, paid subscription, external credentials or production setting has been created by this ADR.
 
 ## Fixed boundaries
 
@@ -26,15 +26,21 @@ subscription, external credentials or production setting has been created by thi
 | Self-hosted Keycloak | Control hosting and identity infrastructure; standard OIDC/MFA; no dependency on an identity SaaS tariff | Operate a separate production database, TLS, email delivery, patches, monitoring, backups and recovery. Production must not use start-dev or the development file database. Assign an operational owner and infrastructure capacity before launch. |
 | Managed ZITADEL, EU instance | Standard OIDC, MFA/passkeys; cloud and self-hosted deployment choices | Published pricing/detail pages advertise regional choice, while the customer-portal help page says specific region selection is a Pro feature. Confirm the exact tier/region in the actual portal/contract before promising a free EU deployment. No automatic paid upgrade. |
 
-The recommended deployment model for an initial small staff pilot is managed identity, because it avoids adding a
-second production system to operate. Auth0 EU is the conservative proposed candidate if its MFA tariff is accepted.
-If external identity SaaS is undesirable or its recurring cost is unsuitable, use self-hosted Keycloak with an explicit
-operations owner. These are engineering recommendations, not a claim of regulatory approval or a cost authorization.
+Use managed Auth0 EU for the initial staff pilot. This avoids operating a second authentication service while
+Protocol's clinic/patient integration is being completed. Keep authorization in Protocol and standard OIDC at the
+identity boundary. Keycloak remains an alternative if hosting requirements change; switching providers requires
+an explicit identity-linking migration and an updated ADR, not merely changing an issuer URL.
+
+This accepts the provider and development direction. It does not authorize a paid plan or activate a tenant.
+Select the EU region when creating the tenant; Auth0 does not support moving an existing tenant between regions.
+Confirm actual MFA entitlement and cost before provisioning. TOTP through an authenticator is the proposed pilot
+factor; assurance claims and recovery must be verified against the selected plan before real staff login.
 
 ## Acceptance before enabling a real login
 
-1. Owner selects managed Auth0 EU, self-hosted Keycloak, or another explicitly reviewed candidate. Any paid plan or
-   infrastructure purchase is separately approved before activation; writing the adapter does not authorize spending.
+1. Provider is selected: managed Auth0 EU. Before provisioning, assign tenant administration and confirm the actual
+   MFA plan/budget. Any paid plan or infrastructure purchase is separately approved before activation; writing the
+   adapter does not authorize spending.
 2. Record issuer, hosting region, application/client type and operator ownership. Keep secrets in the existing secret
    mechanism, never source, CI fixtures, chat or browser localStorage.
 3. Test MFA enrollment, challenge, recovery and assurance claims with synthetic staff. Determine the actual MFA
@@ -47,12 +53,14 @@ operations owner. These are engineering recommendations, not a claim of regulato
 6. Confirm identifier/auth-log retention and region, invitation/email delivery, key/JWKS rotation and recovery drill.
    Export/retirement of the provider must preserve Protocol account IDs and not affect local patient access.
 
-While this decision is pending, ACCESS-02 storage and ACCESS-05 policy-core work may proceed. ACCESS-03 live
-integration and provisioning stay disabled. This does not block merging independently verified schema changes.
+ACCESS-02 and ACCESS-05 are already merged. This accepted provider decision allows ACCESS-03 implementation and
+local synthetic OIDC/MFA tests to proceed. Real tenant provisioning and production login remain disabled until the
+operational gates above are satisfied. No bypass of session, MFA or object policy is allowed in the interim.
 
 ## Primary sources checked
 
 - Auth0 tenant locality: https://support.auth0.com/center/s/article/Tenant-Creation-in-a-Specific-Sub-region
+- Auth0 region changes: https://support.auth0.com/center/s/article/Change-the-Location-of-Existing-Tenant
 - Auth0 MFA entitlements: https://support.auth0.com/center/s/article/Entitlements-for-Enterprise-MFA-Feature
 - Auth0 pricing (recheck before purchase): https://auth0.com/pricing
 - Keycloak production requirements: https://www.keycloak.org/server/configuration-production
