@@ -1,7 +1,8 @@
-// D60: the library list — filter by level, each row with its «Рух» figure; a tap opens the card. Used as a screen
+// D60: the library list — search (D153) and filter by level, each row with its «Рух» figure; a tap opens the card. Used as a screen
 // («Ще → Вправи з гирею») and inside «Тренування» to add or replace an exercise (`action` on the card).
 import { useState } from 'react';
 import { EXERCISES, type Exercise, type Level } from '../data/exercises';
+import { searchExercises } from '../domain/exerciseSearch';
 import { t } from '../i18n/uk';
 import { ExerciseCard, LevelBadge } from './ExerciseCard';
 import { ExerciseFigure } from './ExerciseFigure';
@@ -11,9 +12,14 @@ const L = t.exercise;
 export function ExerciseLibrary({ list = EXERCISES, action }: { list?: Exercise[]; action?: { label: string; run: (e: Exercise) => void } }) {
   const [level, setLevel] = useState<Level | 0>(0);
   const [open, setOpen] = useState<Exercise | null>(null);
-  const shown = list.filter((e) => !level || e.level === level);
+  const [query, setQuery] = useState('');
+  const shown = searchExercises(list, query).filter((e) => !level || e.level === level);
   return (
     <div className="space-y-3">
+      <label className="block"><span className="sr-only">{L.search}</span>
+        <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={L.searchHint} aria-label={L.search}
+          aria-describedby={query.trim() ? 'exercise-found' : undefined} className="block min-h-tap w-full rounded-xl border border-line bg-bg px-3" /></label>
+      {query.trim() && <p id="exercise-found" role="status" className="text-sm text-muted">{L.found(shown.length)}</p>}
       <div className="flex flex-wrap gap-2" role="group" aria-label={L.levels.join(', ')}>
         {([0, 1, 2, 3] as const).map((l) => (
           <button key={l} type="button" aria-pressed={level === l} onClick={() => setLevel(l)}
@@ -34,6 +40,8 @@ export function ExerciseLibrary({ list = EXERCISES, action }: { list?: Exercise[
           </li>
         ))}
       </ul>
+      {!shown.length && <div className="space-y-2 text-sm"><p>{L.none}</p>
+        <button type="button" onClick={() => { setQuery(''); setLevel(0); }} className="min-h-tap rounded-xl border border-line px-3">{L.reset}</button></div>}
       <p className="text-xs text-muted">{L.schematic}</p>
       {open && (
         <ExerciseCard exercise={open} onClose={() => setOpen(null)}>
