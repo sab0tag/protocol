@@ -7,7 +7,7 @@ import { Worker } from 'node:worker_threads';
 import { afterEach, describe as group, expect, it } from 'vitest';
 import { ClinicDirectory } from '../src/clinic/directory.ts';
 import { PlanDelivery } from '../src/clinic/delivery.ts';
-import { assertCurrent, checksum, expectedManifest, loadMigrations, migrate, MIGRATIONS, SchemaError, type Migration } from '../src/db/migrate.ts';
+import { assertCurrent, checksum, expectedManifest, loadMigrations, migrate, MIGRATIONS as allMigrations, SchemaError, type Migration } from '../src/db/migrate.ts';
 import { migrateCli } from '../src/db/migrateCli.ts';
 import { compare, describe, HISTORY_TABLE } from '../src/db/schema.ts';
 import { Store } from '../src/store.ts';
@@ -15,6 +15,8 @@ import { Store } from '../src/store.ts';
 // ACCESS-00-M (AC-22). The legacy fixture was produced by running the constructors of main 7507e5a, so it is an
 // independent record of the implicit schema the baseline must reproduce.
 const LEGACY = readFileSync(new URL('./fixtures/legacy-7507e5a.sql', import.meta.url), 'utf8');
+// Runner-core cases deliberately use immutable 0001; identityMemberships.test.ts covers the full shipped sequence.
+const baselineMigrations = () => [allMigrations()[0]!];
 const BASELINE_CHECKSUM = 'fdcbe811adc0a88ba9eb04d03372b431d8266eb68758e3dc466a32228be3b74d';
 
 const dirs: string[] = [];
@@ -28,7 +30,7 @@ const hasHistory = (db: DatabaseSync) => !!db.prepare("SELECT 1 FROM sqlite_mast
 const dump = (db: DatabaseSync) => Object.fromEntries(tables(db).map((t) => [t, db.prepare(`SELECT * FROM "${t}" ORDER BY rowid`).all().map((r) => ({ ...r }))]));
 const fail = (f: () => unknown): SchemaError => { try { f(); } catch (e) { if (e instanceof SchemaError) return e; throw e; } throw new Error('expected a SchemaError'); };
 const step = (version: number, name: string, sql: string): Migration => ({ version, name, sql, checksum: checksum(sql) });
-const withNext = (sql: string) => [...MIGRATIONS(), step(2, 'next', sql)];
+const withNext = (sql: string) => [...baselineMigrations(), step(2, 'next', sql)];
 
 function seedLegacy(db: DatabaseSync) {
   db.prepare("INSERT INTO vaults (id, auth, created, bytes) VALUES ('v1', 'h', '2026-10-01', 12)").run();
@@ -43,15 +45,15 @@ function seedLegacy(db: DatabaseSync) {
 
 group('the bundled migrations', () => {
   it('0001_baseline is immutable: its checksum is pinned', () => {
-    expect(MIGRATIONS().map((m) => [m.version, m.name])).toEqual([[1, 'baseline']]);
-    expect(MIGRATIONS()[0]!.checksum).toBe(BASELINE_CHECKSUM);
+    expect(baselineMigrations().map((m) => [m.version, m.name])).toEqual([[1, 'baseline']]);
+    expect(baselineMigrations()[0]!.checksum).toBe(BASELINE_CHECKSUM);
   });
 
   it('the manifest covers the whole legacy schema of Store and clinic — every table, column and index, nothing more', () => {
     const legacy = legacyDb();
-    expect(compare(describe(legacy), expectedManifest(MIGRATIONS(), 1))).toEqual([]);
+    expect(compare(describe(legacy), expectedManifest(baselineMigrations(), 1))).toEqual([]);
     const names = tables(legacy);
-    expect(names).toEqual(Object.keys(expectedManifest(MIGRATIONS()).tables).sort());
+    expect(names).toEqual(Object.keys(expectedManifest(baselineMigrations()).tables).sort());
     for (const t of ['vaults', 'records', 'counters', 'concierge_log', 'pilot_members', 'pilot_weeks', 'pilot_sources',
       'clinic_orgs', 'clinic_members', 'clinic_audit', 'plan_delivery']) expect(names).toContain(t);
     const indexes = Object.values(describe(legacy).tables).flatMap((t) => t.indexes.map((i) => i.name));
@@ -70,36 +72,36 @@ group('the bundled migrations', () => {
 group('migrate', () => {
   it('an empty database gets the baseline and its history', () => {
     const db = new DatabaseSync(':memory:');
-    const r = migrate(db, MIGRATIONS(), () => new Date('2026-10-29T08:00:00Z'));
+    const r = migrate(db, baselineMigrations(), () => new Date('2026-10-29T08:00:00Z'));
     expect(r).toEqual({ applied: [1], baseline: 'fresh', version: 1 });
     expect(history(db)).toEqual([{ version: 1, name: 'baseline', checksum: BASELINE_CHECKSUM, applied_at: '2026-10-29T08:00:00.000Z' }]);
     expect(db.prepare("SELECT n FROM meta WHERE k = 'seq'").get()).toEqual({ n: 0 });
-    expect(() => assertCurrent(db)).not.toThrow();
+    expect(() => assertCurrent(db, baselineMigrations())).not.toThrow();
   });
 
   it('an existing database of main 7507e5a is accepted as baseline without changing its schema, data or ids', () => {
     const db = legacyDb();
     seedLegacy(db);
     const before = { schema: describe(db), data: dump(db) };
-    expect(migrate(db)).toEqual({ applied: [1], baseline: 'legacy', version: 1 });
+    expect(migrate(db, baselineMigrations())).toEqual({ applied: [1], baseline: 'legacy', version: 1 });
     expect(describe(db)).toEqual(before.schema);
     expect(dump(db)).toEqual(before.data);
-    expect(() => assertCurrent(db)).not.toThrow();
+    expect(() => assertCurrent(db, baselineMigrations())).not.toThrow();
   });
 
   it('an older variant with whole tables or explicit indexes missing is normalized by creating them', () => {
     const partial = LEGACY.split(';\n').filter((st) => !/pilot_|concierge_log_vault|reminders_due/.test(st)).join(';\n');
     const db = legacyDb(partial);
     expect(tables(db)).not.toContain('pilot_members');
-    expect(migrate(db).baseline).toBe('legacy');
-    expect(compare(describe(db), expectedManifest(MIGRATIONS()))).toEqual([]);
+    expect(migrate(db, baselineMigrations()).baseline).toBe('legacy');
+    expect(compare(describe(db), expectedManifest(baselineMigrations()))).toEqual([]);
   });
 
   it('runs again as a no-op: no DDL, no second history row, applied_at unchanged', () => {
     const db = new DatabaseSync(':memory:');
-    migrate(db, MIGRATIONS(), () => new Date('2026-10-29T08:00:00Z'));
+    migrate(db, baselineMigrations(), () => new Date('2026-10-29T08:00:00Z'));
     const h = history(db), schema = describe(db);
-    expect(migrate(db, MIGRATIONS(), () => new Date('2027-01-01T00:00:00Z'))).toEqual({ applied: [], baseline: null, version: 1 });
+    expect(migrate(db, baselineMigrations(), () => new Date('2027-01-01T00:00:00Z'))).toEqual({ applied: [], baseline: null, version: 1 });
     expect(history(db)).toEqual(h);
     expect(describe(db)).toEqual(schema);
   });
@@ -116,7 +118,7 @@ group('migrate', () => {
       const db = legacyDb();
       db.exec(change);
       const before = describe(db);
-      const e = fail(() => migrate(db));
+      const e = fail(() => migrate(db, baselineMigrations()));
       expect(e.code).toBe('unrecognized_schema');
       expect(e.details.length).toBeGreaterThan(0);
       expect(hasHistory(db)).toBe(false);
@@ -127,19 +129,19 @@ group('migrate', () => {
   it('refuses a history newer than the build, and an applied migration whose file changed', () => {
     const newer = new DatabaseSync(':memory:');
     migrate(newer, withNext('CREATE TABLE later (x)'));
-    expect(fail(() => migrate(newer)).code).toBe('newer_schema');
-    expect(fail(() => assertCurrent(newer)).code).toBe('newer_schema');
+    expect(fail(() => migrate(newer, baselineMigrations())).code).toBe('newer_schema');
+    expect(fail(() => assertCurrent(newer, baselineMigrations())).code).toBe('newer_schema');
 
     const changed = new DatabaseSync(':memory:');
-    migrate(changed);
-    const edited = [{ ...MIGRATIONS()[0]!, sql: MIGRATIONS()[0]!.sql + '\n-- edited', checksum: checksum(MIGRATIONS()[0]!.sql + '\n-- edited') }];
+    migrate(changed, baselineMigrations());
+    const edited = [{ ...baselineMigrations()[0]!, sql: baselineMigrations()[0]!.sql + '\n-- edited', checksum: checksum(baselineMigrations()[0]!.sql + '\n-- edited') }];
     expect(fail(() => migrate(changed, edited)).code).toBe('checksum_mismatch');
     expect(fail(() => assertCurrent(changed, edited)).code).toBe('checksum_mismatch');
   });
 
   it('a failing migration rolls back entirely, is not recorded, and the database stays at the previous version', () => {
     const db = new DatabaseSync(':memory:');
-    migrate(db);
+    migrate(db, baselineMigrations());
     db.prepare("INSERT INTO vaults (id, auth, created) VALUES ('v1', 'h', 'x')").run();
     const before = { schema: describe(db), data: dump(db), history: history(db) };
     const broken = withNext("CREATE TABLE half (x); INSERT INTO vaults (id, auth, created) VALUES ('v2', 'h', 'x'); CREATE TABLE oops (");
@@ -153,7 +155,7 @@ group('migrate', () => {
 
   it('a later migration with a data transfer runs once; a rerun does not transfer twice', () => {
     const db = new DatabaseSync(':memory:');
-    migrate(db);
+    migrate(db, baselineMigrations());
     db.prepare("INSERT INTO vaults (id, auth, created) VALUES ('v1', 'h', 'x'), ('v2', 'h', 'x')").run();
     const next = withNext('CREATE TABLE vault_copy (id TEXT PRIMARY KEY); INSERT INTO vault_copy (id) SELECT id FROM vaults;');
     expect(migrate(db, next).applied).toEqual([2]);
@@ -164,11 +166,11 @@ group('migrate', () => {
 
   it('a schema that drifted from its history is refused before the next step and by validation', () => {
     const db = new DatabaseSync(':memory:');
-    migrate(db);
+    migrate(db, baselineMigrations());
     db.exec('ALTER TABLE vaults ADD COLUMN note TEXT');
-    expect(fail(() => assertCurrent(db)).code).toBe('schema_drift');
+    expect(fail(() => assertCurrent(db, baselineMigrations())).code).toBe('schema_drift');
     const before = { schema: describe(db), data: dump(db), history: history(db) };
-    expect(fail(() => migrate(db)).code).toBe('schema_drift');
+    expect(fail(() => migrate(db, baselineMigrations())).code).toBe('schema_drift');
     expect({ schema: describe(db), data: dump(db), history: history(db) }).toEqual(before);
     expect(db.isTransaction).toBe(false);
     expect(fail(() => migrate(db, withNext('CREATE TABLE later (x)'))).code).toBe('schema_drift');
@@ -220,7 +222,7 @@ group('migrate', () => {
 });
 
 group('concurrent runners', () => {
-  it('two processes migrating one fresh file at once: one applies, the other waits and finds nothing to do', async () => {
+  it('two runners migrating one fresh file apply every version exactly once even when steps interleave', async () => {
     const path = join(tmp(), 'db.sqlite');
     new Store(path).close();
     const sab = new SharedArrayBuffer(4);
@@ -236,10 +238,10 @@ group('concurrent runners', () => {
     const f = new Int32Array(sab); Atomics.store(f, 0, 1); Atomics.notify(f, 0);
     const [ra, rb] = await Promise.all([a.next(), b.next()]);
     expect([ra.error, rb.error]).toEqual([undefined, undefined]);
-    expect([ra.result.applied, rb.result.applied].sort()).toEqual([[], [1]]);
+    expect([...ra.result.applied, ...rb.result.applied].sort((a, b) => a - b)).toEqual(allMigrations().map((m) => m.version));
     await Promise.all([a.exit, b.exit]);
     const db = new DatabaseSync(path);
-    expect(history(db)).toHaveLength(1);
+    expect(history(db)).toHaveLength(allMigrations().length);
     expect(() => assertCurrent(db)).not.toThrow();
     db.close();
   }, 30_000);
@@ -253,8 +255,8 @@ group('db:migrate command', () => {
     expect(run(undefined).code).toBe(2);
     const path = join(dir, 'legacy.db');
     const db = new DatabaseSync(path); db.exec(LEGACY); db.close();
-    expect(run(path)).toMatchObject({ code: 0, out: expect.stringMatching(/applied 1 \(baseline: legacy\)/) });
-    expect(run(path)).toMatchObject({ code: 0, out: 'up to date at 1' });
+    expect(run(path)).toMatchObject({ code: 0, out: expect.stringMatching(/applied 1, 2 \(baseline: legacy\)/) });
+    expect(run(path)).toMatchObject({ code: 0, out: 'up to date at 2' });
     const bad = join(dir, 'bad.db');
     const b = new DatabaseSync(bad); b.exec(LEGACY); b.exec('CREATE TABLE stray (x)'); b.close();
     expect(run(bad)).toMatchObject({ code: 3, err: expect.stringMatching(/unrecognized_schema/) });

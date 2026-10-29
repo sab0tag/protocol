@@ -6,7 +6,7 @@ import { Worker } from 'node:worker_threads';
 import { afterEach, describe, expect, it } from 'vitest';
 import { createOrg } from '../src/clinic/createOrg.ts';
 import { ClinicDirectory } from '../src/clinic/directory.ts';
-import { assertCurrent, migrate, SchemaError } from '../src/db/migrate.ts';
+import { assertCurrent, migrate, MIGRATIONS, SchemaError } from '../src/db/migrate.ts';
 import { Store } from '../src/store.ts';
 
 // ACCESS-00-M, AC-25: clinic:create validates the schema and never migrates, creates a database or runs DDL.
@@ -41,7 +41,7 @@ describe('clinic:create on a database that is not current', () => {
     ['an empty file', () => undefined, 'unversioned'],
     ['the legacy schema without history', (db) => db.exec(LEGACY), 'unversioned'],
     ['a pending migration', (db) => { migrate(db); db.exec('DELETE FROM schema_migrations'); }, 'pending'],
-    ['a newer version', (db) => { migrate(db); db.exec("INSERT INTO schema_migrations VALUES (2, 'later', 'x', 'now')"); }, 'newer_schema'],
+    ['a newer version', (db) => { migrate(db); db.prepare("INSERT INTO schema_migrations VALUES (?, 'later', 'x', 'now')").run(MIGRATIONS().length + 1); }, 'newer_schema'],
     ['an altered checksum', (db) => { migrate(db); db.exec("UPDATE schema_migrations SET checksum = 'x'"); }, 'checksum_mismatch'],
     ['a drifted schema', (db) => { migrate(db); db.exec('ALTER TABLE vaults ADD COLUMN note TEXT'); }, 'schema_drift'],
   ];

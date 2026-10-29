@@ -22,7 +22,7 @@ export class Store {
   constructor(path: string) {
     this.db = new DatabaseSync(path);
     // Connection settings only. The schema belongs to the migrations (src/db/migrations); see `Store.migrated`.
-    try { this.db.exec('PRAGMA busy_timeout = 5000; PRAGMA journal_mode = WAL;'); } catch (e) { this.db.close(); throw e; }
+    try { this.db.exec('PRAGMA busy_timeout = 5000; PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL;'); } catch (e) { this.db.close(); throw e; }
   }
 
   vaultAuth(id: string): string | undefined {

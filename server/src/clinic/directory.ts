@@ -2,6 +2,7 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import type { DatabaseSync } from 'node:sqlite';
 import { immediate } from '../db/tx.ts';
 import { can, isRole, type Action, type Role } from './roles.ts';
+import { projectLegacyMember } from './memberships.ts';
 
 /** The caller as the server knows it. `orgId` comes from the member record, never from the request. */
 export interface Actor { memberId: string; orgId: string; role: Role }
@@ -47,6 +48,7 @@ export class ClinicDirectory {
       this.db.prepare('INSERT INTO clinic_orgs (id, name, created) VALUES (?, ?, ?)').run(orgId, n, this.now());
       this.db.prepare('INSERT INTO clinic_members (id, org, name, role, token_hash, created) VALUES (?, ?, ?, ?, ?, ?)')
         .run(adminId, orgId, a, 'admin', hash(token), this.now());
+      projectLegacyMember(this.db, adminId);
       this.audit(orgId, adminId, 'org.create', orgId);
     });
     return { orgId, adminId, token };
@@ -82,9 +84,12 @@ export class ClinicDirectory {
     const name = input.displayName.trim();
     if (!name || name.length > 200 || !isRole(input.role)) throw new ClinicError('bad_request');
     const id = randomUUID(), token = newToken();
-    this.db.prepare('INSERT INTO clinic_members (id, org, name, role, token_hash, created) VALUES (?, ?, ?, ?, ?, ?)')
-      .run(id, actor.orgId, name, input.role, hash(token), this.now());
-    this.audit(actor.orgId, actor.memberId, 'staff.add', id);
+    immediate(this.db, () => {
+      this.db.prepare('INSERT INTO clinic_members (id, org, name, role, token_hash, created) VALUES (?, ?, ?, ?, ?, ?)')
+        .run(id, actor.orgId, name, input.role, hash(token), this.now());
+      projectLegacyMember(this.db, id);
+      this.audit(actor.orgId, actor.memberId, 'staff.add', id);
+    });
     return { memberId: id, token };
   }
 
@@ -97,18 +102,24 @@ export class ClinicDirectory {
   setRole(actor: Actor, memberId: string, role: Role): void {
     this.require(actor, 'staff.manage');
     if (!isRole(role)) throw new ClinicError('bad_request');
-    const m = this.target(actor, memberId);
-    if (m.role === 'admin' && role !== 'admin' && m.active) this.keepAnAdmin(actor.orgId, memberId);
-    this.db.prepare('UPDATE clinic_members SET role = ? WHERE id = ? AND org = ?').run(role, memberId, actor.orgId);
-    this.audit(actor.orgId, actor.memberId, `staff.role.${role}`, memberId);
+    immediate(this.db, () => {
+      const m = this.target(actor, memberId);
+      if (m.role === 'admin' && role !== 'admin' && m.active) this.keepAnAdmin(actor.orgId, memberId);
+      this.db.prepare('UPDATE clinic_members SET role = ? WHERE id = ? AND org = ?').run(role, memberId, actor.orgId);
+      projectLegacyMember(this.db, memberId);
+      this.audit(actor.orgId, actor.memberId, `staff.role.${role}`, memberId);
+    });
   }
 
   deactivate(actor: Actor, memberId: string): void {
     this.require(actor, 'staff.manage');
-    const m = this.target(actor, memberId);
-    if (m.role === 'admin' && m.active) this.keepAnAdmin(actor.orgId, memberId);
-    this.db.prepare('UPDATE clinic_members SET active = 0 WHERE id = ? AND org = ?').run(memberId, actor.orgId);
-    this.audit(actor.orgId, actor.memberId, 'staff.deactivate', memberId);
+    immediate(this.db, () => {
+      const m = this.target(actor, memberId);
+      if (m.role === 'admin' && m.active) this.keepAnAdmin(actor.orgId, memberId);
+      this.db.prepare('UPDATE clinic_members SET active = 0 WHERE id = ? AND org = ?').run(memberId, actor.orgId);
+      projectLegacyMember(this.db, memberId, false);
+      this.audit(actor.orgId, actor.memberId, 'staff.deactivate', memberId);
+    });
   }
 
   /** Replaces a lost token: the old one stops working immediately. */
