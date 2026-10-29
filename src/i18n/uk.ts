@@ -710,6 +710,13 @@ export const t = {
     reference: 'Референс лабораторії', previous: 'Попередній', notStated: 'не вказано', noPrevious: 'перший результат',
     change: (signed: string, unit: string) => `зміна ${signed}${unit ? ` ${unit}` : ''}`, unitsOther: 'інші одиниці — без порівняння',
     referenceHint: 'Референс — інтервал з бланка лабораторії; ціль — те, що сказав лікар саме вам.',
+    // D146: every overview card — the number, the period it is counted over, the records behind it
+    cardWeek: (from: string, to: string) => `За 7 днів: ${from}–${to}`, cardLast: (d: string) => `Останнє вимірювання ${d}`, cardNoPeriod: 'Вимірювань ще немає',
+    noWeightShort: 'Немає записів', cardWeightDelta: (from: string, delta: string) => `Від ${from}: ${delta} кг`, cardWeightFirst: 'Додайте перше вимірювання',
+    cardWeightLink: 'Вимірювання →', cardDays: (n: number) => `${n} з 7 дн.`, cardWellDetail: 'днів із записом самопочуття',
+    cardWellLink: 'Щоденник →', cardActivity: 'Активність', cardWorkouts: 'записаних тренувань', cardWorkoutLink: 'Тренування →',
+    cardPlan: 'План', cardPlanDetail: (days: number) => `відмічених пунктів плану; днів із записами: ${days}`, cardPlanNone: 'за тиждень пунктів плану не було',
+    cardPlanLink: 'Тиждень по днях →',
     addLab: 'Додати результат', noLabs: 'Результатів аналізів ще немає.',
     editLab: 'Редагувати результат', labHistory: 'Історія та виправлення',
     labEditHint: 'Зміни замінять цей результат. Інші результати залишаться без змін.',
