@@ -71,7 +71,7 @@ test('meds off asks first; cancelling writes nothing, and plan/report/incomplete
   await confirm.getByRole('button', { name: 'Вимкнути', exact: true }).click();
   await expect(page.getByRole('switch', { name: 'Ліки', exact: true })).not.toBeChecked();
   await page.goto('./#/'); await expect(page.getByText(/Уточніть призначення/)).toBeVisible();
-  await expect(page.getByRole('button', { name: /Вітамін D, Заплановано/ })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /^Вітамін D, / })).toHaveCount(0); // whatever its status (D142)
   await page.goto('./#/plan'); await expect(page.getByRole('heading', { level: 1 })).not.toHaveText('Розділ вимкнено');
   await page.goto('./#/report'); await expect(page.getByRole('heading', { level: 1 })).toHaveText('Звіт для лікаря');
 });
