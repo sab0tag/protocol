@@ -111,7 +111,7 @@ export function Plan({ section = 'home' }: { section?: PlanSection }) {
       {section === 'prescriptions' && duplicateInn(plan.prescriptions).map((d) => ( /* D89: information, never «не приймайте» */
         <p key={d.inn} role="status" className="protocol-card rounded-2xl border border-line bg-surface p-3 text-sm">{P.duplicate(d.titles, d.inn)}</p>
       ))}
-      {section === 'prescriptions' && <Block title={P.prescriptions} onAdd={() => setEditing({ what: 'prescription' })}>
+      {section === 'prescriptions' && <Block title={P.prescriptions} empty={P.emptyBy.prescriptions} onAdd={() => setEditing({ what: 'prescription' })}>
         {prescriptions.map((p) => ( /* D104: tests live with the next checkup */
           <Item key={p.id} onEdit={() => setEditing({ what: 'prescription', item: p })} piece={pieces?.get(p.id)}
             title={p.title} meta={[P.kinds[p.kind], (p.kind === 'medication' || p.kind === 'supplement') ? (p.med ? p.med.inn : P.offRegistry) : undefined, p.dose, p.asNeeded ? (prnLimit(p) ? `${t.conclusion.asNeeded}, ${prnLimitText(prnLimit(p)!)}` : t.conclusion.asNeeded) : p.schedule?.times.join(', '),
@@ -123,7 +123,7 @@ export function Plan({ section = 'home' }: { section?: PlanSection }) {
         ))}
       </Block>}
 
-      {section === 'constraints' && <Block title={P.constraints} onAdd={() => setEditing({ what: 'constraint' })}>
+      {section === 'constraints' && <Block title={P.constraints} empty={P.emptyBy.constraints} onAdd={() => setEditing({ what: 'constraint' })}>
         {plan.constraints.map((c) => (
           <li key={c.id} className="flex items-start gap-2 border-t border-line px-3 py-2 first:border-t-0">
             <label className="flex min-h-tap min-w-tap items-center justify-center">
@@ -160,14 +160,14 @@ export function Plan({ section = 'home' }: { section?: PlanSection }) {
 
       {section === 'goals' && <>
       <Block title={P.targets} onAdd={() => setEditing({ what: 'targets' })} addLabel={P.edit}>
-        <li className="px-3 py-2">{targetSummary(tg) || <span className="text-muted">{P.noTargets}</span>}</li>
+        <li className="px-3 py-2">{targetSummary(tg) || <span className="text-muted">{P.emptyBy.targets}</span>}</li>
         {dietConflicts(plan).map((x) => ( /* D90: a doctor's target and a diet's norm that differ — a question, not settled */
           <li key={x.code + x.field} role="status" className="border-t border-line px-3 py-2 text-sm text-warn">
             {t.diet.conflict(x.code, t.diet.fields[x.field], x.target, x.range[0], x.range[1])}</li>
         ))}
       </Block>
 
-      <Block title={P.modes} onAdd={() => setEditing({ what: 'mode' })}>
+      <Block title={P.modes} empty={P.emptyBy.modes} onAdd={() => setEditing({ what: 'mode' })}>
         {plan.modes.map((m) => (
           <Item key={m.id} onEdit={() => setEditing({ what: 'mode', item: m })} title={m.title}
             meta={[`${dmy(m.from)} — ${dmy(m.to)}`, targetSummary(m.targetsOverride) || undefined]} note={m.notes.join(' · ')} />
@@ -175,7 +175,7 @@ export function Plan({ section = 'home' }: { section?: PlanSection }) {
       </Block>
       </>}
 
-      {section === 'checkup' && <Block title={P.checkup} onAdd={() => setEditing({ what: 'checkup' })} addLabel={plan.nextCheckup ? P.edit : P.add}>
+      {section === 'checkup' && <Block title={P.checkup} empty={P.emptyBy.checkup} onAdd={() => setEditing({ what: 'checkup' })} addLabel={plan.nextCheckup ? P.edit : P.add}>
         {plan.nextCheckup && <li className="px-3 py-2"><p className="font-medium">{dmy(plan.nextCheckup.date)}</p>
           <p className="text-sm text-muted">{plan.nextCheckup.tests.join(', ')}</p>
           {pieces?.get('checkup') && <Paper url={pieces.get('checkup')!} title={P.checkup} />}</li>}
@@ -209,7 +209,7 @@ function targetSummary(tg: Partial<Targets>): string {
 }
 
 // ------------------------------------------------------------------ layout pieces
-function Block({ title, onAdd, addLabel = P.add, children }: { title: string; onAdd: () => void; addLabel?: string; children: ReactNode }) {
+function Block({ title, onAdd, addLabel = P.add, empty = P.empty, children }: { title: string; onAdd: () => void; addLabel?: string; empty?: string; children: ReactNode }) {
   const list = Array.isArray(children) ? children.filter(Boolean) : children ? [children] : [];
   return (
     <section className="overflow-hidden protocol-card rounded-2xl border border-line bg-surface">
@@ -218,7 +218,7 @@ function Block({ title, onAdd, addLabel = P.add, children }: { title: string; on
         <button type="button" onClick={onAdd} className="flex min-h-tap shrink-0 items-center gap-1 px-2 text-accent">
           {addLabel === P.add && <Plus size={18} aria-hidden />}{addLabel}</button>
       </div>
-      {list.length ? <ul>{children}</ul> : <p className="px-3 py-3 text-muted">{P.empty}</p>}
+      {list.length ? <ul>{children}</ul> : <p className="px-3 py-3 text-muted">{empty}</p>}
     </section>
   );
 }
