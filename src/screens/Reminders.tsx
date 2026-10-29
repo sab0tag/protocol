@@ -4,9 +4,10 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { Loading } from '../components/Recovery';
 import { toast } from '../components/Toast';
 import { BellRing } from 'lucide-react';
+import { format } from 'date-fns';
 import { useState } from 'react';
 import { db } from '../data/db';
-import { DEFAULT_REMINDERS, type ReminderSettings } from '../domain/reminders';
+import { DEFAULT_REMINDERS, scheduleStatus, type ReminderSettings } from '../domain/reminders';
 import { t } from '../i18n/uk';
 import { ApiError } from '../sync/api';
 import { disablePush, enablePush, needsHomeScreen, pushSchedule, pushSupported, sendTest } from '../sync/push';
@@ -51,11 +52,18 @@ export function Reminders() {
       <div className="space-y-3 protocol-card rounded-2xl border border-line bg-surface p-3">
         <p>{L.text}</p>
         <p className="text-sm text-muted">{L.privacy}</p>
+        <section aria-labelledby="reminder-limits" className="rounded-xl bg-bg p-3 text-sm">
+          <h2 id="reminder-limits" className="mb-1 font-medium">{L.limitsTitle}</h2>
+          <ul className="list-disc space-y-1 pl-5 text-muted">{L.limits.map((x) => <li key={x}>{x}</li>)}</ul>
+        </section>
         {activeProfileId !== 'main' ? <p className="text-sm text-muted">{t.profiles.pushPrimary}</p> : !meta || !keys ? <NeedsSync text={L.needsSync} />
           : !pushSupported() ? <p className="text-sm text-warn">{needsHomeScreen() ? L.homeScreen : L.unsupported}</p>
           : on ? (
             <>
               <p className="flex items-center gap-2 font-medium text-accent"><BellRing size={18} aria-hidden />{L.isOn}</p>
+              {(() => { const st = scheduleStatus(meta.scheduledAt, new Date()), f = (d: Date) => format(d, 'dd.MM HH:mm'); // D148
+                return <p className={`text-sm ${st.kind === 'ended' ? 'text-warn' : 'text-muted'}`}>{st.kind === 'none' ? L.scheduleNone
+                  : st.kind === 'until' ? L.scheduleUntil(f(st.sent), format(st.until, 'dd.MM')) : L.scheduleEnded(format(st.until, 'dd.MM'))}</p>; })()}
               <div className="flex flex-wrap gap-2">
                 <button type="button" disabled={busy} onClick={() => void run(() => sendTest(keys), L.testSent)}
                   className="min-h-tap rounded-xl border border-accent px-3 font-medium text-accent disabled:opacity-40">{L.test}</button>

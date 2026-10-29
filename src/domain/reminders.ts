@@ -38,10 +38,21 @@ const WATER_FROM = 9, WATER_TO = 21;
 const PACE_FROM = 8, GLASS_ML = 250; // D70
 const isMed = (p: Prescription) => p.kind === 'medication' || p.kind === 'supplement';
 
+/** D35: how far ahead daily reminders are sent. */
+export const SCHEDULE_DAYS = 30;
+
+/** D148: what the reminders screen may say about the schedule — only what the server confirmed, and until when it
+ *  lasts without the app being opened online again. */
+export function scheduleStatus(scheduledAt: number | undefined, now: Date): { kind: 'none' } | { kind: 'until' | 'ended'; sent: Date; until: Date } {
+  if (!scheduledAt) return { kind: 'none' };
+  const sent = new Date(scheduledAt), until = addDays(sent, SCHEDULE_DAYS);
+  return { kind: until.getTime() > now.getTime() ? 'until' : 'ended', sent, until };
+}
+
 export function reminders(args: { entries: DayEntry[]; plan: Plan | undefined; settings: ReminderSettings; now: Date;
   days?: number; snoozed?: Record<string, number>; topupAt?: string; policy?: ReminderPolicy }) {
   const { entries, plan, settings, now } = args;
-  const days = args.days ?? 30; // D35: daily ones a month ahead — they keep coming even if the app is not opened
+  const days = args.days ?? SCHEDULE_DAYS; // D35: daily ones a month ahead — they keep coming even if the app is not opened
   const snoozed = args.snoozed ?? {};
   const t0 = now.getTime();
   const from = t0 - (settings.repeatMin ? settings.repeatMin * 3 : 1) * 60_000; // still repeating

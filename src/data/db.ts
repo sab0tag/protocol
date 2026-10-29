@@ -48,6 +48,7 @@ export interface SyncMeta {
   snoozed?: Record<string, number>; // D35: «Пізніше» — reminder key → until (ms)
   reminderPolicyAck?: string; // D136: last server-acknowledged projection; never a claim about an offline change
   reminderPolicyState?: 'pending' | 'synced';
+  scheduledAt?: number; // D148: when the server last accepted this device's schedule (ms) — what the screen may claim
   codeCheckedAt?: number; // D40: «код записаний?» asked again a month later
 }
 
