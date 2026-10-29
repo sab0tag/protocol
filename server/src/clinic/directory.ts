@@ -1,17 +1,14 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import type { DatabaseSync } from 'node:sqlite';
 import { immediate } from '../db/tx.ts';
-import { can, isRole, type Action, type Role } from './roles.ts';
+import { isRole, type Role } from './roles.ts';
+import { ClinicError } from './errors.ts';
+import { ClinicPolicy, type LegacyActor, type PolicyAction, type Resource } from './policy.ts';
+export { ClinicError, type DirectoryError } from './errors.ts';
 import { projectLegacyMember } from './memberships.ts';
 
 /** The caller as the server knows it. `orgId` comes from the member record, never from the request. */
-export interface Actor { memberId: string; orgId: string; role: Role }
-
-export type DirectoryError = 'unauthenticated' | 'forbidden' | 'not_found' | 'last_admin' | 'bad_request';
-export class ClinicError extends Error {
-  readonly code: DirectoryError;
-  constructor(code: DirectoryError) { super(code); this.code = code; }
-}
+export type Actor = LegacyActor;
 
 export interface Member { id: string; displayName: string; role: Role; active: boolean }
 export interface AuditEntry { at: number; actor: string; action: string; target: string | null }
@@ -27,10 +24,12 @@ const newToken = () => randomBytes(32).toString('base64url');
 export class ClinicDirectory {
   private readonly db: DatabaseSync;
   private readonly now: () => number;
+  private readonly policy: ClinicPolicy;
 
   constructor(db: DatabaseSync, now: () => number = Date.now) {
     this.db = db;
     this.now = now;
+    this.policy = new ClinicPolicy(db);
     // tables: src/db/migrations (0001_baseline); constructors never change the schema
   }
 
@@ -60,19 +59,22 @@ export class ClinicDirectory {
     const r = this.db.prepare('SELECT id, org, role, active FROM clinic_members WHERE token_hash = ?').get(hash(token)) as
       { id: string; org: string; role: string; active: number } | undefined;
     if (!r || !r.active || !isRole(r.role)) return null;
-    return { memberId: r.id, orgId: r.org, role: r.role };
+    const actor = { memberId: r.id, orgId: r.org, role: r.role };
+    try { this.require(actor, 'clinic.profile.read'); } catch (e) {
+      if (e instanceof ClinicError) return null;
+      throw e;
+    }
+    return actor;
   }
 
-  /** Throws `forbidden` unless the actor's role allows the action. Use before touching any resource. */
-  require(actor: Actor, action: Action): void {
-    const live = this.db.prepare('SELECT role, active FROM clinic_members WHERE id = ? AND org = ?').get(actor.memberId, actor.orgId) as
-      { role: string; active: number } | undefined;
-    if (!live || !live.active) throw new ClinicError('unauthenticated');
-    if (!isRole(live.role) || !can(live.role, action)) throw new ClinicError('forbidden');
+  /** Every service operation re-resolves live authority; role on the Actor is never trusted. */
+  require(actor: Actor, action: PolicyAction, resource: Resource = { kind: 'organization', orgId: actor.orgId }): void {
+    this.policy.require({ kind: 'legacy', actor }, action, resource);
   }
 
   /** What the portal needs to compose a plan: the caller's own name and organization. */
   profile(actor: Actor): { memberId: string; role: Role; displayName: string; organizationId: string; organizationName: string } {
+    this.require(actor, 'clinic.profile.read');
     const r = this.db.prepare('SELECT m.name AS name, m.role AS role, m.active AS active, o.name AS org FROM clinic_members m JOIN clinic_orgs o ON o.id = m.org WHERE m.id = ? AND m.org = ?')
       .get(actor.memberId, actor.orgId) as { name: string; role: Role; active: number; org: string } | undefined;
     if (!r || !r.active) throw new ClinicError('unauthenticated');
@@ -85,6 +87,7 @@ export class ClinicDirectory {
     if (!name || name.length > 200 || !isRole(input.role)) throw new ClinicError('bad_request');
     const id = randomUUID(), token = newToken();
     immediate(this.db, () => {
+      this.require(actor, 'staff.manage');
       this.db.prepare('INSERT INTO clinic_members (id, org, name, role, token_hash, created) VALUES (?, ?, ?, ?, ?, ?)')
         .run(id, actor.orgId, name, input.role, hash(token), this.now());
       projectLegacyMember(this.db, id);
@@ -103,6 +106,7 @@ export class ClinicDirectory {
     this.require(actor, 'staff.manage');
     if (!isRole(role)) throw new ClinicError('bad_request');
     immediate(this.db, () => {
+      this.require(actor, 'staff.manage');
       const m = this.target(actor, memberId);
       if (m.role === 'admin' && role !== 'admin' && m.active) this.keepAnAdmin(actor.orgId, memberId);
       this.db.prepare('UPDATE clinic_members SET role = ? WHERE id = ? AND org = ?').run(role, memberId, actor.orgId);
@@ -114,6 +118,7 @@ export class ClinicDirectory {
   deactivate(actor: Actor, memberId: string): void {
     this.require(actor, 'staff.manage');
     immediate(this.db, () => {
+      this.require(actor, 'staff.manage');
       const m = this.target(actor, memberId);
       if (m.role === 'admin' && m.active) this.keepAnAdmin(actor.orgId, memberId);
       this.db.prepare('UPDATE clinic_members SET active = 0 WHERE id = ? AND org = ?').run(memberId, actor.orgId);
@@ -125,11 +130,14 @@ export class ClinicDirectory {
   /** Replaces a lost token: the old one stops working immediately. */
   rotateToken(actor: Actor, memberId: string): string {
     this.require(actor, 'staff.manage');
-    this.target(actor, memberId);
-    const token = newToken();
-    this.db.prepare('UPDATE clinic_members SET token_hash = ? WHERE id = ? AND org = ?').run(hash(token), memberId, actor.orgId);
-    this.audit(actor.orgId, actor.memberId, 'staff.token.rotate', memberId);
-    return token;
+    return immediate(this.db, () => {
+      this.require(actor, 'staff.manage');
+      this.target(actor, memberId);
+      const token = newToken();
+      this.db.prepare('UPDATE clinic_members SET token_hash = ? WHERE id = ? AND org = ?').run(hash(token), memberId, actor.orgId);
+      this.audit(actor.orgId, actor.memberId, 'staff.token.rotate', memberId);
+      return token;
+    });
   }
 
   auditLog(actor: Actor, limit = 100): AuditEntry[] {
@@ -151,11 +159,16 @@ export class ClinicDirectory {
     const m = this.db.prepare('SELECT role, active FROM clinic_members WHERE id = ? AND org = ?').get(memberId, actor.orgId) as
       { role: Role; active: number } | undefined;
     if (!m) throw new ClinicError('not_found');
+    this.require(actor, 'staff.manage', { kind: 'staff', orgId: actor.orgId });
     return { role: m.role, active: !!m.active };
   }
 
   private keepAnAdmin(orgId: string, leaving: string): void {
-    const others = this.db.prepare("SELECT COUNT(*) AS n FROM clinic_members WHERE org = ? AND role = 'admin' AND active = 1 AND id != ?").get(orgId, leaving) as { n: number };
+    const others = this.db.prepare(`SELECT COUNT(*) AS n FROM clinic_members l
+      JOIN organization_memberships m ON m.legacy_member_id = l.id AND m.organization_id = l.org
+      JOIN accounts a ON a.id = m.account_id
+      WHERE l.org = ? AND l.role = 'admin' AND l.active = 1 AND l.id != ?
+        AND m.status = 'active' AND a.status IN ('pending_link', 'active')`).get(orgId, leaving) as { n: number };
     if (others.n === 0) throw new ClinicError('last_admin');
   }
 

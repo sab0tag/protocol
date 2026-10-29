@@ -140,3 +140,35 @@ describe('clinic API', () => {
     expect(JSON.stringify(s)).not.toMatch(/План|code/);
   });
 });
+
+
+describe('live policy at HTTP boundary', () => {
+  for (const disabled of ['account', 'membership'] as const) it(`blocks every protected route after ${disabled} disable without changing data`, async () => {
+    const { call, a, store } = rig();
+    const d = (await call(a.token, 'POST', '/staff', { displayName: 'Doctor', role: 'doctor' })).json;
+    if (disabled === 'account') store.database.prepare("UPDATE accounts SET status = 'disabled' WHERE id = ?").run(a.adminId);
+    else store.database.prepare("UPDATE organization_memberships SET status = 'inactive' WHERE id = ?").run(a.adminId);
+    const before = store.database.prepare('SELECT * FROM clinic_audit').all();
+    for (const [method, path, body] of [
+      ['GET', '/me'], ['GET', '/staff'], ['GET', '/audit'], ['GET', '/stats'],
+      ['POST', '/staff', { displayName: 'Hidden', role: 'admin' }],
+      ['PUT', `/staff/${d.memberId}/role`, { role: 'admin' }],
+      ['DELETE', `/staff/${d.memberId}`], ['POST', `/staff/${d.memberId}/token`],
+      ['POST', '/plans', {}], ['GET', `/plans/${crypto.randomUUID()}`], ['DELETE', `/plans/${crypto.randomUUID()}`],
+    ] as const) {
+      const r = await call(a.token, method, path, body);
+      expect(r).toMatchObject({ status: 401, cache: 'no-store', json: { error: 'unauthorized' } });
+    }
+    expect(store.database.prepare('SELECT * FROM clinic_audit').all()).toEqual(before);
+    expect(store.database.prepare('SELECT role, active FROM clinic_members WHERE id = ?').get(d.memberId)).toEqual({ role: 'doctor', active: 1 });
+    store.close();
+  });
+  it('SQL-added membership roles never enable staff or statistics routes on a legacy doctor token', async () => {
+    const { call, a, store } = rig();
+    const d = (await call(a.token, 'POST', '/staff', { displayName: 'Doctor', role: 'doctor' })).json;
+    store.database.prepare('INSERT INTO organization_membership_roles VALUES (?, ?)').run(d.memberId, 'admin');
+    for (const path of ['/staff', '/audit', '/stats']) expect((await call(d.token, 'GET', path)).status).toBe(403);
+    expect((await call(d.token, 'GET', '/me')).json.role).toBe('doctor');
+    store.close();
+  });
+});
