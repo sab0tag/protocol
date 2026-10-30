@@ -1,5 +1,6 @@
 /** Durable conditional source-catalog sends. Not connected to the ordinary runner or vault opt-in. */
 import type { ProtocolDB } from '../data/db';
+import type { SourcePlanBackup } from '../data/planBackup';
 import { ApiError, conditionalVaultApi } from './api';
 import { deriveKeys, parseCode, type Keys } from './crypto';
 import { stable, type RemoteRecord } from './engine';
@@ -21,6 +22,18 @@ export type DeliveryResult =
   | { status: 'idle' }
   | { status: 'acknowledged'; seq: number; recovered: boolean }
   | { status: 'conflict'; seq: number; remote: RemoteRecord | null };
+export interface SourcePlanConflictReview {
+  pendingId: string;
+  expectedSeq: number;
+  remoteSeq: number;
+  remoteState: 'missing' | 'deleted' | 'catalog';
+  localChangedSincePreparation: boolean;
+  remoteMatchesPending: boolean;
+  acknowledged: SourcePlanBackup | null;
+  pending: SourcePlanBackup;
+  local: SourcePlanBackup;
+  remote: SourcePlanBackup | null;
+}
 const sequence = (v: number) => Number.isSafeInteger(v) && v >= 0;
 const stores = (db: ProtocolDB) => [db.meta, db.carePlans, db.carePlanItems, db.planMigrations];
 
@@ -69,11 +82,39 @@ async function remoteHead(api: ConditionalApi, key: string): Promise<{ remote: R
       last = row.seq;
       if (row.k === key) remote = { ...row };
     }
-    if (page.records.length ? page.seq !== last : page.more) throw new Error('source_plan_page_invalid');
+    if (page.records.length ? page.seq !== last : page.more || page.seq !== since) throw new Error('source_plan_page_invalid');
     if (!page.more) return { remote, seq: page.seq };
     since = page.seq;
   }
   throw new Error('source_plan_page_limit');
+}
+
+/** Read-only evidence for an explicit conflict review, not a merge or a retry permission.
+ * Missing/deleted remote data and an absent common baseline are distinct from an empty catalog.
+ * Every present encrypted version is authenticated and schema-checked before it can be shown. */
+export async function inspectSourcePlanConflict(db: ProtocolDB, keys: Keys, api: ConditionalApi = conditionalVaultApi(keys)): Promise<SourcePlanConflictReview> {
+  const meta = await binding(db, keys), delivery = meta.sourcePlanDelivery, pending = delivery?.pending;
+  if (!pending || typeof pending.id !== 'string' || !pending.id || !sequence(pending.expectedSeq)) throw new Error('source_plan_delivery_invalid');
+  if (delivery.acknowledged && delivery.acknowledged.seq > pending.expectedSeq) throw new Error('source_plan_delivery_invalid');
+  const prepared = await decryptSourcePlanCatalog(keys, pending.record);
+  const acknowledged = delivery.acknowledged ? await decryptSourcePlanCatalog(keys, delivery.acknowledged.record) : null;
+  const head = await remoteHead(api, pending.record.k);
+  if (head.seq < pending.expectedSeq) throw new Error('source_plan_remote_rollback');
+  const remote = head.remote?.v !== undefined && head.remote.v !== null
+    ? await decryptSourcePlanCatalog(keys, { k: head.remote.k, v: head.remote.v }) : null;
+  const local = await db.transaction('r', stores(db), async () => {
+    const current = await db.meta.get('sync');
+    if (current?.code !== meta.code) throw new Error('source_plan_vault_mismatch');
+    if (stable(current.sourcePlanDelivery) !== stable(delivery)) throw new Error('source_plan_delivery_changed');
+    return captureSourcePlanCatalog(db);
+  });
+  return {
+    pendingId: pending.id, expectedSeq: pending.expectedSeq, remoteSeq: head.seq,
+    remoteState: !head.remote ? 'missing' : head.remote.v === null ? 'deleted' : 'catalog',
+    localChangedSincePreparation: stable(local) !== stable(prepared),
+    remoteMatchesPending: !!head.remote && head.remote.v === pending.record.v && head.remote.seq > pending.expectedSeq,
+    acknowledged, pending: prepared, local, remote,
+  };
 }
 
 /** Resume the exact saved ciphertext/condition after reopening. Network/server failures preserve it.

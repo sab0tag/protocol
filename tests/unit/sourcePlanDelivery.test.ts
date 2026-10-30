@@ -7,7 +7,7 @@ import { exportAll } from '../../src/data/backup';
 import { ApiError } from '../../src/sync/api';
 import { deriveKeys, newCode, parseCode } from '../../src/sync/crypto';
 import { captureSourcePlanCatalog, encryptSourcePlanCatalog } from '../../src/sync/sourcePlans';
-import { deliverSourcePlanSend, prepareSourcePlanSend } from '../../src/sync/sourcePlanDelivery';
+import { deliverSourcePlanSend, inspectSourcePlanConflict, prepareSourcePlanSend } from '../../src/sync/sourcePlanDelivery';
 import type { RemoteRecord } from '../../src/sync/engine';
 
 const databases: ProtocolDB[] = [];
@@ -122,7 +122,7 @@ describe('durable source-plan send preparation (runner stays disabled)', () => {
     remote.api.push.mockRejectedValue(new ApiError(409, 'record_conflict'));
     for (const page of [
       { records: [], more: true, seq: 0 }, { records: [{ ...pending.record, seq: 1 }], more: false, seq: 2 },
-      { records: [{ ...pending.record, seq: 0 }], more: false, seq: 0 }, { records: [], more: false, seq: -1 },
+      { records: [{ ...pending.record, seq: 0 }], more: false, seq: 0 }, { records: [], more: false, seq: -1 }, { records: [], more: false, seq: 6 },
     ]) {
       remote.api.pull.mockResolvedValueOnce(page);
       await expect(deliverSourcePlanSend(db, keys, remote.api)).rejects.toThrow('source_plan_page_invalid');
@@ -185,5 +185,75 @@ describe('durable source-plan send preparation (runner stays disabled)', () => {
     db.meta.hook('updating').unsubscribe(fail);
     expect((await db.meta.get('sync'))!.sourcePlanDelivery!.pending).toEqual(pending);
     expect(await deliverSourcePlanSend(db, keys, remote.api)).toEqual({ status: 'acknowledged', seq: 1, recovered: true });
+  });
+});
+
+describe('read-only source-plan conflict review', () => {
+  it('keeps the agreed baseline, prepared send, later local edit and remote winner separate without writes', async () => {
+    const { db, keys } = await device(), remote = server(), agreed = await captureSourcePlanCatalog(db);
+    await prepareSourcePlanSend(db, keys, 0); await deliverSourcePlanSend(db, keys, remote.api);
+    const id = agreed.plans[0]!.id;
+    await db.carePlans.update(id, { title: 'Synthetic prepared version' });
+    const prepared = await captureSourcePlanCatalog(db), pending = await prepareSourcePlanSend(db, keys, 1);
+    await db.carePlans.update(id, { title: 'Synthetic later local version' });
+    const local = await captureSourcePlanCatalog(db), winner = structuredClone(agreed);
+    winner.plans[0]!.title = 'Synthetic remote winner';
+    await remote.api.push([await encryptSourcePlanCatalog(keys, winner)], 1);
+    const before = await db.meta.get('sync'), calls = remote.api.push.mock.calls.length;
+    const review = await inspectSourcePlanConflict(db, keys, remote.api);
+    expect(review).toEqual({ pendingId: pending.id, expectedSeq: 1, remoteSeq: 2, remoteState: 'catalog',
+      localChangedSincePreparation: true, remoteMatchesPending: false, acknowledged: agreed, pending: prepared, local, remote: winner });
+    expect(remote.api.push).toHaveBeenCalledTimes(calls);
+    expect(await db.meta.get('sync')).toEqual(before); expect(await captureSourcePlanCatalog(db)).toEqual(local);
+    review.local.plans[0]!.title = 'Modified returned data';
+    expect(await captureSourcePlanCatalog(db)).toEqual(local);
+  });
+
+  it('distinguishes missing, tombstoned and genuinely empty remote catalogs; never invents a common baseline', async () => {
+    for (const state of ['missing', 'deleted', 'catalog'] as const) {
+      const { db, keys } = await device(), remote = server(), pending = await prepareSourcePlanSend(db, keys, 0);
+      if (state === 'deleted') await remote.api.push([{ k: pending.record.k, v: null }], 0);
+      if (state === 'catalog') await remote.api.push([await encryptSourcePlanCatalog(keys, { v: 1, plans: [], items: [], migrations: [] })], 0);
+      const before = await db.meta.get('sync'), review = await inspectSourcePlanConflict(db, keys, remote.api);
+      expect(review.remoteState).toBe(state); expect(review.acknowledged).toBeNull();
+      expect(review.remote).toEqual(state === 'catalog' ? { v: 1, plans: [], items: [], migrations: [] } : null);
+      expect(review.pending.plans.length).toBeGreaterThan(0); expect(review.remoteMatchesPending).toBe(false);
+      expect(await db.meta.get('sync')).toEqual(before);
+    }
+  });
+
+  it('recognizes exact committed pending ciphertext for review without clearing it or applying it', async () => {
+    const { db, keys } = await device(), remote = server(), pending = await prepareSourcePlanSend(db, keys, 0);
+    await remote.api.push([pending.record], 0); const before = await db.meta.get('sync');
+    const review = await inspectSourcePlanConflict(db, keys, remote.api);
+    expect(review.remoteMatchesPending).toBe(true); expect(review.localChangedSincePreparation).toBe(false);
+    expect(review.remote).toEqual(review.pending); expect(await db.meta.get('sync')).toEqual(before);
+  });
+
+  it('rejects foreign or malformed encrypted remote and baseline versions without changing the draft', async () => {
+    const { db, keys } = await device(), remote = server(), pending = await prepareSourcePlanSend(db, keys, 0);
+    const other = await device(), foreign = await encryptSourcePlanCatalog(other.keys, await captureSourcePlanCatalog(other.db));
+    await remote.api.push([{ k: pending.record.k, v: foreign.v }], 0);
+    const before = await db.meta.get('sync'), local = await captureSourcePlanCatalog(db);
+    await expect(inspectSourcePlanConflict(db, keys, remote.api)).rejects.toThrow();
+    expect(await db.meta.get('sync')).toEqual(before); expect(await captureSourcePlanCatalog(db)).toEqual(local);
+    await db.meta.update('sync', { sourcePlanDelivery: { ...before!.sourcePlanDelivery!, acknowledged: { record: foreign, seq: 0 } } });
+    const pulls = remote.api.pull.mock.calls.length;
+    await expect(inspectSourcePlanConflict(db, keys, remote.api)).rejects.toThrow('source_plan_record_mismatch');
+    expect(remote.api.pull).toHaveBeenCalledTimes(pulls);
+  });
+
+  it('rejects a stale review if another caller acknowledges during the remote read or the profile is re-paired', async () => {
+    for (const change of ['acknowledge', 'repair']) {
+      const { db, keys } = await device(), remote = server(); await prepareSourcePlanSend(db, keys, 0);
+      const pull = remote.api.pull.getMockImplementation()!;
+      remote.api.pull.mockImplementationOnce(async since => {
+        if (change === 'acknowledge') await deliverSourcePlanSend(db, keys, remote.api);
+        else await db.meta.put({ key: 'sync', code: newCode(), seq: 0 });
+        return pull(since);
+      });
+      await expect(inspectSourcePlanConflict(db, keys, remote.api)).rejects.toThrow(
+        change === 'acknowledge' ? 'source_plan_delivery_changed' : 'source_plan_vault_mismatch');
+    }
   });
 });
