@@ -58,9 +58,18 @@ for (const width of [320, 390]) test(`real clinic issue → QR screen → patien
       issuer: { memberId: staff.memberId, displayName: actualName }, source: { clinician: { displayName: 'Заявлений лікар' } } } } });
     expect(local.items[0]).toMatchObject({ provenance: { verification: 'pending' } });
     expect(local.entries).toBe(0);
+    // A new patient must finish onboarding before the protected plan route is accessible.
     await patient.getByRole('link', { name: 'Перейти до плану' }).click();
-    await expect(patient).toHaveURL(/#\/plan$/);
-    await expect(patient.getByRole('heading').first()).toBeVisible();
+    await expect(patient).toHaveURL(/#\/welcome$/);
+    await expect(patient.getByRole('heading', { name: 'План лікаря — щоденні дії' })).toBeVisible();
+    await patient.getByRole('button', { name: /Пропустити/ }).click();
+    await expect(patient).not.toHaveURL(/#\/welcome$/);
+    await patient.goto('./#/plan');
+    await expect(patient.getByRole('heading', { name: 'План лікаря', exact: true })).toBeVisible();
+    const drafts = patient.getByRole('region', { name: 'Чернетки від клінік' });
+    await expect(drafts).toContainText('Синтетичний план для передачі');
+    await expect(drafts).toContainText('Синтетичний препарат');
+    await expect(drafts).toContainText('потребує перевірки');
     await doctor.getByRole('button', { name: 'Оновити статус', exact: true }).click();
     await expect(doctor.getByRole('status').filter({ hasText: 'Статус: отримано' })).toBeVisible();
   } finally { await doctorContext.close().catch(() => undefined); await patientContext.close().catch(() => undefined); }
