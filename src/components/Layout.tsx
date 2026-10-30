@@ -22,7 +22,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const artwork = sceneArtworkForPath(pathname);
   const foodActive = ['/food', '/meal', '/dishes'].some(p => pathname === p || pathname.startsWith(p + '/'));
   return (
-    <div className="min-h-dvh md:flex">
+    <div className="min-h-dvh min-w-0 md:flex">
       <nav aria-label="Розділи"
         className="protocol-bottom-nav fixed inset-x-0 bottom-0 z-20 border-t border-line bg-surface pb-safe print:hidden md:static md:inset-auto md:w-20 md:shrink-0 md:border-r md:border-t-0 md:pt-safe">
         <ul className="flex gap-1 px-1 py-1.5 md:sticky md:top-0 md:flex-col md:gap-3 md:px-2 md:py-4">
@@ -40,7 +40,7 @@ export function Layout({ children }: { children: ReactNode }) {
         </ul>
       </nav>
       <Toaster />
-      <main data-scene={artwork ?? 'day'} className="mx-auto w-full max-w-2xl px-4 pb-28 pt-safe md:pb-10 print:max-w-none print:pb-0">
+      <main data-scene={artwork ?? 'day'} className="mx-auto min-w-0 w-full max-w-2xl px-4 pb-28 pt-safe md:pb-10 lg:max-w-4xl lg:px-6 xl:max-w-5xl print:max-w-none print:pb-0">
         {children}</main>
     </div>
   );
