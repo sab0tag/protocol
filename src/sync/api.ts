@@ -7,7 +7,7 @@ import type { Keys } from './crypto';
 import type { Api, RemoteRecord } from './engine';
 import type { ReminderPolicy } from '../../server/src/reminderPolicy';
 
-export const API_URL: string = import.meta.env.VITE_API_URL ?? 'https://api.beyondthesignal.to';
+export const API_URL: string = import.meta.env?.VITE_API_URL ?? 'https://api.beyondthesignal.to';
 
 export class ApiError extends Error {
   /** `data` — the rest of the error's body (D123: how many dishes are left today) */

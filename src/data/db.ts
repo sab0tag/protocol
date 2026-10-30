@@ -1,5 +1,6 @@
 // IndexedDB through Dexie (SPEC.md §4). Everything stays on the device.
 import type { ReviewDraft } from './reviewDraft';
+import type { SourcePlanDelivery } from '../sync/sourcePlanDelivery';
 import type { CarePlan, CarePlanItem } from '../domain/carePlans';
 import type { PlanMigration } from './carePlans';
 import { activeProfileId, profileDatabase } from './profiles';
@@ -34,6 +35,7 @@ export interface SyncMeta {
   key: 'sync';
   code: string;
   seq: number; // the last server change pulled
+  sourcePlanDelivery?: SourcePlanDelivery; // R5 preparation only: local encrypted outbox; never the legacy pull cursor.
   lastAt?: number;
   photoConsent?: boolean;
   menuConsent?: boolean; // D33
