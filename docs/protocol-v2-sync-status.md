@@ -27,3 +27,8 @@ No merge to main or production update is authorized by this checkpoint. Product 
 - PR #132 — branch `feat/source-plan-capability-gate`, base #131: distinct authenticated conditional-write discovery and guarded opt-in, including a deployment downgrade between discovery and upgrade. Legacy startup and all real vaults remain unchanged.
 - Local validation: 356 server tests/typecheck, 703 client tests/typecheck/build, both real-API transport scenarios and the complete routed-screen matrix at 320/390/768/1024 px in light/dark pass. Phone/desktop Plan screenshots were visually inspected. The exact-head preview is READY and HTML/module return 200. Full CI is tracked in PR #132.
 - Details: `protocol-v2-capability-gate.md`. This does not complete the remaining migration/rollout gates above; previews are static frontend verification, not production backend deployment.
+
+## Read-only conflict evidence
+
+- Branch `feat/source-plan-conflict-review`, base #132: authenticated, detached acknowledged/pending/current-local/remote catalogs for later explicit comparison, with missing/deleted/empty distinctions. No automatic merge, acknowledgement or replacement.
+- Local validation: 708 client tests/typecheck/build and both real-API transport scenarios pass. Five new review cases cover version separation, absent baselines, malformed data and reviews invalidated by concurrent acknowledgement/re-pairing. Full CI and exact-head preview verification are tracked in its PR. Details: `protocol-v2-conflict-review.md`.

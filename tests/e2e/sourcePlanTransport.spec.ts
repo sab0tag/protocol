@@ -68,7 +68,7 @@ test('protocol-2 opaque catalog crosses the real vault API; protocol-1 requests 
 // This exercises persistence/recovery, not a browser conflict UI or a rollout.
 test('durable source send survives lost HTTP response, reopen and a competing device', async ({ request }) => {
   const { ApiError } = await import('../../src/sync/api');
-  const { prepareSourcePlanSend, deliverSourcePlanSend } = await import('../../src/sync/sourcePlanDelivery');
+  const { prepareSourcePlanSend, deliverSourcePlanSend, inspectSourcePlanConflict } = await import('../../src/sync/sourcePlanDelivery');
   const code = newCode(), keys = await deriveKeys(parseCode(code)!);
   const headers = { Authorization: `Bearer ${keys.auth}` }, root = `http://localhost:8099/v1/vaults/${keys.vaultId}`;
   let a = new ProtocolDB(profileDatabase(crypto.randomUUID()));
@@ -128,5 +128,10 @@ test('durable source send survives lost HTTP response, reopen and a competing de
     expect(final.find(r => r.k === first.record.k)!.v).toBe(winningRecord.v);
     expect(await captureSourcePlanCatalog(a)).toEqual(localA);
     expect(await captureSourcePlanCatalog(b)).toEqual(localB);
+    const beforeReview = await loser.meta.get('sync'), review = await inspectSourcePlanConflict(loser, keys, api);
+    expect(review.remoteState).toBe('catalog'); expect(review.remoteMatchesPending).toBe(false);
+    expect(review.local).toEqual(loser === a ? localA : localB);
+    expect(review.pending).toEqual(review.local); expect(review.remote).toEqual(loser === a ? localB : localA);
+    expect(await loser.meta.get('sync')).toEqual(beforeReview);
   } finally { await a.delete(); await b.delete(); }
 });
