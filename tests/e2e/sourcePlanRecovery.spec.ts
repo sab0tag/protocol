@@ -94,7 +94,6 @@ test('the real conflict screen preserves versions across refresh, stop and resum
   await page.getByRole('button', { name: t.sync.off, exact: true }).click();
   await page.getByRole('button', { name: t.sync.offYes, exact: true }).click();
   await expect(peer.getByText(t.sync.status.off, { exact: true })).toBeVisible();
-  await peer.close();
   await expect(page.getByRole('button', { name: t.sync.resume, exact: true })).toBeVisible();
   expect((await local(page)).meta.sourcePlanDelivery.pending).toEqual(f.pending);
   const stopped = posts.length; await page.reload();
@@ -102,6 +101,8 @@ test('the real conflict screen preserves versions across refresh, stop and resum
   expect(posts).toHaveLength(stopped);
   await page.getByRole('button', { name: t.sync.resume, exact: true }).click();
   await expect(section.getByText(t.sync.source.conflict, { exact: true })).toBeVisible();
+  await expect(peer.getByText(t.sync.source.conflict, { exact: true })).toBeVisible();
+  await peer.close();
   expect((await local(page)).plans).toEqual(before.plans); expect((await local(page)).meta.seq).toBe(77);
   expect(posts.every(p => p.url.endsWith('/records/conditional') && p.body.expectedSeq === 0)).toBe(true);
   await page.context().close();

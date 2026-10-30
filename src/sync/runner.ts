@@ -84,6 +84,7 @@ function wire() {
   Dexie.on('storagemutated', (parts) => {
     const policyChanged = Object.keys(parts).some((part) => part.startsWith(`idb://${db.name}/moduleEvents/`));
     if (policyChanged) refreshPushNotifications();
+    if (!keys) { void startSync(); return; } // A shared profile may have been explicitly resumed in another tab.
     if (running) again = true; else requestSync(policyChanged ? 0 : 3000);
   });
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') requestSync(); });
