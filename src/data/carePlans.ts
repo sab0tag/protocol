@@ -1,7 +1,7 @@
 /** R5 storage preparation. Not called by app startup/UI until sync/backup compatibility is implemented. */
 import type { ProtocolDB } from './db';
 import { profileDatabase } from './profiles';
-import { expandLegacyPlan, plansForPerson, type CarePlan, type CarePlanItem, type LegacyPlanExpansion, type PlanCatalog } from '../domain/carePlans';
+import { assertPlanCatalog, expandLegacyPlan, plansForPerson, type CarePlan, type CarePlanItem, type LegacyPlanExpansion, type PlanCatalog } from '../domain/carePlans';
 import { stable } from '../sync/engine';
 
 export interface PlanMigration {
@@ -55,6 +55,9 @@ export async function readPreparedPlans(target: ProtocolDB, personId: string): P
 export async function saveClinicImport(target: ProtocolDB, personId: string, draft: { plan: CarePlan; items: CarePlanItem[] }): Promise<'saved' | 'already_imported'> {
   owner(target, personId);
   if (draft.plan.personId !== personId || draft.items.some(i => i.personId !== personId)) throw new Error('plan_database_owner_mismatch');
+  assertPlanCatalog({ plans: [draft.plan], items: draft.items });
+  if (draft.plan.source.kind !== 'clinic' || draft.plan.status !== 'draft' || !draft.items.length ||
+    draft.items.some(item => item.provenance.verification !== 'pending')) throw new Error('clinic_import_must_be_pending_draft');
   return target.transaction('rw', target.carePlans, target.carePlanItems, async () => {
     if (await target.carePlans.get(draft.plan.id)) return 'already_imported';
     await target.carePlans.add(draft.plan);

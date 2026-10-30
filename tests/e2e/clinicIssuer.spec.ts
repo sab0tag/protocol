@@ -70,6 +70,18 @@ for (const width of [320, 390]) test(`real clinic issue → QR screen → patien
     await expect(drafts).toContainText('Синтетичний план для передачі');
     await expect(drafts).toContainText('Синтетичний препарат');
     await expect(drafts).toContainText('потребує перевірки');
+    await drafts.getByText('Переглянути повний текст призначення', { exact: true }).click();
+    await expect(drafts.getByText('Синтетичний препарат: 1 одиниця · 1 раз на день · 7 днів · перевірити з лікарем', { exact: true })).toBeVisible();
+    await expect(drafts.getByText(`Джерело: ${actualName}, Синтетична клініка`, { exact: true })).toBeVisible();
+    expect(await patient.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    const afterReview = await patient.evaluate(async () => {
+      const open = indexedDB.open('protocol'); await new Promise<void>(resolve => { open.onsuccess = () => resolve(); });
+      const tx = open.result.transaction(['carePlans', 'carePlanItems', 'entries']);
+      const read = <T>(r: IDBRequest<T>) => new Promise<T>(resolve => { r.onsuccess = () => resolve(r.result); });
+      const [plans, items, entries] = await Promise.all([read(tx.objectStore('carePlans').getAll()), read(tx.objectStore('carePlanItems').getAll()), read(tx.objectStore('entries').count())]);
+      open.result.close(); return { plans, items, entries };
+    });
+    expect(afterReview).toEqual(local);
     await doctor.getByRole('button', { name: 'Оновити статус', exact: true }).click();
     await expect(doctor.getByRole('status').filter({ hasText: 'Статус: отримано' })).toBeVisible();
   } finally { await doctorContext.close().catch(() => undefined); await patientContext.close().catch(() => undefined); }
