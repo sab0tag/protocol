@@ -47,7 +47,7 @@ export function Nutrition() {
       <Link to="/dishes" className="flex min-h-tap items-center justify-center rounded-xl border border-line px-2 text-center text-sm">{t.dishes.title}</Link>
       <Link to="/assistant" className="flex min-h-tap items-center justify-center rounded-xl border border-line px-2 text-center text-sm">{L.ask}</Link>
     </div>
-    <section className="protocol-card space-y-3" aria-labelledby="nutrition-progress">
+    <div className="fold-nutrition-grid"><section className="protocol-card space-y-3" aria-labelledby="nutrition-progress">
       <div className="flex flex-wrap items-baseline justify-between gap-2"><h2 id="nutrition-progress" className="text-lg font-semibold">{L.progress}</h2><Link to="/plan/goals" className="inline-flex min-h-tap items-center text-sm text-accent">{L.goals}</Link></div>
       <p className="text-sm text-muted">{done.length ? L.partial : L.noRecorded}</p>
       {incomplete && <p className="text-sm text-warn">{L.incomplete}</p>}
@@ -77,7 +77,7 @@ export function Nutrition() {
         <details className="mt-2"><summary className="min-h-tap cursor-pointer py-2 text-sm text-accent">{L.details}</summary><EntryPreview entry={entry} foods={foods} /><Link to={`/meal/${encodeURIComponent(entry.id)}`} className="inline-flex min-h-tap items-center text-accent underline">{L.edit}</Link></details>
       </li>)}</ul>}
     </section>
-    <section className="protocol-card space-y-2" aria-labelledby="nutrition-restrictions">
+    </div><section className="protocol-card space-y-2" aria-labelledby="nutrition-restrictions">
       <div className="flex flex-wrap items-baseline justify-between gap-2"><h2 id="nutrition-restrictions" className="text-lg font-semibold">{L.restrictions}</h2><Link to="/plan/constraints" className="inline-flex min-h-tap items-center text-sm text-accent">{L.openPlan}</Link></div>
       {active.length ? <ul className="space-y-2">{active.map(c => <li key={c.id}><p className="font-medium">{c.title}</p>{c.reason && <p className="text-sm text-muted">{c.reason}</p>}</li>)}</ul> : <p className="text-sm text-muted">{L.noRestrictions}</p>}
       <p className="text-xs leading-relaxed text-muted">{t.meal.planLimit}</p>

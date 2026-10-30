@@ -230,3 +230,10 @@ main :where(details[open] > summary)::after { transform: rotate(180deg); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme]) { --food-allergen: 255 155 145; } }
 .food-plan-check[data-plan-status="allergen"] { border-color: rgb(var(--food-allergen) / .55); background: rgb(var(--food-allergen) / .07); }
 .food-plan-check[data-plan-status="allergen"] > p.font-medium { color: rgb(var(--food-allergen)); }
+
+/* Foldable workspace: retain single-column reading when folded; split independent food panels when unfolded. */
+.fold-nutrition-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1rem; }
+.fold-nutrition-grid > * { min-width: 0; }
+@media (min-width: 1024px) {
+  .fold-nutrition-grid { grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); align-items: start; }
+}
