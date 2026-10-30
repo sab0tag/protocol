@@ -28,6 +28,38 @@ async function ready() {
   s.store.putSub(VAULT, DEVICE, '{}', T0); return s;
 }
 describe('opt-in per-vault write protocol', () => {
+  it('discovers conditional support without changing the write floor, records or reminder queue', async () => {
+    const { store, call } = await ready();
+    await call('POST', '/records', { records: [record] }); await call('PUT', path, schedule());
+    const before = { records: store.since(VAULT, 0, 20), queue: store.all('SELECT * FROM reminders'), bytes: store.bytes(VAULT), seq: store.latest(VAULT) };
+    const response = await call('GET', '/records/conditional/capabilities');
+    expect(response.status).toBe(200); expect(response.headers.get('Cache-Control')).toBe('no-store');
+    expect(await response.json()).toEqual({ v: 1, protocol: 2, condition: 'vault-seq', minimum: 1 });
+    expect(store.minimumWriteProtocol(VAULT)).toBe(1);
+    expect({ records: store.since(VAULT, 0, 20), queue: store.all('SELECT * FROM reminders'), bytes: store.bytes(VAULT), seq: store.latest(VAULT) }).toEqual(before);
+    expect((await call('GET', '/records/conditional/capabilities', undefined, VAULT, 'x'.repeat(43))).status).toBe(401);
+    expect((await call('GET', '/records/conditional/capabilities', undefined, 'c'.repeat(32))).status).toBe(404);
+  });
+  it('uses a distinct guarded opt-in route, rejects malformed/auth claims and keeps another vault legacy-compatible', async () => {
+    const { store, call } = await ready(), suffix = '/write-protocol/conditional-records';
+    await call('PUT', path, schedule()); const queue = store.all('SELECT * FROM reminders');
+    for (const body of [null, { minimum: 2, protocol: 2 }, { minimum: 2, protocol: 2, condition: 'none' },
+      { minimum: 1, protocol: 2, condition: 'vault-seq' }, { minimum: 2, protocol: '2', condition: 'vault-seq' }]) {
+      expect((await call('PUT', suffix, body)).status).toBe(400);
+      expect(store.minimumWriteProtocol(VAULT)).toBe(1); expect(store.all('SELECT * FROM reminders')).toEqual(queue);
+    }
+    const claim = { minimum: 2, protocol: 2, condition: 'vault-seq' };
+    expect((await call('PUT', suffix, claim, VAULT, 'x'.repeat(43))).status).toBe(401);
+    expect((await call('PUT', suffix, claim, 'c'.repeat(32))).status).toBe(404);
+    expect(await (await call('PUT', suffix, claim)).json()).toEqual(claim);
+    expect(store.minimumWriteProtocol(VAULT)).toBe(2); expect(store.all('SELECT * FROM reminders')).toEqual([]);
+    expect(await (await call('GET', '/records/conditional/capabilities')).json()).toEqual({ v: 1, protocol: 2, condition: 'vault-seq', minimum: 2 });
+    expect((await call('POST', '/records/conditional', { protocol: 2, expectedSeq: 0, records: [record] })).status).toBe(200);
+    expect((await call('POST', '/records', { records: [record] })).status).toBe(409);
+    expect((await call('POST', '/records', { records: [record] }, OTHER)).status).toBe(200);
+    await call('PUT', path, schedule(2)); const fresh = store.all('SELECT * FROM reminders');
+    expect((await call('PUT', suffix, claim)).status).toBe(200); expect(store.all('SELECT * FROM reminders')).toEqual(fresh);
+  });
   it('keeps old clients working by default and authenticates capability discovery', async () => {
     const { store, call } = await ready();
     expect(store.minimumWriteProtocol(VAULT)).toBe(1);
