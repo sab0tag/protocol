@@ -45,7 +45,7 @@ export function conditionalVaultApi(keys: Keys) {
   return {
     pull: (since: number) => call<{ records: RemoteRecord[]; more: boolean; seq: number }>(keys, 'GET', `/records?since=${since}&protocol=2`),
     push: (records: { k: string; v: string | null }[], expectedSeq: number) =>
-      call<{ seq: number }>(keys, 'POST', '/records', { records, expectedSeq, protocol: 2 }),
+      call<{ seq: number }>(keys, 'POST', '/records/conditional', { records, expectedSeq, protocol: 2 }),
   };
 }
 

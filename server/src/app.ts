@@ -658,10 +658,11 @@ export function createApp(deps: Deps) {
     }
   });
 
-  app.post('/v1/vaults/:id/records', bodyLimit({ maxSize: 4_000_000, onError: (c) => c.json({ error: 'too_large' }, 413) }), async (c) => {
+  const writeRecords = async (c: Context) => {
     const id = authed(c);
     if (typeof id !== 'string') return id;
     const body = await c.req.json().catch(() => null) as { records?: unknown; protocol?: unknown; expectedSeq?: unknown } | null;
+    if (c.req.path.endsWith('/records/conditional') && body?.protocol !== 2) return c.json({ error: 'bad_request' }, 400);
     const denied = compatible(c, id, body?.protocol); if (denied) return denied;
     const records = body?.records;
     if (!Array.isArray(records) || records.length === 0 || records.length > 500) return c.json({ error: 'bad_request' }, 400);
@@ -690,7 +691,11 @@ export function createApp(deps: Deps) {
       if (e instanceof DatabaseBusy) { c.header('Retry-After', '1'); return c.json({ error: 'database_busy' }, 503); }
       throw e;
     }
-  });
+  };
+  const RECORD_BODY = bodyLimit({ maxSize: 4_000_000, onError: (c) => c.json({ error: 'too_large' }, 413) });
+  app.post('/v1/vaults/:id/records', RECORD_BODY, writeRecords);
+  // Distinct route: old servers cannot silently ignore a condition on an otherwise valid legacy POST.
+  app.post('/v1/vaults/:id/records/conditional', RECORD_BODY, writeRecords);
 
   app.post('/v1/vaults/:id/photo', bodyLimit({ maxSize: 3_500_000, onError: (c) => c.json({ error: 'too_large' }, 413) }), async (c) => {
     const id = authed(c);

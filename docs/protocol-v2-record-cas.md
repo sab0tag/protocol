@@ -14,7 +14,7 @@ A pull's rows, protocol-floor check and cursor are read in one WAL snapshot. An 
 
 ## Client boundary and remaining work
 
-`conditionalVaultApi` sends protocol 2 plus the caller's explicit expected revision. It does not opt in a vault, retry conflicts as blind writes, guess a fresh revision or replace the existing API. The normalized runner is still unconnected.
+`conditionalVaultApi` sends protocol 2 plus the caller's explicit expected revision to the distinct `/records/conditional` endpoint. Old servers return 404 for this new route instead of silently ignoring a condition on the legacy POST. The conditional endpoint requires protocol 2; the generic record endpoint also enforces the condition for every protocol-2 write. It does not opt in a vault, retry conflicts as blind writes, guess a fresh revision or replace the existing API. The normalized runner is still unconnected.
 
 A conflict is not an automatic retry with the returned revision: pull a complete snapshot, decrypt and reconcile it with the preserved local draft before an explicit retry. A lost successful response also yields a conflict on exact replay; acknowledgement recovery must compare the saved pending ciphertext with the remote record before concluding whether it committed. Remote conflict UX, interrupted migration, first-sync/deletion safeguards, history rollback/replay protection and coordinated legacy/source ordering remain required before rollout. This change is not a claim of backup-restore invalidation or complete multi-device synchronization.
 

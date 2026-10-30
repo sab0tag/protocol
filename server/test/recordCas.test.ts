@@ -24,6 +24,18 @@ async function setup(path = ':memory:', vaultBytes = DEFAULT_LIMITS.vaultBytes) 
 }
 
 describe('protocol-2 conditional record writes', () => {
+  it('exposes a distinct conditional route that never accepts a legacy blind write', async () => {
+    const s = await setup();
+    expect((await s.call('POST', '/records/conditional', { records: [row()] })).status).toBe(400);
+    expect((await s.call('POST', '/records/conditional', { protocol: 1, records: [row()] })).status).toBe(400);
+    expect((await s.call('POST', '/records/conditional', { protocol: 2, expectedSeq: 0, records: [row()] })).status).toBe(409);
+    await s.opt();
+    expect((await s.call('POST', '/records/conditional', { protocol: 2, expectedSeq: 0, records: [row()] })).status).toBe(200);
+    const before = s.state();
+    expect((await s.call('POST', '/records/conditional', { protocol: 2, expectedSeq: 0, records: [row()] })).status).toBe(409);
+    expect((await s.call('POST', '/records/conditional', { protocol: 2, expectedSeq: before.latest, records: [row()] }, VAULT, 'x'.repeat(43))).status).toBe(401);
+    expect(s.state()).toEqual(before);
+  });
   it('requires explicit opt-in and an expected safe sequence, leaving default legacy writes available', async () => {
     const s = await setup();
     expect((await s.write(0)).status).toBe(409);
