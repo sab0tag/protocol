@@ -32,3 +32,11 @@ No merge to main or production update is authorized by this checkpoint. Product 
 
 - Branch `feat/source-plan-conflict-review`, base #132: authenticated, detached acknowledged/pending/current-local/remote catalogs for later explicit comparison, with missing/deleted/empty distinctions. No automatic merge, acknowledgement or replacement.
 - Local validation: 708 client tests/typecheck/build and both real-API transport scenarios pass. Five new review cases cover version separation, absent baselines, malformed data and reviews invalidated by concurrent acknowledgement/re-pairing. Full CI and exact-head preview verification are tracked in its PR. Details: `protocol-v2-conflict-review.md`.
+
+## Runtime recovery connection
+
+- PR #134 — branch `feat/source-plan-recovery-runtime`, base PR #133: startup/manual recovery of an existing encrypted send, authenticated capability check before HTTP, visible read-only version comparison, durable pause/resume and an atomic file-restore barrier. Source contexts never fall through to protocol-1 journal/policy/schedule work.
+- No new real-vault opt-in, source-send initialization, main merge or backend deployment. Full normalized migration, explicit conflict resolution and server restore epochs remain required.
+- Local verification: 711 client tests/typecheck/build, source recovery/backup barriers, actual-browser source scenarios and ordinary pairing/old-client denial pass. Six runtime cases additionally cover cross-tab pause and server push-device revocation on ordinary shutdown; final CI/preview are tracked in PR #134. Details: `protocol-v2-recovery-runtime.md`.
+
+PRs #131, #132 and #133 are ready for review, with green exact-head CI and READY previews. Latest parent #133: 708 client / 356 server tests, E2E 195 passed / 28 conditional skips. Earlier documents describing those helpers as entirely unconnected are historical preparation boundaries; the runtime connection above supersedes that statement for recovery only.

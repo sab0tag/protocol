@@ -49,13 +49,19 @@ export function conditionalVaultApi(keys: Keys) {
   };
 }
 
-/** Explicit preparation only. Do not call from protocol-1 startup or before migration/rollout gates.
- * A generic supported:2 claim predates CAS and is insufficient. Both distinct routes must exist. */
-export async function optInConditionalRecords(keys: Keys): Promise<void> {
+/** Read-only capability discovery, also used before runtime recovery of an existing pending send.
+ * A generic supported:2 claim predates CAS and is insufficient. */
+export async function conditionalRecordsCapability(keys: Keys): Promise<{ minimum: 1 | 2 }> {
   const capability = await call<{ v?: unknown; protocol?: unknown; condition?: unknown; minimum?: unknown }>(
     keys, 'GET', '/records/conditional/capabilities');
   if (!capability || capability.v !== 1 || capability.protocol !== 2 || capability.condition !== 'vault-seq' ||
     (capability.minimum !== 1 && capability.minimum !== 2)) throw new ApiError(409, 'conditional_records_unsupported');
+  return { minimum: capability.minimum };
+}
+
+/** Explicit opt-in only; not called by startup/recovery before migration and rollout gates. */
+export async function optInConditionalRecords(keys: Keys): Promise<void> {
+  await conditionalRecordsCapability(keys);
   const ack = await call<{ minimum?: unknown; protocol?: unknown; condition?: unknown }>(
     keys, 'PUT', '/write-protocol/conditional-records', { minimum: 2, protocol: 2, condition: 'vault-seq' });
   if (!ack || ack.minimum !== 2 || ack.protocol !== 2 || ack.condition !== 'vault-seq')

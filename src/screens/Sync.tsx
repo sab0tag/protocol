@@ -5,12 +5,13 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import qrcode from 'qrcode-generator';
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { db, inDemo, leaveDemo } from '../data/db';
+import { db, inDemo, leaveDemo, type SyncMeta } from '../data/db';
 import { t } from '../i18n/uk';
 import { ApiError } from '../sync/api';
 import { newCode, parseCode, parsePairCode } from '../sync/crypto';
 import { useUi } from '../store/ui';
-import { codeFromPairing, disableSync, enableSync, offerPairing, requestSync, useSync } from '../sync/runner';
+import { codeFromPairing, disableSync, enableSync, offerPairing, requestSync, resumeSync, useSync } from '../sync/runner';
+import { SyncSourcePlans } from './SyncSourcePlans';
 import { saved } from '../components/Toast';
 import { SceneHeader } from '../components/SceneHeader';
 
@@ -33,7 +34,7 @@ export function Sync() {
           <p>{t.example.noSync}</p>
           <button type="button" onClick={() => void leaveDemo()} className="min-h-tap rounded-xl bg-accent px-3 font-medium text-surface">{t.example.leave}</button>
         </div>
-      ) : meta ? <On code={meta.code} photo={!!meta.photoConsent} /> : <Off />}
+      ) : meta ? <On meta={meta} /> : <Off />}
     </section>
   );
 }
@@ -164,21 +165,28 @@ function Pairing() {
   );
 }
 
-function On({ code, photo }: { code: string; photo: boolean }) {
-  const { status, lastAt, error } = useSync();
+function On({ meta }: { meta: SyncMeta }) {
+  const { code, paused, sourcePlanDelivery } = meta, photo = !!meta.photoConsent;
+  const { status, lastAt, error, sourceReview } = useSync();
   const [show, setShow] = useState(false);
   const [confirm, setConfirm] = useState(false);
-  const bad = status === 'error' && error ? (L.errors as Record<string, string>)[error] ?? error : '';
+  const [actionError, setActionError] = useState('');
+  const bad = status === 'error' && error ? (L.errors as Record<string, string>)[error] ?? L.errors.other : '';
+  const act = async (action: () => Promise<void>) => {
+    setActionError('');
+    try { await action(); setConfirm(false); } catch (e) { setActionError(errorText(e)); }
+  };
   return (
     <>
       <div className="space-y-3 protocol-card rounded-2xl border border-line bg-surface p-3">
         <p className="font-medium">{L.status[status]}</p>
         {lastAt && <p className="text-sm text-muted">{L.last(format(lastAt, 'dd.MM HH:mm'))}</p>}
         {bad && <p role="alert" className="text-sm text-warn">{bad}</p>}
+        {actionError && <p role="alert" className="text-sm text-warn">{actionError}</p>}
         <div className="flex flex-wrap gap-2">
-          <button type="button" onClick={() => requestSync()} disabled={status === 'syncing'}
+          <button type="button" onClick={() => paused ? void act(resumeSync) : requestSync()} disabled={status === 'syncing'}
             className="flex min-h-tap items-center gap-2 rounded-xl bg-accent px-3 font-medium text-surface disabled:opacity-40">
-            <RefreshCw size={18} aria-hidden />{L.now}</button>
+            <RefreshCw size={18} aria-hidden />{paused ? L.resume : L.now}</button>
           <button type="button" onClick={() => setShow((v) => !v)} className="min-h-tap rounded-xl border border-line px-3">{show ? L.hideCode : L.showCode}</button>
         </div>
         {show && <><CodeBox code={code} /><p className="text-sm text-muted">{L.codeWarn}</p>
@@ -186,7 +194,8 @@ function On({ code, photo }: { code: string; photo: boolean }) {
             className="min-h-tap rounded-xl border border-line px-3">{L.codeKeptBtn}</button></>}
       </div>
 
-      <Pairing />
+      {sourcePlanDelivery && <SyncSourcePlans delivery={sourcePlanDelivery} paused={paused} review={sourceReview} />}
+      {!paused && !sourcePlanDelivery && <Pairing />}
 
       <div className="space-y-2 protocol-card rounded-2xl border border-line bg-surface p-3">
         <h2 className="font-semibold">{L.photoTitle}</h2>
@@ -198,17 +207,17 @@ function On({ code, photo }: { code: string; photo: boolean }) {
         </label>
       </div>
 
-      {confirm ? (
+      {!paused && (confirm ? (
         <div role="alertdialog" aria-label={L.off} className="rounded-xl border border-warn/40 bg-warn-bg p-3">
-          <p className="mb-2 text-warn">{L.offConfirm}</p>
+          <p className="mb-2 text-warn">{sourcePlanDelivery ? L.source.pauseConfirm : L.offConfirm}</p>
           <div className="flex gap-2">
-            <button type="button" onClick={() => void disableSync()} className="min-h-tap rounded-xl bg-warn px-3 font-medium text-surface">{L.offYes}</button>
+            <button type="button" onClick={() => void act(disableSync)} className="min-h-tap rounded-xl bg-warn px-3 font-medium text-surface">{L.offYes}</button>
             <button type="button" onClick={() => setConfirm(false)} className="min-h-tap rounded-xl border border-line bg-surface px-3">{L.cancel}</button>
           </div>
         </div>
       ) : (
         <button type="button" onClick={() => setConfirm(true)} className="min-h-tap text-warn underline">{L.off}</button>
-      )}
+      ))}
     </>
   );
 }

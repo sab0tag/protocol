@@ -69,11 +69,15 @@ export async function importAll(file: ExportFile, target: ProtocolDB = db): Prom
   file = checked;
   const events = checked.version >= 2 ? validateModuleEvents(checked.moduleEvents) : [];
   const sourcePlans = checked.sourcePlans ? rebindSourcePlanBackup(checked.sourcePlans, databasePersonId(target)) : undefined;
-  await target.transaction('rw', [target.plan, target.foods, target.entries, target.wellbeing, target.workouts, target.weights, target.labs, target.recipes, target.favorites, target.frictions, target.moduleEvents, target.carePlans, target.carePlanItems, target.planMigrations], async () => {
+  await target.transaction('rw', [target.plan, target.foods, target.entries, target.wellbeing, target.workouts, target.weights, target.labs, target.recipes, target.favorites, target.frictions, target.moduleEvents, target.carePlans, target.carePlanItems, target.planMigrations, target.meta], async () => {
     // Preferences are an immutable history, not a replacement snapshot: an older copy must not undo a newer off.
     // Colliding ids fail inside the same transaction, before any diary data can be lost.
     if (!sourcePlans && (await target.carePlans.count() || await target.carePlanItems.count() || await target.planMigrations.count()))
       throw new Error('Ця копія не містить окремих планів. Збережіть повну копію перед відновленням старого формату.');
+    const meta = await target.meta.get('sync');
+    if (meta?.sourcePlanDelivery) await target.meta.update('sync', {
+      sourcePlanDelivery: { ...meta.sourcePlanDelivery, blocked: 'restore' },
+    }); // Preserve encrypted evidence, but never replay a pre-restore send automatically.
     await appendModuleEvents(target, events);
     if (sourcePlans) {
       await target.carePlans.clear(); await target.carePlanItems.clear(); await target.planMigrations.clear();
