@@ -62,8 +62,8 @@ export function Plan({ section = 'home' }: { section?: PlanSection }) {
   const entries = useAllEntries(); // D69: what is left of each medicine
   const plan = usePlan();
   const clinicDrafts = useLiveQuery(async () => {
-    const plans = await db.carePlans.where('personId').equals(activeProfileId).toArray();
-    const drafts = plans.filter(p => p.source.kind === 'clinic' && p.status === 'draft');
+    const plans = await db.carePlans.toArray();
+    const drafts = plans.filter(p => p.personId === activeProfileId && p.source.kind === 'clinic' && p.status === 'draft');
     return Promise.all(drafts.map(async draft => ({ plan: draft, items: await db.carePlanItems.where('[personId+planId]').equals([activeProfileId, draft.id]).toArray() })));
   }, []);
   useEffect(() => {
@@ -101,10 +101,12 @@ export function Plan({ section = 'home' }: { section?: PlanSection }) {
         </header>
       )}
       <ExampleNotice plan={plan} />
-      {section === 'home' && !!clinicDrafts?.length && <section className="protocol-card space-y-3 p-4" aria-label="Чернетки від клінік">
+      {section === 'home' && <section className="protocol-card space-y-3 p-4" aria-label="Чернетки від клінік">
         <h2 className="text-lg font-semibold">Отримані плани від клінік</h2>
         <p className="text-sm text-muted">Ці призначення збережено окремо від поточного плану. Вони не створюють щоденних завдань або нагадувань, поки ви не перевірите їх із лікарем.</p>
-        {clinicDrafts.map(({ plan: draft, items }) => <article key={draft.id} className="rounded-xl border border-line p-3">
+        {clinicDrafts === undefined && <p role="status" className="text-sm text-muted">Завантажуємо чернетки…</p>}
+        {clinicDrafts?.length === 0 && <p className="text-sm text-muted">Поки немає отриманих планів.</p>}
+        {clinicDrafts?.map(({ plan: draft, items }) => <article key={draft.id} className="rounded-xl border border-line p-3">
           <h3 className="font-semibold break-words">{draft.title}</h3>
           <p className="text-sm text-muted break-words">{draft.clinicianRef} · {items.length} пунктів · Чернетка</p>
           <ul className="mt-2 list-disc space-y-1 pl-5 text-sm">{items.map(item => <li key={item.id} className="break-words">{item.content.type === 'prescription' ? item.content.value.title : item.kind} — потребує перевірки</li>)}</ul>
