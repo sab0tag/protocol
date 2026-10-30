@@ -30,3 +30,28 @@ for (const width of [320, 360]) test(`no screen is wider than a ${width}px phone
   }
   expect(out).toEqual([]);
 });
+
+for (const width of [673, 884, 1024]) test(`foldable shell remains usable at ${width}px`, async ({ browser }) => {
+  const page = await device(browser, 'demo');
+  await page.setViewportSize({ width, height: 850 });
+  for (const route of ['/', '/food', '/workout']) {
+    await page.goto('./#' + route);
+    await page.locator('main h1').first().waitFor();
+    const result = await page.evaluate(() => {
+      const nav = document.querySelector('nav[aria-label="Розділи"]')!.getBoundingClientRect();
+      const main = document.querySelector('main')!.getBoundingClientRect();
+      return { scroll: document.documentElement.scrollWidth, viewport: document.documentElement.clientWidth,
+        navBottom: nav.bottom, navLeft: nav.left, mainLeft: main.left, mainRight: main.right };
+    });
+    expect(result.scroll, route).toBeLessThanOrEqual(result.viewport + 1);
+    expect(result.mainLeft, route).toBeGreaterThanOrEqual(-1);
+    expect(result.mainRight, route).toBeLessThanOrEqual(result.viewport + 1);
+    if (width >= 768) expect(result.mainLeft, route).toBeGreaterThanOrEqual(79);
+    else expect(result.navBottom, route).toBeGreaterThan(700);
+  }
+  await page.setViewportSize({ width: 360, height: 800 });
+  await page.goto('./#/workout');
+  await page.locator('main h1').first().waitFor();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)).toBe(true);
+  await page.context().close();
+});
