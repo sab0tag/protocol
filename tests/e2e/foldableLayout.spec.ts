@@ -24,5 +24,13 @@ test('foldable viewport transitions keep navigation and content usable', async (
       }
     }
   }
+  await page.setViewportSize({ width: 1100, height: 900 });
+  await page.goto('./#/food');
+  await expect(page.locator('.fold-nutrition-grid')).toBeVisible();
+  const columns = await page.locator('.fold-nutrition-grid').evaluate((el) => getComputedStyle(el).gridTemplateColumns.split(' ').length);
+  expect(columns).toBe(2);
+  await page.setViewportSize({ width: 360, height: 900 });
+  const foldedColumns = await page.locator('.fold-nutrition-grid').evaluate((el) => getComputedStyle(el).gridTemplateColumns.split(' ').length);
+  expect(foldedColumns).toBe(1);
   await page.context().close();
 });
