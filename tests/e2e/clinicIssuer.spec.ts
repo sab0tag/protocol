@@ -1,5 +1,7 @@
 import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
+import { t } from '../../src/i18n/uk';
 
 for (const width of [320, 390]) test(`real clinic issue → QR screen → patient draft preserves issuer/source at ${width}px`, async ({ browser, request }) => {
   const actualName = width === 320 ? `Лікар ${'А'.repeat(140)}` : 'Справжній автор';
@@ -13,6 +15,7 @@ for (const width of [320, 390]) test(`real clinic issue → QR screen → patien
   const staff = await added.json() as { memberId: string; token: string };
   const doctorContext = await browser.newContext({ serviceWorkers: 'block', viewport: { width, height: 844 }, colorScheme: width === 320 ? 'dark' : 'light' });
   const patientContext = await browser.newContext({ serviceWorkers: 'block', viewport: { width, height: 844 }, colorScheme: width === 320 ? 'dark' : 'light' });
+  const restoreContext = await browser.newContext({ serviceWorkers: 'block', viewport: { width, height: 844 } });
   try {
     const doctor = await doctorContext.newPage();
     await doctor.goto('./#/clinic');
@@ -84,5 +87,33 @@ for (const width of [320, 390]) test(`real clinic issue → QR screen → patien
     expect(afterReview).toEqual(local);
     await doctor.getByRole('button', { name: 'Оновити статус', exact: true }).click();
     await expect(doctor.getByRole('status').filter({ hasText: 'Статус: отримано' })).toBeVisible();
-  } finally { await doctorContext.close().catch(() => undefined); await patientContext.close().catch(() => undefined); }
+    // A real QR import must remain exportable and portable to a separate browser/device.
+    await patient.goto('./#/data');
+    const downloadEvent = patient.waitForEvent('download');
+    await patient.getByRole('button', { name: t.backup.save, exact: true }).click();
+    const download = await downloadEvent, path = await download.path();
+    if (!path) throw new Error('backup download missing');
+    const bytes = readFileSync(path), backup = JSON.parse(bytes.toString());
+    expect(backup.version).toBe(3);
+    expect(backup.sourcePlans.plans).toEqual(local.plans);
+    expect(backup.sourcePlans.items).toEqual(local.items);
+    const restored = await restoreContext.newPage();
+    await restored.goto('./#/welcome');
+    await restored.getByRole('button', { name: /Пропустити/ }).click();
+    await expect(restored).not.toHaveURL(/#\/welcome$/);
+    await restored.goto('./#/data');
+    await expect(restored.getByRole('heading', { name: t.data.title, exact: true })).toBeVisible();
+    await restored.locator('input[type=file]').setInputFiles({ name: 'synthetic-clinic-backup.json', mimeType: 'application/json', buffer: bytes });
+    const confirm = restored.getByRole('alertdialog');
+    await expect(confirm).toContainText(t.backup.sourcePlans(1));
+    await confirm.getByRole('button', { name: t.backup.yes, exact: true }).click();
+    await expect(restored.getByRole('status')).toContainText(t.backup.restored);
+    await restored.goto('./#/plan');
+    const restoredDrafts = restored.getByRole('region', { name: 'Чернетки від клінік' });
+    await expect(restoredDrafts).toContainText('Синтетичний план для передачі');
+    await expect(restoredDrafts).toContainText('Чернетка');
+    await restoredDrafts.getByText('Переглянути повний текст призначення', { exact: true }).click();
+    await expect(restoredDrafts.getByText('Синтетичний препарат: 1 одиниця · 1 раз на день · 7 днів · перевірити з лікарем', { exact: true })).toBeVisible();
+    await expect(restoredDrafts.getByText(`Джерело: ${actualName}, Синтетична клініка`, { exact: true })).toBeVisible();
+  } finally { await doctorContext.close().catch(() => undefined); await patientContext.close().catch(() => undefined); await restoreContext.close().catch(() => undefined); }
 });
