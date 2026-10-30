@@ -60,10 +60,16 @@ async function run() {
     await syncOnce(db, roundKeys, vaultApi(roundKeys));
     if (!current()) return;
     if (MODULE_POLICY_ENABLED) await ensureProgressOpened(db);
+    if (!current()) return;
     useSync.setState({ status: 'idle', lastAt: Date.now(), error: undefined });
     await pushSchedule(roundKeys).catch((e) => console.warn('reminders:', (e as Error).message)); // D34
   } catch (e) {
     if (!current()) return;
+    if (e instanceof Error && e.message === 'source_plan_sync_paused') {
+      keys = undefined; generation++; clearTimeout(timer);
+      useSync.setState({ status: 'off', lastAt: undefined, error: undefined, sourceReview: undefined });
+      return; // Another tab stopped this same profile; do not schedule more requests with the old session.
+    }
     const offline = e instanceof ApiError && e.status === 0;
     useSync.setState({ status: offline ? 'offline' : 'error', error: e instanceof ApiError ? e.code : (e as Error).message });
   } finally {
@@ -140,7 +146,7 @@ export async function codeFromPairing(pair: string): Promise<string> {
 
 /** Stop syncing on this device; its data stays here, the vault stays for the other devices. */
 export async function disableSync() {
-  const previousKeys = keys;
+  const previousKeys = keys, previousMeta = await db.meta.get('sync');
   keys = undefined;
   generation++;
   clearTimeout(timer);
@@ -150,7 +156,7 @@ export async function disableSync() {
     else { await db.meta.delete('sync'); await db.sync.clear(); }
   });
   useSync.setState({ status: 'off', lastAt: undefined, error: undefined, sourceReview: undefined });
-  await disablePush(previousKeys);
+  await disablePush(previousKeys, previousMeta?.device);
 }
 
 /** Resume a paused device without deleting its pending encrypted send or changing its vault. */

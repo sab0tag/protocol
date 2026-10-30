@@ -10,7 +10,7 @@ import { deriveKeys, newCode, parseCode } from '../../src/sync/crypto';
 import { captureSourcePlanCatalog, encryptSourcePlanCatalog } from '../../src/sync/sourcePlans';
 import { prepareSourcePlanSend } from '../../src/sync/sourcePlanDelivery';
 import { t } from '../../src/i18n/uk';
-import { device, seed } from './helpers';
+import { device, seed, syncOn } from './helpers';
 
 async function fixture(request: APIRequestContext, state: 'accepted' | 'conflict' | 'empty') {
   const code = newCode(), keys = await deriveKeys(parseCode(code)!), db = new ProtocolDB('protocol');
@@ -89,8 +89,12 @@ test('the real conflict screen preserves versions across refresh, stop and resum
   await page.getByRole('button', { name: t.sync.now, exact: true }).click();
   await expect(section.getByText(t.sync.source.conflict, { exact: true })).toBeVisible();
   expect((await local(page)).meta.sourcePlanDelivery.pending).toEqual(f.pending);
+  const peer = await page.context().newPage(); await peer.goto('./#/sync');
+  await expect(peer.getByText(t.sync.source.conflict, { exact: true })).toBeVisible();
   await page.getByRole('button', { name: t.sync.off, exact: true }).click();
   await page.getByRole('button', { name: t.sync.offYes, exact: true }).click();
+  await expect(peer.getByText(t.sync.status.off, { exact: true })).toBeVisible();
+  await peer.close();
   await expect(page.getByRole('button', { name: t.sync.resume, exact: true })).toBeVisible();
   expect((await local(page)).meta.sourcePlanDelivery.pending).toEqual(f.pending);
   const stopped = posts.length; await page.reload();
@@ -154,5 +158,19 @@ test('restoring a file blocks automatic replay of a pre-restore send and keeps b
   expect(data.plans[0].title).toBe('Відновлена з копії версія плану'); expect(data.meta.seq).toBe(77);
   await page.reload(); await expect(page.getByText(t.sync.source.restored, { exact: true })).toBeVisible();
   expect(posts).toHaveLength(stopped);
+  await page.context().close();
+});
+
+test('stopping ordinary legacy sync still removes the server push device after metadata is cleared', async ({ browser }) => {
+  const page = await device(browser, 'skip'); await syncOn(page);
+  const before = await local(page), id = 'd'.repeat(32);
+  await seed(page, [{ store: 'meta', value: { ...before.meta, device: id } }]); await page.goto('./#/sync');
+  await expect(page.getByRole('button', { name: t.sync.now, exact: true })).toBeEnabled();
+  await page.getByRole('button', { name: t.sync.off, exact: true }).click();
+  const dropped = page.waitForRequest(r => r.method() === 'DELETE' && r.url().endsWith(`/devices/${id}`));
+  await page.getByRole('button', { name: t.sync.offYes, exact: true }).click();
+  await dropped;
+  await expect(page.getByRole('button', { name: t.sync.start, exact: true })).toBeVisible();
+  expect((await local(page)).meta).toBeUndefined();
   await page.context().close();
 });
