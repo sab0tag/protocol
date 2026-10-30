@@ -45,6 +45,7 @@ for (const width of [320, 390]) test(`real clinic issue → QR screen → patien
     expect(await patient.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await patient.getByRole('button', { name: 'Зберегти обране', exact: true }).click();
     await expect(patient.getByRole('status').filter({ hasText: 'Збережено на цьому пристрої як чернетку.' })).toBeVisible();
+    await expect(patient.getByRole('link', { name: 'Перейти до плану' })).toBeVisible();
     const local = await patient.evaluate(async () => {
       const open = indexedDB.open('protocol'); await new Promise<void>(resolve => { open.onsuccess = () => resolve(); });
       const tx = open.result.transaction(['carePlans', 'carePlanItems', 'entries']);
@@ -57,6 +58,9 @@ for (const width of [320, 390]) test(`real clinic issue → QR screen → patien
       issuer: { memberId: staff.memberId, displayName: actualName }, source: { clinician: { displayName: 'Заявлений лікар' } } } } });
     expect(local.items[0]).toMatchObject({ provenance: { verification: 'pending' } });
     expect(local.entries).toBe(0);
+    await patient.getByRole('link', { name: 'Перейти до плану' }).click();
+    await expect(patient).toHaveURL(/#\/plan$/);
+    await expect(patient.getByRole('heading').first()).toBeVisible();
     await doctor.getByRole('button', { name: 'Оновити статус', exact: true }).click();
     await expect(doctor.getByRole('status').filter({ hasText: 'Статус: отримано' })).toBeVisible();
   } finally { await doctorContext.close().catch(() => undefined); await patientContext.close().catch(() => undefined); }
