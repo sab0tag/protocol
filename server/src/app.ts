@@ -618,6 +618,23 @@ export function createApp(deps: Deps) {
     const id = authed(c); if (typeof id !== 'string') return id;
     return c.json({ minimum: store.minimumWriteProtocol(id), supported: 2 });
   });
+  // Distinct discovery and opt-in routes: pre-CAS servers also advertised supported:2.
+  // A deployment downgrade between discovery and PUT must return 404 rather than silently opt in.
+  app.get('/v1/vaults/:id/records/conditional/capabilities', c => {
+    const id = authed(c); if (typeof id !== 'string') return id;
+    c.header('Cache-Control', 'no-store');
+    return c.json({ v: 1, protocol: 2, condition: 'vault-seq', minimum: store.minimumWriteProtocol(id) });
+  });
+  app.put('/v1/vaults/:id/write-protocol/conditional-records', bodyLimit({ maxSize: 1000 }), async c => {
+    const id = authed(c); if (typeof id !== 'string') return id;
+    const body = await c.req.json().catch(() => null) as { minimum?: unknown; protocol?: unknown; condition?: unknown } | null;
+    if (body?.minimum !== 2 || body.protocol !== 2 || body.condition !== 'vault-seq') return c.json({ error: 'bad_request' }, 400);
+    try { store.raiseWriteProtocol(id, 2); return c.json({ minimum: 2, protocol: 2, condition: 'vault-seq' }); }
+    catch (e) {
+      if (e instanceof DatabaseBusy) { c.header('Retry-After', '1'); return c.json({ error: 'database_busy' }, 503); }
+      throw e;
+    }
+  });
   app.put('/v1/vaults/:id/write-protocol', bodyLimit({ maxSize: 1000 }), async c => {
     const id = authed(c); if (typeof id !== 'string') return id;
     const body = await c.req.json().catch(() => null) as { minimum?: unknown; protocol?: unknown } | null;

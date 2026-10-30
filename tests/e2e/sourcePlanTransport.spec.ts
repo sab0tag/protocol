@@ -25,7 +25,8 @@ test('protocol-2 opaque catalog crosses the real vault API; protocol-1 requests 
       medications: [{ name: 'Synthetic instruction', dose: '1 unit', frequency: 'Once daily', duration: '7 days', instructions: 'Check source' }], restrictions: [], tests: [] })!;
     await saveClinicImport(a, people[0]!, confirmImport(preview, ['med:0'], people[0]!)!);
     expect((await request.put(root, { headers })).ok()).toBe(true);
-    expect((await request.put(`${root}/write-protocol`, { headers, data: { minimum: 2, protocol: 2 } })).ok()).toBe(true);
+    expect(await (await request.get(`${root}/records/conditional/capabilities`, { headers })).json()).toEqual({ v: 1, protocol: 2, condition: 'vault-seq', minimum: 1 });
+    expect(await (await request.put(`${root}/write-protocol/conditional-records`, { headers, data: { minimum: 2, protocol: 2, condition: 'vault-seq' } })).json()).toEqual({ minimum: 2, protocol: 2, condition: 'vault-seq' });
     const record = await encryptSourcePlanCatalog(keys, await captureSourcePlanCatalog(a));
     expect((await request.post(`${root}/records/conditional`, { headers, data: { protocol: 2, expectedSeq: 0, records: [record] } })).ok()).toBe(true);
     const response = await request.get(`${root}/records?since=0&protocol=2`, { headers }); expect(response.ok()).toBe(true);
@@ -91,7 +92,8 @@ test('durable source send survives lost HTTP response, reopen and a competing de
     await a.plan.put({ ...emptyPlan(), id: 'main' });
     await prepareLegacyPlanCore(a, a.name.slice('protocol-profile-'.length));
     expect((await request.put(root, { headers })).ok()).toBe(true);
-    expect((await request.put(`${root}/write-protocol`, { headers, data: { minimum: 2, protocol: 2 } })).ok()).toBe(true);
+    expect(await (await request.get(`${root}/records/conditional/capabilities`, { headers })).json()).toEqual({ v: 1, protocol: 2, condition: 'vault-seq', minimum: 1 });
+    expect(await (await request.put(`${root}/write-protocol/conditional-records`, { headers, data: { minimum: 2, protocol: 2, condition: 'vault-seq' } })).json()).toEqual({ minimum: 2, protocol: 2, condition: 'vault-seq' });
     const first = await prepareSourcePlanSend(a, keys, 0);
     await expect(deliverSourcePlanSend(a, keys, { ...api, push: async (...args) => {
       await api.push(...args); throw new ApiError(0, 'offline'); // HTTP committed; caller never sees its acknowledgement.

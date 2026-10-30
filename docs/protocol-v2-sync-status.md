@@ -21,3 +21,8 @@ This is the current R5/R6 checkpoint. The older `protocol-v2-implementation-stat
 4. Continue patient confirmation, execution and consent-bound report flow, with Free/Plus gates and full clinical integration acceptance checks.
 
 No merge to main or production update is authorized by this checkpoint. Product scope remains the agreed TZ; completed transport primitives do not imply the entire clinical flow is ready.
+
+## Following slice in development
+
+- Branch `feat/source-plan-capability-gate`, base #131: distinct authenticated conditional-write discovery and guarded opt-in, including a deployment downgrade between discovery and upgrade. Legacy startup and all real vaults remain unchanged.
+- Details: `protocol-v2-capability-gate.md`. Unit/API/full CI validation will be recorded in its PR; this does not complete the remaining migration/rollout gates above.
