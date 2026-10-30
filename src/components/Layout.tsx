@@ -22,7 +22,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const artwork = sceneArtworkForPath(pathname);
   const foodActive = ['/food', '/meal', '/dishes'].some(p => pathname === p || pathname.startsWith(p + '/'));
   return (
-    <div className="protocol-app-shell min-h-dvh md:flex">
+    <div className="protocol-app-shell min-h-dvh min-w-0 md:flex">
       <nav aria-label="Розділи"
         className="protocol-bottom-nav fixed inset-x-0 bottom-0 z-20 border-t border-line bg-surface pb-safe print:hidden md:static md:inset-auto md:w-20 md:shrink-0 md:border-r md:border-t-0 md:pt-safe lg:w-52">
         <ul className="flex gap-1 px-1 py-1.5 md:sticky md:top-0 md:flex-col md:gap-3 md:px-2 md:py-4 lg:px-3">
