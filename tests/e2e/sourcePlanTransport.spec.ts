@@ -4,7 +4,7 @@ import { expect, test } from '@playwright/test';
 import { ProtocolDB } from '../../src/data/db';
 import { profileDatabase } from '../../src/data/profiles';
 import { emptyPlan } from '../../src/data/seed.example';
-import { saveClinicImport } from '../../src/data/carePlans';
+import { prepareLegacyPlanCore, saveClinicImport } from '../../src/data/carePlans';
 import { confirmImport, previewClinicPlan } from '../../src/domain/planImport';
 import { deriveKeys, newCode, parseCode } from '../../src/sync/crypto';
 import { applySourcePlanCatalog, captureSourcePlanCatalog, encryptSourcePlanCatalog } from '../../src/sync/sourcePlans';
@@ -61,4 +61,65 @@ test('protocol-2 opaque catalog crosses the real vault API; protocol-1 requests 
     }
     expect(await (await request.get(`${root}/records?since=0&protocol=2`, { headers })).json()).toEqual(finalPage);
   } finally { for (const db of databases) await db.delete(); }
+});
+
+// The delivery adapter runs against actual HTTP and independent IndexedDB emulations.
+// This exercises persistence/recovery, not a browser conflict UI or a rollout.
+test('durable source send survives lost HTTP response, reopen and a competing device', async ({ request }) => {
+  const { ApiError } = await import('../../src/sync/api');
+  const { prepareSourcePlanSend, deliverSourcePlanSend } = await import('../../src/sync/sourcePlanDelivery');
+  const code = newCode(), keys = await deriveKeys(parseCode(code)!);
+  const headers = { Authorization: `Bearer ${keys.auth}` }, root = `http://localhost:8099/v1/vaults/${keys.vaultId}`;
+  let a = new ProtocolDB(profileDatabase(crypto.randomUUID()));
+  const b = new ProtocolDB(profileDatabase(crypto.randomUUID()));
+  const api = {
+    push: async (records: { k: string; v: string | null }[], expectedSeq: number) => {
+      const response = await request.post(`${root}/records/conditional`, { headers, data: { records, expectedSeq, protocol: 2 } });
+      const data = await response.json(); if (!response.ok()) throw new ApiError(response.status(), data.error, data);
+      return data as { seq: number };
+    },
+    pull: async (since: number) => {
+      // Force pagination through unrelated records too; acknowledgement must read to the end.
+      const response = await request.get(`${root}/records?since=${since}&limit=1&protocol=2`, { headers });
+      const data = await response.json(); if (!response.ok()) throw new ApiError(response.status(), data.error, data);
+      return data;
+    },
+  };
+  try {
+    for (const db of [a, b]) await db.meta.put({ key: 'sync', code, seq: 0 });
+    await a.plan.put({ ...emptyPlan(), id: 'main' });
+    await prepareLegacyPlanCore(a, a.name.slice('protocol-profile-'.length));
+    expect((await request.put(root, { headers })).ok()).toBe(true);
+    expect((await request.put(`${root}/write-protocol`, { headers, data: { minimum: 2, protocol: 2 } })).ok()).toBe(true);
+    const first = await prepareSourcePlanSend(a, keys, 0);
+    await expect(deliverSourcePlanSend(a, keys, { ...api, push: async (...args) => {
+      await api.push(...args); throw new ApiError(0, 'offline'); // HTTP committed; caller never sees its acknowledgement.
+    } })).rejects.toMatchObject({ code: 'offline' });
+    a.close(); a = new ProtocolDB(a.name);
+    expect((await a.meta.get('sync'))!.sourcePlanDelivery!.pending).toEqual(first);
+    const firstRemote = await api.pull(0), firstSeq = firstRemote.records[0].seq;
+    // The full vault revision can advance independently of this source catalog.
+    const unrelatedKey = (await import('../../src/sync/crypto')).recordKey;
+    const unrelated = { k: await unrelatedKey(keys, 'synthetic:unrelated'), v: 'AAAA' };
+    const unrelatedAck = await api.push([unrelated], firstSeq);
+    expect(await deliverSourcePlanSend(a, keys, api)).toEqual({ status: 'acknowledged', seq: firstSeq, recovered: true });
+    expect((await a.meta.get('sync'))!.seq).toBe(0);
+    await applySourcePlanCatalog(b, keys, first.record, await captureSourcePlanCatalog(b));
+    const plan = (await a.carePlans.toArray())[0]!;
+    await a.carePlans.update(plan.id, { title: 'Synthetic first device edit' });
+    await b.carePlans.update(plan.id, { title: 'Synthetic second device edit' });
+    const localA = await captureSourcePlanCatalog(a), localB = await captureSourcePlanCatalog(b);
+    // Two devices independently prepare at the same complete revision: retain the losing pending draft.
+    const pendingA = await prepareSourcePlanSend(a, keys, unrelatedAck.seq);
+    const pendingB = await prepareSourcePlanSend(b, keys, unrelatedAck.seq);
+    const results = await Promise.all([deliverSourcePlanSend(a, keys, api), deliverSourcePlanSend(b, keys, api)]);
+    expect(results.map(r => r.status).sort()).toEqual(['acknowledged', 'conflict']);
+    const loser = results[0].status === 'conflict' ? a : b, saved = loser === a ? pendingA : pendingB;
+    expect((await loser.meta.get('sync'))!.sourcePlanDelivery!.pending).toEqual(saved);
+    const final = await (await request.get(`${root}/records?since=0&protocol=2`, { headers })).json();
+    const winningRecord = loser === a ? pendingB.record : pendingA.record;
+    expect(final.records.find((r: { k: string }) => r.k === first.record.k).v).toBe(winningRecord.v);
+    expect(await captureSourcePlanCatalog(a)).toEqual(localA);
+    expect(await captureSourcePlanCatalog(b)).toEqual(localB);
+  } finally { await a.delete(); await b.delete(); }
 });
