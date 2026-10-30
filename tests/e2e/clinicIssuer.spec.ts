@@ -61,6 +61,10 @@ for (const width of [320, 390]) test(`real clinic issue → QR screen → patien
     await patient.getByRole('link', { name: 'Перейти до плану' }).click();
     await expect(patient).toHaveURL(/#\/plan$/);
     await expect(patient.getByRole('heading').first()).toBeVisible();
+    const drafts = patient.getByRole('region', { name: 'Чернетки від клінік' });
+    await expect(drafts).toContainText('Синтетичний план для передачі');
+    await expect(drafts).toContainText('Синтетичний препарат');
+    await expect(drafts).toContainText('потребує перевірки');
     await doctor.getByRole('button', { name: 'Оновити статус', exact: true }).click();
     await expect(doctor.getByRole('status').filter({ hasText: 'Статус: отримано' })).toBeVisible();
   } finally { await doctorContext.close().catch(() => undefined); await patientContext.close().catch(() => undefined); }
