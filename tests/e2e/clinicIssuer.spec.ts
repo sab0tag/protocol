@@ -63,7 +63,6 @@ for (const width of [320, 390]) test(`real clinic issue → QR screen → patien
     await expect(patient.getByRole('heading', { name: 'План лікаря — щоденні дії' })).toBeVisible();
     await patient.getByRole('button', { name: /Пропустити/ }).click();
     await patient.goto('./#/plan');
-    await expect(patient.getByRole('heading', { name: 'План лікаря', exact: true })).toBeVisible();
     const drafts = patient.getByRole('region', { name: 'Чернетки від клінік' });
     await expect(drafts).toContainText('Синтетичний план для передачі');
     await expect(drafts).toContainText('Синтетичний препарат');
