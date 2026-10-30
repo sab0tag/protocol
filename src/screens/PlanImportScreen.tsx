@@ -72,7 +72,7 @@ export function PlanImportScreen() {
       <Link to="/plan" className="inline-flex min-h-tap items-center gap-1 text-sm text-muted"><ChevronLeft size={18} aria-hidden />План лікаря</Link>
       <h1 className="text-2xl font-semibold">План від клініки</h1>
       {state === 'saved' || state === 'already' ? (
-        <p role="status">{state === 'saved' ? 'Збережено на цьому пристрої як чернетку. Нагадування не створено — перевірте план з лікарем.' : 'Цей план уже збережено.'}</p>
+        <div className="protocol-card space-y-3 p-4" role="status"><p>{state === 'saved' ? 'Збережено на цьому пристрої як чернетку. Нагадування не створено — перевірте план з лікарем.' : 'Цей план уже збережено.'}</p><p className="text-sm text-muted">Наступний крок: перевірте склад і дозування з лікарем, а потім підтвердіть потрібні пункти в плані. Лише після цього вони можуть зʼявитися у щоденних завданнях.</p><Link to="/plan" className="inline-flex min-h-tap items-center rounded-xl bg-accent px-4 font-semibold text-white">Перейти до плану</Link></div>
       ) : !preview ? (
         <div className="space-y-3">
           <p className="text-sm text-muted">Клініка передає план одноразовим кодом. Ви побачите його і самі оберете, що зберегти. Код спрацьовує лише один раз.</p>
