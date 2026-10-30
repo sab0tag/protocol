@@ -108,6 +108,8 @@ export async function inspectSourcePlanConflict(db: ProtocolDB, keys: Keys, api:
     if (stable(current.sourcePlanDelivery) !== stable(delivery)) throw new Error('source_plan_delivery_changed');
     return captureSourcePlanCatalog(db);
   });
+  // A review is a snapshot, not an authorization to resolve. Keep the original
+  // delivery ID and the observed remote revision for a later explicit CAS.
   return {
     pendingId: pending.id, expectedSeq: pending.expectedSeq, remoteSeq: head.seq,
     remoteState: !head.remote ? 'missing' : head.remote.v === null ? 'deleted' : 'catalog',
