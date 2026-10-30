@@ -2,6 +2,7 @@
 import type { ProtocolDB } from './db';
 import type { PlanMigration } from './carePlans';
 import { assertPlanCatalog, expandLegacyPlan, type CarePlan, type CarePlanItem } from '../domain/carePlans';
+import { parseClinicSnapshot } from '../domain/clinicSnapshot';
 
 export interface SourcePlanBackup { v: 1; plans: CarePlan[]; items: CarePlanItem[]; migrations: PlanMigration[] }
 const validId = (s: unknown): s is string => typeof s === 'string' && !!s.trim();
@@ -19,9 +20,20 @@ export function validateSourcePlanBackup(value: unknown): SourcePlanBackup {
     const owners = new Set([...b.plans.map(p => p.personId), ...b.items.map(i => i.personId), ...b.migrations.map(m => m.personId)]);
     if (owners.size > 1 || [...owners].some(id => !validId(id))) throw new Error();
     for (const plan of b.plans) {
-      if (!validId(plan.title) || !plan.source || !['legacy', 'manual', 'document'].includes(plan.source.kind)) throw new Error();
+      if (!validId(plan.title) || !plan.source || !['legacy', 'manual', 'document', 'clinic'].includes(plan.source.kind)) throw new Error();
       if (plan.source.kind === 'document' && !validId(plan.source.documentId)) throw new Error();
       if (plan.source.kind === 'legacy' && plan.source.recordId !== 'main') throw new Error();
+      if (plan.source.kind === 'clinic') {
+        const s = plan.source;
+        if (Object.keys(s).some(k => !['kind', 'clinicPlanId', 'organizationName', 'issuedAt', 'redemption'].includes(k)) ||
+          !validId(s.clinicPlanId) || s.clinicPlanId.length > 64 || !validId(s.organizationName) || s.organizationName.length > 200 ||
+          typeof s.issuedAt !== 'string' || s.issuedAt.length > 40 || s.issuedAt.length < 10 || !Number.isFinite(Date.parse(s.issuedAt))) throw new Error();
+        if (s.redemption !== undefined) {
+          const receipt = parseClinicSnapshot(s.redemption);
+          if (!receipt || receipt.source.planId !== s.clinicPlanId || receipt.issuedAt !== s.issuedAt ||
+            receipt.issuer.organizationName !== s.organizationName) throw new Error();
+        }
+      }
     }
     for (const item of b.items) {
       if (!['medication', 'nutrition', 'activity', 'measurement', 'follow_up'].includes(item.kind) ||
