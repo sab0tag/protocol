@@ -72,6 +72,7 @@ test('durable source send survives lost HTTP response, reopen and a competing de
   const headers = { Authorization: `Bearer ${keys.auth}` }, root = `http://localhost:8099/v1/vaults/${keys.vaultId}`;
   let a = new ProtocolDB(profileDatabase(crypto.randomUUID()));
   const b = new ProtocolDB(profileDatabase(crypto.randomUUID()));
+  const pulls: number[] = [];
   const api = {
     push: async (records: { k: string; v: string | null }[], expectedSeq: number) => {
       const response = await request.post(`${root}/records/conditional`, { headers, data: { records, expectedSeq, protocol: 2 } });
@@ -79,8 +80,8 @@ test('durable source send survives lost HTTP response, reopen and a competing de
       return data as { seq: number };
     },
     pull: async (since: number) => {
-      // Force pagination through unrelated records too; acknowledgement must read to the end.
-      const response = await request.get(`${root}/records?since=${since}&limit=1&protocol=2`, { headers });
+      pulls.push(since);
+      const response = await request.get(`${root}/records?since=${since}&protocol=2`, { headers });
       const data = await response.json(); if (!response.ok()) throw new ApiError(response.status(), data.error, data);
       return data;
     },
@@ -99,10 +100,13 @@ test('durable source send survives lost HTTP response, reopen and a competing de
     expect((await a.meta.get('sync'))!.sourcePlanDelivery!.pending).toEqual(first);
     const firstRemote = await api.pull(0), firstSeq = firstRemote.records[0].seq;
     // The full vault revision can advance independently of this source catalog.
-    const unrelatedKey = (await import('../../src/sync/crypto')).recordKey;
-    const unrelated = { k: await unrelatedKey(keys, 'synthetic:unrelated'), v: 'AAAA' };
-    const unrelatedAck = await api.push([unrelated], firstSeq);
+    // The API page size is 1000; query parameters cannot override it. Exceed it with real opaque records.
+    const unrelated = Array.from({ length: 1000 }, () => ({ k: crypto.randomUUID().replaceAll('-', ''), v: 'AAAA' }));
+    const middle = await api.push(unrelated.slice(0, 500), firstSeq);
+    const unrelatedAck = await api.push(unrelated.slice(500), middle.seq);
+    pulls.length = 0;
     expect(await deliverSourcePlanSend(a, keys, api)).toEqual({ status: 'acknowledged', seq: firstSeq, recovered: true });
+    expect(pulls).toHaveLength(2); expect(pulls[0]).toBe(0); expect(pulls[1]).toBeGreaterThan(firstSeq);
     expect((await a.meta.get('sync'))!.seq).toBe(0);
     await applySourcePlanCatalog(b, keys, first.record, await captureSourcePlanCatalog(b));
     const plan = (await a.carePlans.toArray())[0]!;
@@ -116,9 +120,10 @@ test('durable source send survives lost HTTP response, reopen and a competing de
     expect(results.map(r => r.status).sort()).toEqual(['acknowledged', 'conflict']);
     const loser = results[0].status === 'conflict' ? a : b, saved = loser === a ? pendingA : pendingB;
     expect((await loser.meta.get('sync'))!.sourcePlanDelivery!.pending).toEqual(saved);
-    const final = await (await request.get(`${root}/records?since=0&protocol=2`, { headers })).json();
+    let since = 0, final: { k: string; v: string | null }[] = [];
+    for (;;) { const page = await api.pull(since); final.push(...page.records); if (!page.more) break; since = page.seq; }
     const winningRecord = loser === a ? pendingB.record : pendingA.record;
-    expect(final.records.find((r: { k: string }) => r.k === first.record.k).v).toBe(winningRecord.v);
+    expect(final.find(r => r.k === first.record.k)!.v).toBe(winningRecord.v);
     expect(await captureSourcePlanCatalog(a)).toEqual(localA);
     expect(await captureSourcePlanCatalog(b)).toEqual(localB);
   } finally { await a.delete(); await b.delete(); }

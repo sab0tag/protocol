@@ -18,7 +18,7 @@ Acknowledgement and outbox removal commit together. A storage failure leaves the
 
 Eleven unit scenarios cover reopen, export privacy, later local edits, exact lost-response recovery, distinct remote winners/tombstones/absence, pagination and late replacements, unrelated record revisions, old/unavailable servers, malformed acknowledgements, incomplete or malformed pulls, a detectable remote rollback, competing IndexedDB connections, edits during encryption, re-pairing, delayed old responses and acknowledgement transaction rollback/retry.
 
-The real-API Playwright transport suite includes a new scenario: HTTP commit followed by a lost response, database reopen, recovery across forced one-record pages, unrelated vault changes, and two devices submitting different local drafts at the same revision. These local stores use independent IndexedDB emulations in Node; this is not a claim of browser conflict UI verification. Existing application/browser regression checks remain applicable because this adapter is unconnected.
+The real-API Playwright transport suite includes a new scenario: HTTP commit followed by a lost response, database reopen, recovery across multiple real pages beyond the fixed 1000-record server page size, unrelated vault changes, and two devices submitting different local drafts at the same revision. These local stores use independent IndexedDB emulations in Node; this is not a claim of browser conflict UI verification. Existing application/browser regression checks remain applicable because this adapter is unconnected.
 
 ## Remaining before rollout
 

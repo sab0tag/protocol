@@ -9,8 +9,8 @@ This is the current R5/R6 checkpoint. The older `protocol-v2-implementation-stat
 
 ## Current work
 
-- Branch `feat/source-plan-durable-send`, base #130: durable encrypted pending send, exact acknowledgement recovery after a lost response, preservation of local drafts on remote conflict, per-operation guards against delayed responses and re-pairing.
-- Focused validation: 11 new unit scenarios and the real-API transport suite. Full regression/CI and preview validation are pending until recorded in the PR.
+- PR #131 — branch `feat/source-plan-durable-send`, base #130: durable encrypted pending send, exact acknowledgement recovery after a lost response, preservation of local drafts on remote conflict, per-operation guards against delayed responses and re-pairing.
+- Local validation: 699 client tests, typecheck/build and both real-API transport scenarios pass. The new recovery test crosses the fixed 1000-record API page boundary. Full CI and preview validation are pending until recorded in PR #131.
 - Details and limitations: `protocol-v2-durable-send.md`.
 
 ## Next
