@@ -105,4 +105,36 @@ describe('clinic plan import', () => {
     const d = confirmImport(previewClinicPlan(plan())!, ['med:0'], 'someone-else')!;
     await expect(saveClinicImport(db, personId, d)).rejects.toThrow('plan_database_owner_mismatch');
   });
+  it('rejects orphaned and duplicate item identities before writing any records', async () => {
+    const { db, personId } = make();
+    const d = confirmImport(previewClinicPlan(plan())!, ['med:0', 'rest:0'], personId)!;
+    const orphan = structuredClone(d); orphan.items[0]!.planId = 'another-plan';
+    await expect(saveClinicImport(db, personId, orphan)).rejects.toThrow('plan_item_owner_mismatch');
+    const duplicate = structuredClone(d); duplicate.items[1]!.id = duplicate.items[0]!.id;
+    await expect(saveClinicImport(db, personId, duplicate)).rejects.toThrow('plan_item_identity_collision');
+    expect(await db.carePlans.count()).toBe(0); expect(await db.carePlanItems.count()).toBe(0);
+    expect(await saveClinicImport(db, personId, d)).toBe('saved');
+  });
+  it('keeps import restricted to nonempty clinic drafts with pending verification', async () => {
+    const { db, personId } = make();
+    const d = confirmImport(previewClinicPlan(plan())!, ['med:0'], personId)!;
+    const active = structuredClone(d); active.plan.status = 'active';
+    const manual = structuredClone(d); manual.plan.source = { kind: 'manual' };
+    const verified = structuredClone(d); verified.items[0]!.provenance.verification = 'verified';
+    for (const invalid of [active, manual, verified, { ...d, items: [] }]) {
+      await expect(saveClinicImport(db, personId, invalid)).rejects.toThrow('clinic_import_must_be_pending_draft');
+    }
+    expect(await db.carePlans.count()).toBe(0); expect(await db.carePlanItems.count()).toBe(0);
+    expect(await db.entries.count()).toBe(0); expect(await db.plan.count()).toBe(0);
+  });
+  it('rolls back the plan when an item write fails and permits a clean retry', async () => {
+    const { db, personId } = make();
+    const d = confirmImport(previewClinicPlan(plan())!, ['med:0'], personId)!;
+    const fail = () => { throw new Error('synthetic_import_failure'); };
+    db.carePlanItems.hook('creating', fail);
+    await expect(saveClinicImport(db, personId, d)).rejects.toThrow('synthetic_import_failure');
+    expect(await db.carePlans.count()).toBe(0); expect(await db.carePlanItems.count()).toBe(0);
+    db.carePlanItems.hook('creating').unsubscribe(fail);
+    expect(await saveClinicImport(db, personId, d)).toBe('saved');
+  });
 });

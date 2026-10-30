@@ -110,6 +110,15 @@ export function Plan({ section = 'home' }: { section?: PlanSection }) {
           <h3 className="font-semibold break-words">{draft.title}</h3>
           <p className="text-sm text-muted break-words">{draft.clinicianRef} · {items.length} пунктів · Чернетка</p>
           <ul className="mt-2 list-disc space-y-1 pl-5 text-sm">{items.map(item => <li key={item.id} className="break-words">{item.content.type === 'prescription' ? item.content.value.title : item.kind} — потребує перевірки</li>)}</ul>
+          <details className="mt-3 text-sm">
+            <summary className="min-h-tap cursor-pointer rounded-lg py-3 font-medium text-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent">Переглянути повний текст призначення</summary>
+            <p className="mb-3 text-muted">Звірте назви, дози, частоту та тривалість із призначенням лікаря. Перегляд не активує план.</p>
+            <ul className="space-y-3">{items.map(item => <li key={item.id} className="rounded-lg bg-bg p-3 [overflow-wrap:anywhere]">
+              <p className="whitespace-pre-wrap">{item.provenance.text || (item.content.type === 'prescription' ? item.content.value.title : item.kind)}</p>
+              {item.content.type === 'prescription' && item.content.value.source && <p className="mt-1 text-muted">Джерело: {item.content.value.source}</p>}
+              <p className="mt-1 text-muted">Потребує перевірки. Розклад ще не створено.</p>
+            </li>)}</ul>
+          </details>
         </article>)}
       </section>}
       {section === 'home' && <PlanOverview
