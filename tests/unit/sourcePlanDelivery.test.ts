@@ -3,11 +3,12 @@ import { ProtocolDB } from '../../src/data/db';
 import { profileDatabase } from '../../src/data/profiles';
 import { prepareLegacyPlanCore } from '../../src/data/carePlans';
 import { emptyPlan } from '../../src/data/seed.example';
-import { exportAll } from '../../src/data/backup';
+import { exportAll, importAll } from '../../src/data/backup';
 import { ApiError } from '../../src/sync/api';
 import { deriveKeys, newCode, parseCode } from '../../src/sync/crypto';
 import { captureSourcePlanCatalog, encryptSourcePlanCatalog } from '../../src/sync/sourcePlans';
 import { deliverSourcePlanSend, inspectSourcePlanConflict, prepareSourcePlanSend } from '../../src/sync/sourcePlanDelivery';
+import { recoverSourcePlanQueue } from '../../src/sync/sourcePlanRecovery';
 import type { RemoteRecord } from '../../src/sync/engine';
 
 const databases: ProtocolDB[] = [];
@@ -255,5 +256,46 @@ describe('read-only source-plan conflict review', () => {
       await expect(inspectSourcePlanConflict(db, keys, remote.api)).rejects.toThrow(
         change === 'acknowledge' ? 'source_plan_delivery_changed' : 'source_plan_vault_mismatch');
     }
+  });
+});
+
+describe('runtime recovery barriers', () => {
+  it('blocks a pre-restore send atomically while preserving its encrypted evidence and the restored catalog', async () => {
+    const { db, keys } = await device(), remote = server(), file = await exportAll(db);
+    const pending = await prepareSourcePlanSend(db, keys, 0);
+    file.sourcePlans!.plans[0]!.title = 'Synthetic explicitly restored version';
+    await importAll(file, db);
+    const meta = (await db.meta.get('sync'))!;
+    expect(meta.sourcePlanDelivery!.blocked).toBe('restore'); expect(meta.sourcePlanDelivery!.pending).toEqual(pending);
+    expect((await captureSourcePlanCatalog(db)).plans[0]!.title).toBe('Synthetic explicitly restored version');
+    expect(await recoverSourcePlanQueue(db, keys, remote.api)).toEqual({ kind: 'restored' });
+    await expect(deliverSourcePlanSend(db, keys, remote.api)).rejects.toThrow('source_plan_restore_required');
+    await expect(prepareSourcePlanSend(db, keys, 0)).rejects.toThrow('source_plan_restore_required');
+    expect(remote.api.push).not.toHaveBeenCalled(); expect(remote.api.pull).not.toHaveBeenCalled();
+  });
+
+  it('rolls back the recovery barrier if restoring the catalog fails', async () => {
+    const { db, keys } = await device(), file = await exportAll(db); await prepareSourcePlanSend(db, keys, 0);
+    const before = await db.meta.get('sync'), catalog = await captureSourcePlanCatalog(db);
+    const fail = () => { throw new Error('synthetic_restore_failure'); }; db.carePlans.hook('creating', fail);
+    await expect(importAll(file, db)).rejects.toThrow('synthetic_restore_failure'); db.carePlans.hook('creating').unsubscribe(fail);
+    expect(await db.meta.get('sync')).toEqual(before); expect(await captureSourcePlanCatalog(db)).toEqual(catalog);
+  });
+
+  it('preserves a pending send when stopped during HTTP and recovers only after explicit resume', async () => {
+    const { db, keys } = await device(), remote = server(), pending = await prepareSourcePlanSend(db, keys, 0);
+    const push = remote.api.push.getMockImplementation()!;
+    remote.api.push.mockImplementationOnce(async (...args) => {
+      const ack = await push(...args); await db.meta.update('sync', { paused: true }); return ack;
+    });
+    await expect(recoverSourcePlanQueue(db, keys, remote.api)).rejects.toThrow('source_plan_sync_paused');
+    expect((await db.meta.get('sync'))!.sourcePlanDelivery!.pending).toEqual(pending);
+    const calls = remote.api.push.mock.calls.length;
+    await expect(recoverSourcePlanQueue(db, keys, remote.api)).rejects.toThrow('source_plan_sync_paused');
+    await expect(prepareSourcePlanSend(db, keys, 1)).rejects.toThrow('source_plan_sync_paused');
+    expect(remote.api.push).toHaveBeenCalledTimes(calls);
+    await db.meta.update('sync', { paused: false });
+    expect(await recoverSourcePlanQueue(db, keys, remote.api)).toEqual({ kind: 'acknowledged' });
+    expect(remote.records.get(pending.record.k)!.seq).toBe(1);
   });
 });

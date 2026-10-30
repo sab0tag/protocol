@@ -1,4 +1,4 @@
-/** Durable conditional source-catalog sends. Not connected to the ordinary runner or vault opt-in. */
+/** Durable conditional source-catalog sends. Runtime may resume an existing queue; no automatic vault opt-in or source-send initialization. */
 import type { ProtocolDB } from '../data/db';
 import type { SourcePlanBackup } from '../data/planBackup';
 import { ApiError, conditionalVaultApi } from './api';
@@ -14,6 +14,7 @@ export interface PendingSourcePlanSend {
 export interface SourcePlanDelivery {
   v: 1;
   vaultId: string;
+  blocked?: 'restore';
   pending?: PendingSourcePlanSend;
   acknowledged?: { record: SourcePlanRecord; seq: number };
 }
@@ -53,12 +54,15 @@ async function binding(db: ProtocolDB, keys: Keys) {
 export async function prepareSourcePlanSend(db: ProtocolDB, keys: Keys, expectedSeq: number): Promise<PendingSourcePlanSend> {
   if (!sequence(expectedSeq)) throw new Error('source_plan_revision_invalid');
   const meta = await binding(db, keys);
+  if (meta.paused) throw new Error('source_plan_sync_paused');
+  if (meta.sourcePlanDelivery?.blocked) throw new Error('source_plan_restore_required');
   if (meta.sourcePlanDelivery?.pending) throw new Error('source_plan_send_pending');
   if (expectedSeq < (meta.sourcePlanDelivery?.acknowledged?.seq ?? 0)) throw new Error('source_plan_remote_rollback');
   const catalog = await captureSourcePlanCatalog(db);
   const pending = { id: crypto.randomUUID(), expectedSeq, record: await encryptSourcePlanCatalog(keys, catalog) };
   await db.transaction('rw', stores(db), async () => {
     const current = await db.meta.get('sync');
+    if (current?.paused) throw new Error('source_plan_sync_paused');
     if (current?.code !== meta.code) throw new Error('source_plan_vault_mismatch');
     if (stable(current.sourcePlanDelivery) !== stable(meta.sourcePlanDelivery)) throw new Error('source_plan_delivery_changed');
     if (stable(await captureSourcePlanCatalog(db)) !== stable(catalog)) throw new Error('source_plan_local_conflict');
@@ -122,12 +126,15 @@ export async function inspectSourcePlanConflict(db: ProtocolDB, keys: Keys, api:
  * A conflict preserves both the outbox and local catalog; returned remote data is not applied or rebased. */
 export async function deliverSourcePlanSend(db: ProtocolDB, keys: Keys, api: ConditionalApi = conditionalVaultApi(keys)): Promise<DeliveryResult> {
   const meta = await binding(db, keys), pending = meta.sourcePlanDelivery?.pending;
+  if (meta.paused) throw new Error('source_plan_sync_paused');
+  if (meta.sourcePlanDelivery?.blocked) throw new Error('source_plan_restore_required');
   if (!pending) return { status: 'idle' };
   if (typeof pending.id !== 'string' || !pending.id || !sequence(pending.expectedSeq)) throw new Error('source_plan_delivery_invalid');
   // Reject corrupted persisted ciphertext before any network request.
   await decryptSourcePlanCatalog(keys, pending.record);
   const check = async () => {
     const current = await db.meta.get('sync');
+    if (current?.paused) throw new Error('source_plan_sync_paused');
     if (current?.code !== meta.code) throw new Error('source_plan_vault_mismatch');
     if (stable(current.sourcePlanDelivery) !== stable(meta.sourcePlanDelivery)) throw new Error('source_plan_delivery_changed');
   };

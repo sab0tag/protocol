@@ -35,7 +35,8 @@ export interface SyncMeta {
   key: 'sync';
   code: string;
   seq: number; // the last server change pulled
-  sourcePlanDelivery?: SourcePlanDelivery; // R5 preparation only: local encrypted outbox; never the legacy pull cursor.
+  sourcePlanDelivery?: SourcePlanDelivery; // R5 local encrypted recovery queue; never the legacy pull cursor.
+  paused?: boolean; // Retain a source recovery queue when synchronization is stopped on this device.
   lastAt?: number;
   photoConsent?: boolean;
   menuConsent?: boolean; // D33
