@@ -10,6 +10,11 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build
+      - name: Validate isolated pilot Compose
+        run: |
+          touch server/.env.pilot
+          docker compose -f server/compose.pilot.yml config --quiet
+          rm server/.env.pilot
   server:
     runs-on: ubuntu-latest
     defaults:
