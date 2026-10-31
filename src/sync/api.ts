@@ -40,6 +40,15 @@ export function vaultApi(keys: Keys): Api {
   };
 }
 
+/** Future normalized runner only: no automatic opt-in, revision guessing or fallback to blind writes. */
+export function conditionalVaultApi(keys: Keys) {
+  return {
+    pull: (since: number) => call<{ records: RemoteRecord[]; more: boolean; seq: number }>(keys, 'GET', `/records?since=${since}&protocol=2`),
+    push: (records: { k: string; v: string | null }[], expectedSeq: number) =>
+      call<{ seq: number }>(keys, 'POST', '/records/conditional', { records, expectedSeq, protocol: 2 }),
+  };
+}
+
 export const photo = (keys: Keys, image: string, foods: string[], dishes: string[]) =>
   call<PhotoResult>(keys, 'POST', '/photo', { image, foods, dishes });
 

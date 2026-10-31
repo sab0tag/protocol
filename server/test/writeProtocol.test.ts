@@ -54,7 +54,7 @@ describe('opt-in per-vault write protocol', () => {
   });
   it('accepts explicit capable clients and repeated opt-in never erases their fresh schedule', async () => {
     const { store, call } = await ready(); await call('PUT', '/write-protocol', { minimum: 2, protocol: 2 });
-    expect((await call('POST', '/records', { records: [record], protocol: 2 })).status).toBe(200);
+    expect((await call('POST', '/records', { records: [record], protocol: 2, expectedSeq: 0 })).status).toBe(200);
     expect((await call('GET', '/records?since=0&protocol=2')).status).toBe(200);
     expect((await call('PUT', path, schedule(2))).status).toBe(200);
     expect((await call('PUT', '/reminder-policy', { ...emptyPolicy(), protocol: 2 })).status).toBe(200);
