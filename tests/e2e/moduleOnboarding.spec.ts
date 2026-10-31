@@ -17,7 +17,7 @@ async function fresh(browser: Browser) {
   return page;
 }
 async function manual(page: Page) {
-  await page.getByRole('button', { name: 'Ввести вручну', exact: true }).click();
+  await page.getByText('Інші способи почати').click(); await page.getByRole('button', { name: 'Ввести вручну', exact: true }).click();
   await page.getByRole('button', { name: 'Далі', exact: true }).click();
 }
 async function final(page: Page) {
@@ -69,7 +69,7 @@ for (const scenario of ['four medicines and diet', 'diet only', 'water only', 'e
 
 test('repeat onboarding preserves choices/date and a new target offers only explicit opt-in', async ({ browser }) => {
   test.skip(!enabled, 'acceptance build');
-  const page = await fresh(browser); await page.getByRole('button', { name: /^Пропустити/ }).click(); await expect(page).toHaveURL(/#\/$/);
+  const page = await fresh(browser); await page.getByText('Інші способи почати').click(); await page.getByRole('button', { name: /^Пропустити/ }).click(); await expect(page).toHaveURL(/#\/$/);
   await page.goto('./#/modules');
   await page.clock.setFixedTime(new Date('2026-10-19T12:01:00+03:00'));
   await page.getByRole('switch', { name: 'Запис їжі', exact: true }).click();
@@ -127,12 +127,12 @@ test('the final collapsed overrides are saved as manual choices, including progr
 
 test('late day-eight startup opens once; an earlier manual off survives reload and a second visit', async ({ browser }) => {
   test.skip(!enabled, 'acceptance build');
-  const page = await fresh(browser); await page.getByRole('button', { name: /^Пропустити/ }).click(); await expect(page).toHaveURL(/#\/$/);
+  const page = await fresh(browser); await page.getByText('Інші способи почати').click(); await page.getByRole('button', { name: /^Пропустити/ }).click(); await expect(page).toHaveURL(/#\/$/);
   await page.clock.setFixedTime(new Date('2026-11-02T12:00:00+02:00')); await page.reload();
   await page.goto('./#/modules'); await expect(page.getByRole('switch', { name: 'Прогрес і тиждень', exact: true })).toBeChecked();
   await page.reload();
   expect((await rows(page, 'moduleEvents')).filter((e) => e.source === 'automatic')).toHaveLength(1);
-  const other = await fresh(browser); await other.getByRole('button', { name: /^Пропустити/ }).click(); await expect(other).toHaveURL(/#\/$/);
+  const other = await fresh(browser); await other.getByText('Інші способи почати').click(); await other.getByRole('button', { name: /^Пропустити/ }).click(); await expect(other).toHaveURL(/#\/$/);
   await seed(other, [{ store: 'moduleEvents', value: { id: 'manual-early-off', v: 1, kind: 'module', module: 'progress', enabled: false, source: 'manual', at: '2026-10-20T00:00:00.000Z' } }]);
   await other.clock.setFixedTime(new Date('2026-11-02T12:00:00+02:00')); await other.reload();
   await other.goto('./#/modules'); await expect(other.getByRole('switch', { name: 'Прогрес і тиждень', exact: true })).not.toBeChecked();

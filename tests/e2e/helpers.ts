@@ -17,7 +17,7 @@ export async function device(browser: Browser, start: 'example' | 'demo' | 'skip
     await expect(page.getByText(/Це приклад:/)).toBeVisible();
     return page;
   }
-  await page.getByRole('button', { name: /^Пропустити/ }).click();
+  await page.getByText('Інші способи почати').click(); await page.getByRole('button', { name: /^Пропустити/ }).click();
   await expect(page).toHaveURL(/#\/$/); // D113: the first screen is the photo
   if (start === 'example') { // the example plan in the person's own database, on a clean history — a fixture for the tests
     await page.evaluate(async (plan) => {

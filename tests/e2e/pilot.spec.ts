@@ -72,7 +72,7 @@ test('a QR card’s code → the consent with last week’s own numbers; what go
   expect(sent.food).toMatchObject({ days_logged: 3, entries: 3, by_voice: 2, by_text: 1 });
   await expect.poll(() => rows(sent.pid)).toBe(1);
   // «Ще → Пілот»: the week as it went — the same words as the sample
-  await page.getByRole('button', { name: /^Пропустити/ }).click();
+  await page.getByText('Інші способи почати').click(); await page.getByRole('button', { name: /^Пропустити/ }).click();
   await expect(page.getByRole('heading', { level: 1, name: 'Сьогодні' })).toBeVisible();
   await page.goto('./#/pilot');
   await expect(page.getByText(/Ви берете участь з/)).toBeVisible();
