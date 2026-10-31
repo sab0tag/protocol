@@ -1,6 +1,6 @@
 # Isolated clinic pilot on Hetzner
 
-This deployment is **not connected to production**. It deliberately has no host ports, no production Docker network, no shared data volume, and no publicly reachable endpoint until the separate Caddy PR is deployed, DNS is configured and CORS is reviewed.
+This deployment is **not connected to production**. It publishes no host ports and shares no production database volume, but deliberately joins the existing `harch_edge` network so Caddy and other containers on that network can reach it. Public HTTPS exposure requires a separate Caddy change, DNS and CORS review.
 
 ## Prepare
 
