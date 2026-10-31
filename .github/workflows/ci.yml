@@ -38,7 +38,9 @@ jobs:
       - run: npm ci
       - run: npm ci --prefix server
       - run: npx playwright install --with-deps chromium
-      - run: npm run e2e -- --reporter=line,json > e2e-results.json
+      - run: npm run e2e -- --reporter=line,json
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_FILE: e2e-results.json
       - name: Verify E2E skips and publish summary
         if: always()
         run: node scripts/check-e2e-skips.mjs e2e-results.json '${{ matrix.mode }}' >> "$GITHUB_STEP_SUMMARY"
