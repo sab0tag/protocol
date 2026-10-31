@@ -49,5 +49,23 @@ export function lineItem(l: DishLine): MealItem {
 
 /** The dish for one portion — what «Мої страви» keeps (D27). */
 export function recipeItems(lines: DishLine[], portions: number): MealItem[] {
-  return scaleItems(lines.map(lineItem), 1 / Math.max(1, portions)).map((it) => ({ ...it, grams: Math.max(0.5, it.grams) }));
+  const divisor = Math.max(1, portions);
+  // scaleItems rounds grams to whole numbers for meal entry. A saved recipe must
+  // retain fractional grams (e.g. 275 g / 2 = 137.5 g), or its nutrients drift.
+  return scaleItems(lines.map(lineItem), 1 / divisor).map((it, i) => ({
+    ...it, grams: Math.max(0.5, Math.round(lines[i]!.grams / divisor * 1000) / 1000),
+  }));
+}
+
+/** A temporarily empty input is valid while editing, but never a committed portion count. */
+export function parseDishPortions(raw: string): number | null {
+  if (!/^[1-9]\d*$/.test(raw)) return null;
+  const n = Number(raw);
+  return Number.isSafeInteger(n) && n <= 999 ? n : null;
+}
+
+/** Scale the recipe batch, retaining ingredient identities and nutrient estimates. */
+export function scaleDishPortions(lines: DishLine[], previous: number, next: number): DishLine[] {
+  if (previous <= 0 || next <= 0) return lines;
+  return lines.map((line) => ({ ...line, grams: Math.round(line.grams * next / previous * 1000) / 1000 }));
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { FOODS } from '../../src/data/foods';
-import { breakdown, recipeItems, type DishResult } from '../../src/domain/dishBreakdown';
+import { breakdown, parseDishPortions, recipeItems, scaleDishPortions, type DishResult } from '../../src/domain/dishBreakdown';
 import { mealNutrients } from '../../src/domain/nutrition';
 
 const foods = new Map(FOODS.map((f) => [f.id, f]));
@@ -45,5 +45,29 @@ describe('the plan’s check sees what an estimated ingredient is (D111)', async
   it('an allergen the estimate names removes the line; naming none never clears it', () => {
     expect(say(plan('allergy', ['milk']), ['lactose'], ['milk'])).toEqual(['Алергія: молоко (за оцінкою ІІ)']);
     expect(say(plan('allergy', ['nuts']), ['lactose'], ['milk'])).toEqual(['Склад оцінено ІІ — перевірте на алергени']);
+  });
+});
+
+
+describe('dish portion editor regression (iPhone)', () => {
+  it('allows a temporary blank draft and accepts a new number after deleting 2', () => {
+    expect(parseDishPortions('')).toBeNull();
+    expect(parseDishPortions('0')).toBeNull();
+    expect(parseDishPortions('12')).toBe(12);
+    expect(parseDishPortions('1')).toBe(1);
+    expect(parseDishPortions('1.5')).toBeNull();
+    expect(parseDishPortions('1000')).toBeNull();
+  });
+  it('rescales ingredients and nutritional totals 2 → 1 → 2 without drift', () => {
+    const original = breakdown({ ...R, items: [
+      { said: 'томлена свинина', base: '', grams: 275, amountSaid: true, kcal: 260, protein: 26, fat: 17, carbs: 0 },
+      { said: 'рис варений', base: '', grams: 375, amountSaid: true, kcal: 130, protein: 3, fat: 0.3, carbs: 28 },
+    ] }, FOODS);
+    const one = scaleDishPortions(original, 2, 1);
+    expect(one.map((line) => line.grams)).toEqual([137.5, 187.5]);
+    expect(recipeItems(one, 1).map((line) => line.grams)).toEqual([137.5, 187.5]);
+    expect(scaleDishPortions(one, 1, 2)).toEqual(original);
+    const kcal = (lines: typeof original) => lines.reduce((sum, line) => sum + line.per100!.kcal * line.grams / 100, 0);
+    expect(kcal(one)).toBeCloseTo(kcal(original) / 2, 5);
   });
 });
