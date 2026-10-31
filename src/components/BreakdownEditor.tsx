@@ -2,7 +2,7 @@
 // estimate, marked), what the plan's check says of it, and the totals. Shared by «Розкласти свою страву» and a list's cards.
 import { X } from 'lucide-react';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { lineItem, type DishLine } from '../domain/dishBreakdown';
+import { lineItem, parseDishPortions, scaleDishPortions, type DishLine } from '../domain/dishBreakdown';
 import { todayISO } from '../domain/dates';
 import { mealNutrients, round } from '../domain/nutrition';
 import { checkMeal } from '../domain/rules';
@@ -22,12 +22,11 @@ export function BreakdownEditor({ foods, plan, name, onName, portions, onPortion
   useEffect(() => { setPortionsDraft(String(portions)); }, [portions]);
   const changePortions = (raw: string) => {
     setPortionsDraft(raw);
-    if (!/^[1-9]\d*$/.test(raw)) return;
-    const next = Number(raw);
-    if (!Number.isSafeInteger(next) || next === portions) return;
+    const next = parseDishPortions(raw);
+    if (next === null || next === portions) return;
     // Ingredient weights describe the original batch. Rescale the batch when the user
     // changes its yield, so saving per-portion quantities stays consistent.
-    onLines(lines.map((line) => ({ ...line, grams: Math.round((line.grams * next / portions) * 1000) / 1000 })));
+    onLines(scaleDishPortions(lines, portions, next));
     onPortions(next);
   };
   const total = useMemo(() => mealNutrients(lines.map(lineItem), foods), [lines, foods]);
