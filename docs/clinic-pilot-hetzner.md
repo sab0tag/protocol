@@ -4,7 +4,7 @@ This deployment is **not connected to production**. It deliberately has no host 
 
 ## Prepare
 
-On the Hetzner host, clone/update the repository into a separate working directory. In `server/`, create `.env.pilot` (never commit it), with `ALLOWED_ORIGINS` set to the exact dedicated pilot frontend origin. Leave third-party AI keys empty. Do not copy production secrets or medical data. The Docker image uses Node 24 and the API migrates its own empty pilot DB on first startup.
+On the Hetzner host, clone/update the repository into a separate working directory. In `server/`, create `.env.pilot` (never commit it; covered by `.gitignore` and `.dockerignore`), with `ALLOWED_ORIGINS` set to the exact dedicated pilot frontend origin. Leave third-party AI keys empty. Do not copy production secrets or medical data. The Docker image uses Node 24 and the API migrates its own empty pilot DB on first startup.
 
 ```sh
 cd server
@@ -38,7 +38,7 @@ The API joins the existing `harch_edge` network (so Caddy and other containers o
 
 ## Acceptance checklist
 
-- [ ] Verify dedicated container and volume; production API and data unchanged
+- [ ] Verify dedicated container and node-writable `/data` volume; production API and data unchanged; review shared-network access
 - [ ] API health over private network and approved HTTPS endpoint
 - [ ] Bootstrap synthetic admin; add synthetic doctor; verify role isolation
 - [ ] Doctor issues a fictional plan; patient redeems QR and explicitly imports
