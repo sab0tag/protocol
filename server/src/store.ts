@@ -2,9 +2,16 @@
 // a record is an opaque key and an opaque ciphertext (SPEC.md D31).
 import { backup, DatabaseSync } from 'node:sqlite';
 import { migrate } from './db/migrate.ts';
+import { DatabaseBusy, immediate, isBusy } from './db/tx.ts';
 import { emptyPolicy, mergeReminderPolicy, reminderAllowed, type ReminderPolicy } from './reminderPolicy.ts';
 
 export interface StoredRecord { k: string; v: string | null; seq: number }
+export class RecordWriteError extends Error {
+  readonly code: 'record_conflict' | 'protocol_opt_in_required' | 'client_upgrade_required' | 'quota' | 'bad_request';
+  readonly currentSeq?: number;
+  constructor(code: RecordWriteError['code'], currentSeq?: number) { super(code); this.code = code; this.currentSeq = currentSeq; }
+}
+export interface RecordWriteOptions { protocol?: 1 | 2; expectedSeq?: number; maxBytes?: number }
 
 export class Store {
   private db: DatabaseSync;
@@ -42,16 +49,14 @@ export class Store {
   /** Explicit per-vault opt-in only. No default change. Retire old queued schedules once; retain ciphertext/history. */
   raiseWriteProtocol(vault: string, minimum: number): boolean {
     if (!Number.isInteger(minimum) || minimum < 1 || minimum > 2) throw new Error('unsupported_write_protocol');
-    const before = this.minimumWriteProtocol(vault);
-    if (minimum < before) return false;
-    if (minimum === before) return true;
-    this.db.exec('BEGIN');
-    try {
+    return immediate(this.db, () => {
+      const before = this.minimumWriteProtocol(vault);
+      if (minimum < before) return false;
+      if (minimum === before) return true;
       this.db.prepare('INSERT INTO vault_protocols (vault, minimum) VALUES (?, ?) ON CONFLICT (vault) DO UPDATE SET minimum = excluded.minimum').run(vault, minimum);
       this.db.prepare('DELETE FROM reminders WHERE vault = ?').run(vault);
-      this.db.exec('COMMIT');
-    } catch (e) { this.db.exec('ROLLBACK'); throw e; }
-    return true;
+      return true;
+    });
   }
 
   bytes(id: string): number {
@@ -68,27 +73,48 @@ export class Store {
     return (this.db.prepare('SELECT MAX(seq) AS s FROM records WHERE vault = ?').get(vault) as { s: number | null }).s ?? 0;
   }
 
+  /** Keep the page and cursor in one WAL read snapshot; a concurrent write cannot advance an empty page's cursor. */
+  recordPage(vault: string, since: number, limit: number, protocol: 1 | 2 = 1): { records: StoredRecord[]; more: boolean; seq: number } {
+    try {
+      this.db.exec('BEGIN');
+      if (protocol < this.minimumWriteProtocol(vault)) throw new RecordWriteError('client_upgrade_required');
+      const records = this.since(vault, since, limit);
+      const page = { records, more: records.length === limit, seq: records.at(-1)?.seq ?? Math.max(since, this.latest(vault)) };
+      this.db.exec('COMMIT');
+      return page;
+    } catch (e) {
+      if (this.db.isTransaction) this.db.exec('ROLLBACK');
+      throw isBusy(e) ? new DatabaseBusy() : e;
+    }
+  }
+
   /** Write records (v = null is a deletion, kept as a tombstone so other devices learn of it). Returns the last seq. */
-  put(vault: string, records: { k: string; v: string | null }[]): number {
+  put(vault: string, records: { k: string; v: string | null }[], options: RecordWriteOptions = {}): number {
+    const protocol = options.protocol ?? 1;
+    if (protocol !== 1 && protocol !== 2) throw new RecordWriteError('bad_request');
+    if (protocol === 2 ? !Number.isSafeInteger(options.expectedSeq) || options.expectedSeq! < 0 : options.expectedSeq !== undefined)
+      throw new RecordWriteError('bad_request');
+    if (new Set(records.map(r => r.k)).size !== records.length) throw new RecordWriteError('bad_request');
     const next = this.db.prepare("UPDATE meta SET n = n + 1 WHERE k = 'seq' RETURNING n");
     const old = this.db.prepare('SELECT length(v) AS l FROM records WHERE vault = ? AND k = ?');
     const upsert = this.db.prepare('INSERT INTO records (vault, k, v, seq) VALUES (?, ?, ?, ?) ON CONFLICT (vault, k) DO UPDATE SET v = excluded.v, seq = excluded.seq');
     const size = this.db.prepare('UPDATE vaults SET bytes = max(0, bytes + ?) WHERE id = ?');
-    let seq = 0;
-    this.db.exec('BEGIN');
-    try {
+    return immediate(this.db, () => {
+      const minimum = this.minimumWriteProtocol(vault);
+      if (protocol < minimum) throw new RecordWriteError('client_upgrade_required');
+      if (protocol === 2 && minimum !== 2) throw new RecordWriteError('protocol_opt_in_required');
+      let seq = this.latest(vault);
+      if (protocol === 2 && options.expectedSeq !== seq) throw new RecordWriteError('record_conflict', seq);
+      const delta = records.reduce((sum, r) => sum + (r.v?.length ?? 0) - ((old.get(vault, r.k) as { l: number | null } | undefined)?.l ?? 0), 0);
+      if (options.maxBytes !== undefined && this.bytes(vault) + delta > options.maxBytes) throw new RecordWriteError('quota');
       for (const r of records) {
         seq = (next.get() as { n: number }).n;
         const was = (old.get(vault, r.k) as { l: number | null } | undefined)?.l ?? 0;
         upsert.run(vault, r.k, r.v, seq);
         size.run((r.v?.length ?? 0) - was, vault);
       }
-      this.db.exec('COMMIT');
-    } catch (e) {
-      this.db.exec('ROLLBACK');
-      throw e;
-    }
-    return seq;
+      return seq;
+    });
   }
 
   /** Add `by` to a day's counter with no limit (D119: the ops numbers — `stat:*` scopes, never an id or an address). */
