@@ -6,7 +6,7 @@ import { emptyPlan } from '../../src/data/seed.example';
 import { exportAll, importAll } from '../../src/data/backup';
 import { ApiError } from '../../src/sync/api';
 import { deriveKeys, newCode, parseCode } from '../../src/sync/crypto';
-import { captureSourcePlanCatalog, encryptSourcePlanCatalog } from '../../src/sync/sourcePlans';
+import { applySourcePlanCatalog, captureSourcePlanCatalog, encryptSourcePlanCatalog } from '../../src/sync/sourcePlans';
 import { deliverSourcePlanSend, inspectSourcePlanConflict, prepareSourcePlanSend } from '../../src/sync/sourcePlanDelivery';
 import { recoverSourcePlanQueue } from '../../src/sync/sourcePlanRecovery';
 import type { RemoteRecord } from '../../src/sync/engine';
@@ -297,5 +297,18 @@ describe('runtime recovery barriers', () => {
     await db.meta.update('sync', { paused: false });
     expect(await recoverSourcePlanQueue(db, keys, remote.api)).toEqual({ kind: 'acknowledged' });
     expect(remote.records.get(pending.record.k)!.seq).toBe(1);
+  });
+});
+
+
+describe('catalog replacement safety with pending delivery', () => {
+  it('refuses remote replacement while a durable clinical send is pending and preserves both versions', async () => {
+    const { db, keys } = await device();
+    const local = await captureSourcePlanCatalog(db);
+    const remote = await encryptSourcePlanCatalog(keys, local);
+    const pending = await prepareSourcePlanSend(db, keys, 0);
+    await expect(applySourcePlanCatalog(db, keys, remote, local)).rejects.toThrow('source_plan_send_pending');
+    expect(await captureSourcePlanCatalog(db)).toEqual(local);
+    expect((await db.meta.get('sync'))?.sourcePlanDelivery?.pending).toEqual(pending);
   });
 });
