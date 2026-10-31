@@ -65,6 +65,7 @@ for (const width of [320, 390]) test(`real clinic issue → QR screen → patien
     await patient.getByRole('link', { name: 'Перейти до плану' }).click();
     await expect(patient).toHaveURL(/#\/welcome$/);
     await expect(patient.getByRole('heading', { name: 'План лікаря — щоденні дії' })).toBeVisible();
+    await patient.getByText('Інші способи почати').click();
     await patient.getByRole('button', { name: /Пропустити/ }).click();
     await expect(patient).not.toHaveURL(/#\/welcome$/);
     await patient.goto('./#/plan');
@@ -99,6 +100,7 @@ for (const width of [320, 390]) test(`real clinic issue → QR screen → patien
     expect(backup.sourcePlans.items).toEqual(local.items);
     const restored = await restoreContext.newPage();
     await restored.goto('./#/welcome');
+    await restored.getByText('Інші способи почати').click();
     await restored.getByRole('button', { name: /Пропустити/ }).click();
     await expect(restored).not.toHaveURL(/#\/welcome$/);
     await restored.goto('./#/data');
