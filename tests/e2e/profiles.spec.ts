@@ -34,7 +34,7 @@ test('family profiles isolate records and drafts; greeting follows the selected 
   const directory = await page.evaluate(() => JSON.parse(localStorage.getItem('protocol.profiles.v1')!));
   const child = directory.profiles.find((p: { name: string }) => p.name === 'Данило');
   await page.getByRole('button', { name: 'Відкрити профіль: Данило', exact: true }).click();
-  await page.getByRole('button', { name: /^Пропустити/ }).click();
+  await page.getByText('Інші способи почати').click(); await page.getByRole('button', { name: /^Пропустити/ }).click();
   await expect(page.getByTestId('greeting')).toContainText('Данило');
   const childData = await page.evaluate(async id => {
     const req = indexedDB.open(`protocol-profile-${id}`);
