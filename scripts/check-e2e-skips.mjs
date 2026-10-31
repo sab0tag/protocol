@@ -20,7 +20,7 @@ function walk(suites) {
 }
 walk(report.suites);
 console.log('## E2E ' + mode);
-console.log('Passed: ' + (report.stats?.expected ?? '?') + '; skipped: ' + skipped.length + '; unexpected: ' + (report.stats?.unexpected ?? '?'));
+console.log('Passed: ' + (report.stats?.expected ?? '?') + '; skipped: ' + skipped.length + '; flaky: ' + (report.stats?.flaky ?? '?') + '; unexpected: ' + (report.stats?.unexpected ?? '?'));
 console.log('');
 console.log('| Skipped scenario | Reason |');
 console.log('| --- | --- |');
@@ -28,4 +28,5 @@ for (const item of skipped) {
   const reason = item.annotations.filter(a => a.type === 'skip' || a.type === 'fixme').map(a => a.description).join('; ') || 'Unspecified';
   console.log('| ' + item.title.replaceAll('|', '\\|') + ' | ' + reason.replaceAll('|', '\\|') + ' |');
 }
-if (failed.length || (report.stats?.unexpected ?? 0) > 0) process.exitCode = 1;
+// A test that passes only on retry is not a reliable green gate for a clinical workflow.
+if (failed.length || (report.stats?.unexpected ?? 0) > 0 || (report.stats?.flaky ?? 0) > 0) process.exitCode = 1;
