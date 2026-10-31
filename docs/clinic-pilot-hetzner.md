@@ -8,12 +8,12 @@ On the Hetzner host, clone/update the repository into a separate working directo
 
 ```sh
 cd server
-mkdir -p pilot-backups
-chmod 700 pilot-backups
 docker compose -p protocol-clinic-pilot -f compose.pilot.yml up -d --build
 docker compose -p protocol-clinic-pilot -f compose.pilot.yml ps
 docker compose -p protocol-clinic-pilot -f compose.pilot.yml logs --tail=50 pilot-api
 ```
+
+The pilot uses two named Docker volumes: `protocol_clinic_pilot_data` and `protocol_clinic_pilot_backups`. Both inherit node-writable directories from the image. Inspect backups inside the container (`docker compose -p protocol-clinic-pilot -f compose.pilot.yml exec pilot-api ls -la /backups`) and export them using an operator-controlled secure backup process; do not use production backup paths.
 
 ## Bootstrap first administrator (legacy pilot only)
 
@@ -38,7 +38,7 @@ The API joins the existing `harch_edge` network (so Caddy and other containers o
 
 ## Acceptance checklist
 
-- [ ] Verify dedicated container and node-writable `/data` volume; production API and data unchanged; review shared-network access
+- [ ] Verify dedicated container and node-writable `/data` and `/backups` volumes; production API and data unchanged; review shared-network access
 - [ ] API health over private network and approved HTTPS endpoint
 - [ ] Bootstrap synthetic admin; add synthetic doctor; verify role isolation
 - [ ] Doctor issues a fictional plan; patient redeems QR and explicitly imports
