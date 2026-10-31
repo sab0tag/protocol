@@ -66,6 +66,12 @@ export function ClinicPortalScreen() {
   return (
     <section className="space-y-4 pt-4">
       <h1 className="text-2xl font-semibold">Кабінет клініки</h1>
+      {!me && !checking && <div className="space-y-2 rounded-xl border p-4 text-sm">
+        <h2 className="font-semibold">Перший вхід лікаря</h2>
+        <p>Адміністратор клініки надсилає персональне запрошення. Відкрийте посилання з листа, увійдіть із підтвердженою адресою та другим фактором, перегляньте ролі й прийміть запрошення.</p>
+        <p>Після прийняття поверніться до кабінету. Якщо клініка не зʼявилась, перевірте обліковий запис або зверніться до адміністратора.</p>
+        <p>Для тестування використовуйте лише вигадані призначення. Доступ лікаря не надає права читати щоденник пацієнта.</p>
+      </div>}
       {enabled && !session && !checking && <a href={identityLoginURL()} className="inline-flex min-h-tap items-center rounded-xl bg-accent px-4 text-white">Увійти через захищений сервіс</a>}
       {checking && <p role="status">Перевіряємо сесію…</p>}
       {session && <div className="space-y-2 text-sm">
