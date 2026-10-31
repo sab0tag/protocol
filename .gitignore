@@ -10,3 +10,7 @@ dist-e2e
 test-results
 playwright-report
 .e2e
+
+# Hetzner pilot environment and local backups
+server/.env.pilot
+server/pilot-backups/

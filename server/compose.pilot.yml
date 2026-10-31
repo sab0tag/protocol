@@ -1,0 +1,36 @@
+# Separate clinic pilot API on Hetzner; no published host ports.
+# The external harch_edge network exposes only the API process to Caddy and other
+# containers already trusted on that network; DB remains in a dedicated volume.
+# Mount /data: the image creates it with node ownership, allowing SQLite writes.
+services:
+  pilot-api:
+    build: .
+    restart: unless-stopped
+    env_file: .env.pilot
+    environment:
+      DB_PATH: /data/protocol-pilot.db
+      PORT: "8080"
+      CLINIC_IDENTITY_V2: "off"
+    volumes:
+      - pilot_data:/data
+      - pilot_backups:/backups
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      private: {}
+      edge:
+        aliases: [protocol-pilot-api]
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+volumes:
+  pilot_data:
+    name: protocol_clinic_pilot_data
+  pilot_backups:
+    name: protocol_clinic_pilot_backups
+networks:
+  private:
+    internal: true
+  edge:
+    external: true
+    name: harch_edge
