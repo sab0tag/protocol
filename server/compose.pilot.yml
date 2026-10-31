@@ -13,7 +13,7 @@ services:
       CLINIC_IDENTITY_V2: "off"
     volumes:
       - pilot_data:/data
-      - ./pilot-backups:/backups
+      - pilot_backups:/backups
     networks:
       edge:
         aliases: [protocol-pilot-api]
@@ -23,6 +23,8 @@ services:
 volumes:
   pilot_data:
     name: protocol_clinic_pilot_data
+  pilot_backups:
+    name: protocol_clinic_pilot_backups
 networks:
   edge:
     external: true
