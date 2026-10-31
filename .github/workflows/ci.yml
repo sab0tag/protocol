@@ -15,6 +15,10 @@ jobs:
           touch server/.env.pilot
           docker compose -f server/compose.pilot.yml config --quiet
           rm server/.env.pilot
+      - name: Verify pilot image data and backup permissions
+        run: |
+          docker build -t protocol-pilot-permissions ./server
+          docker run --rm --entrypoint node protocol-pilot-permissions -e 'const fs=require("node:fs"); for (const dir of ["/data", "/backups"]) { const f=dir+"/.ci-write"; fs.writeFileSync(f,"ok"); fs.unlinkSync(f); }'
   server:
     runs-on: ubuntu-latest
     defaults:
