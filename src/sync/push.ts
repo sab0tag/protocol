@@ -41,11 +41,12 @@ export async function enablePush(keys: Keys, settings?: ReminderSettings) {
   await pushSchedule(keys, true);
 }
 
-export async function disablePush(keys: Keys | undefined) {
+export async function disablePush(keys: Keys | undefined, deviceAtStop?: string) {
   if (activeProfileId !== 'main') return; // secondary profiles must never unsubscribe the original person's push
   const meta = await db.meta.get('sync');
   try { await (await navigator.serviceWorker.ready).pushManager.getSubscription().then((s) => s?.unsubscribe()); } catch { /* none */ }
-  if (keys && meta?.device) await dropDevice(keys, meta.device).catch(() => undefined);
+  const device = deviceAtStop ?? meta?.device;
+  if (keys && device) await dropDevice(keys, device).catch(() => undefined);
   if (meta?.reminders) await db.meta.update('sync', { reminders: { ...meta.reminders, on: false } });
   last = '';
 }

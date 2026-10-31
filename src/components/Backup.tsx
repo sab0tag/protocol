@@ -26,7 +26,10 @@ export function Backup({ alwaysOpen = false }: { alwaysOpen?: boolean }) {
   const input = useRef<HTMLInputElement>(null);
   const [pending, setPending] = useState<ExportFile | null>(null);
   const [message, setMessage] = useState('');
-  const synced = useLiveQuery(async () => !!(await db.meta.get('sync')), []);
+  const synced = useLiveQuery(async () => {
+    const meta = await db.meta.get('sync');
+    return !!meta && !meta.paused && !meta.sourcePlanDelivery;
+  }, []);
 
   const download = async () => {
     const f = await fileOf();

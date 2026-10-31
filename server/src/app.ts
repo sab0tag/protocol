@@ -19,7 +19,7 @@ import type { Usage } from './photo.ts';
 import type { LabelReader } from './label.ts';
 import type { Recognizer } from './photo.ts';
 import type { Sender } from './push.ts';
-import type { Store } from './store.ts';
+import { RecordWriteError, type Store } from './store.ts';
 import { parseReminderPolicy } from './reminderPolicy.ts';
 import { BudgetGuard } from './ai/budgets.ts';
 import { RedeemFailure, type PlanDelivery, type RedeemError } from './clinic/delivery.ts';
@@ -599,7 +599,11 @@ export function createApp(deps: Deps) {
     const a = Buffer.from(stored, 'hex'), b = Buffer.from(hash(t), 'hex');
     const ok = a.length === b.length && timingSafeEqual(a, b);
     if (!ok) return c.json({ error: 'unauthorized' }, 401);
-    store.seen(id, weekKey(now())); // D119: the week it came online, for stats:ops
+    try { store.seen(id, weekKey(now())); } // D119: the week it came online, for stats:ops
+    catch (e) {
+      if (isBusy(e)) { c.header('Retry-After', '1'); return c.json({ error: 'database_busy' }, 503); }
+      throw e;
+    }
     return id;
   };
 
@@ -614,12 +618,32 @@ export function createApp(deps: Deps) {
     const id = authed(c); if (typeof id !== 'string') return id;
     return c.json({ minimum: store.minimumWriteProtocol(id), supported: 2 });
   });
+  // Distinct discovery and opt-in routes: pre-CAS servers also advertised supported:2.
+  // A deployment downgrade between discovery and PUT must return 404 rather than silently opt in.
+  app.get('/v1/vaults/:id/records/conditional/capabilities', c => {
+    const id = authed(c); if (typeof id !== 'string') return id;
+    c.header('Cache-Control', 'no-store');
+    return c.json({ v: 1, protocol: 2, condition: 'vault-seq', minimum: store.minimumWriteProtocol(id) });
+  });
+  app.put('/v1/vaults/:id/write-protocol/conditional-records', bodyLimit({ maxSize: 1000 }), async c => {
+    const id = authed(c); if (typeof id !== 'string') return id;
+    const body = await c.req.json().catch(() => null) as { minimum?: unknown; protocol?: unknown; condition?: unknown } | null;
+    if (body?.minimum !== 2 || body.protocol !== 2 || body.condition !== 'vault-seq') return c.json({ error: 'bad_request' }, 400);
+    try { store.raiseWriteProtocol(id, 2); return c.json({ minimum: 2, protocol: 2, condition: 'vault-seq' }); }
+    catch (e) {
+      if (e instanceof DatabaseBusy) { c.header('Retry-After', '1'); return c.json({ error: 'database_busy' }, 503); }
+      throw e;
+    }
+  });
   app.put('/v1/vaults/:id/write-protocol', bodyLimit({ maxSize: 1000 }), async c => {
     const id = authed(c); if (typeof id !== 'string') return id;
     const body = await c.req.json().catch(() => null) as { minimum?: unknown; protocol?: unknown } | null;
     if (body?.minimum !== 2 || body.protocol !== 2) return c.json({ error: 'bad_request' }, 400);
-    store.raiseWriteProtocol(id, 2);
-    return c.json({ minimum: 2, supported: 2 });
+    try { store.raiseWriteProtocol(id, 2); return c.json({ minimum: 2, supported: 2 }); }
+    catch (e) {
+      if (e instanceof DatabaseBusy) { c.header('Retry-After', '1'); return c.json({ error: 'database_busy' }, 503); }
+      throw e;
+    }
   });
 
   app.put('/v1/vaults/:id', (c) => {
@@ -642,28 +666,53 @@ export function createApp(deps: Deps) {
     const denied = compatible(c, id, rawProtocol === undefined ? undefined : /^[12]$/.test(rawProtocol) ? Number(rawProtocol) : null);
     if (denied) return denied;
     const since = Number(c.req.query('since') ?? 0);
-    if (!Number.isInteger(since) || since < 0) return c.json({ error: 'bad_request' }, 400);
-    const records = store.since(id, since, PAGE);
-    return c.json({ records, more: records.length === PAGE, seq: records.at(-1)?.seq ?? Math.max(since, store.latest(id)) });
+    if (!Number.isSafeInteger(since) || since < 0) return c.json({ error: 'bad_request' }, 400);
+    try { return c.json(store.recordPage(id, since, PAGE, rawProtocol === '2' ? 2 : 1)); }
+    catch (e) {
+      if (e instanceof RecordWriteError && e.code === 'client_upgrade_required') return c.json({ error: e.code, requiredProtocol: 2 }, 409);
+      if (e instanceof DatabaseBusy) { c.header('Retry-After', '1'); return c.json({ error: 'database_busy' }, 503); }
+      throw e;
+    }
   });
 
-  app.post('/v1/vaults/:id/records', bodyLimit({ maxSize: 4_000_000, onError: (c) => c.json({ error: 'too_large' }, 413) }), async (c) => {
+  const writeRecords = async (c: Context) => {
     const id = authed(c);
     if (typeof id !== 'string') return id;
-    const body = await c.req.json().catch(() => null) as { records?: unknown; protocol?: unknown } | null;
+    const body = await c.req.json().catch(() => null) as { records?: unknown; protocol?: unknown; expectedSeq?: unknown } | null;
+    if (c.req.path.endsWith('/records/conditional') && body?.protocol !== 2) return c.json({ error: 'bad_request' }, 400);
     const denied = compatible(c, id, body?.protocol); if (denied) return denied;
     const records = body?.records;
     if (!Array.isArray(records) || records.length === 0 || records.length > 500) return c.json({ error: 'bad_request' }, 400);
-    let add = 0;
+    const protocol = body?.protocol === 2 ? 2 : 1;
+    if (protocol === 2 ? !Number.isSafeInteger(body?.expectedSeq) || (body?.expectedSeq as number) < 0 : body?.expectedSeq !== undefined)
+      return c.json({ error: 'bad_request' }, 400);
+    const seen = new Set<string>();
     for (const r of records as { k?: unknown; v?: unknown }[]) {
       if (typeof r.k !== 'string' || !KEY.test(r.k)) return c.json({ error: 'bad_request' }, 400);
+      if (seen.has(r.k)) return c.json({ error: 'bad_request' }, 400);
+      seen.add(r.k);
       if (r.v !== null && (typeof r.v !== 'string' || !B64.test(r.v))) return c.json({ error: 'bad_request' }, 400);
-      add += (r.v as string | null)?.length ?? 0;
     }
-    if (store.bytes(id) + add > limits.vaultBytes) return c.json({ error: 'quota' }, 507);
-    const seq = store.put(id, records as { k: string; v: string | null }[]);
-    return c.json({ seq });
-  });
+    try {
+      const seq = store.put(id, records as { k: string; v: string | null }[], {
+        protocol, ...(protocol === 2 ? { expectedSeq: body!.expectedSeq as number } : {}), maxBytes: limits.vaultBytes,
+      });
+      return c.json({ seq });
+    } catch (e) {
+      if (e instanceof RecordWriteError) {
+        if (e.code === 'record_conflict') return c.json({ error: e.code, seq: e.currentSeq }, 409);
+        if (e.code === 'quota') return c.json({ error: e.code }, 507);
+        if (e.code === 'bad_request') return c.json({ error: e.code }, 400);
+        return c.json({ error: e.code, requiredProtocol: 2 }, 409);
+      }
+      if (e instanceof DatabaseBusy) { c.header('Retry-After', '1'); return c.json({ error: 'database_busy' }, 503); }
+      throw e;
+    }
+  };
+  const RECORD_BODY = bodyLimit({ maxSize: 4_000_000, onError: (c) => c.json({ error: 'too_large' }, 413) });
+  app.post('/v1/vaults/:id/records', RECORD_BODY, writeRecords);
+  // Distinct route: old servers cannot silently ignore a condition on an otherwise valid legacy POST.
+  app.post('/v1/vaults/:id/records/conditional', RECORD_BODY, writeRecords);
 
   app.post('/v1/vaults/:id/photo', bodyLimit({ maxSize: 3_500_000, onError: (c) => c.json({ error: 'too_large' }, 413) }), async (c) => {
     const id = authed(c);

@@ -7,7 +7,7 @@ import type { Keys } from './crypto';
 import type { Api, RemoteRecord } from './engine';
 import type { ReminderPolicy } from '../../server/src/reminderPolicy';
 
-export const API_URL: string = import.meta.env.VITE_API_URL ?? 'https://api.beyondthesignal.to';
+export const API_URL: string = import.meta.env?.VITE_API_URL ?? 'https://api.beyondthesignal.to';
 
 export class ApiError extends Error {
   /** `data` — the rest of the error's body (D123: how many dishes are left today) */
@@ -38,6 +38,34 @@ export function vaultApi(keys: Keys): Api {
     pull: (since) => call<{ records: RemoteRecord[]; more: boolean; seq: number }>(keys, 'GET', `/records?since=${since}&protocol=${CLIENT_DATA_PROTOCOL}`),
     push: (records) => call<{ seq: number }>(keys, 'POST', '/records', { records, protocol: CLIENT_DATA_PROTOCOL }),
   };
+}
+
+/** Future normalized runner only: no automatic opt-in, revision guessing or fallback to blind writes. */
+export function conditionalVaultApi(keys: Keys) {
+  return {
+    pull: (since: number) => call<{ records: RemoteRecord[]; more: boolean; seq: number }>(keys, 'GET', `/records?since=${since}&protocol=2`),
+    push: (records: { k: string; v: string | null }[], expectedSeq: number) =>
+      call<{ seq: number }>(keys, 'POST', '/records/conditional', { records, expectedSeq, protocol: 2 }),
+  };
+}
+
+/** Read-only capability discovery, also used before runtime recovery of an existing pending send.
+ * A generic supported:2 claim predates CAS and is insufficient. */
+export async function conditionalRecordsCapability(keys: Keys): Promise<{ minimum: 1 | 2 }> {
+  const capability = await call<{ v?: unknown; protocol?: unknown; condition?: unknown; minimum?: unknown }>(
+    keys, 'GET', '/records/conditional/capabilities');
+  if (!capability || capability.v !== 1 || capability.protocol !== 2 || capability.condition !== 'vault-seq' ||
+    (capability.minimum !== 1 && capability.minimum !== 2)) throw new ApiError(409, 'conditional_records_unsupported');
+  return { minimum: capability.minimum };
+}
+
+/** Explicit opt-in only; not called by startup/recovery before migration and rollout gates. */
+export async function optInConditionalRecords(keys: Keys): Promise<void> {
+  await conditionalRecordsCapability(keys);
+  const ack = await call<{ minimum?: unknown; protocol?: unknown; condition?: unknown }>(
+    keys, 'PUT', '/write-protocol/conditional-records', { minimum: 2, protocol: 2, condition: 'vault-seq' });
+  if (!ack || ack.minimum !== 2 || ack.protocol !== 2 || ack.condition !== 'vault-seq')
+    throw new ApiError(409, 'conditional_records_ack_invalid');
 }
 
 export const photo = (keys: Keys, image: string, foods: string[], dishes: string[]) =>
