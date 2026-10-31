@@ -46,6 +46,7 @@ export function Onboarding() {
 
 function Steps({ plan, start, onScanned }: { plan: PlanRow; start: number; onScanned: () => void }) {
   const navigate = useNavigate();
+  const srcLink = useUi((state) => state.srcLink);
   const { enabled } = useFeatures();
   const events = useModuleEvents();
   const [choices, setChoices] = useState<Partial<ModuleFlags>>({});
@@ -140,7 +141,7 @@ function Steps({ plan, start, onScanned }: { plan: PlanRow; start: number; onSca
         <button type="button" onClick={enterDemo} className="min-h-tap w-full rounded-xl border border-accent px-4 font-medium text-accent">{L.example}</button>
         <p className="text-sm text-muted">{L.exampleHint}</p>
       </div>
-      <details className="protocol-card rounded-2xl border border-line bg-surface p-3">
+      <details open={srcLink?.state === 'known' || srcLink?.state === 'unknown'} className="protocol-card rounded-2xl border border-line bg-surface p-3">
         <summary className="flex min-h-tap cursor-pointer items-center font-medium text-accent">Інші способи почати</summary>
         <div className="mt-3 space-y-3">
           <button type="button" onClick={() => setStep(1)} className="min-h-tap w-full rounded-xl border border-accent px-4 font-medium text-accent">{L.manual}</button>
