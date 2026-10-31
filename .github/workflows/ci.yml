@@ -21,9 +21,16 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run typecheck
-  e2e:
+  e2e-matrix:
+    name: e2e (${{ matrix.mode }})
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [compatibility, acceptance]
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
+    env:
+      VITE_MODULE_POLICY_ENABLED: ${{ matrix.mode == 'acceptance' && 'true' || 'false' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -31,10 +38,26 @@ jobs:
       - run: npm ci
       - run: npm ci --prefix server
       - run: npx playwright install --with-deps chromium
-      - run: npm run e2e
+      - run: npm run e2e -- --reporter=line,json
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_FILE: e2e-results.json
+      - name: Verify E2E skips and publish summary
+        if: always()
+        run: node scripts/check-e2e-skips.mjs e2e-results.json '${{ matrix.mode }}' >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: e2e-report-${{ matrix.mode }}, path: e2e-results.json, retention-days: 14 }
       - uses: actions/upload-artifact@v4
         if: success()
-        with: { name: mockup-screen-matrix, path: test-results/mockup-*.png, retention-days: 7 }
+        with: { name: mockup-screen-matrix-${{ matrix.mode }}, path: test-results/mockup-*.png, retention-days: 7 }
       - uses: actions/upload-artifact@v4
         if: failure()
-        with: { name: playwright, path: test-results, retention-days: 7 }
+        with: { name: playwright-${{ matrix.mode }}, path: test-results, retention-days: 7 }
+  e2e:
+    name: e2e
+    needs: [e2e-matrix]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require both E2E modes to pass
+        run: test "${{ needs.e2e-matrix.result }}" = "success"
