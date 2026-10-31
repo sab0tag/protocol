@@ -1,7 +1,7 @@
 // D110, D123: a dish's breakdown to check — the name, the portions, each ingredient with its grams (base or the model's
 // estimate, marked), what the plan's check says of it, and the totals. Shared by «Розкласти свою страву» and a list's cards.
 import { X } from 'lucide-react';
-import { useMemo, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { lineItem, type DishLine } from '../domain/dishBreakdown';
 import { todayISO } from '../domain/dates';
 import { mealNutrients, round } from '../domain/nutrition';
@@ -17,6 +17,19 @@ export function BreakdownEditor({ foods, plan, name, onName, portions, onPortion
   foods: Map<string, Food>; plan?: Plan; name: string; onName: (s: string) => void; portions: number; onPortions: (n: number) => void;
   lines: DishLine[]; onLines: (ls: DishLine[]) => void; note?: string; children?: ReactNode;
 }) {
+  // Keep an editable draft: iOS must allow deleting the last digit before entering a new value.
+  const [portionsDraft, setPortionsDraft] = useState(String(portions));
+  useEffect(() => { setPortionsDraft(String(portions)); }, [portions]);
+  const changePortions = (raw: string) => {
+    setPortionsDraft(raw);
+    if (!/^[1-9]\\d*$/.test(raw)) return;
+    const next = Number(raw);
+    if (!Number.isSafeInteger(next) || next === portions) return;
+    // Ingredient weights describe the original batch. Rescale the batch when the user
+    // changes its yield, so saving per-portion quantities stays consistent.
+    onLines(lines.map((line) => ({ ...line, grams: Math.round((line.grams * next / portions) * 1000) / 1000 })));
+    onPortions(next);
+  };
   const total = useMemo(() => mealNutrients(lines.map(lineItem), foods), [lines, foods]);
   const weight = lines.reduce((g, l) => g + l.grams, 0);
   // D111: what the plan's check says of each line — the estimated ones too, by what the model marked them as
@@ -28,7 +41,7 @@ export function BreakdownEditor({ foods, plan, name, onName, portions, onPortion
       <label className="block"><span className="text-sm text-muted">{L.name}</span>
         <input value={name} onChange={(e) => onName(e.target.value)} className={field} /></label>
       <label className="block w-40"><span className="text-sm text-muted">{L.portions}</span>
-        <input type="number" inputMode="decimal" min={1} step={1} value={portions} onChange={(e) => onPortions(Math.max(1, Number(e.target.value) || 1))} className={field} /></label>
+        <input type="text" inputMode="numeric" pattern="[0-9]*" value={portionsDraft} onChange={(e) => changePortions(e.target.value)} onBlur={() => setPortionsDraft(String(portions))} className={field} /></label>
       {note && <p className="text-sm text-warn">{note}</p>}
       <p className="text-xs text-muted">{L.check}</p>
       <ul className="divide-y divide-line rounded-xl border border-line">
