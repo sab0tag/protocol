@@ -22,7 +22,7 @@ export function BreakdownEditor({ foods, plan, name, onName, portions, onPortion
   useEffect(() => { setPortionsDraft(String(portions)); }, [portions]);
   const changePortions = (raw: string) => {
     setPortionsDraft(raw);
-    if (!/^[1-9]\\d*$/.test(raw)) return;
+    if (!/^[1-9]\d*$/.test(raw)) return;
     const next = Number(raw);
     if (!Number.isSafeInteger(next) || next === portions) return;
     // Ingredient weights describe the original batch. Rescale the batch when the user
