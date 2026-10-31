@@ -1,6 +1,6 @@
-# Isolated clinic pilot API. Run from server/ with a dedicated .env.pilot.
-# Never attach the production 'data' volume or production DB_PATH.
-# HTTPS must be terminated by an explicitly configured reverse proxy.
+# Separate clinic pilot API on Hetzner; no published host ports.
+# The external harch_edge network exposes only the API process to Caddy and other
+# containers already trusted on that network; DB remains in a dedicated volume.
 services:
   pilot-api:
     build: .
@@ -14,21 +14,15 @@ services:
       - pilot_data:/pilot-data
       - ./pilot-backups:/backups
     networks:
-      - pilot_edge
-    healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8080/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
+      edge:
+        aliases: [protocol-pilot-api]
     logging:
       driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
+      options: { max-size: "10m", max-file: "3" }
 volumes:
   pilot_data:
     name: protocol_clinic_pilot_data
 networks:
-  pilot_edge:
-    name: protocol_clinic_pilot_edge
-    internal: true
+  edge:
+    external: true
+    name: harch_edge
