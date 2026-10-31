@@ -52,7 +52,10 @@ export async function applySourcePlanCatalog(target: ProtocolDB, keys: Keys, rec
   const expected = stable(portable(expectedLocal));
   const incoming = rebindSourcePlanBackup(await decryptSourcePlanCatalog(keys, record), databasePersonId(target));
   await target.transaction('rw', target.carePlans, target.carePlanItems, target.planMigrations, target.meta, async () => {
-    if ((await target.meta.get('sync'))?.code !== binding.code) throw new Error('source_plan_vault_mismatch');
+    const currentBinding = await target.meta.get('sync');
+    if (currentBinding?.code !== binding.code) throw new Error('source_plan_vault_mismatch');
+    // A pending encrypted clinical send must survive remote catalog replacement.
+    if (currentBinding.sourcePlanDelivery?.pending) throw new Error('source_plan_send_pending');
     const current = portable(await sourcePlanBackup(target) ?? empty());
     if (stable(current) !== expected) throw new Error('source_plan_local_conflict');
     await target.carePlans.clear(); await target.carePlanItems.clear(); await target.planMigrations.clear();
