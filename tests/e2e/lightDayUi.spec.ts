@@ -54,10 +54,21 @@ test('light day quiets non-medication tasks, retains help/PRN and voluntary inpu
   expect((await rows(page, 'entries')).find((e) => e.id === 'planned-lunch')).toEqual(before[0]);
 });
 
-test('a saved symptom offers light day with wellbeing off; a low saved energy score also offers it', async ({ browser }) => {
+test('a saved symptom offers light day while wellbeing is explicitly off', async ({ browser }) => {
   test.skip(!enabled, 'acceptance build');
   const page = await profile(browser);
-  await page.goto('./#/modules'); await page.getByRole('switch', { name: 'Самопочуття', exact: true }).click();
+  await page.goto('./#/modules');
+  const wellbeing = page.getByRole('switch', { name: 'Самопочуття', exact: true });
+  await expect(wellbeing).toBeChecked();
+  await wellbeing.click();
+  await expect(wellbeing).not.toBeChecked();
+  // The toggle writes asynchronously; confirm durable OFF before navigating away.
+  await expect.poll(async () => {
+    const history = (await rows(page, 'moduleEvents')).filter((e) => e.kind === 'module' && e.module === 'wellbeing');
+    return history.at(-1)?.enabled;
+  }).toBe(false);
+  await page.reload();
+  await expect(wellbeing).not.toBeChecked();
   await page.goto('./#/'); await page.getByRole('button', { name: 'Мені погано', exact: true }).click();
   const dialog = page.getByRole('dialog'); await dialog.getByRole('button', { name: 'Втома', exact: true }).click();
   await dialog.getByRole('button', { name: 'Записати', exact: true }).click();
@@ -67,12 +78,16 @@ test('a saved symptom offers light day with wellbeing off; a low saved energy sc
   await expect(page.getByRole('button', { name: 'Повернути звичайний день', exact: true })).toBeVisible();
   expect((await rows(page, 'entries')).filter((e) => e.kind === 'symptom')).toHaveLength(1);
   await page.getByRole('button', { name: 'Повернути звичайний день', exact: true }).click();
+});
+
+test('a low saved energy score offers light day with wellbeing enabled after reload', async ({ browser }) => {
+  test.skip(!enabled, 'acceptance build');
+  const page = await profile(browser);
   await page.goto('./#/modules');
   const wellbeing = page.getByRole('switch', { name: 'Самопочуття', exact: true });
-  await wellbeing.click();
   await expect(wellbeing).toBeChecked();
   await page.reload();
-  await expect(wellbeing).toBeChecked(); // require persisted enablement before entering the guarded route
+  await expect(wellbeing).toBeChecked();
   await page.goto('./#/wellbeing'); await page.getByRole('button', { name: /^Енергія: 1 —/ }).click();
   await expect(page.getByRole('button', { name: 'Легкий день', exact: true })).toBeVisible();
   expect((await rows(page, 'wellbeing'))[0].energy).toBe(1);
