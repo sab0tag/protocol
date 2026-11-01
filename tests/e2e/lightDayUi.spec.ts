@@ -64,9 +64,9 @@ test('a saved symptom offers light day while wellbeing is explicitly off', async
   await expect(wellbeing).not.toBeChecked();
   // The toggle writes asynchronously; confirm durable OFF before navigating away.
   await expect.poll(async () => {
-    const history = (await rows(page, 'moduleEvents')).filter((e) => e.kind === 'module' && e.module === 'wellbeing');
-    return history.at(-1)?.enabled;
-  }).toBe(false);
+    const history = (await rows(page, 'moduleEvents')).filter((e) => e.kind === 'module' && e.module === 'wellbeing' && e.source === 'manual');
+    return history.length === 1 && history[0].enabled === false;
+  }).toBe(true);
   await page.reload();
   await expect(wellbeing).not.toBeChecked();
   await page.goto('./#/'); await page.getByRole('button', { name: 'Мені погано', exact: true }).click();
