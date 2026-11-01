@@ -6,15 +6,18 @@ import { saved } from '../components/Toast';
 import { uk } from 'date-fns/locale';
 import { Activity, Check, ChevronLeft, ChevronRight, Circle, Dumbbell, Info } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 import { db } from '../data/db';
 import { useDayEntries, useFoods, usePlan, useWorkouts } from '../data/queries';
 import { buildChecklist, WATER_SEGMENT_ML, WATER_SEGMENTS, type CheckItem } from '../domain/checklist';
 import { atLocal, newId, todayISO } from '../domain/dates';
+import { completedLate } from '../domain/adherence';
 import { t } from '../i18n/uk';
 import { useUi } from '../store/ui';
 import { useObservation } from '../app/observation';
 import { ProgressTrack } from '../components/ProgressTrack';
 import { ExampleNotice } from '../components/ExampleNotice';
+import { markMeds, TimeChoice } from '../components/MarkTime';
 
 const M = t.myday;
 
@@ -28,20 +31,30 @@ export function MyDay() {
   const foods = useFoods();
   const workouts = useWorkouts();
   const navigate = useNavigate();
+  const [asking, setAsking] = useState<CheckItem | null>(null);
   if (!entries || !foods || !workouts || !observationReady) return <Loading />;
 
   const isToday = date === todayISO();
   const c = visibleChecklist(buildChecklist({ plan, date, entries, workouts, foods, now: new Date(), observation }), context);
   const stamp = (scheduled?: string) => atLocal(date, isToday ? format(new Date(), 'HH:mm') : scheduled ?? '12:00');
+  const future = date > todayISO();
 
   const toggle = async (item: CheckItem) => {
     if (item.kind === 'workout') return navigate('/workout');
     if (!item.tappable) return;
+    if (item.kind === 'med' && (item.uncertain || !isToday)) {
+      if (!future) setAsking(item);
+      return;
+    }
     const tick = entries.find((e) => e.checkKey === item.key && e.status === 'done');
     if (tick) return saved(db.entries.delete(tick.id), t.toast.medUndone(item.title), () => db.entries.put(tick));
     const id = newId();
+    const now = format(new Date(), 'HH:mm');
+    const at = stamp(item.kind === 'dinner' ? plan?.targets.lastMealBy : item.time);
     await saved(db.entries.add({
-      at: stamp(item.kind === 'dinner' ? plan?.targets.lastMealBy : item.time), status: 'done', checkKey: item.key,
+      at, status: 'done', checkKey: item.key,
+      ...(item.kind === 'med' && isToday && completedLate(now, item.time) ? { adherence: 'completed_late' as const } : {}),
+      ...(item.kind === 'med' && isToday ? { markedAt: atLocal(date, now) } : {}),
       ...(item.kind === 'med' ? { kind: 'med' as const, title: item.title, ...(item.prescriptionId ? { prescriptionId: item.prescriptionId } : {}) }
         : { kind: 'note' as const, title: item.title }),
       id,
@@ -69,7 +82,7 @@ export function MyDay() {
       <ul className="divide-y divide-line overflow-hidden protocol-card rounded-2xl border border-line bg-surface">
         {c.items.map((item) => (
           <li key={item.key}>
-            <button type="button" onClick={() => void toggle(item)} disabled={!item.tappable && item.kind !== 'workout'}
+            <button type="button" onClick={() => void toggle(item)} disabled={(!item.tappable && item.kind !== 'workout') || (future && item.kind === 'med')}
               aria-pressed={item.tappable ? item.done : undefined}
               className="flex min-h-tap w-full items-center gap-3 px-4 py-4 text-left disabled:cursor-default">
               {item.done ? <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent text-surface"><Check size={16} aria-hidden /></span>
@@ -78,6 +91,7 @@ export function MyDay() {
               <span className="min-w-0 flex-1">
                 <span className={`block font-medium ${item.done ? 'text-muted line-through decoration-accent/50' : ''}`}>{item.title}</span>
                 {item.detail && <span className="block text-sm text-muted">{item.detail}</span>}
+                {item.uncertain && <span className="block text-sm text-muted">{t.adherence.uncertain}</span>}
               </span>
               <span className="tabular shrink-0 text-sm">
                 {item.doneAt && <span className="text-accent">{M.doneAt(item.doneAt)}</span>}
@@ -104,6 +118,11 @@ export function MyDay() {
       {can('wellbeing.log') && <button type="button" onClick={() => navigate('/wellbeing')}
         className="mt-3 flex min-h-tap w-full items-center gap-3 protocol-card rounded-2xl border border-line bg-surface px-3 font-medium">
         <Activity size={20} className="text-accent" />{M.wellbeing}</button>}
+      {asking && <TimeChoice title={asking.title} {...(asking.time ? { planned: asking.time } : {})} date={date} allowUncertain
+        onPick={(when) => {
+          if (asking.kind === 'med') void markMeds([{ key: asking.key, title: asking.title,
+            ...(asking.prescriptionId ? { prescriptionId: asking.prescriptionId } : {}) }], date, asking.time, 'done', when);
+        }} onClose={() => setAsking(null)} />}
     </section>
   );
 }

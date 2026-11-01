@@ -9,6 +9,8 @@ import { confirmImport, previewClinicPlan } from '../../src/domain/planImport';
 import { deriveKeys, newCode, parseCode } from '../../src/sync/crypto';
 import { applySourcePlanCatalog, captureSourcePlanCatalog, encryptSourcePlanCatalog } from '../../src/sync/sourcePlans';
 
+const syncUrl = (url: string) => `${url}${url.includes('?') ? '&' : '?'}clientVersion=2`;
+
 test('protocol-2 opaque catalog crosses the real vault API; protocol-1 requests are refused', async ({ request }) => {
   const code = newCode(), keys = await deriveKeys(parseCode(code)!);
   const people = [crypto.randomUUID(), crypto.randomUUID()];
@@ -25,11 +27,11 @@ test('protocol-2 opaque catalog crosses the real vault API; protocol-1 requests 
       medications: [{ name: 'Synthetic instruction', dose: '1 unit', frequency: 'Once daily', duration: '7 days', instructions: 'Check source' }], restrictions: [], tests: [] })!;
     await saveClinicImport(a, people[0]!, confirmImport(preview, ['med:0'], people[0]!)!);
     expect((await request.put(root, { headers })).ok()).toBe(true);
-    expect(await (await request.get(`${root}/records/conditional/capabilities`, { headers })).json()).toEqual({ v: 1, protocol: 2, condition: 'vault-seq', minimum: 1 });
-    expect(await (await request.put(`${root}/write-protocol/conditional-records`, { headers, data: { minimum: 2, protocol: 2, condition: 'vault-seq' } })).json()).toEqual({ minimum: 2, protocol: 2, condition: 'vault-seq' });
+    expect(await (await request.get(syncUrl(`${root}/records/conditional/capabilities`), { headers })).json()).toEqual({ v: 1, protocol: 2, condition: 'vault-seq', minimum: 1 });
+    expect(await (await request.put(syncUrl(`${root}/write-protocol/conditional-records`), { headers, data: { minimum: 2, protocol: 2, condition: 'vault-seq' } })).json()).toEqual({ minimum: 2, protocol: 2, condition: 'vault-seq' });
     const record = await encryptSourcePlanCatalog(keys, await captureSourcePlanCatalog(a));
-    expect((await request.post(`${root}/records/conditional`, { headers, data: { protocol: 2, expectedSeq: 0, records: [record] } })).ok()).toBe(true);
-    const response = await request.get(`${root}/records?since=0&protocol=2`, { headers }); expect(response.ok()).toBe(true);
+    expect((await request.post(syncUrl(`${root}/records/conditional`), { headers, data: { protocol: 2, expectedSeq: 0, records: [record] } })).ok()).toBe(true);
+    const response = await request.get(syncUrl(`${root}/records?since=0&protocol=2`), { headers }); expect(response.ok()).toBe(true);
     const page = await response.json(); expect(page.records).toHaveLength(1);
     expect(JSON.stringify(page)).not.toContain('Synthetic'); expect(JSON.stringify(page)).not.toContain(people[0]!);
     const before = await b.plan.get('main');
@@ -42,12 +44,12 @@ test('protocol-2 opaque catalog crosses the real vault API; protocol-1 requests 
     const original = await captureSourcePlanCatalog(a), first = structuredClone(original), second = structuredClone(original);
     first.plans[0]!.title = 'Synthetic edit from first device'; second.plans[0]!.title = 'Synthetic edit from second device';
     const candidates = await Promise.all([encryptSourcePlanCatalog(keys, first), encryptSourcePlanCatalog(keys, second)]);
-    const attempts = await Promise.all(candidates.map(candidate => request.post(`${root}/records/conditional`, {
+    const attempts = await Promise.all(candidates.map(candidate => request.post(syncUrl(`${root}/records/conditional`), {
       headers, data: { protocol: 2, expectedSeq: page.seq, records: [candidate] },
     })));
     expect(attempts.map(r => r.status()).sort()).toEqual([200, 409]);
     const winner = attempts.findIndex(r => r.status() === 200);
-    const finalPage = await (await request.get(`${root}/records?since=0&protocol=2`, { headers })).json();
+    const finalPage = await (await request.get(syncUrl(`${root}/records?since=0&protocol=2`), { headers })).json();
     expect(finalPage.records[0].v).toBe(candidates[winner]!.v);
     const conflict = await attempts.find(r => r.status() === 409)!.json();
     expect(conflict).toEqual({ error: 'record_conflict', seq: finalPage.seq });
@@ -55,12 +57,12 @@ test('protocol-2 opaque catalog crosses the real vault API; protocol-1 requests 
     expect(await captureSourcePlanCatalog(b)).toEqual(winner === 0 ? first : second);
     expect(await captureSourcePlanCatalog(a)).toEqual(original);
     // A lost-response replay is a conflict, never a second write or a blind overwrite.
-    expect((await request.post(`${root}/records/conditional`, { headers, data: { protocol: 2, expectedSeq: page.seq, records: [candidates[winner]] } })).status()).toBe(409);
-    for (const response of [await request.get(`${root}/records?since=0&protocol=1`, { headers }),
-      await request.post(`${root}/records`, { headers, data: { protocol: 1, records: [record] } })]) {
+    expect((await request.post(syncUrl(`${root}/records/conditional`), { headers, data: { protocol: 2, expectedSeq: page.seq, records: [candidates[winner]] } })).status()).toBe(409);
+    for (const response of [await request.get(syncUrl(`${root}/records?since=0&protocol=1`), { headers }),
+      await request.post(syncUrl(`${root}/records`), { headers, data: { protocol: 1, records: [record] } })]) {
       expect(response.status()).toBe(409); expect((await response.json()).error).toBe('client_upgrade_required');
     }
-    expect(await (await request.get(`${root}/records?since=0&protocol=2`, { headers })).json()).toEqual(finalPage);
+    expect(await (await request.get(syncUrl(`${root}/records?since=0&protocol=2`), { headers })).json()).toEqual(finalPage);
   } finally { for (const db of databases) await db.delete(); }
 });
 
@@ -76,13 +78,13 @@ test('durable source send survives lost HTTP response, reopen and a competing de
   const pulls: number[] = [];
   const api = {
     push: async (records: { k: string; v: string | null }[], expectedSeq: number) => {
-      const response = await request.post(`${root}/records/conditional`, { headers, data: { records, expectedSeq, protocol: 2 } });
+      const response = await request.post(syncUrl(`${root}/records/conditional`), { headers, data: { records, expectedSeq, protocol: 2 } });
       const data = await response.json(); if (!response.ok()) throw new ApiError(response.status(), data.error, data);
       return data as { seq: number };
     },
     pull: async (since: number) => {
       pulls.push(since);
-      const response = await request.get(`${root}/records?since=${since}&protocol=2`, { headers });
+      const response = await request.get(syncUrl(`${root}/records?since=${since}&protocol=2`), { headers });
       const data = await response.json(); if (!response.ok()) throw new ApiError(response.status(), data.error, data);
       return data;
     },
@@ -92,8 +94,8 @@ test('durable source send survives lost HTTP response, reopen and a competing de
     await a.plan.put({ ...emptyPlan(), id: 'main' });
     await prepareLegacyPlanCore(a, a.name.slice('protocol-profile-'.length));
     expect((await request.put(root, { headers })).ok()).toBe(true);
-    expect(await (await request.get(`${root}/records/conditional/capabilities`, { headers })).json()).toEqual({ v: 1, protocol: 2, condition: 'vault-seq', minimum: 1 });
-    expect(await (await request.put(`${root}/write-protocol/conditional-records`, { headers, data: { minimum: 2, protocol: 2, condition: 'vault-seq' } })).json()).toEqual({ minimum: 2, protocol: 2, condition: 'vault-seq' });
+    expect(await (await request.get(syncUrl(`${root}/records/conditional/capabilities`), { headers })).json()).toEqual({ v: 1, protocol: 2, condition: 'vault-seq', minimum: 1 });
+    expect(await (await request.put(syncUrl(`${root}/write-protocol/conditional-records`), { headers, data: { minimum: 2, protocol: 2, condition: 'vault-seq' } })).json()).toEqual({ minimum: 2, protocol: 2, condition: 'vault-seq' });
     const first = await prepareSourcePlanSend(a, keys, 0);
     await expect(deliverSourcePlanSend(a, keys, { ...api, push: async (...args) => {
       await api.push(...args); throw new ApiError(0, 'offline'); // HTTP committed; caller never sees its acknowledgement.

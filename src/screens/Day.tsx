@@ -20,6 +20,7 @@ import { exportDue } from '../data/backup';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { atLocal, dateOf, newId, timeOf, todayISO } from '../domain/dates';
 import { activeMode, dayTotals, effectiveTargets } from '../domain/nutrition';
+import { completedLate } from '../domain/adherence';
 import type { DayEntry, EntryKind } from '../domain/types';
 import { t } from '../i18n/uk';
 import { useUi } from '../store/ui';
@@ -123,22 +124,32 @@ export function Day() {
   const setStatus = async (e: DayEntry, status: DayEntry['status']) => {
     setRowFor(null);
     const say = status === 'done' ? t.toast.done : status === 'skipped' ? t.toast.skipped : t.toast.backToPlan;
-    await saved(db.entries.put({ ...e, status }), say(e.title), () => db.entries.put(e));
+    const next = { ...e, status };
+    delete next.adherence;
+    if (e.adherence === 'uncertain') {
+      delete next.markedAt;
+      delete next.timeUnknown;
+    }
+    await saved(db.entries.put(next), say(e.title), () => db.entries.put(e));
   };
   const waterRow = (): DayEntry => ({ id: newId(), at: atLocal(date, isToday ? format(new Date(), 'HH:mm') : '12:00'), kind: 'water', status: 'done',
     title: t.addKinds.water, waterMl: 250 });
   const meds = checklist?.items.filter((i) => i.kind === 'med') ?? [];
-  const nextMed = meds.find((i) => !i.done && !i.skipped);
+  const nextMed = meds.find((i) => !i.done && !i.skipped && !i.uncertain);
+  const uncertainMed = meds.find((i) => i.uncertain);
+  const medAction = uncertainMed ?? nextMed;
   // D50: a dose past its window is «не відмічено» (orange); D52: then — and on any other day — the dock asks when it was taken
   const medMissed = !!nextMed?.time && (date < todayISO() || (isToday && differenceInMinutes(new Date(), new Date(`${date}T${nextMed.time}:00`)) > NOW_AFTER_MIN));
   const [askMed, setAskMed] = useState<CheckItem | null>(null);
   /** The dock's two taps (D48): written at once, the dock itself says so and takes the undo. */
   const dockWater = async () => { if (!can('water.log')) return undefined; const e = waterRow(); await db.entries.add(e); return () => db.entries.delete(e.id); };
   const dockMed = async () => {
-    if (!can('meds.log') || !nextMed) return undefined;
-    if (!isToday || medMissed) { setAskMed(nextMed); return undefined; }
-    const e: DayEntry = { id: newId(), at: atLocal(date, format(new Date(), 'HH:mm')),
-      kind: 'med', status: 'done', title: nextMed.title, checkKey: nextMed.key, ...(nextMed.prescriptionId ? { prescriptionId: nextMed.prescriptionId } : {}) };
+    if (!can('meds.log') || !medAction) return undefined;
+    if (medAction.uncertain || !isToday || medMissed) { setAskMed(medAction); return undefined; }
+    const now = format(new Date(), 'HH:mm');
+    const e: DayEntry = { id: newId(), at: atLocal(date, now), kind: 'med', status: 'done', title: medAction.title, checkKey: medAction.key,
+      ...(completedLate(now, medAction.time) ? { adherence: 'completed_late' as const } : {}),
+      ...(medAction.prescriptionId ? { prescriptionId: medAction.prescriptionId } : {}) };
     await db.entries.add(e);
     return () => db.entries.delete(e.id);
   };
@@ -225,8 +236,10 @@ export function Day() {
           </button>
         ))}
       </nav>}
-      {checklist && <QuickDock meds={{ done: meds.filter((i) => i.done).length, total: meds.length }} water={checklist.water}
-          med={nextMed && { title: nextMed.title, ...(nextMed.time ? { time: nextMed.time } : {}), missed: medMissed }}
+      {checklist && <QuickDock meds={{ done: meds.filter((i) => i.done).length, skipped: meds.filter((i) => i.skipped).length,
+          total: meds.length }} water={checklist.water}
+          med={medAction && { title: medAction.title, ...(medAction.time ? { time: medAction.time } : {}), missed: medAction === nextMed && medMissed,
+            ...(medAction.uncertain ? { uncertain: true } : {}) }}
           onMed={dockMed} onWater={dockWater} hidden={tilesOnScreen} hideWater={light || !can('water.log')} />}
 
       <ExampleNotice plan={plan} />
@@ -314,9 +327,16 @@ export function Day() {
       {rowFor && entryVisible(rowFor, context) && (
         <Sheet title={rowFor.title} onClose={() => setRowFor(null)}>
           <EntryPreview entry={rowFor} foods={foods} {...(all ? { all } : {})} />
-          {rowFor.kind !== 'symptom' && rowFor.status !== 'done' && <SheetButton tone="accent" onClick={() => setStatus(rowFor, 'done')}><Check size={20} />{t.rowActions.done}</SheetButton>}
+          {rowFor.kind === 'med' && rowFor.adherence === 'uncertain'
+            ? <SheetButton tone="accent" onClick={() => {
+              const item = checklist?.items.find((x) => x.kind === 'med' && x.key === rowFor.checkKey);
+              if (!item) return;
+              setRowFor(null);
+              setAskMed(item);
+            }}><Check size={20} />{t.rowActions.resolveUncertain}</SheetButton>
+            : rowFor.kind !== 'symptom' && rowFor.status !== 'done' && <SheetButton tone="accent" onClick={() => setStatus(rowFor, 'done')}><Check size={20} />{t.rowActions.done}</SheetButton>}
           {rowFor.kind !== 'symptom' && rowFor.status !== 'skipped' && <SheetButton onClick={() => setStatus(rowFor, 'skipped')}><X size={20} />{t.rowActions.skipped}</SheetButton>}
-          {rowFor.kind !== 'symptom' && rowFor.status !== 'planned' && <SheetButton onClick={() => setStatus(rowFor, 'planned')}><Undo2 size={20} />{t.rowActions.planned}</SheetButton>}
+          {rowFor.kind !== 'symptom' && (rowFor.status !== 'planned' || rowFor.adherence === 'uncertain') && <SheetButton onClick={() => setStatus(rowFor, 'planned')}><Undo2 size={20} />{t.rowActions.planned}</SheetButton>}
           <SheetButton onClick={() => edit(rowFor)}><Pencil size={20} />{t.rowActions.edit}</SheetButton>
           {rowFor.kind === 'meal' && !!rowFor.items?.length && (
             <SheetButton onClick={() => { const e = rowFor; setRowFor(null); void pinMeal(e.title, e.items!); }}><Star size={20} />{t.meal.pin}</SheetButton>
@@ -359,7 +379,7 @@ export function Day() {
       })()}
       <p className="text-center"><button type="button" onClick={() => navigate('/frictions')} className="min-h-tap px-2 text-sm text-muted underline">{t.friction.ask}</button></p>
       {checklist && <div className="h-40 md:h-16" aria-hidden /> /* D48: the last record stays above the floating dock */}
-      {askMed && can('meds.log') && <TimeChoice title={askMed.title} {...(askMed.time ? { planned: askMed.time } : {})} date={date} onClose={() => setAskMed(null)}
+      {askMed && can('meds.log') && <TimeChoice title={askMed.title} {...(askMed.time ? { planned: askMed.time } : {})} date={date} allowUncertain onClose={() => setAskMed(null)}
         onPick={(when) => void markMeds([{ key: askMed.key, title: askMed.title, ...(askMed.prescriptionId ? { prescriptionId: askMed.prescriptionId } : {}) }],
           date, askMed.time, 'done', when)} />}
       {symptom && all && <SymptomSheet date={date} {...(symptom.entry ? { entry: symptom.entry } : {})} all={all} {...(foods ? { foods } : {})} onClose={() => setSymptom(null)} />}

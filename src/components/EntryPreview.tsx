@@ -25,7 +25,9 @@ export function EntryPreview({ entry, foods, all }: { entry: DayEntry; foods?: M
       </div>
     );
   }
-  const head = <p className="text-sm text-muted">{shownTime(entry) ?? t.day.timeUnknown} · {t.status[entry.status]}</p>;
+  const outcome = entry.adherence === 'uncertain' ? t.adherence.uncertain
+    : entry.adherence === 'completed_late' ? t.adherence.completedLate : t.status[entry.status];
+  const head = <p className="text-sm text-muted">{entry.adherence === 'uncertain' ? '—' : entry.timeUnknown ? t.day.timeUnknown : shownTime(entry) ?? t.day.timeUnknown} · {outcome}</p>;
   if (entry.kind !== 'meal' || !entry.items?.length || !foods) {
     return <div className="mb-3">{head}{entry.kind === 'water' && <p>{entry.waterMl ?? 0} {t.units.ml}</p>}</div>;
   }
