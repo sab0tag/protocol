@@ -14,7 +14,7 @@ import { useAllEntries, useDayEntries, useFoods, usePlan, useRecipes, useWorkout
 import { buildChecklist, type CheckItem } from '../domain/checklist';
 import { NOW_AFTER_MIN } from '../domain/reminders';
 import { FOOD_COMPLETE, foodState, habits, mealsOf, frequentItems } from '../domain/habits';
-import { addDays, parseISO as parseDay } from 'date-fns';
+import { addDays, differenceInCalendarDays, parseISO as parseDay } from 'date-fns';
 import { amountText } from '../domain/foodSearch';
 import { exportDue } from '../data/backup';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -101,6 +101,19 @@ export function Day() {
   const [yesterday, setYesterday] = useState(false);
   const [tilesRef, tilesOnScreen] = useOnScreen<HTMLElement>(); // D82
   const all = useAllEntries();
+  const lastRecordedDate = useLiveQuery(async () => {
+    const [entries, wellbeing, workouts, weights, labs, frictions] = await Promise.all([
+      db.entries.toArray(), db.wellbeing.toArray(), db.workouts.toArray(), db.weights.toArray(), db.labs.toArray(), db.frictions.toArray(),
+    ]);
+    return [
+      ...entries.filter((entry) => entry.status !== 'planned').map((entry) => dateOf(entry.at)),
+      ...wellbeing.map((entry) => entry.date),
+      ...workouts.map((entry) => entry.date),
+      ...weights.map((entry) => entry.date),
+      ...labs.map((entry) => entry.date),
+      ...frictions.map((entry) => dateOf(entry.at)),
+    ].reduce((latest, recordedDate) => recordedDate > latest ? recordedDate : latest, '');
+  }, []);
   const best = foods && all && workouts
     ? habits({ plan, entries: all, workouts, foods, today: todayISO(), observation }).filter((h) => h.streak >= 3 && habitVisible(h.key, context)).sort((a, b) => b.streak - a.streak)[0]
     : undefined; // D38
@@ -111,6 +124,8 @@ export function Day() {
   const targets = observedTargets(effectiveTargets(plan, date), date, observation);
   const totals = entries && foods ? dayTotals(entries, foods) : undefined;
   const isToday = date === todayISO();
+  const returningAfterBreak = isToday && !!lastRecordedDate &&
+    differenceInCalendarDays(parseDay(todayISO()), parseDay(lastRecordedDate)) >= 7;
   // R06: «Усе з’їдене записано» — a mark of the day, made and taken back by the person
   const markComplete = async (on: boolean) => {
     const id = `food-complete-${date}`;
@@ -184,6 +199,11 @@ export function Day() {
       <DayHeader date={date} setDate={setDate} action={enabled ? <LightDayControl date={date} /> : undefined} />
       {light && !isToday && <p className="mb-3 text-sm">{t.lightDay.enable}</p>}
       {enabled && isToday && <LightDayNotice date={date} />}
+      {returningAfterBreak && <div role="status" aria-label={t.day.returningAfterBreak.title}
+        className="mb-3 space-y-1 rounded-2xl border border-accent/30 bg-surface p-3 text-sm">
+        <p className="font-medium">{t.day.returningAfterBreak.title}</p>
+        <p className="text-muted">{t.day.returningAfterBreak.message}</p>
+      </div>}
 
       {/* D53: recording food is one strong button on «День», not a row under a table */}
       <div className="mb-4 flex gap-2">
