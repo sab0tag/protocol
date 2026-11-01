@@ -43,7 +43,7 @@ test('light day quiets non-medication tasks, retains help/PRN and voluntary inpu
   expect(await rows(page, 'entries')).toEqual(before);
   const on = (await rows(page, 'moduleEvents')).filter((e) => e.kind === 'light-day');
   expect(on).toHaveLength(1); expect(on[0].until - on[0].from).toBe(25 * 3_600_000);
-  await page.screenshot({ path: '/tmp/protocol-browser-runtime/light-day-ui-part8.png', fullPage: true });
+  await page.screenshot({ path: test.info().outputPath('light-day-ui-part8.png'), fullPage: true });
   await page.getByText('Записати за бажанням', { exact: true }).click();
   await page.getByRole('button', { name: 'Вода', exact: true }).click();
   const water = page.getByRole('dialog', { name: 'Вода, мл', exact: true });
