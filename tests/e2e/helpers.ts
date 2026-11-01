@@ -79,6 +79,14 @@ export async function syncOn(page: Page): Promise<void> {
   await expect(page.getByText(/Востаннє/)).toBeVisible();
 }
 
+/** Keep relative-day browser scenarios at local noon: no midnight/DST-dependent skips. */
+export async function atLocalNoon(page: Page): Promise<Date> {
+  const now = new Date(); now.setHours(12, 0, 0, 0);
+  await page.clock.setFixedTime(now);
+  await page.reload();
+  return now;
+}
+
 export const toast = (page: Page) => page.locator('[role=status][aria-live=polite]');
 
 export function ymd(d: Date): string {

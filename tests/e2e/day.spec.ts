@@ -1,10 +1,11 @@
 import { t } from '../../src/i18n/uk';
 import { expect, test } from '@playwright/test';
-import { device, kyivOffset, seed, syncOn, toast, ymd } from './helpers';
+import { atLocalNoon, device, kyivOffset, seed, syncOn, toast, ymd } from './helpers';
 
 test('«Зараз»: «Нагадати за 15 хв» hides it for 15 min; water from the dock with undo, counted in «Уже сьогодні»; a workout says it was saved', async ({ browser }) => {
   const page = await device(browser);
-  const { hour, at } = await page.evaluate(() => {
+  await atLocalNoon(page);
+  const { at } = await page.evaluate(() => {
     const localIso = (x: Date) => {
       const p = (n: number) => String(n).padStart(2, '0');
       const minutes = -x.getTimezoneOffset(), sign = minutes < 0 ? '-' : '+';
@@ -12,9 +13,8 @@ test('«Зараз»: «Нагадати за 15 хв» hides it for 15 min; wat
       return `${x.getFullYear()}-${p(x.getMonth() + 1)}-${p(x.getDate())}T${p(x.getHours())}:${p(x.getMinutes())}:00${offset}`;
     };
     const now = new Date();
-    return { hour: now.getHours(), at: localIso(new Date(now.getTime() - 30 * 60_000)) };
+    return { at: localIso(new Date(now.getTime() - 30 * 60_000)) };
   });
-  test.skip(hour < 1, 'needs a past time today');
   await seed(page, [{ store: 'entries', value: { id: 'm1', at, kind: 'meal', status: 'planned', title: 'Обід', items: [{ foodId: 'kefir', name: 'Кефір 2,5 %', grams: 250 }] } }]);
   const card = page.getByRole('region', { name: 'Зараз' });
   await expect(card).toBeVisible();
@@ -38,8 +38,7 @@ test('«Зараз»: «Нагадати за 15 хв» hides it for 15 min; wat
 
 test('«Не відмічено» is folded and asks when — or «не пам’ятаю»; the dock answers beside itself and adds up (D50, D52)', async ({ browser }) => {
   const page = await device(browser);
-  const now = new Date(), d = ymd(now);
-  test.skip(now.getHours() < 3, 'needs a meal 2 h ago today');
+  const now = await atLocalNoon(page), d = ymd(now);
   const x = new Date(now.getTime() - 120 * 60_000);
   const hm = `${String(x.getHours()).padStart(2, '0')}:${String(x.getMinutes()).padStart(2, '0')}`;
   await seed(page, [{ store: 'entries', value: { id: 'm2', at: `${d}T${hm}:00${kyivOffset(x)}`, kind: 'meal', status: 'planned', title: 'Сніданок', items: [] } }]);
@@ -178,9 +177,8 @@ test('a once-daily medicine without a time is not followed by the empty-rhythm m
 
 test('«Нічого з цього» skips the planned meal and undo restores the plan', async ({ browser }) => {
   const page = await device(browser, 'skip');
-  const now = new Date();
+  const now = await atLocalNoon(page);
   const planned = new Date(now.getTime() + 45 * 60_000);
-  test.skip(ymd(planned) !== ymd(now), 'needs a future meal on the same day');
   const time = `${String(planned.getHours()).padStart(2, '0')}:${String(planned.getMinutes()).padStart(2, '0')}`;
   await seed(page, [{
     store: 'entries',
@@ -200,8 +198,7 @@ test('«Нічого з цього» skips the planned meal and undo restores th
 
 test('«Мені погано»: a symptom with its time, what was eaten before it, and «103» for a danger sign (D56)', async ({ browser }) => {
   const page = await device(browser);
-  const now = new Date(), d = ymd(now);
-  test.skip(now.getHours() < 2, 'needs a meal an hour ago today');
+  const now = await atLocalNoon(page), d = ymd(now);
   const x = new Date(now.getTime() - 60 * 60_000);
   const hm = `${String(x.getHours()).padStart(2, '0')}:${String(x.getMinutes()).padStart(2, '0')}`;
   await seed(page, [{ store: 'entries', value: { id: 'k', at: `${d}T${hm}:00${kyivOffset()}`, kind: 'meal', status: 'done', title: 'Перекус',
