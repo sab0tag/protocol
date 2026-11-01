@@ -95,7 +95,7 @@ test('voice still shows danger help with food/assistant off and cannot silently 
   const dialog = page.getByRole('dialog', { name: 'Скажіть, що з’їли чи прийняли' });
   await dialog.getByRole('button', { name: 'Зрозуміло, говорити' }).click();
   const field = dialog.getByLabel('Або напишіть тут');
-  await field.fill('не можу дихати'); await expect(dialog.getByRole('alert')).toContainText('103');
+  await field.fill('не можу дихати'); await expect(dialog.getByRole('alert').filter({ hasText: '103' })).toBeVisible();
   await field.fill('склянка води, яблуко 100 г');
   await expect(dialog.getByText(/У чернетці є записи вимкнених модулів/)).toBeVisible();
   await expect(dialog.getByRole('button', { name: 'Записати', exact: true })).toBeDisabled();
