@@ -63,6 +63,9 @@ export function VoiceSheet({ date, plan, foods, recipes, today, yesterday, meds,
   const [typed, setTyped] = useState('');
   const [time, setTime] = useState(() => format(new Date(), 'HH:mm'));
   const [saving, setSaving] = useState(false);
+  // React state updates are asynchronous: two rapid clicks must not start two writes or metrics.
+  const savePending = useRef(false);
+  const savedOnce = useRef(false);
   const stop = useRef<() => void>(() => undefined);
   const said = useRef<string[]>([]); // D107: what was heard before — a recogniser may glue it to the new words
   const menuAvailable = can('menu.yesterday');
@@ -92,7 +95,10 @@ export function VoiceSheet({ date, plan, foods, recipes, today, yesterday, meds,
   useEffect(() => { if (ok && speechSupported()) start(); return () => stop.current(); }, [ok]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const save = async () => {
-    if (dayCommand) { await applyDayCommand(); return; }
+    if (savePending.current || savedOnce.current) return;
+    savePending.current = true;
+    try {
+      if (dayCommand) { await applyDayCommand(); return; }
     const draft = shown;
     if (!ready(draft) || saving) return;
     const latest = enabled ? { ...modulePreferences(await db.moduleEvents.toArray()), tier: 'free' as const, demo: inDemo() } : undefined;
@@ -107,8 +113,15 @@ export function VoiceSheet({ date, plan, foods, recipes, today, yesterday, meds,
     }
     if (draft.waterMl) rows.push({ id: ids.current.water, at, kind: 'water', status: 'done', title: t.addKinds.water, waterMl: draft.waterMl });
     const done = await saved(db.entries.bulkPut(rows).then(() => true), L.saved, () => db.entries.bulkDelete(rows.map((r) => r.id)));
-    setSaving(false);
-    if (done) { remember(Math.round((Date.now() - opened.current) / 1000)); onClose(); }
+    if (done) {
+      savedOnce.current = true;
+      remember(Math.round((Date.now() - opened.current) / 1000));
+      onClose();
+    }
+    } finally {
+      setSaving(false);
+      savePending.current = false;
+    }
   };
   const setItem = (i: number, it: MealItem | null) => edit((d) => ({ ...d, items: it ? d.items.map((x, j) => (j === i ? { ...x, item: it, sure: true } : x)) : d.items.filter((_, j) => j !== i) }));
   const draft = shown;
