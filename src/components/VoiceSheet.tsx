@@ -99,25 +99,25 @@ export function VoiceSheet({ date, plan, foods, recipes, today, yesterday, meds,
     savePending.current = true;
     try {
       if (dayCommand) { await applyDayCommand(); return; }
-    const draft = shown;
-    if (!ready(draft) || saving) return;
-    const latest = enabled ? { ...modulePreferences(await db.moduleEvents.toArray()), tier: 'free' as const, demo: inDemo() } : undefined;
-    if (latest && ((draft.items.length > 0 && !featureCan('food.log', latest)) || (draft.meds.length > 0 && !featureCan('meds.log', latest))
-      || (draft.waterMl > 0 && !featureCan('water.log', latest)))) return;
-    setSaving(true);
-    const at = atLocal(date, time), rows: DayEntry[] = [];
-    if (draft.items.length) rows.push({ id: ids.current.meal, at, kind: 'meal', status: 'done', title: draft.title ?? defaultTitle(time), items: draft.items.map((x) => x.item), via: 'voice' }); // D119
-    for (const m of draft.meds) {
-      const id = ids.current.meds.get(m.key) ?? newId(); ids.current.meds.set(m.key, id);
-      rows.push({ id, at, kind: 'med', status: 'done', title: m.title, checkKey: m.key, ...(m.prescriptionId ? { prescriptionId: m.prescriptionId } : {}) });
-    }
-    if (draft.waterMl) rows.push({ id: ids.current.water, at, kind: 'water', status: 'done', title: t.addKinds.water, waterMl: draft.waterMl });
-    const done = await saved(db.entries.bulkPut(rows).then(() => true), L.saved, () => db.entries.bulkDelete(rows.map((r) => r.id)));
-    if (done) {
-      savedOnce.current = true;
-      remember(Math.round((Date.now() - opened.current) / 1000));
-      onClose();
-    }
+      const draft = shown;
+      if (!ready(draft) || saving) return;
+      const latest = enabled ? { ...modulePreferences(await db.moduleEvents.toArray()), tier: 'free' as const, demo: inDemo() } : undefined;
+      if (latest && ((draft.items.length > 0 && !featureCan('food.log', latest)) || (draft.meds.length > 0 && !featureCan('meds.log', latest))
+        || (draft.waterMl > 0 && !featureCan('water.log', latest)))) return;
+      setSaving(true);
+      const at = atLocal(date, time), rows: DayEntry[] = [];
+      if (draft.items.length) rows.push({ id: ids.current.meal, at, kind: 'meal', status: 'done', title: draft.title ?? defaultTitle(time), items: draft.items.map((x) => x.item), via: 'voice' }); // D119
+      for (const m of draft.meds) {
+        const id = ids.current.meds.get(m.key) ?? newId(); ids.current.meds.set(m.key, id);
+        rows.push({ id, at, kind: 'med', status: 'done', title: m.title, checkKey: m.key, ...(m.prescriptionId ? { prescriptionId: m.prescriptionId } : {}) });
+      }
+      if (draft.waterMl) rows.push({ id: ids.current.water, at, kind: 'water', status: 'done', title: t.addKinds.water, waterMl: draft.waterMl });
+      const done = await saved(db.entries.bulkPut(rows).then(() => true), L.saved, () => db.entries.bulkDelete(rows.map((r) => r.id)));
+      if (done) {
+        savedOnce.current = true;
+        remember(Math.round((Date.now() - opened.current) / 1000));
+        onClose();
+      }
     } finally {
       setSaving(false);
       savePending.current = false;
