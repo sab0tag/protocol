@@ -86,7 +86,12 @@ test('family profiles isolate records and drafts; greeting follows the selected 
     await page.goto('./#/');
     await expect(page.getByTestId('greeting')).toContainText('Олена');
     const wellbeing = page.getByRole('navigation', { name: 'Швидкі дії' }).getByText('Самопочуття', { exact: true });
-    expect((await wellbeing.boundingBox())!.height).toBeLessThan(20);
+    // The label may legitimately wrap to two lines at 320px; reject clipping or a third line.
+    const wellbeingBox = await wellbeing.boundingBox();
+    expect(wellbeingBox).not.toBeNull();
+    expect(wellbeingBox!.height).toBeLessThan(40);
+    expect(wellbeingBox!.x).toBeGreaterThanOrEqual(0);
+    expect(wellbeingBox!.x + wellbeingBox!.width).toBeLessThanOrEqual(width + 1);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: `test-results/profile-today-${width}-${colorScheme}.png`, fullPage: true });
     await page.goto('./#/profiles');
