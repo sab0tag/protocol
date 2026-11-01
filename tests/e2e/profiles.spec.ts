@@ -49,8 +49,10 @@ test('family profiles isolate records and drafts; greeting follows the selected 
   if (process.env.VITE_MODULE_POLICY_ENABLED === 'true') {
     await page.goto('./#/modules');
     const water = page.getByRole('switch', { name: 'Вода', exact: true });
-    await water.check();
+    await water.click();
     await expect(water).toBeChecked();
+    await page.reload();
+    await expect(water).toBeChecked(); // persisted setting, not just a transient checkbox state
   }
   await page.goto('./#/do/water?ml=500');
   await expect(page.locator('[role=status][aria-live=polite]')).toContainText('+500 мл');
