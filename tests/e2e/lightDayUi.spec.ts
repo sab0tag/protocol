@@ -87,7 +87,7 @@ test('the exact local voice command stays outside the food draft, is idempotent,
   await field.fill('сьогодні легкий день'); await dialog.getByRole('button', { name: 'Зробити сьогодні легким днем', exact: true }).click();
   expect((await rows(page, 'moduleEvents')).filter((e) => e.kind === 'light-day')).toHaveLength(1);
   expect(await rows(page, 'entries')).toEqual(before);
-  await field.fill('не можу дихати, сьогодні легкий день'); await expect(dialog.getByRole('alert')).toContainText('103');
+  await field.fill('не можу дихати, сьогодні легкий день'); await expect(dialog.getByRole('alert').filter({ hasText: '103' })).toContainText('103');
   await expect(dialog.getByRole('button', { name: 'Записати', exact: true })).toBeDisabled();
 });
 
