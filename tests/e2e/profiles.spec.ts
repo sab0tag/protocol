@@ -44,6 +44,14 @@ test('family profiles isolate records and drafts; greeting follows the selected 
     return { entries, draft: localStorage.getItem(`protocol.kept.profile.${id}.menu`) };
   }, child.id);
   expect(childData).toEqual({ entries: [], draft: null });
+  // A newly skipped onboarding starts with water disabled in acceptance mode.
+  // Enable it through the real settings UI before exercising the child's quick action.
+  if (process.env.VITE_MODULE_POLICY_ENABLED === 'true') {
+    await page.goto('./#/modules');
+    const water = page.getByRole('switch', { name: 'Вода', exact: true });
+    await water.check();
+    await expect(water).toBeChecked();
+  }
   await page.goto('./#/do/water?ml=500');
   await expect(page.locator('[role=status][aria-live=polite]')).toContainText('+500 мл');
   await page.reload();
