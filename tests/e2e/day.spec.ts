@@ -219,6 +219,14 @@ test('«Мені погано»: a symptom with its time, what was eaten before 
   await sheet.getByRole('button', { name: 'Помірно' }).click();
   await sheet.getByRole('button', { name: 'Записати' }).click();
   await expect(toast(page)).toContainText('Здуття — записано');
+  // Acceptance offers a voluntary light-day choice after a non-danger symptom.
+  // Dismiss the follow-up before interacting with the saved timeline entry.
+  if (process.env.VITE_MODULE_POLICY_ENABLED === 'true') {
+    const followup = page.getByRole('dialog', { name: 'Що відчуваєте?' });
+    await expect(followup).toContainText('Запис збережено');
+    await followup.getByRole('button', { name: 'Закрити', exact: true }).first().click();
+    await expect(followup).toHaveCount(0);
+  }
   const node = page.getByRole('region', { name: 'Найближче' }).getByRole('button', { name: 'Здуття, Симптом' });
   await expect(node).toContainText('Симптом · помірно');
   await node.click();
