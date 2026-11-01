@@ -18,7 +18,13 @@ test('progress summary uses honest weekly rings and weight history remains a lin
   await page.goto('./#/progress');
 
   await expect(page.getByRole('heading', { name: /Останні 7 днів/ })).toBeVisible();
-  await expect(page.getByRole('progressbar', { name: 'Вуглеводи в межах' })).toHaveAttribute('aria-valuetext', '0 з 6 дн.');
+  // In acceptance mode, incomplete food records cannot prove a carbohydrate limit was met.
+  // The metric must stay unknown rather than presenting an invented 0/6 failure rate.
+  if (process.env.VITE_MODULE_POLICY_ENABLED === 'true') {
+    await expect(page.getByRole('progressbar', { name: 'Вуглеводи в межах' })).toHaveCount(0);
+  } else {
+    await expect(page.getByRole('progressbar', { name: 'Вуглеводи в межах' })).toHaveAttribute('aria-valuetext', '0 з 6 дн.');
+  }
   await expect(page.getByRole('progressbar', { name: 'Білок ≥ 90 % цілі' })).toHaveAttribute('aria-valuenow', '100');
   await expect(page.getByRole('progressbar', { name: 'Вода — норма' })).toHaveAttribute('aria-valuetext', '4 з 6 дн.');
   await expect(page.getByRole('progressbar', { name: 'План дня' })).toHaveAttribute('aria-valuetext', '64 %');

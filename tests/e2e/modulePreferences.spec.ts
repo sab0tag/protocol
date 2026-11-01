@@ -8,8 +8,13 @@ test('module history survives restart and a backup restored on an already bootst
   await seed(page, [{ store: 'moduleEvents', value: { id: 'own-food-off', v: 1, at, kind: 'module', module: 'food', enabled: false, source: 'manual' } },
     { store: 'moduleEvents', value: { id: 'own-light', v: 1, at, kind: 'light-day', date: '2026-10-25', enabled: true, source: 'manual' } },
     { store: 'entries', value: { id: 'water', at, kind: 'water', status: 'done', title: 'Вода', waterMl: 250 } }]);
-  // Storage preparation must not start UI filtering before the accounting and scheduler PRs are ready.
-  await expect(page.getByRole('link', { name: 'Їжа', exact: true })).toBeVisible();
+  // Acceptance mode applies the module policy immediately; compatibility mode keeps legacy navigation.
+  const foodLink = page.getByRole('link', { name: 'Їжа', exact: true });
+  if (process.env.VITE_MODULE_POLICY_ENABLED === 'true') {
+    await expect(foodLink).toHaveCount(0);
+  } else {
+    await expect(foodLink).toBeVisible();
+  }
   await page.goto('./#/data');
   const download = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Зберегти копію' }).click();
