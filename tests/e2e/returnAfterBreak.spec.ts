@@ -18,6 +18,9 @@ test('after a week without records the patient can continue today without backfi
       status: 'done',
       title: 'Synthetic last record',
     },
+  }, {
+    store: 'wellbeing',
+    value: { date: ymd(addDays(now, 2)), symptoms: [], note: 'Synthetic future-dated observation' },
   }]);
 
   await expect(page.getByRole('status', { name: 'Можна продовжити з сьогоднішнього дня' }))
