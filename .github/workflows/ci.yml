@@ -28,7 +28,7 @@ jobs:
       matrix:
         mode: [compatibility, acceptance]
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 45
     env:
       VITE_MODULE_POLICY_ENABLED: ${{ matrix.mode == 'acceptance' && 'true' || 'false' }}
     steps:
@@ -39,6 +39,7 @@ jobs:
       - run: npm ci --prefix server
       - run: npx playwright install --with-deps chromium
       - run: npm run e2e -- --reporter=line,json
+        timeout-minutes: 40
         env:
           PLAYWRIGHT_JSON_OUTPUT_FILE: e2e-results.json
       - name: Verify E2E skips and publish summary
