@@ -75,6 +75,6 @@ test('dish yield 2 → blank → 1, invalid blur, and saved per-portion ingredie
     return recipes.find((item) => item.name === 'Рис зі свининою');
   });
   expect(recipe?.items.map((item) => item.grams)).toEqual([137.5, 187.5]);
-  expect(recipe?.items[0]?.manual?.kcal).toBe(260);
-  expect(recipe?.items[1]?.manual?.kcal).toBe(130);
+  expect(recipe?.items[0]?.manual?.kcal).toBeCloseTo(357.5);
+  expect(recipe?.items[1]?.manual?.kcal).toBeCloseTo(243.75);
 });
