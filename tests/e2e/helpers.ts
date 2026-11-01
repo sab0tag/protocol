@@ -32,7 +32,7 @@ export async function device(browser: Browser, start: 'example' | 'demo' | 'skip
       events.clear();
       for (const module of ['meds', 'water', 'food', 'menu', 'assistant', 'wellbeing', 'workout', 'progress']) {
         events.put({ id: `e2e-established-${module}`, v: 1, at: '2025-12-31T00:00:00.000Z',
-          kind: 'module', module, enabled: true, source: 'migration', reason: 'e2e-established-profile', before: 'unknown' });
+          kind: 'module', module, enabled: true, source: 'migration', reason: 'compatibility', before: 'unknown' });
       }
       events.put({ id: 'e2e-established-initialised', v: 1, at: '2025-12-31T00:00:00.000Z', kind: 'initialised' });
       await new Promise(resolve => { tx.oncomplete = resolve; });
