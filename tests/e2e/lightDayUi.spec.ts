@@ -43,7 +43,7 @@ test('light day quiets non-medication tasks, retains help/PRN and voluntary inpu
   expect(await rows(page, 'entries')).toEqual(before);
   const on = (await rows(page, 'moduleEvents')).filter((e) => e.kind === 'light-day');
   expect(on).toHaveLength(1); expect(on[0].until - on[0].from).toBe(25 * 3_600_000);
-  await page.screenshot({ path: '/tmp/protocol-browser-runtime/light-day-ui-part8.png', fullPage: true });
+  await page.screenshot({ path: test.info().outputPath('light-day-ui-part8.png'), fullPage: true });
   await page.getByText('Записати за бажанням', { exact: true }).click();
   await page.getByRole('button', { name: 'Вода', exact: true }).click();
   const water = page.getByRole('dialog', { name: 'Вода, мл', exact: true });
@@ -54,10 +54,21 @@ test('light day quiets non-medication tasks, retains help/PRN and voluntary inpu
   expect((await rows(page, 'entries')).find((e) => e.id === 'planned-lunch')).toEqual(before[0]);
 });
 
-test('a saved symptom offers light day with wellbeing off; a low saved energy score also offers it', async ({ browser }) => {
+test('a saved symptom offers light day while wellbeing is explicitly off', async ({ browser }) => {
   test.skip(!enabled, 'acceptance build');
   const page = await profile(browser);
-  await page.goto('./#/modules'); await page.getByRole('switch', { name: 'Самопочуття', exact: true }).click();
+  await page.goto('./#/modules');
+  const wellbeing = page.getByRole('switch', { name: 'Самопочуття', exact: true });
+  await expect(wellbeing).toBeChecked();
+  await wellbeing.click();
+  await expect(wellbeing).not.toBeChecked();
+  // The toggle writes asynchronously; confirm durable OFF before navigating away.
+  await expect.poll(async () => {
+    const history = (await rows(page, 'moduleEvents')).filter((e) => e.kind === 'module' && e.module === 'wellbeing' && e.source === 'manual');
+    return history.length === 1 && history[0].enabled === false;
+  }).toBe(true);
+  await page.reload();
+  await expect(wellbeing).not.toBeChecked();
   await page.goto('./#/'); await page.getByRole('button', { name: 'Мені погано', exact: true }).click();
   const dialog = page.getByRole('dialog'); await dialog.getByRole('button', { name: 'Втома', exact: true }).click();
   await dialog.getByRole('button', { name: 'Записати', exact: true }).click();
@@ -67,7 +78,16 @@ test('a saved symptom offers light day with wellbeing off; a low saved energy sc
   await expect(page.getByRole('button', { name: 'Повернути звичайний день', exact: true })).toBeVisible();
   expect((await rows(page, 'entries')).filter((e) => e.kind === 'symptom')).toHaveLength(1);
   await page.getByRole('button', { name: 'Повернути звичайний день', exact: true }).click();
-  await page.goto('./#/modules'); await page.getByRole('switch', { name: 'Самопочуття', exact: true }).click();
+});
+
+test('a low saved energy score offers light day with wellbeing enabled after reload', async ({ browser }) => {
+  test.skip(!enabled, 'acceptance build');
+  const page = await profile(browser);
+  await page.goto('./#/modules');
+  const wellbeing = page.getByRole('switch', { name: 'Самопочуття', exact: true });
+  await expect(wellbeing).toBeChecked();
+  await page.reload();
+  await expect(wellbeing).toBeChecked();
   await page.goto('./#/wellbeing'); await page.getByRole('button', { name: /^Енергія: 1 —/ }).click();
   await expect(page.getByRole('button', { name: 'Легкий день', exact: true })).toBeVisible();
   expect((await rows(page, 'wellbeing'))[0].energy).toBe(1);
@@ -87,7 +107,7 @@ test('the exact local voice command stays outside the food draft, is idempotent,
   await field.fill('сьогодні легкий день'); await dialog.getByRole('button', { name: 'Зробити сьогодні легким днем', exact: true }).click();
   expect((await rows(page, 'moduleEvents')).filter((e) => e.kind === 'light-day')).toHaveLength(1);
   expect(await rows(page, 'entries')).toEqual(before);
-  await field.fill('не можу дихати, сьогодні легкий день'); await expect(dialog.getByRole('alert')).toContainText('103');
+  await field.fill('не можу дихати, сьогодні легкий день'); await expect(dialog.getByRole('alert').filter({ hasText: '103' })).toContainText('103');
   await expect(dialog.getByRole('button', { name: 'Записати', exact: true })).toBeDisabled();
 });
 
