@@ -53,6 +53,9 @@ test('the voice window: one phrase → a draft with the plan\'s flags, a command
   const rows = await meals(page);
   expect(rows.filter((r) => r.startsWith('meal:'))).toEqual(['meal:Сніданок:Яйце варене+Білий хліб (батон)']);
   expect(rows.filter((r) => r.startsWith('med:'))).toHaveLength(1);
+  // Toast appears inside the async save before the local-only timing metric is recorded.
+  // Wait for the metric itself so route navigation cannot race its persistence.
+  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('protocol.metrics.voice') ?? '[]').length)).toBe(1);
   await page.goto('./#/frictions');
   await expect(page.getByText(/Голосом: медіана \d+ с від відкриття до запису \(останні 1\)/)).toBeVisible();
 });

@@ -72,7 +72,7 @@ test('choosing another medicine time preserves input focus and the dynamic form 
 
 test('replacing the add chooser with a note editor retains the original return point', async ({ browser }) => {
   const page = await device(browser);
-  const opener = page.getByRole('button', { name: 'Додати інше — ліки, тренування, нотатку', exact: true });
+  const opener = page.getByRole('button', { name: process.env.VITE_MODULE_POLICY_ENABLED === 'true' ? t.modules.addOther : t.day.addOther, exact: true });
   await opener.click();
   await page.getByRole('dialog').getByRole('button', { name: t.addKinds.note, exact: true }).click();
   const dialog = page.getByRole('dialog', { name: t.simple.note, exact: true });
