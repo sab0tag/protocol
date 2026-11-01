@@ -44,6 +44,16 @@ test('family profiles isolate records and drafts; greeting follows the selected 
     return { entries, draft: localStorage.getItem(`protocol.kept.profile.${id}.menu`) };
   }, child.id);
   expect(childData).toEqual({ entries: [], draft: null });
+  // A newly skipped onboarding starts with water disabled in acceptance mode.
+  // Enable it through the real settings UI before exercising the child's quick action.
+  if (process.env.VITE_MODULE_POLICY_ENABLED === 'true') {
+    await page.goto('./#/modules');
+    const water = page.getByRole('switch', { name: 'Вода', exact: true });
+    await water.click();
+    await expect(water).toBeChecked();
+    await page.reload();
+    await expect(water).toBeChecked(); // persisted setting, not just a transient checkbox state
+  }
   await page.goto('./#/do/water?ml=500');
   await expect(page.locator('[role=status][aria-live=polite]')).toContainText('+500 мл');
   await page.reload();
@@ -76,7 +86,12 @@ test('family profiles isolate records and drafts; greeting follows the selected 
     await page.goto('./#/');
     await expect(page.getByTestId('greeting')).toContainText('Олена');
     const wellbeing = page.getByRole('navigation', { name: 'Швидкі дії' }).getByText('Самопочуття', { exact: true });
-    expect((await wellbeing.boundingBox())!.height).toBeLessThan(20);
+    // The label may legitimately wrap to two lines at 320px; reject clipping or a third line.
+    const wellbeingBox = await wellbeing.boundingBox();
+    expect(wellbeingBox).not.toBeNull();
+    expect(wellbeingBox!.height).toBeLessThan(40);
+    expect(wellbeingBox!.x).toBeGreaterThanOrEqual(0);
+    expect(wellbeingBox!.x + wellbeingBox!.width).toBeLessThanOrEqual(width + 1);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: `test-results/profile-today-${width}-${colorScheme}.png`, fullPage: true });
     await page.goto('./#/profiles');

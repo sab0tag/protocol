@@ -42,7 +42,7 @@ test('dated history and neutral outcomes agree in week, progress, doctor report 
   await expect(page.getByRole('row').filter({ hasText: 'Вода — норма' })).toContainText('0 з 1');
   await expect(page.getByText(/Ліки: відмічено прийнятими 1 з 2 доз/)).toBeVisible();
   await page.emulateMedia({ media: 'print' }); await expect(history).toBeVisible();
-  await page.screenshot({ path: '/tmp/protocol-browser-runtime/light-day-report-part7.png', fullPage: true });
+  await page.screenshot({ path: test.info().outputPath('light-day-report-part7.png'), fullPage: true });
   await page.emulateMedia({ media: 'screen' });
   await seed(page, [{ store: 'moduleEvents', value: { id: 'cancel-light', v: 1, kind: 'light-day', enabled: false, source: 'manual', date: '2026-10-25', at: new Date('2026-10-26T23:01:00+02:00').toISOString() } }]);
   await page.getByLabel('З', { exact: true }).fill('2026-10-20');

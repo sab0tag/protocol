@@ -117,7 +117,8 @@ test('all routed screens fit the four target widths in light and dark themes', a
       for (const route of routes) {
         await page.goto(`./#/${route}`);
         await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-        await page.getByRole('heading', { level: 1 }).scrollIntoViewIfNeeded();
+        // Heading visibility is already asserted above. Avoid a redundant scroll action
+        // on a heading that can be replaced during asynchronous route hydration.
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${route || 'today'} at ${width}`).toBe(true);
         expect(await page.evaluate(() => getComputedStyle(document.documentElement).colorScheme), `${route || 'today'} ${colorScheme}`).toBe(colorScheme);
         await expect(page.getByRole('navigation', { name: 'Розділи', exact: true })).toBeVisible();

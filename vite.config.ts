@@ -46,7 +46,7 @@ export default defineConfig({
   ],
   test: {
     environment: 'jsdom',
-    include: ['tests/unit/**/*.test.ts'], // tests/e2e — Playwright (npm run e2e)
+    include: ['tests/unit/**/*.test.ts', 'tests/unit/**/*.test.mjs'], // tests/e2e — Playwright (npm run e2e)
     setupFiles: ['tests/setup.ts'],
   },
 });

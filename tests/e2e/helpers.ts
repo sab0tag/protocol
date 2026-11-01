@@ -19,6 +19,27 @@ export async function device(browser: Browser, start: 'example' | 'demo' | 'skip
   }
   await page.getByText('Інші способи почати').click(); await page.getByRole('button', { name: /^Пропустити/ }).click();
   await expect(page).toHaveURL(/#\/$/); // D113: the first screen is the photo
+  // The acceptance build starts a newly skipped onboarding with modules off.
+  // Existing non-policy E2E scenarios exercise an established all-module profile;
+  // seed that explicit fixture instead of assuming the compatibility build's defaults.
+  // Clean-start policy tests use fresh browser contexts, not this helper.
+  if (start === 'skip' && process.env.VITE_MODULE_POLICY_ENABLED === 'true') {
+    await page.evaluate(async () => {
+      const request = indexedDB.open('protocol');
+      await new Promise(resolve => { request.onsuccess = resolve; });
+      const tx = request.result.transaction('moduleEvents', 'readwrite');
+      const events = tx.objectStore('moduleEvents');
+      events.clear();
+      for (const module of ['meds', 'water', 'food', 'menu', 'assistant', 'wellbeing', 'workout', 'progress']) {
+        events.put({ id: `e2e-established-${module}`, v: 1, at: '2025-12-31T00:00:00.000Z',
+          kind: 'module', module, enabled: true, source: 'migration', reason: 'compatibility', before: 'unknown' });
+      }
+      events.put({ id: 'e2e-established-initialised', v: 1, at: '2025-12-31T00:00:00.000Z', kind: 'initialised' });
+      await new Promise(resolve => { tx.oncomplete = resolve; });
+      request.result.close();
+    });
+    await page.reload();
+  }
   if (start === 'example') { // the example plan in the person's own database, on a clean history — a fixture for the tests
     await page.evaluate(async (plan) => {
       const req = indexedDB.open('protocol');
@@ -56,6 +77,14 @@ export async function syncOn(page: Page): Promise<void> {
   await page.getByRole('button', { name: 'Увімкнути на цьому пристрої' }).click();
   await page.getByRole('button', { name: 'Код записав — увімкнути' }).click();
   await expect(page.getByText(/Востаннє/)).toBeVisible();
+}
+
+/** Keep relative-day browser scenarios at local noon: no midnight/DST-dependent skips. */
+export async function atLocalNoon(page: Page): Promise<Date> {
+  const now = new Date(); now.setHours(12, 0, 0, 0);
+  await page.clock.setFixedTime(now);
+  await page.reload();
+  return now;
 }
 
 export const toast = (page: Page) => page.locator('[role=status][aria-live=polite]');

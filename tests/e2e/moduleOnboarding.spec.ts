@@ -116,7 +116,7 @@ test('the final collapsed overrides are saved as manual choices, including progr
   await page.getByRole('checkbox', { name: 'Прогрес і тиждень', exact: true }).check();
   await page.getByRole('checkbox', { name: 'Прогрес і тиждень', exact: true }).uncheck();
   await page.getByRole('checkbox', { name: 'Вага окремо', exact: true }).check();
-  await page.screenshot({ path: '/tmp/protocol-browser-runtime/onboarding-final-part6.png', fullPage: true });
+  await page.screenshot({ path: test.info().outputPath('onboarding-final-part6.png'), fullPage: true });
   await page.getByRole('button', { name: 'Почати', exact: true }).click(); await expect(page).toHaveURL(/#\/$/);
   const events = await rows(page, 'moduleEvents');
   for (const module of ['water', 'food', 'progress']) expect(events.find((e) => e.kind === 'module' && e.module === module)).toMatchObject({ source: 'manual', enabled: module === 'water' });
