@@ -112,7 +112,7 @@ export function Day() {
       ...weights.map((entry) => entry.date),
       ...labs.map((entry) => entry.date),
       ...frictions.map((entry) => dateOf(entry.at)),
-    ].reduce((latest, recordedDate) => recordedDate > latest ? recordedDate : latest, '');
+    ].reduce((latest, recordedDate) => recordedDate <= todayISO() && recordedDate > latest ? recordedDate : latest, '');
   }, []);
   const best = foods && all && workouts
     ? habits({ plan, entries: all, workouts, foods, today: todayISO(), observation }).filter((h) => h.streak >= 3 && habitVisible(h.key, context)).sort((a, b) => b.streak - a.streak)[0]
