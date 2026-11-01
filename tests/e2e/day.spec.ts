@@ -129,7 +129,7 @@ test('«Як учора» stays on «День» and copies a prior meal to today
   }]);
 
   const quick = page.getByRole('navigation', { name: 'Швидкі дії' });
-  await expect(quick.getByRole('button')).toHaveCount(4);
+  await expect(quick.getByRole('button')).toHaveCount(process.env.VITE_MODULE_POLICY_ENABLED === 'true' ? 5 : 4);
   const rhythm = page.getByRole('region', { name: 'Найближче' });
   await rhythm.getByRole('button', { name: 'Як учора' }).click();
   const sheet = page.getByRole('dialog', { name: 'Повторити з учора' });
