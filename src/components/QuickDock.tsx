@@ -15,8 +15,8 @@ type Undo = () => unknown;
 interface Note { kind: 'med' | 'water'; n: number; text: string; undos: Undo[]; id: number }
 
 interface Props {
-  med?: { title: string; time?: string; missed: boolean };
-  meds: { done: number; total: number };
+  med?: { title: string; time?: string; missed: boolean; uncertain?: boolean };
+  meds: { done: number; skipped: number; total: number };
   water: { ml: number; target?: number };
   onMed: () => Promise<Undo | undefined>;
   onWater: () => Promise<Undo | undefined>;
@@ -58,6 +58,7 @@ export function QuickDock({ med, meds, water, onMed, onWater, hidden, hideWater 
       : { kind, n: 1, text, undos: [u], id: ++seq }));
   };
   const undoAll = () => { const x = note; setNote(null); x?.undos.forEach((u) => void u()); };
+  const medsComplete = meds.total > 0 && meds.done === meds.total;
   const bubble = (kind: Note['kind']) => note?.kind === kind && (
     <div role="status" aria-live="polite"
       className="absolute bottom-full right-0 mb-2 flex w-[min(20rem,calc(100vw-2rem))] items-center gap-2 rounded-2xl bg-ink py-1 pl-3 pr-1 text-sm text-bg shadow-lg motion-safe:animate-[toast-in_160ms_ease-out]">
@@ -74,8 +75,9 @@ export function QuickDock({ med, meds, water, onMed, onWater, hidden, hideWater 
       {meds.total > 0 && (
         <div className="relative">
           {bubble('med')}
-          <Round progress={meds.done / meds.total} tone={med?.missed ? 'warn' : 'meds'} done={!med}
-            onClick={() => med && void run('med', onMed, t.toast.med(med.title))} label={med ? L.med(med.title, med.time) : L.medsDone}>
+          <Round progress={meds.done / meds.total} tone={med?.missed || meds.skipped > 0 ? 'warn' : 'meds'} done={medsComplete} disabled={!med && !medsComplete}
+            onClick={() => med && void run('med', onMed, t.toast.med(med.title))}
+            label={med ? med.uncertain ? L.resolveMed(med.title) : L.med(med.title, med.time) : medsComplete ? L.medsDone : L.medNoAction}>
             <Pill size={22} className={!med ? '' : 'protocol-ring-icon'} aria-hidden />
             {med?.missed && <span className="absolute right-0.5 top-0.5 h-3 w-3 rounded-full border-2 border-surface bg-warn" aria-hidden />}
             {!med && <span className="absolute -right-0.5 -top-0.5 flex h-5 w-5 items-center justify-center rounded-full border-2 border-accent bg-surface text-accent" aria-hidden>
@@ -93,10 +95,10 @@ export function QuickDock({ med, meds, water, onMed, onWater, hidden, hideWater 
   );
 }
 
-function Round({ progress, tone, done, label, onClick, children }:
-  { progress?: number; tone: 'meds' | 'warn' | 'water'; done?: boolean; label: string; onClick: () => void; children: ReactNode }) {
+function Round({ progress, tone, done, disabled, label, onClick, children }:
+  { progress?: number; tone: 'meds' | 'warn' | 'water'; done?: boolean; disabled?: boolean; label: string; onClick: () => void; children: ReactNode }) {
   return (
-    <button type="button" onClick={onClick} disabled={done} aria-label={label} title={label}
+    <button type="button" onClick={onClick} disabled={done || disabled} aria-label={label} title={label}
       className={`relative flex h-14 w-14 items-center justify-center rounded-full border shadow-lg shadow-ink/15 transition-transform active:scale-95 ${done ? 'border-accent bg-accent text-surface' : 'border-line bg-surface'}`}>
       {done ? children : <ProgressRing ratio={progress} tone={tone} label={label} valueText={label} decorative className="protocol-ring-dock">{children}</ProgressRing>}
     </button>

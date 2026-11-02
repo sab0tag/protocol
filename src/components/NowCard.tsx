@@ -12,7 +12,7 @@ import { dayFocus, type NowItem, type NowMed } from '../domain/reminders';
 import type { DayEntry, Plan } from '../domain/types';
 import { t } from '../i18n/uk';
 import { localSnoozed, snooze } from '../sync/push';
-import { markMeal, markMeds, TimeChoice, type When } from './MarkTime';
+import { markMeal, markMeds, TimeChoice, type ConfirmedWhen } from './MarkTime';
 import type { Observation } from '../domain/observation';
 
 const L = t.now;
@@ -59,8 +59,9 @@ function foodNote(meds: NowMed[]): string | undefined {
 
 function Due({ item, date, onSnoozed, onConfirm }: { item: NowItem; date: string; onSnoozed: () => void; onConfirm: (e: DayEntry) => void }) {
   const Icon = item.entry ? UtensilsCrossed : Pill;
+  const meds = item.meds;
   const detail = item.entry ? item.entry.items?.map((x) => `${x.name} ${amountText(x)}`).join(', ')
-    : foodNote(item.meds ?? []);
+    : foodNote(meds ?? []);
   const when = item.late < 0 ? L.inMin(-item.late, item.time) : item.late > 0 ? L.ago(item.late, item.time) : L.at(item.time);
   const later = () => saved(snooze(item.key, Date.now() + SNOOZE_MIN * 60_000), t.toast.later(SNOOZE_MIN)).then(onSnoozed);
   const nowHm = () => ({ time: format(new Date(), 'HH:mm') });
@@ -78,6 +79,8 @@ function Due({ item, date, onSnoozed, onConfirm }: { item: NowItem; date: string
       <div className="mt-1 flex justify-center gap-4">
         <button type="button" onClick={() => void later()} className="min-h-tap px-2 text-muted">{L.later(SNOOZE_MIN)}</button>
         {item.entry && <button type="button" onClick={() => void mark(item, date, 'skipped', { time: item.time })} className="min-h-tap px-2 text-muted">{L.skip}</button>}
+        {meds && <button type="button" onClick={() => void markMeds(meds, date, item.time, 'done', { uncertain: true })}
+          className="min-h-tap px-2 text-muted">{t.mark.uncertain}</button>}
       </div>
     </section>
   );
@@ -108,14 +111,18 @@ function Missed({ items, date, onConfirm }: { items: NowItem[]; date: string; on
           ))}
         </ul>
       )}
-      {asking && <TimeChoice title={titleOf(asking)} planned={asking.time} date={date} meal={!!asking.entry}
-        onPick={(when) => void mark(asking, date, 'done', when)} onClose={() => setAsking(null)} />}
+      {asking && <TimeChoice title={titleOf(asking)} planned={asking.time} date={date} meal={!!asking.entry} allowUncertain={!asking.entry}
+        onPick={(when) => {
+          if ('uncertain' in when) {
+            if (!asking.entry) void markMeds(asking.meds ?? [], date, asking.time, 'done', when);
+          } else void mark(asking, date, 'done', when);
+        }} onClose={() => setAsking(null)} />}
     </section>
   );
 }
 
 const titleOf = (x: NowItem) => x.entry?.title ?? x.meds?.map((m) => m.title).join(', ') ?? x.title;
 
-function mark(x: NowItem, date: string, status: 'done' | 'skipped', when: When) {
+function mark(x: NowItem, date: string, status: 'done' | 'skipped', when: ConfirmedWhen) {
   return x.entry ? markMeal(x.entry, date, status, when) : markMeds(x.meds ?? [], date, x.time, status, when);
 }

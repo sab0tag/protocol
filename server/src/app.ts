@@ -101,6 +101,9 @@ export const usdMicro = (u: Usage) => {
 };
 
 const hash = (s: string) => createHash('sha256').update(s).digest('hex');
+export const MINIMUM_SYNC_CLIENT_VERSION = 2;
+const requiresCurrentSyncClient = (path: string) =>
+  /^\/v1\/vaults\/[0-9a-f]{32}\/(?:records(?:\/.*)?|write-protocol(?:\/.*)?|reminder-policy|devices\/[0-9a-f]{32}(?:\/.*)?)$/.test(path);
 
 export function createApp(deps: Deps) {
   const { store, recognize, menu, origins } = deps;
@@ -140,6 +143,17 @@ export function createApp(deps: Deps) {
   const general = cors({ origin: origins, allowMethods: ['GET', 'POST', 'PUT', 'DELETE'], allowHeaders: ['Authorization', 'Content-Type'], maxAge: 86400 });
   // Session/protected clinic routes allow credentials only for the exact app origin; anonymous redeem keeps general CORS.
   app.use('*', (c, next) => (deps.identity && (isIdentityPath(c.req.path) || (c.req.path.startsWith('/v1/clinic/') && c.req.path !== '/v1/clinic/plans/redeem')) ? next() : general(c, next)));
+  app.use('*', async (c, next) => {
+    if (!requiresCurrentSyncClient(c.req.path)) return next();
+    const vaultId = c.req.path.match(/^\/v1\/vaults\/([0-9a-f]{32})\//)?.[1];
+    const id = authed(c, vaultId);
+    if (typeof id !== 'string') return id;
+    const raw = c.req.query('clientVersion');
+    const version = raw && /^[1-9]\d*$/.test(raw) ? Number(raw) : 0;
+    if (!Number.isSafeInteger(version) || version < MINIMUM_SYNC_CLIENT_VERSION)
+      return c.json({ error: 'client_upgrade_required', minimumClientVersion: MINIMUM_SYNC_CLIENT_VERSION }, 426);
+    return next();
+  });
   if (deps.identity) mountIdentity(app, deps.identity, { invitations: deps.invitations, allow: (c, scope, perDay) => store.take(`${scope}:${ipKey(c)}`, perDay, now()), now: () => now().getTime() });
   const DEVICE = /^[0-9a-f]{32}$/;
   /** D40: the server POSTs to a subscription's endpoint — only to the browsers' own push services, never to an
@@ -590,8 +604,8 @@ export function createApp(deps: Deps) {
   const ip = (c: Context) => c.req.header('X-Forwarded-For')?.split(',').at(-1)?.trim() || 'unknown';
 
   /** 401 for a wrong key, 404 for an unknown vault: the app tells «код не знайдено» from «помилка». */
-  const authed = (c: Context): string | Response => {
-    const id = c.req.param('id') ?? '';
+  const authed = (c: Context, vaultId?: string): string | Response => {
+    const id = vaultId ?? c.req.param('id') ?? '';
     const t = token(c);
     if (!VAULT.test(id) || !t) return c.json({ error: 'bad_request' }, 400);
     const stored = store.vaultAuth(id);

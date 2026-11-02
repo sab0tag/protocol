@@ -106,6 +106,16 @@ describe('«Зараз» / «Не відмічено» / «Далі» (D50)', ()
     expect(reminders({ entries: [skipped], plan, settings: { ...OFF, meds: true }, now: new Date(`${day}T08:40:00`), days: 1 }).done).toContain('med:2026-10-08:08:30');
   });
 
+  it('an uncertain dose stops repeat reminders without counting as taken or skipped', () => {
+    const uncertain: DayEntry = { id: 'uncertain', at: `${day}T08:30:00+03:00`, kind: 'med', status: 'planned',
+      adherence: 'uncertain', title: 'Вітамін D', checkKey: 'med:p-vitd:08:30' };
+    const focus = dayFocus({ entries: [uncertain], plan, date: day, now: new Date(`${day}T20:00:00`) });
+    const result = reminders({ entries: [uncertain], plan, settings: { ...OFF, meds: true }, now: new Date(`${day}T08:40:00`), days: 1 });
+    expect(focus).toEqual({ missed: [] });
+    expect(result.done).toContain('med:2026-10-08:08:30');
+    expect(result.items.some((x) => x.key === 'med:2026-10-08:08:30')).toBe(false);
+  });
+
   it('nothing when all is done', () => {
     const done: DayEntry[] = [meal('m0', '2026-10-08T08:00:00+03:00', 'done'),
       { id: 'x', at: '2026-10-08T08:31:00+03:00', kind: 'med', status: 'done', title: 'Вітамін D', checkKey: 'med:p-vitd:08:30' }];

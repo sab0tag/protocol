@@ -1,7 +1,9 @@
 import { expect, it } from 'vitest';
 import { pendingStatus, rhythmPresentation } from '../../src/domain/rhythmPresentation';
 import type { RhythmNode } from '../../src/domain/rhythm';
-const entry = (at: string, status: 'planned' | 'done', unknown = false): RhythmNode => ({ kind: 'entry', at, entry: { id: at, kind: 'meal', title: 'Synthetic', at: `2026-10-28T${at}:00`, status, ...(unknown ? { timeUnknown: true } : {}) } });
+const entry = (at: string, status: 'planned' | 'done', unknown = false): Extract<RhythmNode, { kind: 'entry' }> => ({
+  kind: 'entry', at, entry: { id: at, kind: 'meal', title: 'Synthetic', at: `2026-10-28T${at}:00`, status, ...(unknown ? { timeUnknown: true } : {}) },
+});
 it('highlights the next actionable time without turning elapsed unknown actions into missed ones', () => {
   const nodes = [entry('08:00', 'planned'), entry('10:00', 'done'), entry('12:00', 'planned'), entry('15:00', 'planned')];
   const original = structuredClone(nodes);
@@ -13,6 +15,13 @@ it('does not highlight a historical/future day or invent a time for untimed reco
   const now = new Date(2026, 9, 28, 11);
   expect(rhythmPresentation(nodes, '2026-10-27', now)).toEqual(['past', 'untimed']);
   expect(rhythmPresentation(nodes, '2026-10-29', now)).toEqual(['future', 'untimed']);
+});
+it('does not treat an uncertain event as having happened at its planned time', () => {
+  const uncertain = entry('08:00', 'planned');
+  uncertain.entry.adherence = 'uncertain';
+  const now = new Date(2026, 9, 28, 11);
+  expect(rhythmPresentation([uncertain], '2026-10-28', now)).toEqual(['untimed']);
+  expect(pendingStatus(uncertain, '2026-10-28', now)).toEqual({ state: 'planned' });
 });
 it('says what waits for a mark: planned in its window, deferred while «Пізніше» holds it, unmarked after — never missed (D142)', () => {
   const dose: RhythmNode = { kind: 'dose', at: '08:00', item: { key: 'med:p:08:00', kind: 'med', title: 'Synthetic', tappable: true, done: false, time: '08:00' } };
