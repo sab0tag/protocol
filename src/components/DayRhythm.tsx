@@ -87,14 +87,16 @@ function Node({ node, phase, pending, last, foods, onEntry, onDose }: {
   const detail = e.kind === 'meal' ? e.items?.map((x) => `${x.name} ${amountText(x)}`).join(', ') : undefined;
   const carbs = e.kind === 'meal' && e.items?.length && foods ? round(mealNutrients(e.items, foods).carbs) : null;
   const sym = e.kind === 'symptom'; // D56
-  const state = sym ? 'symptom' : e.status === 'done' ? 'done' : e.status === 'skipped' ? 'skipped' : pending.state === 'unmarked' ? 'unmarked' : 'ahead';
+  const state = sym ? 'symptom' : e.adherence === 'uncertain' ? 'uncertain' : e.status === 'done' ? 'done' : e.status === 'skipped' ? 'skipped' : pending.state === 'unmarked' ? 'unmarked' : 'ahead';
   const word = sym ? [t.symptom.word, e.severity ? t.symptom.level(e.severity) : ''].filter(Boolean).join(' · ')
-    : e.status === 'done' ? L.recorded : e.status === 'skipped' ? t.status.skipped : pendingWord(pending, t.status.planned);
+    : e.adherence === 'uncertain' ? t.adherence.uncertain : e.adherence === 'completed_late' ? t.adherence.completedLate
+      : e.status === 'done' ? L.recorded : e.status === 'skipped' ? t.status.skipped : pendingWord(pending, t.status.planned);
   return (
     <li className="protocol-rhythm-node relative" data-phase={phase} aria-current={phase === 'current' ? 'step' : undefined}>
-      <button type="button" onClick={() => onEntry(e)} aria-label={`${e.title}, ${sym ? t.symptom.word : e.status === 'planned' ? pendingWord(pending, t.status.planned) : t.status[e.status]}${e.timeUnknown ? `, ${L.timeUnknown}` : ''}`}
+      <button type="button" onClick={() => onEntry(e)} aria-label={`${e.title}, ${sym ? t.symptom.word : e.adherence === 'completed_late' ? t.adherence.completedLate : e.adherence === 'uncertain' ? t.adherence.uncertain : e.status === 'planned' ? pendingWord(pending, t.status.planned) : t.status[e.status]}${e.timeUnknown ? `, ${L.timeUnknown}` : ''}`}
         className={`grid min-h-tap w-full grid-cols-[3.5rem_1.5rem_1fr_auto] items-start gap-x-2 rounded-xl px-2 py-3 text-left transition-colors hover:bg-accent/5 focus-visible:outline-offset-0 ${state === 'skipped' ? 'opacity-60' : ''}`}>
-        <span className="tabular text-muted" title={e.timeUnknown ? L.timeUnknown : undefined}>{e.timeUnknown ? '—' : node.at}</span><Dot state={state} />
+        <span className="tabular text-muted" title={e.timeUnknown ? L.timeUnknown : undefined}>
+          {e.timeUnknown || e.adherence === 'uncertain' ? '—' : node.at}</span><Dot state={state} />
         <span className="min-w-0">
           {phase === 'current' && <span className="protocol-rhythm-phase">{L.nearest}</span>}
           <span className={`block font-medium ${state === 'skipped' ? 'line-through' : ''}`}>{e.title}</span>
@@ -107,8 +109,8 @@ function Node({ node, phase, pending, last, foods, onEntry, onDose }: {
   );
 }
 
-function Dot({ state }: { state: 'done' | 'ahead' | 'unmarked' | 'skipped' | 'symptom' }) {
+function Dot({ state }: { state: 'done' | 'ahead' | 'unmarked' | 'skipped' | 'uncertain' | 'symptom' }) {
   const look = state === 'done' ? 'h-3 w-3 bg-accent' : state === 'symptom' ? 'h-3 w-3 bg-warn' : state === 'ahead' ? 'h-3 w-3 border-2 border-muted bg-bg'
-    : state === 'unmarked' ? 'h-3 w-3 border-2 border-dashed border-muted bg-bg' : 'h-2 w-2 bg-line'; // D142: unknown, not missed
+    : state === 'unmarked' || state === 'uncertain' ? 'h-3 w-3 border-2 border-dashed border-muted bg-bg' : 'h-2 w-2 bg-line'; // D142: unknown, not missed
   return <span className="relative z-10 flex h-6 items-center justify-center" aria-hidden><span className={`rounded-full ${look}`} /></span>;
 }

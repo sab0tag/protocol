@@ -47,7 +47,7 @@ test('food/water observation periods are shared by the doctor report and week, b
   if (enabled) {
     await expect(page.getByText(/Запис їжі: увімкнено з 23\.10\.2026/)).toBeVisible();
     await expect(page.getByText('Тренувань', { exact: true })).toHaveCount(0);
-    await expect(page.getByText('Без відмітки: 8 доз.', { exact: true })).toBeVisible();
+    await expect(page.getByText('Дані відсутні: 8 доз.', { exact: true })).toBeVisible();
   } else await expect(page.getByText(/Запис їжі: увімкнено з/)).toHaveCount(0);
 
   await page.clock.setFixedTime(new Date('2026-10-24T12:00:00+03:00'));

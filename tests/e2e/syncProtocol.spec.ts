@@ -10,19 +10,19 @@ test('an opted-in vault stops a legacy client before cursor/data changes and exp
   expect(new URL(first.url()).searchParams.get('protocol')).toBe('1');
   const root = first.url().split('/records')[0]!;
   const headers = { Authorization: first.headers().authorization! };
-  const before = await (await page.request.get(`${root}/records?since=0&protocol=2`, { headers })).json();
+  const before = await (await page.request.get(`${root}/records?since=0&protocol=2&clientVersion=2`, { headers })).json();
   const cursor = () => page.evaluate(async () => {
     const req = indexedDB.open('protocol'); await new Promise<void>(r => { req.onsuccess = () => r(); });
     const read = req.result.transaction('meta').objectStore('meta').get('sync');
     const row = await new Promise<{ seq: number }>(r => { read.onsuccess = () => r(read.result); }); req.result.close(); return row.seq;
   });
   const seq = await cursor();
-  const raised = await page.request.put(`${root}/write-protocol`, { headers, data: { minimum: 2, protocol: 2 } });
+  const raised = await page.request.put(`${root}/write-protocol?clientVersion=2`, { headers, data: { minimum: 2, protocol: 2 } });
   expect(raised.status()).toBe(200);
   await page.getByRole('button', { name: t.sync.now, exact: true }).click();
   await expect(page.getByText(t.sync.errors.client_upgrade_required, { exact: true })).toBeVisible();
   expect(await cursor()).toBe(seq);
-  expect(await (await page.request.get(`${root}/records?since=0&protocol=2`, { headers })).json()).toEqual(before);
+  expect(await (await page.request.get(`${root}/records?since=0&protocol=2&clientVersion=2`, { headers })).json()).toEqual(before);
   for (const width of [320, 1024]) for (const colorScheme of ['light', 'dark'] as const) {
     await page.setViewportSize({ width, height: 900 }); await page.emulateMedia({ colorScheme });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);

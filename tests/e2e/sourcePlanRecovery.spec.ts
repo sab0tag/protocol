@@ -12,6 +12,10 @@ import { prepareSourcePlanSend } from '../../src/sync/sourcePlanDelivery';
 import { t } from '../../src/i18n/uk';
 import { device, seed, syncOn } from './helpers';
 
+const syncUrl = (url: string) => `${url}${url.includes('?') ? '&' : '?'}clientVersion=2`;
+const conditionalRecordRoute = /\/records\/conditional(?:\?.*)?$/;
+const conditionalCapabilitiesRoute = /\/records\/conditional\/capabilities(?:\?.*)?$/;
+
 async function fixture(request: APIRequestContext, state: 'accepted' | 'conflict' | 'empty') {
   const code = newCode(), keys = await deriveKeys(parseCode(code)!), db = new ProtocolDB('protocol');
   const root = `http://localhost:8099/v1/vaults/${keys.vaultId}`, headers = { Authorization: `Bearer ${keys.auth}` };
@@ -25,11 +29,11 @@ async function fixture(request: APIRequestContext, state: 'accepted' | 'conflict
     const catalog = await captureSourcePlanCatalog(db), pending = await prepareSourcePlanSend(db, keys, 0);
     await db.carePlans.update(catalog.plans[0]!.id, { title: 'Нові локальні зміни плану' });
     expect((await request.put(root, { headers })).ok()).toBe(true);
-    expect((await request.put(`${root}/write-protocol/conditional-records`, { headers, data: { minimum: 2, protocol: 2, condition: 'vault-seq' } })).ok()).toBe(true);
+    expect((await request.put(syncUrl(`${root}/write-protocol/conditional-records`), { headers, data: { minimum: 2, protocol: 2, condition: 'vault-seq' } })).ok()).toBe(true);
     if (state !== 'empty') {
       const remote = structuredClone(catalog); remote.plans[0]!.title = 'Версія плану з іншого пристрою';
       const record = state === 'accepted' ? pending.record : await encryptSourcePlanCatalog(keys, remote);
-      expect((await request.post(`${root}/records/conditional`, { headers, data: { records: [record], protocol: 2, expectedSeq: 0 } })).ok()).toBe(true);
+      expect((await request.post(syncUrl(`${root}/records/conditional`), { headers, data: { records: [record], protocol: 2, expectedSeq: 0 } })).ok()).toBe(true);
     }
     const rows: { store: string; value: unknown }[] = [{ store: 'meta', value: await db.meta.get('sync') }, { store: 'plan', value: await db.plan.get('main') }];
     for (const store of ['carePlans', 'carePlanItems', 'planMigrations'] as const) for (const value of await db[store].toArray()) rows.push({ store, value });
@@ -64,9 +68,9 @@ test('startup resumes a saved source send after a lost acknowledgement without a
   expect(data.meta.sourcePlanDelivery.pending).toBeUndefined(); expect(data.meta.sourcePlanDelivery.acknowledged.record).toEqual(f.pending.record);
   expect(data.meta.seq).toBe(77); expect(data.plans[0].title).toBe('Нові локальні зміни плану');
   expect(data.journal.questions).toEqual(['Синтетичний локальний журнал']); expect(data.entries).toEqual([]);
-  expect(posts.length).toBeGreaterThan(0); expect(posts.every(p => p.url.endsWith('/records/conditional') && p.body.expectedSeq === 0)).toBe(true);
+  expect(posts.length).toBeGreaterThan(0); expect(posts.every(p => new URL(p.url).pathname.endsWith('/records/conditional') && p.body.expectedSeq === 0)).toBe(true);
   await expect(page.getByText(/Востаннє:/)).toHaveCount(0);
-  const remote = await (await request.get(`${f.root}/records?since=0&protocol=2`, { headers: f.headers })).json();
+  const remote = await (await request.get(syncUrl(`${f.root}/records?since=0&protocol=2`), { headers: f.headers })).json();
   expect(remote.records).toHaveLength(1); expect(remote.records[0].v).toBe(f.pending.record.v);
   await page.context().close();
 });
@@ -104,43 +108,43 @@ test('the real conflict screen preserves versions across refresh, stop and resum
   await expect(peer.getByText(t.sync.source.conflict, { exact: true })).toBeVisible();
   await peer.close();
   expect((await local(page)).plans).toEqual(before.plans); expect((await local(page)).meta.seq).toBe(77);
-  expect(posts.every(p => p.url.endsWith('/records/conditional') && p.body.expectedSeq === 0)).toBe(true);
+  expect(posts.every(p => new URL(p.url).pathname.endsWith('/records/conditional') && p.body.expectedSeq === 0)).toBe(true);
   await page.context().close();
 });
 
 test('offline recovery retains the exact pending packet and retries it after the network returns', async ({ browser, request }) => {
   const f = await fixture(request, 'empty'), page = await device(browser, 'skip', { sw: false });
-  await page.route('**/records/conditional', route => route.abort());
+  await page.route(conditionalRecordRoute, route => route.abort());
   await seed(page, f.rows); await page.goto('./#/sync');
   await expect(page.getByText(t.sync.status.offline, { exact: true })).toBeVisible();
   await expect(page.getByText(t.sync.source.pending, { exact: true })).toBeVisible();
   expect((await local(page)).meta.sourcePlanDelivery.pending).toEqual(f.pending);
-  await page.unroute('**/records/conditional');
+  await page.unroute(conditionalRecordRoute);
   await page.getByRole('button', { name: t.sync.now, exact: true }).click();
   await expect(page.getByText(t.sync.source.acknowledged, { exact: true })).toBeVisible();
   expect((await local(page)).plans[0].title).toBe('Нові локальні зміни плану');
-  const remote = await (await request.get(`${f.root}/records?since=0&protocol=2`, { headers: f.headers })).json();
+  const remote = await (await request.get(syncUrl(`${f.root}/records?since=0&protocol=2`), { headers: f.headers })).json();
   expect(remote.records).toHaveLength(1); expect(remote.records[0].v).toBe(f.pending.record.v);
   await page.context().close();
 });
 
 test('unsupported discovery preserves the queue without any source or legacy write', async ({ browser, request }) => {
   const f = await fixture(request, 'empty'), page = await device(browser, 'skip', { sw: false }), posts = track(page);
-  await page.route('**/records/conditional/capabilities', route => route.fulfill({ json: { minimum: 1, supported: 2 } }));
+  await page.route(conditionalCapabilitiesRoute, route => route.fulfill({ json: { minimum: 1, supported: 2 } }));
   await seed(page, f.rows); await page.goto('./#/sync');
   await expect(page.getByText(t.sync.errors.conditional_records_unsupported, { exact: true })).toBeVisible();
   expect(posts).toEqual([]); expect((await local(page)).meta.sourcePlanDelivery.pending).toEqual(f.pending);
   expect((await local(page)).meta.seq).toBe(77);
-  await page.unroute('**/records/conditional/capabilities');
+  await page.unroute(conditionalCapabilitiesRoute);
   await page.getByRole('button', { name: t.sync.now, exact: true }).click();
   await expect(page.getByText(t.sync.source.acknowledged, { exact: true })).toBeVisible();
-  expect(posts.every(p => p.url.endsWith('/records/conditional') && p.body.expectedSeq === 0)).toBe(true);
+  expect(posts.every(p => new URL(p.url).pathname.endsWith('/records/conditional') && p.body.expectedSeq === 0)).toBe(true);
   await page.context().close();
 });
 
 test('restoring a file blocks automatic replay of a pre-restore send and keeps both local versions', async ({ browser, request }) => {
   const f = await fixture(request, 'empty'), page = await device(browser, 'skip', { sw: false }), posts = track(page);
-  await page.route('**/records/conditional', route => route.abort());
+  await page.route(conditionalRecordRoute, route => route.abort());
   await seed(page, f.rows); await page.goto('./#/sync');
   await expect(page.getByText(t.sync.status.offline, { exact: true })).toBeVisible();
   f.file.sourcePlans!.plans[0]!.title = 'Відновлена з копії версія плану';
@@ -149,7 +153,7 @@ test('restoring a file blocks automatic replay of a pre-restore send and keeps b
   await page.locator('input[type=file]').setInputFiles({ name: 'synthetic-source-recovery.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(f.file)) });
   await page.getByRole('alertdialog', { name: t.backup.restore }).getByRole('button', { name: t.backup.yes, exact: true }).click();
   await expect(page.getByText(t.backup.restored, { exact: true })).toBeVisible();
-  const stopped = posts.length; await page.unroute('**/records/conditional');
+  const stopped = posts.length; await page.unroute(conditionalRecordRoute);
   await page.goto('./#/sync'); await page.getByRole('button', { name: t.sync.now, exact: true }).click();
   await expect(page.getByText(t.sync.errors.source_plan_restore_required, { exact: true })).toBeVisible();
   await expect(page.getByText(t.sync.source.restored, { exact: true })).toBeVisible();
@@ -168,7 +172,7 @@ test('stopping ordinary legacy sync still removes the server push device after m
   await seed(page, [{ store: 'meta', value: { ...before.meta, device: id } }]); await page.goto('./#/sync');
   await expect(page.getByRole('button', { name: t.sync.now, exact: true })).toBeEnabled();
   await page.getByRole('button', { name: t.sync.off, exact: true }).click();
-  const dropped = page.waitForRequest(r => r.method() === 'DELETE' && r.url().endsWith(`/devices/${id}`));
+  const dropped = page.waitForRequest(r => r.method() === 'DELETE' && new URL(r.url()).pathname.endsWith(`/devices/${id}`));
   await page.getByRole('button', { name: t.sync.offYes, exact: true }).click();
   await dropped;
   await expect(page.getByRole('button', { name: t.sync.start, exact: true })).toBeVisible();
