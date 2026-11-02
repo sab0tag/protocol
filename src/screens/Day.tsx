@@ -106,7 +106,14 @@ export function Day() {
       db.entries.toArray(), db.wellbeing.toArray(), db.workouts.toArray(), db.weights.toArray(), db.labs.toArray(), db.frictions.toArray(),
     ]);
     return [
-      ...entries.filter((entry) => entry.status !== 'planned').map((entry) => dateOf(entry.at)),
+      ...entries
+        .filter((entry) => entry.status !== 'planned' || ('adherence' in entry && entry.adherence === 'uncertain'))
+        .map((entry) => dateOf(
+          'adherence' in entry && entry.adherence === 'uncertain' &&
+          'markedAt' in entry && typeof entry.markedAt === 'string'
+            ? entry.markedAt
+            : entry.at,
+        )),
       ...wellbeing.map((entry) => entry.date),
       ...workouts.map((entry) => entry.date),
       ...weights.map((entry) => entry.date),

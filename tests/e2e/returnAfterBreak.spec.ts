@@ -68,3 +68,28 @@ test('after a week without records the patient can continue today without backfi
   await page.reload();
   await expect(page.getByRole('button', { name: /^Вітамін D, Виконано/ })).toBeVisible();
 });
+
+test('a recently recorded uncertain historical dose is user activity', async ({ browser }) => {
+  const page = await device(browser);
+  const now = await atLocalNoon(page);
+  const old = addDays(now, -8);
+  const oldDate = ymd(old);
+  await seed(page, [{
+    store: 'entries',
+    value: {
+      id: 'synthetic-old-note',
+      at: `${oldDate}T12:00:00${kyivOffset(old)}`,
+      kind: 'note', status: 'done', title: 'Synthetic old record',
+    },
+  }, {
+    store: 'entries',
+    value: {
+      id: 'synthetic-uncertain-dose',
+      at: `${oldDate}T08:30:00${kyivOffset(old)}`,
+      markedAt: `${ymd(now)}T12:00:00${kyivOffset(now)}`,
+      kind: 'med', status: 'planned', adherence: 'uncertain',
+      title: 'Вітамін D', checkKey: 'med:vitamin-d:08:30',
+    },
+  }]);
+  await expect(page.getByRole('status', { name: 'Можна продовжити з сьогоднішнього дня' })).toHaveCount(0);
+});
