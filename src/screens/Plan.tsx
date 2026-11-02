@@ -28,6 +28,7 @@ import { atLocal, newId, sinceNow, todayISO } from '../domain/dates';
 import { AllergenPicker } from '../components/AllergenPicker';
 import { LIMIT_UNITS, type Constraint, type ConstraintTag, type DailyLimit, type Mode, type Plan as PlanT, type Prescription, type Targets } from '../domain/types';
 import { countOnce } from '../data/tally';
+import { activateClinicPlan } from '../data/carePlans';
 import { t } from '../i18n/uk';
 
 const P = t.plan;
@@ -119,6 +120,10 @@ export function Plan({ section = 'home' }: { section?: PlanSection }) {
               <p className="mt-1 text-muted">Потребує перевірки. Розклад ще не створено.</p>
             </li>)}</ul>
           </details>
+          <ClinicActivate title={draft.title} onActivate={async () => {
+            const result = await activateClinicPlan(db, activeProfileId, draft.id);
+            if (result === 'activated') navigate('/plan/prescriptions');
+          }} />
         </article>)}
       </section>}
       {section === 'home' && <PlanOverview
@@ -509,4 +514,18 @@ function CheckupForm({ plan, onClose }: { plan: PlanRow; onClose: () => void }) 
       <Field label={P.tests}><textarea value={tests} onChange={(e) => setTests(e.target.value)} rows={3} placeholder="Глюкоза натщесерце&#10;Феритин" className={`${field} py-2`} /></Field>
     </FormSheet>
   );
+}
+
+function ClinicActivate({ title, onActivate }: { title: string; onActivate: () => Promise<void> }) {
+  const [checked, setChecked] = useState(false);
+  const [busy, setBusy] = useState(false);
+  return <div className="mt-3 space-y-2 border-t border-line pt-3 text-sm">
+    <label className="flex min-h-tap items-start gap-3">
+      <input type="checkbox" className="mt-1 h-5 w-5" checked={checked} onChange={e => setChecked(e.target.checked)} />
+      <span>Я звірив(ла) цей план із призначенням лікаря: {title}</span>
+    </label>
+    <p className="text-muted">Після підтвердження призначення потраплять у ваш план без часу прийому. Час і тривалість ви вкажете самі.</p>
+    <button type="button" disabled={!checked || busy} className="min-h-tap rounded-xl bg-accent px-4 text-white disabled:opacity-50"
+      onClick={async () => { setBusy(true); try { await onActivate(); } finally { setBusy(false); } }}>Додати до мого плану</button>
+  </div>;
 }

@@ -131,4 +131,33 @@ test.describe('clinic → doctor → QR → patient acceptance', () => {
     await expect(patient.getByText(/Видано клінікою: Лікар A4, Клініка A4/)).toBeVisible();
     await context.close(); await patient.context().close();
   });
+  test('patient confirms a reviewed draft: it enters the plan once, without a schedule, and survives reload', async ({ browser, request }) => {
+    const doctorToken = (await addDoctor(request, createClinic('Клініка A5'), 'Лікар A5')).token;
+    const { context, code } = await issuePlan(browser, doctorToken, 'План до підтвердження');
+    const patient = await patientDevice(browser);
+    await patient.goto(`./#/plan/import?code=${code}`);
+    await patient.getByRole('button', { name: 'Переглянути план', exact: true }).click();
+    await patient.getByRole('button', { name: 'Зберегти обране', exact: true }).click();
+    await patient.getByRole('link', { name: 'Перейти до плану' }).click();
+    await patient.getByRole('button', { name: /Пропустити/ }).click();
+    await patient.getByRole('navigation', { name: 'Розділи' }).getByRole('link', { name: 'План' }).click();
+    const drafts = patient.getByRole('region', { name: 'Чернетки від клінік' });
+    const confirm = drafts.getByRole('button', { name: 'Додати до мого плану', exact: true });
+    await expect(confirm).toBeDisabled();
+
+    await patient.goto('./#/plan/prescriptions');
+    await expect(patient.getByText('Синтетичний препарат')).toHaveCount(0);
+
+    await patient.goto('./#/plan');
+    await drafts.getByRole('checkbox', { name: /Я звірив\(ла\) цей план/ }).check();
+    await confirm.click();
+    await expect(patient).toHaveURL(/#\/plan\/prescriptions$/);
+    await expect(patient.getByText('Синтетичний препарат')).toHaveCount(1);
+    await patient.reload();
+    await expect(patient.getByText('Синтетичний препарат')).toHaveCount(1);
+    await patient.goto('./#/plan');
+    await expect(drafts.getByText('Синтетичний препарат')).toHaveCount(0);
+    expect(await patient.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await context.close(); await patient.context().close();
+  });
 });
