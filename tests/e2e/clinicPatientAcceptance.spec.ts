@@ -139,6 +139,7 @@ test.describe('clinic → doctor → QR → patient acceptance', () => {
     await patient.getByRole('button', { name: 'Переглянути план', exact: true }).click();
     await patient.getByRole('button', { name: 'Зберегти обране', exact: true }).click();
     await patient.getByRole('link', { name: 'Перейти до плану' }).click();
+    await patient.getByText('Інші способи почати').click();
     await patient.getByRole('button', { name: /Пропустити/ }).click();
     await patient.getByRole('navigation', { name: 'Розділи' }).getByRole('link', { name: 'План' }).click();
     const drafts = patient.getByRole('region', { name: 'Чернетки від клінік' });
