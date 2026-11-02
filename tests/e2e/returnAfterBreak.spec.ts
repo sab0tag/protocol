@@ -1,4 +1,4 @@
-import { addDays, format } from 'date-fns';
+import { addDays, format, isSameISOWeek } from 'date-fns';
 import { expect, test } from '@playwright/test';
 import { uk } from 'date-fns/locale';
 import { atLocalNoon, device, kyivOffset, seed, ymd } from './helpers';
@@ -48,6 +48,11 @@ test('after a week without records the patient can continue today without backfi
 
   const pastDate = addDays(now, -1);
   const week = page.getByRole('navigation', { name: 'Тиждень' });
+  // On Mondays, yesterday belongs to the previous ISO week and is not in the visible strip.
+  // Navigate using the real calendar control instead of assuming yesterday is always visible.
+  if (!isSameISOWeek(now, pastDate)) {
+    await week.getByRole('button', { name: 'Попередній тиждень' }).click();
+  }
   await week.getByRole('button', { name: format(pastDate, 'EEEE, d MMMM', { locale: uk }) }).click();
   await page.getByRole('button', { name: 'Вітамін D, Не відмічено' }).click();
   await page.getByRole('dialog', { name: 'Вітамін D — коли прийняли?' })
