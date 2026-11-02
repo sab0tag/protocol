@@ -39,6 +39,8 @@ export function Report() {
   const [range, setRange] = useState<{ from?: string; to: string }>({ to: today });
   const [question, setQuestion] = useState('');
   const [shared, setShared] = useState('');
+  const [consenting, setConsenting] = useState(false);
+  const [agreed, setAgreed] = useState(false);
   if (!plan || !entries || !wellbeing || !workouts || !weights || !foods || !labs || !observationReady) return <Loading />;
 
   const first = [entries[0] && dateOf(entries[0].at), weights.find(w => validWeightDate(w.date))?.date].filter(Boolean).sort()[0];
@@ -50,6 +52,7 @@ export function Report() {
 
   const share = async () => {
     void count('report'); // D119
+    setConsenting(false); setAgreed(false);
     const text = reportText(r, dmy);
     try {
       if (navigator.share) { await navigator.share({ title: L.title, text }); return; }
@@ -173,8 +176,20 @@ export function Report() {
 
       <div className="flex flex-wrap gap-2 print:hidden">
         <button type="button" onClick={() => { void count('report'); window.print(); }} className="flex min-h-tap flex-1 items-center justify-center gap-2 rounded-xl bg-accent px-4 font-medium text-surface"><Printer size={18} />{L.print}</button>
-        <button type="button" onClick={() => void share()} className="flex min-h-tap flex-1 items-center justify-center gap-2 rounded-xl border border-accent px-4 font-medium text-accent"><Share2 size={18} />{shared || L.share}</button>
+        <button type="button" aria-expanded={consenting} onClick={() => { setConsenting(c => !c); setAgreed(false); }} className="flex min-h-tap flex-1 items-center justify-center gap-2 rounded-xl border border-accent px-4 font-medium text-accent"><Share2 size={18} />{shared || L.share}</button>
       </div>
+      {consenting && <section aria-label="Підтвердження передачі" className="protocol-card space-y-3 p-4 text-sm print:hidden">
+        <h2 className="text-lg font-semibold">Що буде передано</h2>
+        <p>Текст звіту за {dmy(r.from)} — {dmy(r.to)}: {sharedParts(r).join(', ')}. Застосунок нічого не надсилає сам і не зберігає цей текст — його отримає лише той, кого ви оберете у вікні «Поділитися».</p>
+        <label className="flex min-h-tap items-start gap-3">
+          <input type="checkbox" className="mt-1 h-5 w-5" checked={agreed} onChange={e => setAgreed(e.target.checked)} />
+          <span>Я погоджуюсь передати ці дані своєму лікарю</span>
+        </label>
+        <div className="flex gap-2">
+          <button type="button" disabled={!agreed} onClick={() => void share()} className="min-h-tap flex-1 rounded-xl bg-accent px-4 font-medium text-surface disabled:opacity-50">Передати звіт</button>
+          <button type="button" onClick={() => { setConsenting(false); setAgreed(false); }} className="min-h-tap rounded-xl border border-line px-4">Скасувати</button>
+        </div>
+      </section>}
       <div className="print:hidden">
         <button type="button" onClick={() => { void saved(db.plan.update('main', { lastVisit: today }), t.toast.visit); setRange({ to: today }); }}
           className="min-h-tap text-accent underline">{L.visited}</button>
@@ -187,4 +202,11 @@ export function Report() {
 
 function Metric({ label, value }: { label: string; value: string }) {
   return <div><dt className="text-sm text-muted">{label}</dt><dd className="text-lg font-semibold">{value}</dd></div>;
+}
+
+/** The sections that are in the text, so consent names what actually leaves the phone. */
+function sharedParts(r: ReturnType<typeof buildReport>): string[] {
+  return [r.meds && 'прийом ліків', r.prn.length && 'ліки за потреби', r.labs.length && 'результати аналізів', r.weightStart != null && 'вага',
+    r.symptoms.length && 'симптоми', r.avgEnergy != null && 'енергія', r.workouts && 'тренування', r.menu && 'меню', r.questions.length && 'ваші питання']
+    .filter((x): x is string => typeof x === 'string');
 }
