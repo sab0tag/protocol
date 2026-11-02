@@ -9,16 +9,21 @@ export async function device(browser: Browser, start: 'example' | 'demo' | 'skip
   const sw = opts.sw ?? true;
   const ctx = await browser.newContext(sw ? {} : { serviceWorkers: 'block' });
   const page = await ctx.newPage();
-  await page.goto('./');
-  // A registration that never settles on a loaded runner would hang until the test timeout; reload and retry instead.
-  for (let attempt = 1; sw; attempt++) {
-    const ready = await page.evaluate(() => Promise.race([
-      navigator.serviceWorker.ready.then(() => true),
-      new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 10_000)),
-    ]));
-    if (ready) break;
-    if (attempt === 3) throw new Error('service worker did not become ready after 3 attempts');
-    await page.reload();
+  // The first load on a busy runner occasionally never settles (a stuck navigation or service worker registration) and would
+  // burn the whole test timeout; a short per-attempt limit and a fresh load make it a retry instead of a flaky test.
+  for (let attempt = 1; ; attempt++) {
+    try {
+      await page.goto('./', { timeout: 15_000 });
+      if (!sw) break;
+      const ready = await page.evaluate(() => Promise.race([
+        navigator.serviceWorker.ready.then(() => true),
+        new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 10_000)),
+      ]));
+      if (ready) break;
+      throw new Error('service worker did not become ready');
+    } catch (error) {
+      if (attempt === 3) throw error;
+    }
   }
   await page.waitForTimeout(500);
   if (start === 'demo') { // D98: the example's own database, opened as a person opens it
