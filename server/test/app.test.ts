@@ -15,10 +15,17 @@ const RESULT: PhotoResult = { items: [{ name: 'яйце варене', match: '�
 function setup(over: { recognize?: Recognizer; limits?: Partial<typeof DEFAULT_LIMITS> } = {}) {
   const store = Store.migrated(':memory:');
   const app = createApp({ store, origins: ['https://protocol.test'], recognize: over.recognize, limits: { ...DEFAULT_LIMITS, ...over.limits } });
-  const call = (method: string, path: string, body?: unknown, auth = AUTH, ip = '1.1.1.1') => app.request(path, {
+  const call = (method: string, path: string, body?: unknown, auth = AUTH, ip = '1.1.1.1', clientVersion: string | null = '2') => {
+    const pathname = path.split('?', 1)[0] ?? path;
+    const syncPath = /^\/v1\/vaults\/[0-9a-f]{32}\/(?:records(?:\/.*)?|write-protocol(?:\/.*)?|reminder-policy|devices\/[0-9a-f]{32}(?:\/.*)?)$/.test(pathname);
+    const requestPath = syncPath && clientVersion !== null
+      ? `${path}${path.includes('?') ? '&' : '?'}clientVersion=${encodeURIComponent(clientVersion)}`
+      : path;
+    return app.request(requestPath, {
     method, headers: { Authorization: `Bearer ${auth}`, 'Content-Type': 'application/json', 'X-Forwarded-For': ip },
     ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
-  });
+    });
+  };
   return { store, call };
 }
 
@@ -45,6 +52,18 @@ describe('vaults', () => {
 });
 
 describe('records', () => {
+  it('requires an authenticated supported sync client version', async () => {
+    const { call } = setup();
+    await call('PUT', `/v1/vaults/${VAULT}`);
+    for (const version of [null, '1', 'invalid', '0']) {
+      const response = await call('GET', `/v1/vaults/${VAULT}/records?since=0`, undefined, AUTH, '1.1.1.1', version);
+      expect(response.status).toBe(426);
+      expect(await response.json()).toEqual({ error: 'client_upgrade_required', minimumClientVersion: 2 });
+    }
+    expect((await call('GET', `/v1/vaults/${VAULT}/records?since=0`)).status).toBe(200);
+    expect((await call('GET', `/v1/vaults/${VAULT}/records?since=0`, undefined, 'x'.repeat(43))).status).toBe(401);
+  });
+
   it('stores opaque records, returns changes since a seq, keeps deletions as tombstones', async () => {
     const { call } = setup();
     await call('PUT', `/v1/vaults/${VAULT}`);

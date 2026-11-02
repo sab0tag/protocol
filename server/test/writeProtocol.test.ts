@@ -15,9 +15,14 @@ afterEach(() => { for (const s of resources.splice(0)) s.close(); for (const dir
 const setup = (path = ':memory:') => {
   const store = Store.migrated(path); resources.push(store);
   const app = createApp({ store, origins: [], now: () => new Date(T0) });
-  const call = (method: string, suffix: string, body?: unknown, vault = VAULT, auth = AUTH) => app.request(`/v1/vaults/${vault}${suffix}`, {
+  const call = (method: string, suffix: string, body?: unknown, vault = VAULT, auth = AUTH) => {
+    const pathname = suffix.split('?', 1)[0] ?? suffix;
+    const syncPath = /^\/(?:records(?:\/.*)?|write-protocol(?:\/.*)?|reminder-policy|devices\/[0-9a-f]{32}(?:\/.*)?)$/.test(pathname);
+    const requestSuffix = syncPath ? `${suffix}${suffix.includes('?') ? '&' : '?'}clientVersion=2` : suffix;
+    return app.request(`/v1/vaults/${vault}${requestSuffix}`, {
     method, headers: { Authorization: `Bearer ${auth}`, 'Content-Type': 'application/json' }, ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-  });
+    });
+  };
   return { store, call };
 };
 const record = { k: 'r'.repeat(20), v: 'AAAA' };

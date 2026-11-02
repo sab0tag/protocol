@@ -6,6 +6,7 @@ import { AlarmClock, Clock, HelpCircle, History } from 'lucide-react';
 import { useState } from 'react';
 import { db } from '../data/db';
 import { atLocal, newId, todayISO } from '../domain/dates';
+import { completedLate } from '../domain/adherence';
 import type { DayEntry } from '../domain/types';
 import { t } from '../i18n/uk';
 import { Sheet, SheetButton } from './Sheet';
@@ -14,7 +15,8 @@ import { saved } from './Toast';
 const L = t.mark;
 
 /** The confirmed real time, or none («не пам'ятаю»). */
-export type When = { time: string } | { unknown: true };
+export type ConfirmedWhen = { time: string } | { unknown: true };
+export type When = ConfirmedWhen | { uncertain: true };
 export interface MedMark { key: string; title: string; prescriptionId?: string }
 
 const nowAt = () => atLocal(todayISO(), format(new Date(), 'HH:mm'));
@@ -24,25 +26,49 @@ const say = (title: string, status: 'done' | 'skipped', when?: When) =>
 
 /** Medicines of one planned time: taken (when) or skipped; a skipped dose has no real time, it keeps the planned one. */
 export function markMeds(meds: MedMark[], date: string, planned: string | undefined, status: 'done' | 'skipped', when: When) {
-  const ids = meds.map(() => newId());
+  const uncertain = 'uncertain' in when;
   const time = 'time' in when ? when.time : planned ?? '12:00';
   const title = meds.map((m) => m.title).join(', ');
-  return saved(db.entries.bulkAdd(meds.map((m, i): DayEntry => ({ id: ids[i]!, at: atLocal(date, time), kind: 'med', status, title: m.title,
-    checkKey: m.key, ...(m.prescriptionId ? { prescriptionId: m.prescriptionId } : {}), ...marks(when) }))),
-  say(title, status, when), () => db.entries.bulkDelete(ids));
+  let previous: DayEntry[] = [];
+  let created: string[] = [];
+  const write = async () => {
+    const dayEntries = await db.entries.where('at').startsWith(`${date}T`).toArray();
+    previous = meds.map((m) => dayEntries.find((e) => e.checkKey === m.key)).filter((e): e is DayEntry => !!e);
+    const previousByKey = new Map(previous.map((e) => [e.checkKey, e]));
+    const rows = meds.map((m): DayEntry => ({
+      id: previousByKey.get(m.key)?.id ?? newId(),
+      at: atLocal(date, time),
+      kind: 'med',
+      status: uncertain ? 'planned' : status,
+      ...(uncertain ? { adherence: 'uncertain' as const, markedAt: nowAt() }
+        : status === 'done' && completedLate(time, planned) ? { adherence: 'completed_late' as const, ...marks(when) }
+          : marks(when)),
+      title: m.title,
+      checkKey: m.key,
+      ...(m.prescriptionId ? { prescriptionId: m.prescriptionId } : {}),
+    }));
+    const oldIds = new Set(previous.map((e) => e.id));
+    created = rows.filter((e) => !oldIds.has(e.id)).map((e) => e.id);
+    await db.entries.bulkPut(rows);
+  };
+  return saved(write(), uncertain ? t.toast.uncertainSaved(title) : say(title, status, when), async () => {
+    await db.entries.bulkDelete(created);
+    await db.entries.bulkPut(previous);
+  });
 }
 
 /** A planned meal: eaten (when) or skipped; the plan's time is kept as `plannedAt` when the real one differs.
  *  `patch` — what was really eaten (D55: the lines ticked in «Підтвердити прийом»); «Скасувати» brings the plan back. */
-export function markMeal(e: DayEntry, date: string, status: 'done' | 'skipped', when: When, patch: Partial<DayEntry> = {}) {
+export function markMeal(e: DayEntry, date: string, status: 'done' | 'skipped', when: ConfirmedWhen, patch: Partial<DayEntry> = {}) {
   const at = 'time' in when ? atLocal(date, when.time) : e.at;
   const next: DayEntry = { ...e, ...patch, status, at, ...(at !== e.at ? { plannedAt: e.plannedAt ?? e.at } : {}), ...marks(when) };
+  delete next.adherence;
   return saved(db.entries.put(next), say(e.title, status, when), () => db.entries.put(e));
 }
 
 /** «Коли?» — the choice before a late mark. `planned` is the plan's time; «Щойно» only for today. */
-export function TimeChoice({ title, planned, date, meal, onPick, onClose }: {
-  title: string; planned?: string; date: string; meal?: boolean; onPick: (when: When) => void; onClose: () => void;
+export function TimeChoice({ title, planned, date, meal, allowUncertain, onPick, onClose }: {
+  title: string; planned?: string; date: string; meal?: boolean; allowUncertain?: boolean; onPick: (when: When) => void; onClose: () => void;
 }) {
   const [other, setOther] = useState<string | null>(null);
   const now = format(new Date(), 'HH:mm');
@@ -61,6 +87,7 @@ export function TimeChoice({ title, planned, date, meal, onPick, onClose }: {
             <button type="submit" className="min-h-tap rounded-xl bg-accent px-4 font-medium text-surface">{L.save}</button>
           </form>
         )}
+      {allowUncertain && <SheetButton onClick={() => pick({ uncertain: true })}><HelpCircle size={20} />{L.uncertain}</SheetButton>}
       <SheetButton onClick={() => pick({ unknown: true })}><HelpCircle size={20} />{L.unknown}</SheetButton>
     </Sheet>
   );

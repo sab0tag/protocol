@@ -4,6 +4,7 @@
 import { addDays, differenceInMinutes, format } from 'date-fns';
 import { dateOf, timeOf } from './dates';
 import { doseDue } from './checklist';
+import { adherenceResolved } from './adherence';
 import { observedPlannedEntry, observedTask, type Observation } from './observation';
 import type { DayEntry, Plan, Prescription } from './types';
 import { reminderAllowed, type ReminderPolicy } from '../../server/src/reminderPolicy';
@@ -83,7 +84,7 @@ export function reminders(args: { entries: DayEntry[]; plan: Plan | undefined; s
   }
 
   if (settings.meds && plan) {
-    const ticked = new Set(entries.filter((e) => e.checkKey && e.status !== 'planned').map((e) => `${dateOf(e.at)}|${e.checkKey}`)); // done or skipped (D50)
+    const ticked = new Set(entries.filter((e) => e.checkKey && adherenceResolved(e)).map((e) => `${dateOf(e.at)}|${e.checkKey}`));
     const times = [...new Set(plan.prescriptions.filter(isMed).flatMap((p) => p.schedule?.times ?? []))];
     for (const d of dates) {
       for (const time of times) {
@@ -184,7 +185,7 @@ export function dayFocus(args: { entries: DayEntry[]; plan: Plan | undefined; da
     if (e.kind !== 'meal' || e.status !== 'planned' || dateOf(e.at) !== date || !observedPlannedEntry(args.observation, e)) continue;
     out.push({ key: `meal:${e.id}:${e.at}`, kind: 'meal', time: timeOf(e.at), title: e.title, late: 0, entry: e });
   }
-  const marked = new Set(entries.filter((e) => e.checkKey && e.status !== 'planned' && dateOf(e.at) === date).map((e) => e.checkKey!));
+  const marked = new Set(entries.filter((e) => e.checkKey && adherenceResolved(e) && dateOf(e.at) === date).map((e) => e.checkKey!));
   const byTime = new Map<string, NowMed[]>();
   for (const p of plan?.prescriptions ?? []) {
     if (!isMed(p)) continue;
