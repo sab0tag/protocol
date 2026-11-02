@@ -6,7 +6,8 @@ export function rhythmPresentation(nodes: readonly RhythmNode[], date: string, n
   const pad = (n: number) => String(n).padStart(2, '0');
   const today = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
   const time = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
-  const timed = (n: RhythmNode) => /^([01]\d|2[0-3]):[0-5]\d$/.test(n.at) && !(n.kind === 'entry' && n.entry.timeUnknown);
+  const timed = (n: RhythmNode) => /^([01]\d|2[0-3]):[0-5]\d$/.test(n.at)
+    && !(n.kind === 'entry' && (n.entry.timeUnknown || n.entry.adherence === 'uncertain'));
   const nearest = date === today ? nodes.findIndex(n => timed(n) && n.at >= time && (n.kind === 'dose' || (n.kind === 'entry' && n.entry.status === 'planned'))) : -1;
   return nodes.map((n, i) => !timed(n) ? 'untimed' : i === nearest ? 'current' : date < today || (date === today && n.at < time) ? 'past' : 'future');
 }
@@ -23,7 +24,7 @@ export function pendingStatus(node: RhythmNode, date: string, now: Date, snoozed
     const u = new Date(until);
     return { state: 'deferred', until: `${String(u.getHours()).padStart(2, '0')}:${String(u.getMinutes()).padStart(2, '0')}` };
   }
-  if (node.kind === 'entry' && node.entry.timeUnknown) return { state: 'planned' };
+  if (node.kind === 'entry' && (node.entry.timeUnknown || node.entry.adherence === 'uncertain')) return { state: 'planned' };
   if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(node.at)) return { state: 'planned' };
   return differenceInMinutes(now, new Date(`${date}T${node.at}:00`)) > NOW_AFTER_MIN ? { state: 'unmarked' } : { state: 'planned' };
 }

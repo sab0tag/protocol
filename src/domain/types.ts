@@ -189,12 +189,15 @@ export interface MealItem {
 
 export type EntryKind = 'meal' | 'med' | 'water' | 'workout' | 'note' | 'symptom';
 export type EntryStatus = 'planned' | 'done' | 'skipped';
+export type AdherenceState = 'completed' | 'completed_late' | 'skipped' | 'uncertain' | 'no_data';
 
 export interface DayEntry {
   id: string;
   at: ISODateTime;
   kind: EntryKind;
   status: EntryStatus;
+  /** R162: additive adherence detail; `status` remains wire-compatible with older clients. */
+  adherence?: 'completed_late' | 'uncertain';
   title: string;
   items?: MealItem[]; // meal
   waterMl?: number; // water

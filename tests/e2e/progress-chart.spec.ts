@@ -15,6 +15,10 @@ test('progress summary uses honest weekly rings and weight history remains a lin
       await new Promise<void>((resolve, reject) => { tx.oncomplete = () => resolve(); tx.onabort = () => reject(tx.error); });
     } finally { req.result.close(); }
   }, weights);
+  // Native IndexedDB writes bypass Dexie's live-query notifications. A hash-only
+  // navigation can retain the already-mounted demo weights; reload the app so
+  // the progress screen reads the fixture from disk rather than cached state.
+  await page.reload();
   await page.goto('./#/progress');
 
   await expect(page.getByRole('heading', { name: /Останні 7 днів/ })).toBeVisible();

@@ -179,11 +179,15 @@ interface DayEntry {
   at: ISODateTime;
   kind: EntryKind;
   status: 'planned' | 'done' | 'skipped';
+  adherence?: 'completed_late' | 'uncertain'; // D155: additive outcome detail; old status remains compatible
   title: string;            // "Сніданок", "Вітамін D"
   items?: MealItem[];       // для meal
   waterMl?: number;         // для water
   workoutId?: string;       // для workout
-  prescriptionId?: string;  // для med
+  prescriptionId?: string; // для med
+  checkKey?: string;        // D18: planned item identity (e.g. "med:p-vitd:08:30")
+  timeUnknown?: true;       // D52: event happened, but its actual time is unknown
+  markedAt?: ISODateTime;   // D52: when the person recorded the outcome
   via?: 'voice' | 'photo';  // D119: еда сказана голосом или с фото тарелки; нет — набрана или отмечена
 }
 
@@ -201,6 +205,8 @@ interface Workout { id: string; date: ISODate; durationMin?: number; equipment: 
 interface WeightLog { date: ISODate; kg: number }
 interface LabResult { date: ISODate; name: string; value: number; unit: string; target?: string; reference?: string }
 ```
+
+`DayEntry.status` keeps the compatible storage values `planned | done | skipped`. For medicines, `adherence` adds only `completed_late` or `uncertain`; `completed`, `skipped`, and `no_data` are projections, with `no_data` computed rather than stored. `timeUnknown` means a confirmed event with no remembered time, not uncertainty about whether it happened. The additive fields use the existing IndexedDB entry row and sync payload; no table migration is needed.
 
 Dexie-таблицы: `plan` (одна запись), `foods`, `entries` (индекс по `at`), `wellbeing` (ключ `date`), `workouts`, `weights`, `labs`.
 
@@ -627,6 +633,8 @@ Q1–Q3 приняты по умолчанию (`src/domain/rules/keywords.uk.ts
 | D150 | Обмеження нагадувань — до того, як на них покладатися (аудит P2): на «Нагадуваннях» завжди блок «Що варто знати» — телефон може затримати або не показати сповіщення; розклад надсилається на 30 днів (`SCHEDULE_DAYS`), зміни без інтернету дійдуть після відкриття з мережею; нагадування — допомога, а не гарантія, щодо важливих ліків не покладатися лише на них. Коли ввімкнено — лише підтверджене сервером: `meta.scheduledAt` пишеться після успішного `putReminders`; «Сервер ще не підтвердив розклад» / «…отримано dd.MM HH:mm; діє до dd.MM» / «Розклад закінчився…» | ТЗ 2.0 §9, P2: прозорі обмеження синхронізації й нагадувань |
 | D153 | Пошук вправ (аудит P3): поле «Пошук вправи» над рівнями в бібліотеці й там, де вправу додають чи замінюють у тренуванні. Шукає за назвою й за рухом (`PATTERN_WORDS`: присід, жим, тяга, прес…); кожне слово запиту — початок слова вправи; регістр, апостроф, є/е, і/и не важать; поєднується з рівнем; «Знайдено: N»; нічого — пояснення й «Скинути пошук» (і рівень «Усі»). Чиста `searchExercises` | ТЗ 2.0 §9, P3: поиск упражнений |
 | D154 | Підписи службових розділів (аудит P3): кожен рядок «Ще» (усі чотири категорії) має рядок пояснення — що всередині й навіщо («Імпорт / експорт — Резервна копія у файл і відновлення з неї», «Пілот — …лише за згодою»). Доступна назва посилання — лише заголовок (`aria-label`), пояснення — опис (`aria-describedby`): читач екрана чує обидва окремо, точні назви не змінились | ТЗ 2.0 §9, P3: подписи служебных разделов |
+| D155 | Наслідки прийому ліків — окремі стани: `completed` (старий `status: done`), `completed_late` (підтверджений фактичний час пізніший за час у плані), `skipped` (лише явний вибір), `uncertain` (людина не знає, чи відбулася подія) та обчислюваний `no_data` (немає відмітки). `timeUnknown` означає, що прийом підтверджено, але час невідомий; це не `uncertain`. Зберігається адитивне поле `DayEntry.adherence`, старий `status` і формат запису лишаються сумісними; відсутність даних не записується як пропуск. Пізню відмітку можна виправити без створення дубля; невизначеність зупиняє повторні нагадування, але не рахується як виконання | Protocol 2.0 PX-02: стани прийому ліків |
+| D156 | Сумісність клієнта синхронізації: API вимагає окрему версію `clientVersion=2` для записів, протоколу запису, політики й push-пристроїв; відсутня, пошкоджена чи нижча версія відхиляється `426 client_upgrade_required`. Це версія поведінки клієнта, не `CLIENT_DATA_PROTOCOL` і не мінімум протоколу запису. Новий клієнт додає версію до відповідних запитів. Публікувати серверне блокування лише після доступності оновленого клієнта; поточні зміни production не розгортають | PX-02: старий синхронізований клієнт не повинен трактувати нові стани як незавершений прийом |
 
 ---
 

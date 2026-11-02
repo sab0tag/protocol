@@ -14,7 +14,7 @@ import { timeOf, todayISO } from '../domain/dates';
 import type { DayEntry, Food, MealItem } from '../domain/types';
 import { t } from '../i18n/uk';
 import { Amount } from './Amount';
-import { markMeal, type When } from './MarkTime';
+import { markMeal, type ConfirmedWhen } from './MarkTime';
 import { Sheet } from './Sheet';
 
 const L = t.confirm;
@@ -35,7 +35,7 @@ export function ConfirmMeal({ entry, date, foods, onClose, onEdit, onPin, onDele
   const [other, setOther] = useState(planned);
   const original = entry.items ?? [];
 
-  const when = (): When | null => (choice === 'now' ? { time: now } : choice === 'planned' ? { time: planned }
+  const when = (): ConfirmedWhen | null => (choice === 'now' ? { time: now } : choice === 'planned' ? { time: planned }
     : choice === 'other' ? (other ? { time: other } : null) : choice === 'unknown' ? { unknown: true } : null);
   const save = () => {
     const w = when();

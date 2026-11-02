@@ -145,7 +145,7 @@ describe('one observation rule for the week and report', () => {
     const report = buildReport({ from: '2026-10-21', to: '2026-10-24', plan, entries, workouts: [], wellbeing: [], weights: [], foods, observation: o });
     expect(report.habits.find((h) => h.key === 'carbs')).toEqual({ key: 'carbs', met: 2, of: 2 });
     expect(report.habits.find((h) => h.key === 'water')).toEqual({ key: 'water', met: 1, of: 1 });
-    expect(report.meds?.unmarked).toBe(8);
+    expect(report.meds?.noData).toBe(8);
     expect(report.meds?.missed).toEqual([]); // no mark is not an explicit «skipped» action
     expect(reportText(report, (d) => d)).not.toContain('Тренувань: 0');
     expect(reportText(report, (d) => d)).toContain('Запис їжі: увімкнено з 23.10.2026');
