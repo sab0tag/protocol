@@ -98,3 +98,30 @@ test('a recently recorded uncertain historical dose is user activity', async ({ 
   }]);
   await expect(page.getByRole('status', { name: 'Можна продовжити з сьогоднішнього дня' })).toHaveCount(0);
 });
+
+for (const status of ['done', 'skipped'] as const) {
+  test(`a historical ${status} dose marked today counts as recent user activity`, async ({ browser }) => {
+    const page = await device(browser);
+    const now = await atLocalNoon(page);
+    const old = addDays(now, -8);
+    const oldDate = ymd(old);
+    await seed(page, [{
+      store: 'entries',
+      value: {
+        id: 'synthetic-old-note',
+        at: `${oldDate}T12:00:00${kyivOffset(old)}`,
+        kind: 'note', status: 'done', title: 'Synthetic old record',
+      },
+    }, {
+      store: 'entries',
+      value: {
+        id: `synthetic-backfilled-${status}`,
+        at: `${oldDate}T08:30:00${kyivOffset(old)}`,
+        markedAt: `${ymd(now)}T12:00:00${kyivOffset(now)}`,
+        kind: 'med', status,
+        title: 'Вітамін D', checkKey: 'med:vitamin-d:08:30',
+      },
+    }]);
+    await expect(page.getByRole('status', { name: 'Можна продовжити з сьогоднішнього дня' })).toHaveCount(0);
+  });
+}

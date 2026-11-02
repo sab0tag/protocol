@@ -109,12 +109,9 @@ export function Day() {
     return [
       ...entries
         .filter((entry) => entry.status !== 'planned' || ('adherence' in entry && entry.adherence === 'uncertain'))
-        .map((entry) => dateOf(
-          'adherence' in entry && entry.adherence === 'uncertain' &&
-          'markedAt' in entry && typeof entry.markedAt === 'string'
-            ? entry.markedAt
-            : entry.at,
-        )),
+        // The event date can be historical even when the patient recorded its outcome today.
+        // Prefer the explicit mark timestamp for every recorded outcome, not only uncertainty.
+        .map((entry) => dateOf(entry.markedAt || entry.at)),
       ...wellbeing.map((entry) => entry.date),
       ...workouts.map((entry) => entry.date),
       ...weights.map((entry) => entry.date),
