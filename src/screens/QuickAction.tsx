@@ -7,6 +7,7 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { saved, toast } from '../components/Toast';
 import { db } from '../data/db';
 import { buildChecklist } from '../domain/checklist';
+import { completedLate } from '../domain/adherence';
 import { atLocal, newId, todayISO } from '../domain/dates';
 import { NOW_AFTER_MIN } from '../domain/reminders';
 import { useObservation } from '../app/observation';
@@ -59,10 +60,11 @@ async function run(action: string, ml: number, observation?: Observation): Promi
     const [plan, entries, workouts, foods] = await Promise.all([db.plan.get('main'), db.entries.where('at').startsWith(date).toArray(),
       db.workouts.toArray(), db.foods.toArray()]);
     const c = buildChecklist({ plan, date, entries, workouts, foods: new Map(foods.map((f) => [f.id, f])), now: new Date(), observation });
-    const next = c.items.find((i) => i.kind === 'med' && !i.done && !i.skipped);
+    const next = c.items.find((i) => i.kind === 'med' && !i.done && !i.skipped && !i.uncertain);
     if (!next) { toast(t.quick.noMed); return '/'; }
     if (next.time && differenceInMinutes(new Date(), new Date(`${date}T${next.time}:00`)) > NOW_AFTER_MIN) { toast(t.quick.medLate(next.title)); return '/'; }
     const e: DayEntry = { id: newId(), at: atLocal(date, now), kind: 'med', status: 'done', title: next.title, checkKey: next.key,
+      ...(completedLate(now, next.time) ? { adherence: 'completed_late' as const } : {}),
       ...(next.prescriptionId ? { prescriptionId: next.prescriptionId } : {}) };
     await saved(db.entries.add(e), t.toast.marked(next.title, now), () => db.entries.delete(e.id));
     return '/';

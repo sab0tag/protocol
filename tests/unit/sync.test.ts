@@ -1,7 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { ensureSeeded, ProtocolDB } from '../../src/data/db';
 import { deriveKeys, formatCode, newCode, open, parseCode, recordKey, seal } from '../../src/sync/crypto';
 import { hashOf, planFromRecords, repairPlan, syncOnce, type Api, type RemoteRecord } from '../../src/sync/engine';
+import { call, SYNC_CLIENT_VERSION } from '../../src/sync/api';
 import type { DayEntry } from '../../src/domain/types';
 
 /** The server as the app sees it: opaque records with a growing seq. */
@@ -67,7 +68,45 @@ describe('sync code', () => {
   });
 });
 
+describe('sync client compatibility', () => {
+  it('sends the client version only to synchronization and reminder endpoints', async () => {
+    const keys = await deriveKeys(parseCode(newCode())!);
+    const fetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{}'));
+    try {
+      await call(keys, 'GET', '/records?since=7&protocol=2');
+      const recordsUrl = new URL(String(fetch.mock.calls[0]?.[0]));
+      expect(recordsUrl.searchParams.get('since')).toBe('7');
+      expect(recordsUrl.searchParams.get('protocol')).toBe('2');
+      expect(recordsUrl.searchParams.get('clientVersion')).toBe(String(SYNC_CLIENT_VERSION));
+
+      await call(keys, 'PUT', '/devices/0123456789abcdef0123456789abcdef', { subscription: {} });
+      expect(new URL(String(fetch.mock.calls[1]?.[0])).searchParams.get('clientVersion')).toBe(String(SYNC_CLIENT_VERSION));
+
+      await call(keys, 'POST', '/menu', {});
+      expect(new URL(String(fetch.mock.calls[2]?.[0])).searchParams.has('clientVersion')).toBe(false);
+    } finally {
+      fetch.mockRestore();
+    }
+  });
+});
+
 describe('sync between two devices', () => {
+  it('round-trips additive adherence states while preserving legacy entry statuses', async () => {
+    const code = newCode();
+    const keys = await deriveKeys(parseCode(code)!);
+    const server = fakeServer();
+    const phone = await device(code), laptop = await device(code);
+    const late: DayEntry = { id: 'late', at: '2026-10-08T09:00:00+03:00', kind: 'med', status: 'done',
+      adherence: 'completed_late', title: 'Вітамін D', checkKey: 'med:p-vitd:08:30' };
+    const uncertain: DayEntry = { id: 'uncertain', at: '2026-10-08T08:30:00+03:00', kind: 'med', status: 'planned',
+      adherence: 'uncertain', markedAt: '2026-10-08T12:00:00+03:00', title: 'Вітамін D', checkKey: 'med:p-vitd:08:30' };
+    await phone.entries.bulkPut([late, uncertain]);
+    await syncOnce(phone, keys, server.api, 1000);
+    await syncOnce(laptop, keys, server.api, 2000);
+    expect(await laptop.entries.get('late')).toEqual(late);
+    expect(await laptop.entries.get('uncertain')).toEqual(uncertain);
+  });
+
   it('a meal, a dish, a weight and a deletion travel; built-in foods do not', async () => {
     const code = newCode();
     const keys = await deriveKeys(parseCode(code)!);

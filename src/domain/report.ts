@@ -37,7 +37,7 @@ export interface Report {
   /** D40: meals from «Меню на завтра» in the period that are past: eaten, skipped, not marked */
   menu?: { done: number; skipped: number; open: number };
   /** D79 «Головне»: doses due on days with records; absence of a mark is never an explicit skip. */
-  meds?: { taken: number; due: number; missed: { title: string; count: number }[]; unmarked?: number;
+  meds?: { taken: number; due: number; completedLate: number; uncertain: number; noData: number; missed: { title: string; count: number }[];
     /** D89: each medicine — the trade name, its INN from the register, the dose as prescribed, doses taken of due */
     list: { title: string; inn?: string; dose?: string; taken: number; due: number }[] };
   /** D79: eaten meals the plan's check would have changed («замінити» / «прибрати»), by the doctor's limit */
@@ -65,7 +65,7 @@ export function buildReport(args: {
   const { from, plan, entries, workouts, wellbeing, weights, foods, labs = [], observation, now = observation?.now ?? new Date() } = args;
   const to = observation && args.to > observedToday(observation) ? observedToday(observation) : args.to;
   const today = format(now, 'yyyy-MM-dd'), hm = format(now, 'HH:mm');
-  let taken = 0, due = 0, unmarked = 0;
+  let taken = 0, due = 0, completedLate = 0, uncertain = 0, noData = 0;
   const missed = new Map<string, number>();
   const perMed = new Map<string, { taken: number; due: number }>();
   const countedMarks = new Set<string>();
@@ -85,9 +85,13 @@ export function buildReport(args: {
     for (const i of c.items) { // D79: doses — days without records are not counted as missed
       if (i.kind !== 'med' || (d === today && !i.done && (!i.time || i.time > hm))) continue;
       due += 1;
-      if (i.done) taken += 1;
+      if (i.done) {
+        taken += 1;
+        if (i.completedLate) completedLate += 1;
+      }
       else if (i.skipped) missed.set(i.title, (missed.get(i.title) ?? 0) + 1);
-      else unmarked += 1;
+      else if (i.uncertain) uncertain += 1;
+      else noData += 1;
       if (i.done) for (const e of day) if (e.kind === 'med' && e.status === 'done' && e.checkKey === i.key) countedMarks.add(e.id);
       const m = perMed.get(i.prescriptionId ?? i.title) ?? { taken: 0, due: 0 };
       m.due += 1; if (i.done) m.taken += 1;
@@ -158,7 +162,7 @@ export function buildReport(args: {
     coincidences: [...observedCoincidences(entries.filter((e) => inside(dateOf(e.at))), foods, observation).map(coincidenceText),
       ...wellbeingCoincidences(entries.filter((e) => inside(dateOf(e.at))), wellbeing.filter((x) => inside(x.date)), foods, plan, observation).map((p) => p.text)], // D71
     questions: plan?.questions ?? [],
-    ...(due ? { meds: { taken, due, unmarked, missed: [...missed.entries()].map(([title, count]) => ({ title, count })).sort((a, b) => b.count - a.count),
+    ...(due ? { meds: { taken, due, completedLate, uncertain, noData, missed: [...missed.entries()].map(([title, count]) => ({ title, count })).sort((a, b) => b.count - a.count),
       list: [...perMed.entries()].map(([key, n]) => {
         const p = plan?.prescriptions.find((x) => x.id === key);
         return { title: p?.title ?? key, ...(p?.med?.inn ? { inn: p.med.inn } : {}), ...(p?.dose ? { dose: p.dose } : {}), ...n };
@@ -202,7 +206,9 @@ export function reportText(r: Report, dm: (d: ISODate) => string): string {
     ...(r.tracking ? trackingLines(r.tracking) : []),
     ...(r.unscoredMedMarks ? [unscoredMedText(r.unscoredMedMarks)] : []),
     r.meds ? `${t.report.meds(r.meds.taken, r.meds.due)}${r.meds.missed.length ? ` — ${r.meds.missed.map((m) => t.report.missed(m.title, m.count)).join('; ')}` : ''}` : '',
-    r.meds?.unmarked ? t.report.unmarked(r.meds.unmarked) : '',
+    r.meds?.completedLate ? t.report.completedLate(r.meds.completedLate) : '',
+    r.meds?.uncertain ? t.report.uncertain(r.meds.uncertain) : '',
+    r.meds?.noData ? t.report.noData(r.meds.noData) : '',
     r.meds ? t.report.medsScope : '',
     r.meds && r.meds.list.length > 1 ? r.meds.list.map((m) => `• ${t.report.medLine(m)}`).join('\n') : '',
     ...r.prn.map((x) => `${t.prn.report(x.title, x.total, x.days)}${x.over.length ? ` — ${t.prn.over(prnLimitText(x.limit!), x.over.map((d) => d.slice(8, 10) + '.' + d.slice(5, 7)).join(', '))}` : ''}${x.unmatched ? ` — ${t.prn.reportUnmatched(x.unmatched)}` : ''}`), // D118, R01

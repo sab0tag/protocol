@@ -8,6 +8,7 @@ import type { Api, RemoteRecord } from './engine';
 import type { ReminderPolicy } from '../../server/src/reminderPolicy';
 
 export const API_URL: string = import.meta.env?.VITE_API_URL ?? 'https://api.beyondthesignal.to';
+export const SYNC_CLIENT_VERSION = 2;
 
 export class ApiError extends Error {
   /** `data` — the rest of the error's body (D123: how many dishes are left today) */
@@ -16,8 +17,15 @@ export class ApiError extends Error {
 
 export async function call<T>(keys: Keys, method: string, path: string, body?: unknown): Promise<T> {
   let res: Response;
+  const pathname = path.split('?', 1)[0] ?? path;
+  const requiresClientVersion = pathname === '/records' || pathname.startsWith('/records/')
+    || pathname === '/write-protocol' || pathname.startsWith('/write-protocol/')
+    || pathname === '/reminder-policy' || /^\/devices\/[^/]+(?:\/.*)?$/.test(pathname);
+  const requestPath = requiresClientVersion
+    ? `${path}${path.includes('?') ? '&' : '?'}clientVersion=${SYNC_CLIENT_VERSION}`
+    : path;
   try {
-    res = await fetch(`${API_URL}/v1/vaults/${keys.vaultId}${path}`, {
+    res = await fetch(`${API_URL}/v1/vaults/${keys.vaultId}${requestPath}`, {
       method, headers: { Authorization: `Bearer ${keys.auth}`, ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}) },
       ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
     });
