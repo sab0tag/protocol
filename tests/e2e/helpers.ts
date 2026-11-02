@@ -10,7 +10,16 @@ export async function device(browser: Browser, start: 'example' | 'demo' | 'skip
   const ctx = await browser.newContext(sw ? {} : { serviceWorkers: 'block' });
   const page = await ctx.newPage();
   await page.goto('./');
-  if (sw) await page.evaluate(() => navigator.serviceWorker.ready);
+  // A registration that never settles on a loaded runner would hang until the test timeout; reload and retry instead.
+  for (let attempt = 1; sw; attempt++) {
+    const ready = await page.evaluate(() => Promise.race([
+      navigator.serviceWorker.ready.then(() => true),
+      new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 10_000)),
+    ]));
+    if (ready) break;
+    if (attempt === 3) throw new Error('service worker did not become ready after 3 attempts');
+    await page.reload();
+  }
   await page.waitForTimeout(500);
   if (start === 'demo') { // D98: the example's own database, opened as a person opens it
     await page.getByRole('button', { name: 'Подивитись на прикладі' }).click();
