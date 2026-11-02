@@ -5,6 +5,8 @@ import { activeMode, dayTotals, effectiveTargets } from './nutrition';
 import type { DayEntry, Food, ISODate, Plan, Prescription, Workout } from './types';
 import { workoutDay } from './workouts';
 import { observedTargets, observedTask, scoredDay, type Observation } from './observation';
+import { adherenceState } from './adherence';
+import type { AdherenceState } from './types';
 
 export const WATER_SEGMENT_ML = 250;
 export const WATER_SEGMENTS = 10;
@@ -18,6 +20,7 @@ export interface CheckItem {
   title: string;
   detail?: string;
   done: boolean;
+  adherence?: AdherenceState;
   doneAt?: string; // "HH:mm" of the tick
   /** Ticked by tapping (med, dinner); water and mode goals follow the data, the workout opens its log. */
   tappable: boolean;
@@ -26,6 +29,8 @@ export interface CheckItem {
   minutesLeft?: number; // dinner: shown within DINNER_COUNTDOWN_MIN before lastMealBy
   late?: boolean; // dinner: the time has passed and it is not ticked
   skipped?: boolean; // med: marked «Пропущено» (D50) — not done, but not waiting either
+  uncertain?: boolean; // med: occurrence is uncertain; neither completed nor skipped
+  completedLate?: boolean;
 }
 
 export interface Checklist {
@@ -53,6 +58,7 @@ export function buildChecklist(args: {
   const { plan, date, entries, workouts, foods, now } = args;
   const ticks = new Map(entries.filter((e) => e.checkKey && e.status === 'done').map((e) => [e.checkKey!, e]));
   const skips = new Set(entries.filter((e) => e.checkKey && e.status === 'skipped').map((e) => e.checkKey!));
+  const uncertain = new Set(entries.filter((e) => e.checkKey && adherenceState(e) === 'uncertain').map((e) => e.checkKey!));
   const targets = observedTargets(effectiveTargets(plan, date), date, args.observation);
   const totals = dayTotals(entries, foods);
   const items: CheckItem[] = [];
@@ -66,9 +72,14 @@ export function buildChecklist(args: {
       if (!observedTask(args.observation, 'meds', date, time)) continue;
       const key = `med:${p.id}:${time ?? 'day'}`;
       const tick = ticks.get(key);
+      const state = tick ? adherenceState(tick) : skips.has(key) ? 'skipped' : uncertain.has(key) ? 'uncertain' : 'no_data';
       items.push({ key, kind: 'med', title: p.title, ...(time ? { time } : {}), prescriptionId: p.id, tappable: true,
         detail: [time ?? 'раз на день', p.dose, p.schedule?.withFood === true ? 'під час їжі' : p.schedule?.withFood === false ? 'натщесерце' : undefined].filter(Boolean).join(' · '),
-        done: !!tick, ...(tick ? (tick.timeUnknown ? {} : { doneAt: timeOf(tick.at) }) : skips.has(key) ? { skipped: true } : {}) });
+        adherence: state, done: state === 'completed' || state === 'completed_late',
+        ...(tick ? (tick.timeUnknown ? {} : { doneAt: timeOf(tick.at) }) : {}),
+        ...(state === 'skipped' ? { skipped: true } : {}),
+        ...(state === 'uncertain' ? { uncertain: true } : {}),
+        ...(state === 'completed_late' ? { completedLate: true } : {}) });
     }
   }
   items.sort((a, b) => (a.time ?? '99').localeCompare(b.time ?? '99')); // «раз на день» after the timed ones

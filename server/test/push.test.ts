@@ -16,7 +16,13 @@ function setup() {
   const send: Sender = async (sub, payload) => { sent.push({ sub, payload: JSON.parse(payload) }); return result; };
   let now = T0;
   const app = createApp({ store, origins: [], push: { publicKey: 'PUB', send }, now: () => new Date(now) });
-  const call = (method: string, path: string, body?: unknown) => app.request(path, { method,
+  const call = (method: string, path: string, body?: unknown, clientVersion: string | null = '2') => app.request((() => {
+    const pathname = path.split('?', 1)[0] ?? path;
+    const syncPath = /^\/v1\/vaults\/[0-9a-f]{32}\/(?:records(?:\/.*)?|write-protocol(?:\/.*)?|reminder-policy|devices\/[0-9a-f]{32}(?:\/.*)?)$/.test(pathname);
+    return syncPath && clientVersion !== null
+      ? `${path}${path.includes('?') ? '&' : '?'}clientVersion=${encodeURIComponent(clientVersion)}`
+      : path;
+  })(), { method,
     headers: { Authorization: `Bearer ${AUTH}`, 'Content-Type': 'application/json' }, ...(body !== undefined ? { body: JSON.stringify(body) } : {}) });
   return { store, sent, send, call, at: (t: number) => { now = t; }, fail: (r: typeof result) => { result = r; } };
 }
@@ -25,6 +31,16 @@ const schedule = (items: { rid: string; at: number; t?: string }[], extra: Recor
   ({ items: items.map((i) => ({ rid: i.rid, at: i.at, payload: { t: i.t ?? 'Обід', b: 'Час їсти', k: 'meal' } })), repeatEvery: 15, repeats: 2, ...extra });
 
 describe('push', () => {
+  it('requires a current client before registering a reminder device', async () => {
+    const { call } = setup();
+    await call('PUT', `/v1/vaults/${VAULT}`);
+    const path = `/v1/vaults/${VAULT}/devices/${DEV}`;
+    const body = { subscription: SUB };
+    expect((await call('PUT', path, body, null)).status).toBe(426);
+    expect((await call('PUT', path, body, '1')).status).toBe(426);
+    expect((await call('PUT', path, body)).status).toBe(200);
+  });
+
   it('key, subscribe, a reminder at its time, repeats until ticked anywhere', async () => {
     const { store, sent, send, call } = setup();
     expect(await (await call('GET', '/v1/push/key')).json()).toEqual({ key: 'PUB' });

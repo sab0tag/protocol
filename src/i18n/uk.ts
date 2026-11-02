@@ -310,12 +310,15 @@ export const t = {
   dock: { // D48
     label: 'Ліки й вода',
     med: (title: string, time?: string) => `Відмітити прийнятим: ${title}${time ? `, ${time}` : ''}`,
+    resolveMed: (title: string) => `Уточнити, чи прийняли: ${title}`,
     waterAdded: (added: number, total: number) => `+${added} мл · ${(total / 1000).toLocaleString('uk-UA', { maximumFractionDigits: 2 })} л`,
     medsDone: 'Ліки на сьогодні прийнято',
+    medNoAction: 'Немає дози для відмітки',
     water: (ml: number, target?: number) => `Додати 250 мл води — зараз ${ml}${target ? ` з ${target}` : ''} мл`,
   },
   status: { planned: 'Заплановано', done: 'Виконано', skipped: 'Пропущено' },
-  rowActions: { done: 'Виконано', skipped: 'Пропущено', planned: 'Повернути в план', edit: 'Редагувати', delete: 'Видалити', close: 'Закрити' },
+  adherence: { completedLate: 'Виконано пізніше за планом', uncertain: 'Не впевнені, чи прийнято', noData: 'Даних про прийом немає' },
+  rowActions: { done: 'Виконано', skipped: 'Пропущено', planned: 'Повернути в план', resolveUncertain: 'Уточнити прийом', edit: 'Редагувати', delete: 'Видалити', close: 'Закрити' },
   addKinds: { meal: 'Їжа', med: 'Ліки', water: 'Вода', workout: 'Тренування', note: 'Нотатка', symptom: 'Мені погано' },
   allergen: { // D57
     name: { gluten: 'глютен', milk: 'молоко', egg: 'яйця', fish: 'риба', crustaceans: 'ракоподібні', molluscs: 'молюски', peanut: 'арахіс',
@@ -767,7 +770,9 @@ export const t = {
     main: 'Головне', mainHint: 'Рахуються дні, коли були записи.',
     meds: (taken: number, due: number) => `Ліки: відмічено прийнятими ${taken} з ${due} доз у дні з записами (${Math.round((taken / due) * 100)} %)`, // R06
     missed: (title: string, n: number) => `${title} — пропущено ${n}`,
-    unmarked: (n: number) => `Без відмітки: ${n} доз.`,
+    completedLate: (n: number) => `Пізно виконано: ${n} доз.`,
+    uncertain: (n: number) => `Не впевнені, чи прийнято: ${n} доз.`,
+    noData: (n: number) => `Дані відсутні: ${n} доз.`,
     medsScope: 'Частка — серед належних доз у дні з записами. Дні без записів не оцінюються, а відсутність відмітки не означає пропуск.',
     medLine: (m: { title: string; inn?: string; dose?: string; taken: number; due: number }) =>
       `${m.title}${m.inn ? ` (${m.inn})` : ''}${m.dose ? `, ${m.dose}` : ''} — ${m.taken} з ${m.due} (${Math.round((m.taken / m.due) * 100)} %)`, // D89
@@ -927,6 +932,7 @@ export const t = {
     meal: (title: string) => `${title} — записано`,
     planned: (title: string) => `${title} — у плані`,
     done: (title: string) => `${title} — виконано`,
+    uncertainSaved: (title: string) => `${title} — не впевнені, чи прийнято`,
     skipped: (title: string) => `${title} — пропущено`,
     backToPlan: (title: string) => `${title} — знову в плані`,
     deleted: (title: string) => `Видалено: ${title}`,
@@ -968,7 +974,7 @@ export const t = {
     whenTook: 'коли прийняли?', whenAte: 'коли з’їли?',
     justNow: (hm: string) => `Щойно · ${hm}`,
     asPlanned: (hm: string) => `О ${hm} — як за планом`,
-    other: 'Інший час', unknown: 'Час не пам’ятаю', save: 'Записати',
+    other: 'Інший час', unknown: 'Час не пам’ятаю', uncertain: 'Не впевнені, чи прийняли', save: 'Записати',
   },
   remind: {
     title: 'Нагадування',
