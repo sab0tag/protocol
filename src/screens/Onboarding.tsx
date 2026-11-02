@@ -46,6 +46,7 @@ export function Onboarding() {
 
 function Steps({ plan, start, onScanned }: { plan: PlanRow; start: number; onScanned: () => void }) {
   const navigate = useNavigate();
+  const srcLink = useUi((state) => state.srcLink);
   const { enabled } = useFeatures();
   const events = useModuleEvents();
   const [choices, setChoices] = useState<Partial<ModuleFlags>>({});
@@ -136,12 +137,19 @@ function Steps({ plan, start, onScanned }: { plan: PlanRow; start: number; onSca
         <p className="text-xs text-muted">{L.preview.verify}</p>
       </section>
       <PlanScan plan={plan} onboarding onDone={() => enabled ? onScanned() : void started()} />
-      <button type="button" onClick={() => setStep(1)} className="min-h-tap w-full rounded-xl border border-accent px-4 font-medium text-accent">{L.manual}</button>
-      <PilotStart />
-      <div><button type="button" onClick={enterDemo} className="min-h-tap text-accent underline">{L.example}</button>
-        <p className="text-sm text-muted">{L.exampleHint}</p></div>
-      <button type="button" onClick={() => navigate('/sync')} className="block min-h-tap text-accent underline">{t.sync.welcome}</button>
-      <button type="button" disabled={busy} onClick={() => void done(true)} className="min-h-tap text-muted underline">{L.skip}</button>
+      <div className="space-y-2">
+        <button type="button" onClick={enterDemo} className="min-h-tap w-full rounded-xl border border-accent px-4 font-medium text-accent">{L.example}</button>
+        <p className="text-sm text-muted">{L.exampleHint}</p>
+      </div>
+      <details open={srcLink?.state === 'known' || srcLink?.state === 'unknown'} className="protocol-card rounded-2xl border border-line bg-surface p-3">
+        <summary className="flex min-h-tap cursor-pointer items-center font-medium text-accent">Інші способи почати</summary>
+        <div className="mt-3 space-y-3">
+          <button type="button" onClick={() => setStep(1)} className="min-h-tap w-full rounded-xl border border-accent px-4 font-medium text-accent">{L.manual}</button>
+          <PilotStart />
+          <button type="button" onClick={() => navigate('/sync')} className="block min-h-tap text-accent underline">{t.sync.welcome}</button>
+          <button type="button" disabled={busy} onClick={() => void done(true)} className="min-h-tap text-muted underline">{L.skip}</button>
+        </div>
+      </details>
       {error && <p role="alert">{error}</p>}
       <p className="text-sm text-muted">{P.disclaimer}</p>
     </section>

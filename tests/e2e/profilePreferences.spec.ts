@@ -21,7 +21,7 @@ test('profile name updates immediately and each person can control the daily phr
   await page.getByLabel('Ім’я', { exact: true }).fill('Данило'); await expect(toggle).toBeChecked();
   await page.getByRole('button', { name: 'Зберегти профіль', exact: true }).click();
   await page.getByRole('button', { name: 'Відкрити профіль: Данило', exact: true }).click();
-  await page.getByRole('button', { name: /^Пропустити/ }).click();
+  await page.getByText('Інші способи почати').click(); await page.getByRole('button', { name: /^Пропустити/ }).click();
   await expect(page.getByTestId('greeting')).toContainText('Данило'); await expect(page.getByTestId('daily-phrase')).toBeVisible();
   await page.goto('./?protocol-profile=main#/'); await expect(page.getByTestId('daily-phrase')).toHaveCount(0);
   await page.getByTestId('greeting').click(); await page.getByRole('button', { name: 'Редагувати профіль: Олена', exact: true }).click();

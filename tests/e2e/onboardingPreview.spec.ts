@@ -15,7 +15,7 @@ for (const width of [320, 1024]) test(`onboarding explains the verified plan usi
   await expect(page.getByRole('button', { name: 'Фото висновку лікаря', exact: true })).toBeInViewport();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: `test-results/onboarding-preview-${width}.png`, fullPage: true });
-  await page.getByRole('button', { name: /^Пропустити/ }).click();
+  await page.getByText('Інші способи почати').click(); await page.getByRole('button', { name: /^Пропустити/ }).click();
   await expect(page).toHaveURL(/#\/$/);
   const stored = await page.evaluate(async () => {
     const open = indexedDB.open('protocol');

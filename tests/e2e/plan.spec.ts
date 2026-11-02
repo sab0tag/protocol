@@ -65,7 +65,7 @@ test('the example comes with two invented weeks: «Прогрес» and the repo
   await expect(page.getByText(/Ще немає зважувань/)).toHaveCount(0);
   await page.getByRole('button', { name: 'Повернутися до своїх даних' }).first().click(); // D98: out of the example's database
   await expect(page).toHaveURL(/#\/welcome$/); // the own one, as it was — not onboarded yet
-  await page.getByRole('button', { name: /^Пропустити/ }).click();
+  await page.getByText('Інші способи почати').click(); await page.getByRole('button', { name: /^Пропустити/ }).click();
   await expect(page).toHaveURL(/#\/$/);
   if (process.env.VITE_MODULE_POLICY_ENABLED === 'true') {
     await page.goto('./#/progress'); await expect(page.getByRole('heading', { level: 1 })).toHaveText('Розділ вимкнено');
