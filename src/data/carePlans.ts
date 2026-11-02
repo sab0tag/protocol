@@ -3,6 +3,7 @@ import type { ProtocolDB } from './db';
 import { profileDatabase } from './profiles';
 import { assertPlanCatalog, expandLegacyPlan, plansForPerson, type CarePlan, type CarePlanItem, type LegacyPlanExpansion, type PlanCatalog } from '../domain/carePlans';
 import { stable } from '../sync/engine';
+import { sinceNow } from '../domain/dates';
 
 export interface PlanMigration {
   id: 'legacy-main-v1';
@@ -63,5 +64,27 @@ export async function saveClinicImport(target: ProtocolDB, personId: string, dra
     await target.carePlans.add(draft.plan);
     await target.carePlanItems.bulkAdd(draft.items);
     return 'saved';
+  });
+}
+
+/** The person confirms a clinic draft was checked against the doctor's own prescription. Its items enter the plan once, with no
+ *  schedule: doses, times and courses stay for the person to set (nothing is inferred from free text). */
+export async function activateClinicPlan(target: ProtocolDB, personId: string, planId: string): Promise<'activated' | 'already_active' | 'not_found' | 'plan_missing'> {
+  owner(target, personId);
+  return target.transaction('rw', target.plan, target.carePlans, target.carePlanItems, async () => {
+    const draft = await target.carePlans.get(planId);
+    if (!draft || draft.personId !== personId || draft.source.kind !== 'clinic') return 'not_found';
+    if (draft.status === 'active') return 'already_active';
+    if (draft.status !== 'draft') return 'not_found';
+    const main = await target.plan.get('main');
+    if (!main) return 'plan_missing';
+    const items = await target.carePlanItems.where('[personId+planId]').equals([personId, planId]).toArray();
+    const known = new Set(main.prescriptions.map(p => p.id));
+    const added = items.flatMap(i => i.content.type === 'prescription' && !known.has(i.content.value.id)
+      ? [{ ...i.content.value, ...sinceNow() }] : []);
+    await target.plan.update('main', { prescriptions: [...main.prescriptions, ...added] });
+    await target.carePlans.update(planId, { status: 'active' });
+    await target.carePlanItems.bulkPut(items.map(i => ({ ...i, provenance: { ...i.provenance, verification: 'verified' as const } })));
+    return 'activated';
   });
 }
