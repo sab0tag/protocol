@@ -32,6 +32,8 @@ test('manual lab errors are explained and the exact numeric precision reaches hi
   await page.evaluate(() => Object.defineProperty(navigator, 'share', { configurable: true,
     value: async (data: ShareData) => { document.body.dataset.sharedReport = data.text; } }));
   await page.getByRole('button', { name: 'Поділитися', exact: true }).click();
+  await page.getByRole('checkbox', { name: /Я погоджуюсь передати/ }).check();
+  await page.getByRole('button', { name: 'Передати звіт', exact: true }).click();
   await expect(page.locator('body')).toHaveAttribute('data-shared-report', /0,004123 од\./);
 });
 
