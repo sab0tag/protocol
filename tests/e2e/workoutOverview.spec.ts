@@ -17,7 +17,6 @@ for (const width of [320, 1024]) test(`overview navigation preserves the route a
   await expect(heading).toBeFocused(); await expect(heading).toBeInViewport();
   await expect(reps).toHaveValue('13');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await page.screenshot({ path: `test-results/workout-overview-${width}.png` });
   await page.reload(); await expect(reps).toHaveValue('13');
   const recorded = await page.evaluate(async () => {
     const r = indexedDB.open('protocol'); await new Promise<void>(resolve => { r.onsuccess = () => resolve(); });
