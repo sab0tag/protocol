@@ -22,11 +22,14 @@ jobs:
       - run: npm test
       - run: npm run typecheck
   e2e-matrix:
-    name: e2e (${{ matrix.mode }})
+    name: e2e (${{ matrix.artifact }})
     strategy:
       fail-fast: false
       matrix:
-        mode: [compatibility, acceptance]
+        include:
+          - { mode: compatibility, shard: '1/1', artifact: compatibility }
+          - { mode: acceptance, shard: '1/2', artifact: acceptance-1 }
+          - { mode: acceptance, shard: '2/2', artifact: acceptance-2 }
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
@@ -38,7 +41,7 @@ jobs:
       - run: npm ci
       - run: npm ci --prefix server
       - run: npx playwright install --with-deps chromium
-      - run: npm run e2e -- --reporter=line,json
+      - run: npm run e2e -- --reporter=line,json --shard=${{ matrix.shard }}
         timeout-minutes: 40
         env:
           PLAYWRIGHT_JSON_OUTPUT_FILE: e2e-results.json
@@ -48,19 +51,19 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: e2e-report-${{ matrix.mode }}
+          name: e2e-report-${{ matrix.artifact }}
           path: e2e-results.json
           retention-days: 14
       - uses: actions/upload-artifact@v4
         if: success()
         with:
-          name: mockup-screen-matrix-${{ matrix.mode }}
+          name: mockup-screen-matrix-${{ matrix.artifact }}
           path: test-results/mockup-*.png
           retention-days: 7
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: playwright-${{ matrix.mode }}
+          name: playwright-${{ matrix.artifact }}
           path: test-results
           retention-days: 7
   e2e:
@@ -69,5 +72,5 @@ jobs:
     if: always()
     runs-on: ubuntu-latest
     steps:
-      - name: Require both E2E modes to pass
+      - name: Require all E2E shards to pass
         run: test "${{ needs.e2e-matrix.result }}" = "success"

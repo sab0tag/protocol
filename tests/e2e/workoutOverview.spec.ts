@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import { device, seed } from './helpers';
 
 for (const width of [320, 1024]) test(`overview navigation preserves the route and unsaved exercise draft at ${width}px`, async ({ browser }) => {
-  const page = await device(browser);
+  const page = await device(browser, 'example', { sw: false });
   await page.setViewportSize({ width, height: 844 });
   await page.emulateMedia({ reducedMotion: 'reduce', colorScheme: width === 320 ? 'dark' : 'light' });
   await page.goto('./#/workout');
@@ -17,7 +17,6 @@ for (const width of [320, 1024]) test(`overview navigation preserves the route a
   await expect(heading).toBeFocused(); await expect(heading).toBeInViewport();
   await expect(reps).toHaveValue('13');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await page.screenshot({ path: `test-results/workout-overview-${width}.png` });
   await page.reload(); await expect(reps).toHaveValue('13');
   const recorded = await page.evaluate(async () => {
     const r = indexedDB.open('protocol'); await new Promise<void>(resolve => { r.onsuccess = () => resolve(); });
@@ -29,7 +28,7 @@ for (const width of [320, 1024]) test(`overview navigation preserves the route a
 });
 
 test('recorded overview keeps asymmetric right and left values and does not rewrite the saved workout', async ({ browser }) => {
-  const page = await device(browser);
+  const page = await device(browser, 'example', { sw: false });
   const date = await page.evaluate(() => {
     const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   });
@@ -54,7 +53,7 @@ test('recorded overview keeps asymmetric right and left values and does not rewr
 });
 
 for (const width of [320, 1024]) test(`focused mode retains per-side drafts and resets on a shorter next day at ${width}px`, async ({ browser }) => {
-  const page = await device(browser);
+  const page = await device(browser, 'example', { sw: false });
   await page.setViewportSize({ width, height: 844 });
   const dates = await page.evaluate(() => {
     const d = new Date(), local = () => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
