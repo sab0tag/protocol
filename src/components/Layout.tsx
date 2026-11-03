@@ -91,7 +91,7 @@ export function Layout({ children }: { children: ReactNode }) {
         </nav>
       </aside>
       <Toaster />
-      <main data-scene={artwork ?? 'day'} className="protocol-app-content mx-auto min-w-0 w-full max-w-2xl px-4 pb-28 pt-safe md:pb-10 lg:max-w-4xl lg:px-8 print:max-w-none print:pb-0">
+      <main data-scene={artwork ?? 'day'} className="protocol-app-content mx-auto min-w-0 w-full max-w-2xl px-4 pb-28 pt-[calc(4rem+env(safe-area-inset-top))] md:pt-safe md:pb-10 lg:max-w-4xl lg:px-8 print:max-w-none print:pb-0">
         {children}</main>
     </div>
   );
