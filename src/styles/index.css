@@ -8,25 +8,31 @@
 /* Tokens (SPEC.md §7) as RGB triples; an explicit theme overrides the system setting. */
 :root {
   --bg: 241 244 240; --surface: 253 255 252; --ink: 31 46 37; --muted: 91 108 97; --line: 219 229 220;
-  --accent: 45 105 78; --warn: 138 60 16; --warn-bg: 246 227 214; --water: 27 112 168;
+  --accent: 15 118 98; --warn: 138 60 16; --warn-bg: 246 227 214; --water: 27 112 168;
   --meter-energy: 185 80 30; --meter-protein: 27 131 78; --meter-meds: 112 76 178;
   --meter-calcium: 142 105 23; --meter-carbs: 147 113 30;
+  --ok: 22 120 72; --ok-bg: 220 244 230; --danger: 176 32 48; --danger-bg: 252 228 230;
+  --pending: 52 82 140; --pending-bg: 226 234 250; --disabled: 112 122 116;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme]) {
     --bg: 8 13 10; --surface: 18 26 22; --ink: 235 242 233; --muted: 165 183 171; --line: 39 53 45;
-    --accent: 113 220 157; --warn: 240 172 130; --warn-bg: 72 42 26; --water: 91 174 236;
+    --accent: 110 231 196; --warn: 240 172 130; --warn-bg: 72 42 26; --water: 91 174 236;
     --meter-energy: 248 145 77; --meter-protein: 117 220 160; --meter-meds: 186 160 255;
     --meter-calcium: 235 202 115; --meter-carbs: 227 186 111;
+    --ok: 117 220 160; --ok-bg: 24 58 40; --danger: 255 150 150; --danger-bg: 74 28 32;
+    --pending: 150 180 240; --pending-bg: 28 40 70; --disabled: 140 156 146;
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
   --bg: 8 13 10; --surface: 18 26 22; --ink: 235 242 233; --muted: 165 183 171; --line: 39 53 45;
-  --accent: 113 220 157; --warn: 240 172 130; --warn-bg: 72 42 26; --water: 91 174 236;
+  --accent: 110 231 196; --warn: 240 172 130; --warn-bg: 72 42 26; --water: 91 174 236;
   --meter-energy: 248 145 77; --meter-protein: 117 220 160; --meter-meds: 186 160 255;
   --meter-calcium: 235 202 115; --meter-carbs: 227 186 111;
+  --ok: 117 220 160; --ok-bg: 24 58 40; --danger: 255 150 150; --danger-bg: 74 28 32;
+  --pending: 150 180 240; --pending-bg: 28 40 70; --disabled: 140 156 146;
   color-scheme: dark;
 }
 
@@ -74,6 +80,15 @@ body { font-family: 'Golos Text', system-ui, -apple-system, sans-serif; -webkit-
     background: rgb(var(--accent));
     color: rgb(var(--bg));
   }
+  .protocol-state { @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold; }
+  .protocol-state-ok { background: rgb(var(--ok-bg)); color: rgb(var(--ok)); }
+  .protocol-state-warn { background: rgb(var(--warn-bg)); color: rgb(var(--warn)); }
+  .protocol-state-danger { background: rgb(var(--danger-bg)); color: rgb(var(--danger)); }
+  .protocol-state-pending { background: rgb(var(--pending-bg)); color: rgb(var(--pending)); }
+  .protocol-state-disabled { background: rgb(var(--line) / .6); color: rgb(var(--muted)); }
+  .protocol-skeleton { border-radius: var(--protocol-radius-control); background: rgb(var(--line) / .75); }
+  .protocol-empty, .protocol-error-state { @apply space-y-2 p-4 text-sm; border: 1px dashed rgb(var(--line)); border-radius: var(--protocol-radius-card); }
+  .protocol-error-state { border-style: solid; border-color: rgb(var(--danger) / .5); background: rgb(var(--danger-bg)); color: rgb(var(--danger)); }
   .protocol-action-secondary {
     @apply inline-flex min-h-tap items-center justify-center gap-2 border border-line bg-surface px-4 font-medium text-ink;
     border-radius: var(--protocol-radius-control);
@@ -182,6 +197,8 @@ main :where(details[open] > summary)::after { transform: rotate(180deg); }
   --protocol-switch-thumb: var(--bg);
 }
 @media (prefers-reduced-motion: no-preference) {
+  @keyframes protocol-pulse { 50% { opacity: .55; } }
+  .protocol-skeleton { animation: protocol-pulse 1.4s ease-in-out infinite; }
   .protocol-progress-fill, .protocol-switch, .protocol-switch::after { transition: width 180ms ease, background-color 180ms ease, transform 180ms ease; }
 }
 @media (prefers-reduced-motion: reduce) {
