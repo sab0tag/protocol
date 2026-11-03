@@ -134,7 +134,7 @@ function Metrics({ list }: { list: [MetricKey, Metric][] }) {
         <ul className="protocol-metric-rings" data-count={rings.length}>
           {rings.map(([k, m]) => (
             <li key={k} className={`protocol-progress-${m.tone} flex min-w-0 flex-col items-center gap-2 text-center`}>
-              <span className="flex w-full min-w-0 items-center gap-2 text-left text-sm font-medium">
+              <span className="flex min-h-10 w-full min-w-0 items-center gap-2 text-left text-sm font-medium">
                 <m.Icon size={18} className="protocol-ring-icon shrink-0" aria-hidden />
                 <span className="truncate text-muted">{m.label}</span>
               </span>
