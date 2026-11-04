@@ -49,6 +49,7 @@ test('uncertainty is separate from unknown time, can be corrected, and a late co
   expect(corrected).toHaveLength(1);
   expect(corrected[0]).toMatchObject({ status: 'done', adherence: 'completed_late', at: expect.stringContaining('T09:00:00') });
   await page.reload();
+  await page.getByText(/^Виконано та інші відмітки/).click();
   await expect(page.getByRole('button', { name: 'Вітамін D, Виконано пізніше за планом' })).toBeVisible();
   await page.goto('./#/report');
   await expect(page.getByRole('region', { name: 'Головне' })).toContainText('Пізно виконано: 1 доз.');

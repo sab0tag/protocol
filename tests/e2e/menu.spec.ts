@@ -56,6 +56,7 @@ test('a 2-day menu (model stubbed): checked by the plan, a line added to one mea
   await page.screenshot({ path: 'test-results/meal-confirm.png' });
   await sheet.getByRole('button', { name: 'Записати вибране (1)' }).click();
   await expect(toast(page)).toContainText('Обід — відмічено, час невідомий');
+  await page.getByText(/^Виконано та інші відмітки/).click();
   await expect(page.getByRole('button', { name: /^Обід, Виконано, час невідомий/ })).toBeVisible();
   const tomorrow = ymd(new Date(Date.now() + 86_400_000));
   await page.goto(`./#/shopping?from=${tomorrow}&to=${ymd(new Date(Date.now() + 2 * 86_400_000))}`);

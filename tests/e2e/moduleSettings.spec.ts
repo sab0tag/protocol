@@ -49,7 +49,8 @@ test('minimal day hides disabled actions and More stays short; food comes back w
   await page.screenshot({ path: test.info().outputPath('module-settings.png'), fullPage: true });
   await page.getByRole('switch', { name: 'Запис їжі', exact: true }).click();
   await expect(page.getByRole('switch', { name: 'Запис їжі', exact: true })).toBeChecked();
-  await page.goto('./#/'); await expect(page.getByRole('button', { name: /Збережена страва, Виконано/ })).toBeVisible();
+  await page.goto('./#/'); await page.getByText(/^Виконано та інші відмітки/).click();
+  await expect(page.getByRole('button', { name: /Збережена страва, Виконано/ })).toBeVisible();
   expect((await rows(page, 'entries')).filter((e) => e.id === 'kept-meal')).toHaveLength(1);
   await page.reload(); await expect(page.getByRole('button', { name: 'Записати їжу', exact: true })).toBeVisible();
 });
