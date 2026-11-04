@@ -54,6 +54,26 @@ describe('current UI visibility without data/history changes', () => {
     const c = { ...context({ wellbeing: false, progress: false }), overrides: { 'wellbeing.weight': true } };
     expect(can('wellbeing.weight', c)).toBe(true); expect(can('progress', c)).toBe(false);
   });
+  it('shares skip reasons only for visible modules and retains the original history', () => {
+    const raw = buildReport({ from: date, to: date, plan, entries: [
+      { ...meal, status: 'skipped', skipReason: 'Private food reason' },
+      { ...meal, id: 'med-skip', kind: 'med', status: 'skipped', title: 'Private medicine',
+        checkKey: 'med:med:08:00', skipReason: 'Private medicine reason' },
+    ], workouts: [], wellbeing: [], weights: [], foods });
+    for (const [modules, expected] of [
+      [{ meds: false }, ['Private food reason']],
+      [{ food: false }, ['Private medicine reason']],
+      [{ meds: false, food: false }, []],
+    ] as const) {
+      const shown = visibleReport(raw, context(modules));
+      expect(shown.skipDetails?.map(x => x.reason)).toEqual(expected);
+      const text = reportText(shown, d => d);
+      for (const reason of ['Private food reason', 'Private medicine reason']) {
+        expect(text.includes(reason)).toBe((expected as readonly string[]).includes(reason));
+      }
+    }
+    expect(raw.skipDetails).toHaveLength(2);
+  });
 });
 
 const databases: ProtocolDB[] = [];

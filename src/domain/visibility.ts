@@ -33,7 +33,7 @@ export function visibleWeek(s: ReturnType<typeof weekSummary>, context: FeatureC
 /** Screen, print and shared text use the same projection. The source report/data and historical intervals stay intact. */
 export function visibleReport(r: Report, context: FeatureContext): Report {
   const meds = can('meds.log', context), food = can('food.log', context), weight = can('wellbeing.weight', context);
-  return { ...r, ...(!meds ? { meds: undefined, prn: [], unscoredMedMarks: undefined } : {}),
+  return { ...r, skipDetails: r.skipDetails?.filter((x) => x.kind === 'med' ? meds : food), ...(!meds ? { meds: undefined, prn: [], unscoredMedMarks: undefined } : {}),
     ...(!food ? { deviations: undefined, coincidences: [], medFood: 0 } : {}),
     ...(!food || !can('menu.ai', context) ? { menu: undefined } : {}), ...(!can('progress.labs', context) ? { labs: [] } : {}),
     ...(!weight ? { weightStart: undefined, weightNow: undefined, weightPace: undefined } : {}),

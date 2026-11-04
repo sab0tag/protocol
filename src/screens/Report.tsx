@@ -75,7 +75,7 @@ export function Report() {
       {r.tracking && <div className="space-y-1 text-sm text-muted">{trackingLines(r.tracking).map((line) => <p key={line}>{line}</p>)}</div>}
       {r.unscoredMedMarks && <p className="text-sm text-muted">{unscoredMedText(r.unscoredMedMarks)}</p>}
 
-      {(r.meds || r.prn.length > 0 || r.deviations || r.labs.length > 0 || r.dietQuestions.length > 0) && (
+      {(r.meds || r.prn.length > 0 || r.skipDetails?.length || r.deviations || r.labs.length > 0 || r.dietQuestions.length > 0) && (
         <section aria-label={L.main} className="space-y-2 rounded-2xl border border-accent/40 bg-surface p-3">
           <h2 className="font-semibold">{L.main}</h2>
           {r.prn.map((x) => ( /* D118 */
@@ -85,6 +85,14 @@ export function Report() {
           {r.meds && <p>{L.meds(r.meds.taken, r.meds.due)}
             {r.meds.list.length > 1 && <span className="mt-1 block space-y-0.5 text-sm text-muted">{r.meds.list.map((m) => <span key={m.title} className="block">{L.medLine(m)}</span>)}</span>}
             {r.meds.missed.length > 0 && <span className="block text-sm text-muted">{r.meds.missed.map((m) => L.missed(m.title, m.count)).join(' · ')}</span>}</p>}
+          {!!r.skipDetails?.length && <section aria-label="Підтверджені пропуски" className="space-y-1 border-t border-line pt-2">
+            <h3 className="font-medium">Підтверджені пропуски</h3>
+            <p className="text-xs text-muted">Лише пропуски, які ви підтвердили. Відсутність відмітки не вважається пропуском.</p>
+            <ul className="space-y-1 text-sm">{r.skipDetails.map((x, i) => <li key={`${x.kind}:${x.date}:${x.plannedTime}:${i}`}>
+              {format(parseISO(x.date), 'dd.MM.yyyy')} · {x.plannedTime} · {x.kind === 'med' ? 'Ліки' : 'Їжа'} · {x.title}
+              {x.reason && <span className="block text-muted">Причина: {x.reason}</span>}
+            </li>)}</ul>
+          </section>}
           {!!r.meds?.completedLate && <p className="text-sm text-muted">{L.completedLate(r.meds.completedLate)}</p>}
           {!!r.meds?.uncertain && <p className="text-sm text-muted">{L.uncertain(r.meds.uncertain)}</p>}
           {!!r.meds?.noData && <p className="text-sm text-muted">{L.noData(r.meds.noData)}</p>}
@@ -206,7 +214,7 @@ function Metric({ label, value }: { label: string; value: string }) {
 
 /** The sections that are in the text, so consent names what actually leaves the phone. */
 function sharedParts(r: ReturnType<typeof buildReport>): string[] {
-  return [r.meds && 'прийом ліків', r.prn.length && 'ліки за потреби', r.labs.length && 'результати аналізів', r.weightStart != null && 'вага',
+  return [r.meds && 'прийом ліків', r.prn.length && 'ліки за потреби', r.skipDetails?.length && 'підтверджені пропуски та їх причини', r.labs.length && 'результати аналізів', r.weightStart != null && 'вага',
     r.symptoms.length && 'симптоми', r.avgEnergy != null && 'енергія', r.workouts && 'тренування', r.menu && 'меню', r.questions.length && 'ваші питання']
     .filter((x): x is string => typeof x === 'string');
 }

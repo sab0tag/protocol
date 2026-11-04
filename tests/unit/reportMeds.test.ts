@@ -36,6 +36,46 @@ describe('report medicine outcomes without module observation', () => {
     expect(reportText(r, d => d)).toContain('Дані відсутні: 1 доз.');
   });
 
+  it('lists only confirmed skips with planned time and optional patient reason', () => {
+    const entries: DayEntry[] = [
+      { id: 'skip-med', at: `${date}T08:30:00+02:00`, kind: 'med', status: 'skipped', title: 'Тестовий препарат', checkKey: 'med:med:08:30', skipReason: 'Не було вдома' },
+      { id: 'skip-meal', at: `${date}T13:00:00+02:00`, kind: 'meal', status: 'skipped', title: 'Обід', plannedAt: `${date}T12:30:00+02:00` },
+      { id: 'unmarked', at: `${date}T20:00:00+02:00`, kind: 'meal', status: 'planned', title: 'Вечеря' },
+    ];
+    const r = report(entries);
+    expect(r.skipDetails).toEqual([
+      { kind: 'meal', title: 'Обід', date, plannedTime: '12:30' },
+      { kind: 'med', title: 'Тестовий препарат', date, plannedTime: '08:30', reason: 'Не було вдома' },
+    ]);
+    const text = reportText(r, d => d);
+    expect(text).toContain('причина: Не було вдома');
+    expect(text).not.toContain('Вечеря');
+  });
+
+  it('orders skips by newest day then full planned time, independently of recording time and input order', () => {
+    const skipped = (id: string, day: string, time: string): DayEntry => ({
+      id, kind: 'med', status: 'skipped', title: id, at: `${day}T23:00:00+02:00`, checkKey: `med:${id}:${time}`,
+    });
+    const r = report([
+      skipped('morning:external-id', date, '08:45'),
+      skipped('previous-evening', '2026-10-26', '22:00'),
+      skipped('afternoon', date, '14:05'),
+      { ...skipped('outside', '2026-10-25', '20:00'), skipReason: 'Outside range' },
+    ], plan, '2026-10-26', date);
+    expect(r.skipDetails?.map(x => [x.title, x.date, x.plannedTime])).toEqual([
+      ['afternoon', date, '14:05'],
+      ['morning:external-id', date, '08:45'],
+      ['previous-evening', '2026-10-26', '22:00'],
+    ]);
+    expect(reportText(r, d => d)).not.toContain('Outside range');
+  });
+
+  it.each([undefined, 'med:legacy:day', 'legacy-key'])('uses the recorded time for legacy keys without a scheduled time: %s', (checkKey) => {
+    const r = report([{ id: 'legacy', kind: 'med', status: 'skipped', title: 'Legacy',
+      at: `${date}T10:15:00+02:00`, checkKey, skipReason: '  Немає препарату  ' }]);
+    expect(r.skipDetails).toEqual([{ kind: 'med', title: 'Legacy', date, plannedTime: '10:15', reason: 'Немає препарату' }]);
+  });
+
   it('does not score days without records', () => {
     expect(report([]).meds).toBeUndefined();
     expect(report([water], plan, '2026-10-25', '2026-10-28').meds).toMatchObject({ due: 1, noData: 1, missed: [] });
