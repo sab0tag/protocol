@@ -218,6 +218,8 @@ export interface DayEntry {
    *  `timeUnknown` («час не пам'ятаю») it only keeps the place in the day and is shown as unknown. `markedAt` — when the
    *  mark was made; `plannedAt` — the plan's time of a meal marked at another time (a medicine's is in its `checkKey`). */
   timeUnknown?: true;
+  /** UI-UX-03.3: optional user-entered explanation of an explicitly confirmed skip. */
+  skipReason?: string;
   markedAt?: ISODateTime;
   plannedAt?: ISODateTime;
   /** D119: how a meal was recorded — said in the voice window, or with lines from a photo of the plate; absent = typed or tapped */
