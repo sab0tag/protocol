@@ -76,6 +76,7 @@ export function AddMeal() {
   const [items, setItems] = useState<MealItem[]>(draft?.items ?? []);
   useEffect(() => { if (id === undefined) keep<MealDraft>(DRAFT, items.length ? { date, time, title, eaten, items } : undefined); }, [id, date, time, title, eaten, items]);
   const suggested = useRef<Suggested[]>([]); // D91: what the concierge offered and was tapped — its outcome is told on save
+  const prior = useRef<DayEntry | undefined>(undefined);
   const concierge = (s: Suggested) => { setItems((xs) => [...xs, s.item]); suggested.current.push(s); };
   const [query, setQuery] = useState('');
   const searchInput = useRef<HTMLInputElement>(null);
@@ -89,6 +90,7 @@ export function AddMeal() {
     if (id === undefined) return;
     void db.entries.get(id).then((e) => {
       if (!e) return navigate('/', { replace: true });
+      prior.current = e;
       setDate(dateOf(e.at)); setTime(timeOf(e.at)); setTitle(e.title);
       setEaten(e.status === 'done'); setItems(e.items ?? []); setLoaded(true); viaPhoto.current = e.via;
     });
@@ -154,7 +156,9 @@ export function AddMeal() {
 
   const save = async (what: MealItem[] = items) => {
     if (what.length === 0) return;
-    const entry: DayEntry = { id: id ?? newId(), at: atLocal(date, time), kind: 'meal', status: eaten ? 'done' : 'planned',
+    const entry: DayEntry = { ...(prior.current?.scheduleChanges?.length ? {
+      scheduleChanges: prior.current.scheduleChanges, ...(prior.current.menu ? { menu: prior.current.menu } : {}), ...(prior.current.demo ? { demo: true as const } : {}),
+    } : {}), id: id ?? newId(), at: atLocal(date, time), kind: 'meal', status: eaten ? 'done' : 'planned',
       title: title.trim() || defaultMealName(time), items: what, ...(viaPhoto.current ? { via: viaPhoto.current } : {}) };
     if (!await saved(db.entries.put(entry).then(() => true), (entry.status === 'done' ? t.toast.meal : t.toast.planned)(entry.title))) return;
     const keys = currentKeys(); // D91: accepted as offered, the grams corrected, or taken out again
