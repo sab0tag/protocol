@@ -241,7 +241,7 @@ export function Day() {
         <h2 className="mb-2 text-lg font-semibold">Зараз</h2>
         {entries && <NowCard entries={entries} plan={plan} date={date} observation={observation} onConfirm={setConfirming} />}
       </div>
-      <nav aria-label="Швидкі дії" className="mb-4 grid grid-cols-3 gap-2">
+      <nav ref={tilesRef} aria-label="Швидкі дії" className="mb-4 grid grid-cols-3 gap-2">
         {can('food.log') && !light && <button type="button" onClick={() => navigate('/meal/new')} className="flex min-h-tap flex-col items-center justify-center gap-1 rounded-xl border border-line bg-surface p-2 text-center text-xs font-medium"><UtensilsCrossed size={20} className="text-accent" aria-hidden />{t.day.recordFood}</button>}
         {can('water.log') && !light && <button type="button" onClick={() => { const e = waterRow(); void saved(db.entries.add(e), '+250 мл', () => db.entries.delete(e.id)); }} className="flex min-h-tap flex-col items-center justify-center gap-1 rounded-xl border border-line bg-surface p-2 text-center text-xs font-medium"><Droplet size={20} className="text-accent" aria-hidden />+250 мл</button>}
         <button type="button" onClick={() => setSymptom({})} className="flex min-h-tap flex-col items-center justify-center gap-1 rounded-xl border border-line bg-surface p-2 text-center text-xs font-medium"><Frown size={20} className="text-warn" aria-hidden />{t.addKinds.symptom}</button>
@@ -256,7 +256,7 @@ export function Day() {
       </section>}
       <details className="mb-4 rounded-xl border border-line bg-surface p-3">
         <summary className="min-h-tap cursor-pointer font-medium">Ще дії</summary>
-        {quick.length > 0 && <nav ref={tilesRef} aria-label={t.day.quick} className={`mb-5 grid gap-1 ${quick.length === 4 ? 'grid-cols-[0.8fr_1.2fr_1.2fr_0.8fr] min-[380px]:grid-cols-4' : ''}`}
+        {quick.length > 0 && <nav aria-label={t.day.quick} className={`mb-5 grid gap-1 ${quick.length === 4 ? 'grid-cols-[0.8fr_1.2fr_1.2fr_0.8fr] min-[380px]:grid-cols-4' : ''}`}
         style={quick.length === 4 ? undefined : { gridTemplateColumns: `repeat(${quick.length}, minmax(0, 1fr))` }}>
         {quick.map(({ label, Icon, go, badge, done }) => (
           <button key={label} type="button" onClick={go} aria-label={[label, done ? t.myday.workoutDone : badge].filter(Boolean).join(', ')} className="flex min-h-tap flex-col items-center gap-1 text-center">
@@ -267,8 +267,8 @@ export function Day() {
           </button>
         ))}
       </nav>}
-        <button type="button" onClick={() => setVoice(true)} className="min-h-tap text-sm text-accent">{t.voice.open}</button>
-      </details>
+        </details>
+      <button type="button" onClick={() => setVoice(true)} disabled={voice} className="mb-3 flex min-h-tap items-center gap-2 text-sm text-accent">{t.voice.open}</button>
       {/* D40: one notice at a time — the code first, then the backup */}
       {isToday && codeDue && (
         <div role="status" className="mb-3 space-y-2 protocol-card rounded-2xl border border-line bg-surface p-3 text-sm">
