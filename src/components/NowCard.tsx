@@ -84,7 +84,7 @@ function Due({ item, date, onSnoozed, onConfirm }: { item: NowItem; date: string
       {askingSkip && <SkipChoice title={titleOf(item)} onClose={() => setAskingSkip(false)} onConfirm={(reason) => void mark(item, date, 'skipped', { time: item.time }, reason)} />}
       <div className="mt-1 flex justify-center gap-4">
         <button type="button" onClick={() => void later()} className="min-h-tap px-2 text-muted">{L.later(SNOOZE_MIN)}</button>
-        {item.entry && <button type="button" onClick={() => setAskingSkip(true)} className="min-h-tap px-2 text-muted">{L.skip}</button>}
+        <button type="button" onClick={() => setAskingSkip(true)} className="min-h-tap px-2 text-muted">{L.skip}</button>
         {meds && <button type="button" onClick={() => void markMeds(meds, date, item.time, 'done', { uncertain: true })}
           className="min-h-tap px-2 text-muted">{t.mark.uncertain}</button>}
       </div>

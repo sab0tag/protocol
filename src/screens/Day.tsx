@@ -1,7 +1,7 @@
 import { differenceInMinutes, format } from 'date-fns';
 import { EntryPreview } from '../components/EntryPreview';
 import { pinMeal } from '../components/Favorites';
-import { markMeds, TimeChoice } from '../components/MarkTime';
+import { markMeds, SkipChoice, TimeChoice } from '../components/MarkTime';
 import { ConfirmMeal } from '../components/ConfirmMeal';
 import { SymptomSheet } from '../components/SymptomSheet';
 import { saved } from '../components/Toast';
@@ -97,6 +97,7 @@ export function Day() {
   const firstEntry = useLiveQuery(() => db.entries.orderBy('at').first(), []);
   const navigate = useNavigate();
   const [rowFor, setRowFor] = useState<DayEntry | null>(null);
+  const [skippingRow, setSkippingRow] = useState<DayEntry | null>(null);
   const [confirming, setConfirming] = useState<DayEntry | null>(null); // D55
   const [adding, setAdding] = useState(false);
   const [yesterday, setYesterday] = useState(false);
@@ -140,11 +141,13 @@ export function Day() {
   const visibleEntries = entries?.filter((e) => entryVisible(e, context) && (!light || !['meal', 'water', 'workout'].includes(e.kind)));
   const checklist = entries && foods && workouts ? visibleChecklist(buildChecklist({ plan, date, entries, workouts, foods, now: new Date(), observation }), context) : undefined;
 
-  const setStatus = async (e: DayEntry, status: DayEntry['status']) => {
+  const setStatus = async (e: DayEntry, status: DayEntry['status'], skipReason?: string) => {
     setRowFor(null);
     const say = status === 'done' ? t.toast.done : status === 'skipped' ? t.toast.skipped : t.toast.backToPlan;
     const next = { ...e, status };
     delete next.adherence;
+    delete next.skipReason;
+    if (status === 'skipped' && skipReason?.trim()) next.skipReason = skipReason.trim();
     if (e.adherence === 'uncertain') {
       delete next.markedAt;
       delete next.timeUnknown;
@@ -360,7 +363,10 @@ export function Day() {
               setAskMed(item);
             }}><Check size={20} />{t.rowActions.resolveUncertain}</SheetButton>
             : rowFor.kind !== 'symptom' && rowFor.status !== 'done' && <SheetButton tone="accent" onClick={() => setStatus(rowFor, 'done')}><Check size={20} />{t.rowActions.done}</SheetButton>}
-          {rowFor.kind !== 'symptom' && rowFor.status !== 'skipped' && <SheetButton onClick={() => setStatus(rowFor, 'skipped')}><X size={20} />{t.rowActions.skipped}</SheetButton>}
+          {rowFor.kind !== 'symptom' && rowFor.status !== 'skipped' && <SheetButton onClick={() => {
+            if (rowFor.kind === 'meal' || rowFor.kind === 'med') { setSkippingRow(rowFor); setRowFor(null); }
+            else void setStatus(rowFor, 'skipped');
+          }}><X size={20} />{t.rowActions.skipped}</SheetButton>}
           {rowFor.kind !== 'symptom' && (rowFor.status !== 'planned' || rowFor.adherence === 'uncertain') && <SheetButton onClick={() => setStatus(rowFor, 'planned')}><Undo2 size={20} />{t.rowActions.planned}</SheetButton>}
           <SheetButton onClick={() => edit(rowFor)}><Pencil size={20} />{t.rowActions.edit}</SheetButton>
           {rowFor.kind === 'meal' && !!rowFor.items?.length && (
@@ -370,6 +376,8 @@ export function Day() {
             <Trash2 size={20} />{t.rowActions.delete}</SheetButton>
         </Sheet>
       )}
+      {skippingRow && entryVisible(skippingRow, context) && <SkipChoice title={skippingRow.title} onClose={() => setSkippingRow(null)}
+        onConfirm={(reason) => { const entry = skippingRow; setSkippingRow(null); void setStatus(entry, 'skipped', reason); }} />}
       {confirming && can('food.log') && <ConfirmMeal entry={confirming} date={date} foods={foods} onClose={() => setConfirming(null)}
         onEdit={() => { const e = confirming; setConfirming(null); edit(e); }}
         onPin={() => { const e = confirming; setConfirming(null); void pinMeal(e.title, e.items!); }}
