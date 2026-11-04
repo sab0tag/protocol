@@ -65,7 +65,7 @@ test('mobile routes have no global hamburger or artificial top gap', async ({ br
     await expect(heading).toBeVisible();
     await expect(page.getByRole('button', { name: 'Відкрити меню' })).toHaveCount(0);
     await expect(page.getByRole('dialog', { name: 'Бічне меню' })).toHaveCount(0);
-    await expect(page.getByRole('navigation', { name: 'Розділи' })).toBeVisible();
+    await expect(page.locator('nav.protocol-bottom-nav[aria-label="Розділи"]')).toBeVisible();
     const topPadding = await page.locator('main').evaluate((el) => parseFloat(getComputedStyle(el).paddingTop));
     expect(topPadding).toBeLessThan(40);
   }
