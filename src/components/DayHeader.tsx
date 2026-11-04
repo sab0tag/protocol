@@ -48,7 +48,7 @@ export function DayHeader({ date, setDate, action }: { date: string; setDate: (d
       <div className="relative z-10">
         <div className="mb-3 flex items-center justify-between">
           <span className="flex items-center gap-2 text-lg font-semibold"><TreePine size={22} className="text-emerald-200" aria-hidden />Протокол</span>
-          <button type="button" onClick={() => navigate('/sync')} aria-label={L.syncStatus[status]} className="flex min-h-tap min-w-tap items-center justify-center rounded-full border border-white/30 bg-black/25"><Icon size={20} className="text-white" aria-hidden /></button>
+          <button type="button" onClick={() => navigate('/sync')} aria-label={L.syncStatus[status]} className="mr-[3.25rem] flex min-h-tap min-w-tap items-center justify-center rounded-full border border-white/30 bg-black/25 md:mr-0"><Icon size={20} className="text-white" aria-hidden /></button>
         </div>
         <Link to="/profiles" aria-label={t.profiles.title} className="block break-words text-xl font-semibold" data-testid="greeting">{greeting(now, name)}</Link>
         {showMotivation && <p data-testid="daily-phrase" className="mt-1 flex items-center gap-2 text-sm text-white/85">{dailyPhrase(now)} <Heart size={16} className="fill-emerald-300 text-emerald-300" aria-hidden /></p>}
