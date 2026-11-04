@@ -317,3 +317,29 @@ test('reminders say what they cannot promise, and only the schedule the server c
   await page.clock.setFixedTime(new Date('2026-11-20T10:00:00+02:00')); await page.reload();
   await expect(page.getByText(/^Розклад закінчився 19\.11/)).toBeVisible();
 });
+
+
+test('UI-UX-03.3: skipping a due meal requires confirmation and stores an optional reason', async ({ browser }) => {
+  const page = await device(browser);
+  await atLocalNoon(page);
+  const day = await page.evaluate(() => { const d = new Date(); return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-'); });
+  await seed(page, [{ store: 'entries', value: { id: 'skip-reason-meal', at: `${day}T00:01:00${kyivOffset()}`, kind: 'meal', status: 'planned', title: 'Тестовий обід', items: [{ foodId: 'kefir', name: 'Кефір 2,5 %', grams: 100 }] } }]);
+  await page.goto('./#/'); await page.reload();
+  const now = page.getByRole('region', { name: 'Зараз' });
+  await expect(now).toContainText('Тестовий обід');
+  await now.getByRole('button', { name: t.now.skip }).click();
+  const dialog = page.getByRole('dialog', { name: 'Пропустити: Тестовий обід' });
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole('button', { name: 'Скасувати' }).click();
+  await expect(now).toContainText('Тестовий обід');
+  await now.getByRole('button', { name: t.now.skip }).click();
+  await page.getByRole('dialog', { name: 'Пропустити: Тестовий обід' }).getByPlaceholder('Що завадило?').fill('Не було можливості поїсти');
+  await page.getByRole('button', { name: 'Підтвердити пропуск' }).click();
+  const row = await page.evaluate(async () => {
+    const open = indexedDB.open('protocol'); await new Promise((resolve) => { open.onsuccess = resolve; });
+    const get = open.result.transaction('entries', 'readonly').objectStore('entries').get('skip-reason-meal');
+    await new Promise((resolve) => { get.onsuccess = resolve; }); open.result.close(); return get.result;
+  });
+  expect(row.status).toBe('skipped');
+  expect(row.skipReason).toBe('Не було можливості поїсти');
+});
