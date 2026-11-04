@@ -36,6 +36,22 @@ describe('report medicine outcomes without module observation', () => {
     expect(reportText(r, d => d)).toContain('Дані відсутні: 1 доз.');
   });
 
+  it('lists only confirmed skips with planned time and optional patient reason', () => {
+    const entries: DayEntry[] = [
+      { id: 'skip-med', at: `${date}T08:30:00+02:00`, kind: 'med', status: 'skipped', title: 'Тестовий препарат', checkKey: 'med:med:08:30', skipReason: 'Не було вдома' },
+      { id: 'skip-meal', at: `${date}T13:00:00+02:00`, kind: 'meal', status: 'skipped', title: 'Обід', plannedAt: `${date}T12:30:00+02:00` },
+      { id: 'unmarked', at: `${date}T20:00:00+02:00`, kind: 'meal', status: 'planned', title: 'Вечеря' },
+    ];
+    const r = report(entries);
+    expect(r.skipDetails).toEqual([
+      { kind: 'meal', title: 'Обід', date, plannedTime: '12:30' },
+      { kind: 'med', title: 'Тестовий препарат', date, plannedTime: '08:30', reason: 'Не було вдома' },
+    ]);
+    const text = reportText(r, d => d);
+    expect(text).toContain('причина: Не було вдома');
+    expect(text).not.toContain('Вечеря');
+  });
+
   it('does not score days without records', () => {
     expect(report([]).meds).toBeUndefined();
     expect(report([water], plan, '2026-10-25', '2026-10-28').meds).toMatchObject({ due: 1, noData: 1, missed: [] });
