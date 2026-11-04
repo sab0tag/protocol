@@ -82,9 +82,9 @@ function Due({ item, date, onSnoozed, onConfirm }: { item: NowItem; date: string
       {overdue && !item.entry && <p className="mt-2 text-sm text-muted">Час за планом минув. Перевірте вказівки лікаря; застосунок не визначає, чи можна приймати пропущену дозу.</p>}
       {askingWhen && <TimeChoice title={titleOf(item)} planned={item.time} date={date} meal={false} allowUncertain onPick={(when) => { if ('uncertain' in when) void markMeds(meds ?? [], date, item.time, 'done', when); else void mark(item, date, 'done', when); setAskingWhen(false); }} onClose={() => setAskingWhen(false)} />}
       {askingSkip && <SkipChoice title={titleOf(item)} onClose={() => setAskingSkip(false)} onConfirm={(reason) => void mark(item, date, 'skipped', { time: item.time }, reason)} />}
-      <div className="mt-1 flex justify-center gap-4">
+      <div className="mt-1 flex flex-wrap justify-center gap-x-4">
         <button type="button" onClick={() => void later()} className="min-h-tap px-2 text-muted">{L.later(SNOOZE_MIN)}</button>
-        {item.entry && <button type="button" onClick={() => setAskingSkip(true)} className="min-h-tap px-2 text-muted">{L.skip}</button>}
+        <button type="button" onClick={() => setAskingSkip(true)} className="min-h-tap px-2 text-muted">{L.skip}</button>
         {meds && <button type="button" onClick={() => void markMeds(meds, date, item.time, 'done', { uncertain: true })}
           className="min-h-tap px-2 text-muted">{t.mark.uncertain}</button>}
       </div>

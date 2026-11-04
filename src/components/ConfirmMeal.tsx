@@ -14,7 +14,7 @@ import { timeOf, todayISO } from '../domain/dates';
 import type { DayEntry, Food, MealItem } from '../domain/types';
 import { t } from '../i18n/uk';
 import { Amount } from './Amount';
-import { markMeal, type ConfirmedWhen } from './MarkTime';
+import { markMeal, SkipChoice, type ConfirmedWhen } from './MarkTime';
 import { Sheet } from './Sheet';
 
 const L = t.confirm;
@@ -33,6 +33,7 @@ export function ConfirmMeal({ entry, date, foods, onClose, onEdit, onPin, onDele
   const [ticked, setTicked] = useState<Set<number>>(new Set());
   const [choice, setChoice] = useState<Choice | null>(dueNow ? 'now' : null);
   const [other, setOther] = useState(planned);
+  const [skipping, setSkipping] = useState(false);
   const original = entry.items ?? [];
 
   const when = (): ConfirmedWhen | null => (choice === 'now' ? { time: now } : choice === 'planned' ? { time: planned }
@@ -43,12 +44,16 @@ export function ConfirmMeal({ entry, date, foods, onClose, onEdit, onPin, onDele
     onClose();
     void markMeal(entry, date, 'done', w, { items: items.filter((_, i) => ticked.has(i)) });
   };
-  const none = () => { onClose(); void markMeal(entry, date, 'skipped', { time: planned }); };
+  const none = () => setSkipping(true);
   const set = (i: number, x: MealItem) => setItems((xs) => xs.map((y, j) => (j === i ? x : y)));
   const chip = (c: Choice, label: string) => (
     <button key={c} type="button" onClick={() => setChoice(c)} aria-pressed={choice === c}
       className={`min-h-tap rounded-full border px-3 text-sm ${choice === c ? 'border-accent bg-accent/10 font-medium text-accent' : 'border-line'}`}>{label}</button>
   );
+
+  if (skipping) return <SkipChoice title={entry.title} onClose={() => setSkipping(false)} onConfirm={(reason) => {
+    onClose(); void markMeal(entry, date, 'skipped', { time: planned }, {}, reason);
+  }} />;
 
   return (
     <Sheet title={L.title(entry.title)} onClose={onClose}>

@@ -26,6 +26,7 @@ export function SimpleEntrySheet({ kind, entry, date, onClose }: {
       ...(waterMl !== undefined ? { waterMl } : {}),
       ...(entry?.timeUnknown && time === timeOf(entry.at) ? { timeUnknown: true as const } : {}),
     };
+    if (row.status !== 'skipped') delete row.skipReason;
     onClose();
     await saved(db.entries.put(row), kind === 'water' && row.waterMl ? t.toast.water(row.waterMl)
       : kind === 'med' && row.status === 'done' ? t.toast.med(row.title) : t.toast.entry(row.title));

@@ -190,6 +190,12 @@ test('«Нічого з цього» skips the planned meal and undo restores th
   const rhythm = page.getByRole('region', { name: 'Найближче' });
   await rhythm.getByRole('button', { name: /^Обід, Заплановано/ }).click();
   await page.getByRole('dialog', { name: 'Підтвердити: Обід' }).getByRole('button', { name: 'Нічого з цього' }).click();
+  const confirmation = page.getByRole('dialog', { name: 'Пропустити: Обід' });
+  await confirmation.getByRole('button', { name: 'Скасувати', exact: true }).click();
+  await expect(page.getByRole('dialog', { name: 'Підтвердити: Обід' })).toBeVisible();
+  await page.getByRole('dialog', { name: 'Підтвердити: Обід' }).getByRole('button', { name: 'Нічого з цього' }).click();
+  await confirmation.getByPlaceholder('Що завадило?').fill('Не було апетиту');
+  await confirmation.getByRole('button', { name: 'Підтвердити пропуск' }).click();
   await expect(toast(page)).toContainText('Обід — пропущено');
   await expect(rhythm.getByRole('button', { name: /^Обід, Пропущено/ })).toBeVisible();
 
