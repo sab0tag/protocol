@@ -25,7 +25,7 @@ const say = (title: string, status: 'done' | 'skipped', when?: When) =>
   status === 'skipped' ? t.toast.skipped(title) : t.toast.marked(title, when && 'time' in when ? when.time : undefined);
 
 /** Medicines of one planned time: taken (when) or skipped; a skipped dose has no real time, it keeps the planned one. */
-export function markMeds(meds: MedMark[], date: string, planned: string | undefined, status: 'done' | 'skipped', when: When) {
+export function markMeds(meds: MedMark[], date: string, planned: string | undefined, status: 'done' | 'skipped', when: When, skipReason?: string) {
   const uncertain = 'uncertain' in when;
   const time = 'time' in when ? when.time : planned ?? '12:00';
   const title = meds.map((m) => m.title).join(', ');
@@ -44,6 +44,7 @@ export function markMeds(meds: MedMark[], date: string, planned: string | undefi
         : status === 'done' && completedLate(time, planned) ? { adherence: 'completed_late' as const, ...marks(when) }
           : marks(when)),
       title: m.title,
+      ...(status === 'skipped' && skipReason?.trim() ? { skipReason: skipReason.trim() } : {}),
       checkKey: m.key,
       ...(m.prescriptionId ? { prescriptionId: m.prescriptionId } : {}),
     }));
@@ -59,9 +60,9 @@ export function markMeds(meds: MedMark[], date: string, planned: string | undefi
 
 /** A planned meal: eaten (when) or skipped; the plan's time is kept as `plannedAt` when the real one differs.
  *  `patch` — what was really eaten (D55: the lines ticked in «Підтвердити прийом»); «Скасувати» brings the plan back. */
-export function markMeal(e: DayEntry, date: string, status: 'done' | 'skipped', when: ConfirmedWhen, patch: Partial<DayEntry> = {}) {
+export function markMeal(e: DayEntry, date: string, status: 'done' | 'skipped', when: ConfirmedWhen, patch: Partial<DayEntry> = {}, skipReason?: string) {
   const at = 'time' in when ? atLocal(date, when.time) : e.at;
-  const next: DayEntry = { ...e, ...patch, status, at, ...(at !== e.at ? { plannedAt: e.plannedAt ?? e.at } : {}), ...marks(when) };
+  const next: DayEntry = { ...e, ...patch, status, at, ...(status === 'skipped' && skipReason?.trim() ? { skipReason: skipReason.trim() } : {}), ...(at !== e.at ? { plannedAt: e.plannedAt ?? e.at } : {}), ...marks(when) };
   delete next.adherence;
   return saved(db.entries.put(next), say(e.title, status, when), () => db.entries.put(e));
 }
@@ -91,4 +92,20 @@ export function TimeChoice({ title, planned, date, meal, allowUncertain, onPick,
       <SheetButton onClick={() => pick({ unknown: true })}><HelpCircle size={20} />{L.unknown}</SheetButton>
     </Sheet>
   );
+}
+
+/** Explicit skip confirmation: absence of a mark must never silently become a skip. */
+export function SkipChoice({ title, onConfirm, onClose }: { title: string; onConfirm: (reason?: string) => void; onClose: () => void }) {
+  const [reason, setReason] = useState('');
+  return <Sheet title={`Пропустити: ${title}`} onClose={onClose}>
+    <p className="mb-3 text-sm text-muted">Пропуск буде записано лише після підтвердження. Якщо прийом не відмічено, це ще не означає, що його пропущено.</p>
+    <label className="block text-sm font-medium">Причина (за бажанням)
+      <textarea value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} rows={3}
+        placeholder="Що завадило?" className="mt-2 w-full rounded-xl border border-line bg-bg p-3 text-ink" />
+    </label>
+    <div className="mt-4 flex justify-end gap-2">
+      <button type="button" onClick={onClose} className="min-h-tap rounded-xl px-4">Скасувати</button>
+      <button type="button" onClick={() => { onClose(); onConfirm(reason.trim() || undefined); }} className="min-h-tap rounded-xl bg-accent px-4 font-medium text-surface">Підтвердити пропуск</button>
+    </div>
+  </Sheet>;
 }
