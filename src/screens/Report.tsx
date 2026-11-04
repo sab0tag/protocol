@@ -75,7 +75,7 @@ export function Report() {
       {r.tracking && <div className="space-y-1 text-sm text-muted">{trackingLines(r.tracking).map((line) => <p key={line}>{line}</p>)}</div>}
       {r.unscoredMedMarks && <p className="text-sm text-muted">{unscoredMedText(r.unscoredMedMarks)}</p>}
 
-      {(r.meds || r.prn.length > 0 || r.deviations || r.labs.length > 0 || r.dietQuestions.length > 0) && (
+      {(r.meds || r.prn.length > 0 || r.skipDetails?.length || r.deviations || r.labs.length > 0 || r.dietQuestions.length > 0) && (
         <section aria-label={L.main} className="space-y-2 rounded-2xl border border-accent/40 bg-surface p-3">
           <h2 className="font-semibold">{L.main}</h2>
           {r.prn.map((x) => ( /* D118 */
