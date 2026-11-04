@@ -64,6 +64,7 @@ export function markMeal(e: DayEntry, date: string, status: 'done' | 'skipped', 
   const at = 'time' in when ? atLocal(date, when.time) : e.at;
   const next: DayEntry = { ...e, ...patch, status, at, ...(status === 'skipped' && skipReason?.trim() ? { skipReason: skipReason.trim() } : {}), ...(at !== e.at ? { plannedAt: e.plannedAt ?? e.at } : {}), ...marks(when) };
   delete next.adherence;
+  if (status !== 'skipped' || !skipReason?.trim()) delete next.skipReason;
   return saved(db.entries.put(next), say(e.title, status, when), () => db.entries.put(e));
 }
 
