@@ -76,7 +76,7 @@ export function observedPlannedEntry(o: Observation | undefined, e: DayEntry): b
   if (!key) return true;
   const date = format(parseISO(e.at), 'yyyy-MM-dd');
   return !neutralDay(o, key, date) && observedState(o, key, Date.parse(e.at)) === true
-    && !(e.kind === 'meal' && e.menu && observedState(o, 'menu', Date.parse(e.at)) !== true);
+    && !(e.kind === 'meal' && e.menu && !e.scheduleChanges?.length && observedState(o, 'menu', Date.parse(e.at)) !== true);
 }
 
 /** Goals are not assessed over half a day. Raw recorded totals remain available to the person. */

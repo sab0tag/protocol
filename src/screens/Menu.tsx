@@ -15,7 +15,7 @@ import { useAllEntries, useFoods, usePlan, useRecipes } from '../data/queries';
 import { atLocal, dateOf, newId, todayISO } from '../domain/dates';
 import { amountText, needsGrams } from '../domain/foodSearch';
 import { frequentItems } from '../domain/habits';
-import { acceptPlan, asResult, draftFrom, draftTotals, likeYesterday, menuRequest, nextAlternative, type MenuDraft, type MenuResult } from '../domain/menu';
+import { acceptPlan, asResult, draftFrom, draftTotals, likeYesterday, menuRequest, nextAlternative, replaceableMenuMeal, type MenuDraft, type MenuResult } from '../domain/menu';
 import { effectiveTargets, lineNutrients, round } from '../domain/nutrition';
 import { dishItem } from '../domain/recipes';
 import type { MealItem } from '../domain/types';
@@ -110,7 +110,7 @@ export function Menu() {
     setDrafts((ds) => ds.map((d, i) => (i === di ? { ...d, meals: d.meals.map((m, j) => (j === mi ? { ...m, time } : m)) } : d)));
 
   const accept = async () => {
-    const removed = all.filter((e) => drafts.some((d) => dateOf(e.at) === d.date) && e.menu && e.status === 'planned');
+    const removed = all.filter((e) => drafts.some((d) => dateOf(e.at) === d.date) && replaceableMenuMeal(e));
     const added: string[] = [];
     const ok = await saved(() => db.transaction('rw', db.entries, async () => {
       for (const d of drafts) {
@@ -130,7 +130,7 @@ export function Menu() {
     navigate('/');
   };
 
-  const replacing = drafts.some((d) => all.some((e) => dateOf(e.at) === d.date && e.menu && e.status === 'planned'));
+  const replacing = drafts.some((d) => all.some((e) => dateOf(e.at) === d.date && replaceableMenuMeal(e)));
   const last = drafts.at(-1)?.date ?? date;
   const likeYesterdayButton = (
     <button type="button" onClick={yesterday} disabled={!!busy}

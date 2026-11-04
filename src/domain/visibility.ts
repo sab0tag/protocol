@@ -13,7 +13,7 @@ export const HABIT_FEATURES = { protein: 'food.log', carbs: 'food.log', water: '
 
 export function entryVisible(e: DayEntry, context: FeatureContext): boolean {
   const feature = e.checkKey === 'food:complete' || e.checkKey === 'dinner' || e.checkKey?.startsWith('mode:') ? 'food.log' : ENTRY_FEATURES[e.kind];
-  return can(feature, context) && !(e.kind === 'meal' && e.status === 'planned' && e.menu && !can('menu.ai', context));
+  return can(feature, context) && !(e.kind === 'meal' && e.status === 'planned' && e.menu && !e.scheduleChanges?.length && !can('menu.ai', context));
 }
 
 export function visibleChecklist(c: Checklist, context: FeatureContext): Checklist {
