@@ -173,9 +173,10 @@ export interface DayFocus { now?: NowItem; missed: NowItem[]; next?: NowItem }
  *  not a permission to do it at any time in that window (the card says «через 20 хв · о 08:30»). */
 export const NOW_BEFORE_MIN = 30, NOW_AFTER_MIN = 60;
 
-/** D50: «Зараз» — the earliest item due now; «Не відмічено» — items whose window passed without a mark (shown as
- *  unknown, never as «take it now»); «Далі» — the next one, when nothing is due. Snoozed ones wait.
- *  D52: only what the person planned needs a mark — a meal proposed by «Меню» (`menu`) never becomes «не відмічено». */
+/** UI-UX-03.2: An unresolved overdue task outranks future tasks. An overdue dose is a
+ * record requiring review, never advice to take a missed dose. Snoozed tasks are temporarily
+ * suppressed until their reminder time; the original scheduled time remains unchanged.
+ * «Не відмічено» is not the same as an explicitly skipped task. */
 export function dayFocus(args: { entries: DayEntry[]; plan: Plan | undefined; date: string; now: Date; snoozed?: Record<string, number>; observation?: Observation }): DayFocus {
   const { entries, plan, date, now } = args;
   const t0 = now.getTime();
@@ -200,9 +201,11 @@ export function dayFocus(args: { entries: DayEntry[]; plan: Plan | undefined; da
   for (const [time, meds] of byTime) out.push({ key: `med:${date}:${time}`, kind: 'med', time, title: 'Ліки', late: 0, meds });
   for (const x of out) x.late = differenceInMinutes(now, new Date(`${date}T${x.time}:00`));
   out.sort((a, b) => a.time.localeCompare(b.time));
-  const missed = out.filter((x) => x.late > NOW_AFTER_MIN);
-  const due = out.find((x) => x.late <= NOW_AFTER_MIN && x.late >= -NOW_BEFORE_MIN && !sleeping(x.key));
+  const active = out.filter((x) => !sleeping(x.key));
+  // Oldest unresolved first, including beyond the former 60-minute display window.
+  const due = active.find((x) => x.late >= -NOW_BEFORE_MIN);
+  const missed = out.filter((x) => x.late > NOW_AFTER_MIN && x.key !== due?.key);
   if (due) return { now: due, missed };
-  const next = out.find((x) => x.late < -NOW_BEFORE_MIN);
+  const next = active.find((x) => x.late < -NOW_BEFORE_MIN);
   return next ? { next, missed } : { missed };
 }
