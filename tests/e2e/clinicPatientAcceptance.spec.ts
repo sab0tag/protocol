@@ -141,7 +141,7 @@ test.describe('clinic → doctor → QR → patient acceptance', () => {
     await patient.getByRole('link', { name: 'Перейти до плану' }).click();
     await patient.getByText('Інші способи почати').click();
     await patient.getByRole('button', { name: /Пропустити/ }).click();
-    await patient.getByRole('navigation', { name: 'Розділи' }).getByRole('link', { name: 'План' }).click();
+    await patient.getByRole('navigation', { name: 'Розділи' }).getByRole('link', { name: 'Мій план', exact: true }).click();
     const drafts = patient.getByRole('region', { name: 'Чернетки від клінік' });
     const confirm = drafts.getByRole('button', { name: 'Додати до мого плану', exact: true });
     await expect(confirm).toBeDisabled();
