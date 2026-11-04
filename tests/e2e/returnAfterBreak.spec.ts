@@ -25,7 +25,7 @@ test('after a week without records the patient can continue today without backfi
 
   await expect(page.getByRole('status', { name: 'Можна продовжити з сьогоднішнього дня' }))
     .toContainText('Не обов’язково заповнювати минулі дні');
-  await expect(page.getByRole('region', { name: 'Найближче' })
+  await expect(page.getByRole('region', { name: 'Далі за планом' })
     .getByRole('button', { name: 'Вітамін D, Не відмічено' })).toBeVisible();
 
   const entries = await page.evaluate(async () => {
@@ -40,13 +40,15 @@ test('after a week without records the patient can continue today without backfi
   expect(entries[0]).toMatchObject({ at: expect.stringContaining(previousDate), status: 'done' });
   expect(entries.some((entry) => entry.status === 'skipped')).toBe(false);
 
-  const nearest = page.getByRole('region', { name: 'Найближче' });
+  const nearest = page.getByRole('region', { name: 'Далі за планом' });
   await nearest.getByRole('button', { name: 'Вітамін D, Не відмічено' }).click();
   await page.getByRole('dialog', { name: 'Вітамін D — коли прийняли?' })
     .getByRole('button', { name: /^Щойно/ }).click();
-  await expect(nearest.getByRole('button', { name: /^Вітамін D, Виконано/ })).toBeVisible();
+  await page.getByText(/^Виконано та інші відмітки/).click();
+  await expect(page.getByRole('region', { name: 'Історія відміток' }).getByRole('button', { name: /^Вітамін D, Виконано/ })).toBeVisible();
 
   const pastDate = addDays(now, -1);
+  await page.getByText('Обрати день', { exact: true }).click();
   const week = page.getByRole('navigation', { name: 'Тиждень' });
   // On Mondays, yesterday belongs to the previous ISO week and is not in the visible strip.
   // Navigate using the real calendar control instead of assuming yesterday is always visible.
@@ -71,6 +73,7 @@ test('after a week without records the patient can continue today without backfi
   expect(afterContinuing.some((entry) => entry.status === 'done' && entry.at.startsWith(ymd(now)))).toBe(true);
   expect(afterContinuing.some((entry) => entry.status === 'done' && entry.at.startsWith(ymd(pastDate)))).toBe(true);
   await page.reload();
+  await page.getByText(/^Виконано та інші відмітки/).click();
   await expect(page.getByRole('button', { name: /^Вітамін D, Виконано/ })).toBeVisible();
 });
 

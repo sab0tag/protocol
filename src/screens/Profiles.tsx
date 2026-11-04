@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Check, Link2, Pencil, Plus, UserRound } from 'lucide-react';
+import { ProfileGreeting } from '../components/ProfileGreeting';
 import { SceneHeader } from '../components/SceneHeader';
 import { useProfileDirectory } from '../app/profiles';
 import { activeProfileId, saveProfile, switchProfile, type Profile } from '../data/profiles';
@@ -15,6 +16,7 @@ export function Profiles() {
   return <section className="space-y-4 pt-4">
     <SceneHeader title={L.title} description={inDemo() ? L.demo : L.local} />
     {!inDemo() && <>
+      <ProfileGreeting />
       <div className="flex flex-wrap gap-2">
         <button type="button" className="protocol-action-secondary flex items-center gap-2" onClick={() => { setError(''); setEditing({ id: crypto.randomUUID(), name: '', relation: 'relative' }); }}><Plus size={18} aria-hidden />{L.add}</button>
         <Link to="/sync?back=%2Fprofiles" className="protocol-action-secondary flex items-center gap-2">

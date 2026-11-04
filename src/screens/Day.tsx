@@ -29,7 +29,7 @@ import { SimpleEntrySheet } from './SimpleEntrySheet';
 import { NowCard } from '../components/NowCard';
 import { QuickDock, useOnScreen } from '../components/QuickDock';
 import { DayHeader } from '../components/DayHeader';
-import { DayRhythm } from '../components/DayRhythm';
+import { DayRhythm, DayHistory } from '../components/DayRhythm';
 import { ExampleNotice } from '../components/ExampleNotice';
 import { hasExample } from '../data/seed.example';
 import { DaySummary, type MetricKey } from '../components/DaySummary';
@@ -55,8 +55,8 @@ import { requestSync } from '../sync/runner';
 
 const KIND_ICON = { meal: UtensilsCrossed, med: Pill, water: Droplet, workout: Dumbbell, note: NotebookPen, symptom: Frown } as const;
 
-/** «День» (SPEC.md §5.1, §14.1, D53): the day by name and week, «Зараз», «Записати їжу», quick tiles, «Ритм дня» —
- *  the plan and the records on one time line — and «Уже сьогодні»; medicine and water float under the thumb. */
+/** Today projects the existing plan into attention, pending actions, quantitative goals and confirmed history.
+ * All write handlers and feature boundaries stay in this screen. */
 export function Day() {
   const { can, context, enabled } = useFeatures();
   const { date, setDate } = useUi();
@@ -214,8 +214,8 @@ export function Day() {
   ] : undefined;
   if (!observationReady) return <Loading />;
   return (
-    <section className="pt-4">{/* the same top space as every other screen — the hero is not cut by the window edge */}
-      <DayHeader date={date} setDate={setDate} action={enabled ? <LightDayControl date={date} /> : undefined} />
+    <section className="pt-4">
+      <DayHeader remaining={presentation && presentation.execution.total > 0 ? presentation.execution.pending + presentation.execution.uncertain : undefined} date={date} setDate={setDate} action={enabled ? <LightDayControl date={date} /> : undefined} />
       {light && !isToday && <p className="mb-3 text-sm">{t.lightDay.enable}</p>}
       {enabled && isToday && <LightDayNotice date={date} />}
       {returningAfterBreak && <div role="status" aria-label={t.day.returningAfterBreak.title}
@@ -241,23 +241,24 @@ export function Day() {
           onMed={dockMed} onWater={dockWater} hidden={tilesOnScreen} hideWater={light || !can('water.log')} />}
 
       <ExampleNotice plan={plan} />
+      <div data-testid="focused-day-now">
+        {presentation && (presentation.focus.now || presentation.focus.missed.length > 0) && <h2 className="mb-2 text-lg font-semibold">{t.todayView.attention}</h2>}
+        {entries && <NowCard compact entries={entries} plan={plan} date={date} observation={observation} onConfirm={setConfirming} />}
+      </div>
       <nav ref={tilesRef} aria-label="Швидкі дії" className="mb-4 grid grid-cols-3 gap-2">
         {can('food.log') && !light && <button type="button" onClick={() => navigate('/meal/new')} className="flex min-h-tap flex-col items-center justify-center gap-1 rounded-xl border border-line bg-surface p-2 text-center text-xs font-medium"><UtensilsCrossed size={20} className="text-accent" aria-hidden />{t.day.recordFood}</button>}
         {can('water.log') && !light && <button type="button" onClick={() => { const e = waterRow(); void saved(db.entries.add(e), '+250 мл', () => db.entries.delete(e.id)); }} className="flex min-h-tap flex-col items-center justify-center gap-1 rounded-xl border border-line bg-surface p-2 text-center text-xs font-medium"><Droplet size={20} className="text-accent" aria-hidden />+250 мл</button>}
         <button type="button" onClick={() => setSymptom({})} className="flex min-h-tap flex-col items-center justify-center gap-1 rounded-xl border border-line bg-surface p-2 text-center text-xs font-medium"><Frown size={20} className="text-warn" aria-hidden />{t.addKinds.symptom}</button>
       </nav>
-      <div data-testid="focused-day-now">
-        <h2 className="mb-2 text-lg font-semibold">Зараз</h2>
-        {entries && <NowCard entries={entries} plan={plan} date={date} observation={observation} onConfirm={setConfirming} />}
-      </div>
-      {totals && <section aria-label="Прогрес дня" className="protocol-card mb-4 p-3">
-        <div className="mb-2 flex items-center justify-between gap-2"><h2 className="font-semibold">Прогрес дня</h2><button type="button" onClick={() => document.getElementById('summary')?.scrollIntoView({ behavior: 'smooth' })} className="text-sm text-accent">Усі показники</button></div>
-        <div className="grid grid-cols-3 gap-2 text-xs">
-          {can('water.log') && <div><span className="block text-muted">Вода</span><strong className="tabular">{(totals.waterMl / 1000).toLocaleString('uk-UA')} / {targets.waterMl ? (targets.waterMl / 1000).toLocaleString('uk-UA') : '—'} л</strong></div>}
-          {can('meds.log') && <div><span className="block text-muted">Ліки</span><strong className="tabular">{meds.filter((i) => i.done).length} з {meds.length}</strong></div>}
-          {can('food.log') && <div><span className="block text-muted">Вуглеводи</span><strong className="tabular">{Math.round(totals.carbs)} з {targets.carbsG?.max ?? '—'} г</strong>{targets.carbsG?.max != null && <span className="block text-muted">Обмеження</span>}</div>}
-        </div>
-      </section>}
+      {rhythm && <DayRhythm date={date} pendingOnly title={isToday ? t.day.upcoming : t.day.rhythm} rhythm={rhythm} foods={foods} {...(can('menu.yesterday') && can('food.log') ? { onYesterday: () => setYesterday(true) } : {})} addLabel={enabled ? t.modules.addOther : undefined} onEntry={(e) => (e.kind === 'meal' && e.status === 'planned' && e.items?.length ? setConfirming(e) : setRowFor(e))} onDose={setAskMed} onAdd={() => setAdding(true)}
+        onAnytime={(i) => (i.kind === 'workout' ? navigate('/workout') : setAskMed(i))} />}
+      {totals && <details className="protocol-card mb-4 p-0" open>
+        <summary className="min-h-tap cursor-pointer p-4 font-semibold">{t.todayView.goals}</summary>
+        <DaySummary compact quiet={light} title={isToday ? t.summary.title : t.summary.forDay} totals={totals} targets={targets} allowed={allowedMetrics} meds={{ done: meds.filter((i) => i.done).length, total: meds.length }}
+        {...(!light && isToday && best ? { streak: t.day.streak(t.progress.habit[best.key], best.streak) } : {})}
+        {...(!light && entries ? { food: foodState(entries), onComplete: (on: boolean) => void markComplete(on) } : {})} />
+      </details>}
+      {presentation && <DayHistory records={presentation.records.map(record => record.entry)} foods={foods} onEntry={setRowFor} />}
       <details className="mb-4 rounded-xl border border-line bg-surface p-3">
         <summary className="min-h-tap cursor-pointer font-medium">Ще дії</summary>
         {quick.length > 0 && <nav aria-label={t.day.quick} className={`mb-5 grid gap-1 ${quick.length === 4 ? 'grid-cols-[0.8fr_1.2fr_1.2fr_0.8fr] min-[380px]:grid-cols-4' : ''}`}
@@ -328,11 +329,6 @@ export function Day() {
       )}
 
       {can('meds.prn') && isToday && plan && entries && <PrnCard plan={plan} date={date} entries={entries} /> /* D118 */}
-      {rhythm && <DayRhythm date={date} title={isToday ? t.day.upcoming : t.day.rhythm} rhythm={rhythm} foods={foods} {...(can('menu.yesterday') && can('food.log') ? { onYesterday: () => setYesterday(true) } : {})} addLabel={enabled ? t.modules.addOther : undefined} onEntry={(e) => (e.kind === 'meal' && e.status === 'planned' && e.items?.length ? setConfirming(e) : setRowFor(e))} onDose={setAskMed} onAdd={() => setAdding(true)}
-        onAnytime={(i) => (i.kind === 'workout' ? navigate('/workout') : setAskMed(i))} />}
-      {totals && <DaySummary quiet={light} title={isToday ? t.summary.title : t.summary.forDay} totals={totals} targets={targets} allowed={allowedMetrics} meds={{ done: meds.filter((i) => i.done).length, total: meds.length }}
-        {...(!light && isToday && best ? { streak: t.day.streak(t.progress.habit[best.key], best.streak) } : {})}
-        {...(!light && entries ? { food: foodState(entries), onComplete: (on: boolean) => void markComplete(on) } : {})} />}
 
       {tips.length > 0 && (
         <details className="mb-4 protocol-card rounded-2xl border border-line bg-surface p-3">

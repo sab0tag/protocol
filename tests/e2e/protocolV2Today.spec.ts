@@ -1,18 +1,19 @@
 import { expect, test } from '@playwright/test';
 import { device } from './helpers';
 
-test('Protocol 2.0 Today hero retains accessible date navigation and actionable cards', async ({ browser }) => {
+test('Protocol 2.0 Today heading retains accessible date navigation and actionable cards', async ({ browser }) => {
   const page = await device(browser);
-  const hero = page.locator('header.protocol-day-hero');
+  const hero = page.locator('header.protocol-day-heading');
   await expect(hero).toBeVisible();
   await expect(page.locator('.protocol-app-header').getByRole('link', { name: 'На сьогодні', exact: true })).toHaveText('Protocol 2.0');
   await expect(hero.getByRole('heading', { level: 1 })).toHaveText('Сьогодні');
+  await hero.getByText('Обрати день', { exact: true }).click();
   const week = hero.getByRole('navigation', { name: 'Тиждень' });
   await expect(week.getByRole('button')).toHaveCount(9);
   await expect(week.locator('button[aria-current="date"]')).toHaveCount(1);
   // The focus card is intentionally absent when nothing is due or upcoming.\n  // Verify the persistent sections instead of assuming a due item exists.
   await expect(page.getByRole('region', { name: 'Сьогодні' })).toBeVisible();
-  await expect(page.getByRole('region', { name: 'Найближче' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Далі за планом' })).toBeVisible();
   await week.getByRole('button', { name: 'Попередній тиждень' }).click();
   await expect(hero.getByRole('heading', { level: 1 })).not.toHaveText('Сьогодні');
   await expect(page.getByRole('region', { name: 'Ритм дня', exact: true })).toBeVisible();
@@ -25,7 +26,7 @@ test('Protocol 2.0 Today hero retains accessible date navigation and actionable 
 test('the example-data warning appears before the example schedule', async ({ browser }) => {
   const page = await device(browser);
   const warning = page.getByRole('status').filter({ hasText: 'Це приклад:' });
-  const schedule = page.getByRole('region', { name: /^(Зараз|Не відмічено|Найближче)$/ }).first();
+  const schedule = page.getByRole('region', { name: /^(Зараз|Не відмічено|Далі за планом)$/ }).first();
   await expect(warning).toBeVisible();
   await expect(schedule).toBeVisible();
   const [warningBox, scheduleBox] = await Promise.all([warning.boundingBox(), schedule.boundingBox()]);

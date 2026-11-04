@@ -14,19 +14,24 @@ test('profile name updates immediately and each person can control the daily phr
   }
   await page.getByRole('button', { name: 'Зберегти профіль', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Редагувати профіль: Олена', exact: true })).toBeVisible();
-  await page.goto('./#/'); await expect(page.getByTestId('greeting')).toContainText('Олена');
+  await expect(page.getByTestId('daily-phrase')).toHaveCount(0);
+  await page.goto('./#/'); await expect(page.getByTestId('active-profile')).toContainText('Олена');
   await expect(page.getByTestId('daily-phrase')).toHaveCount(0);
   await page.reload(); await expect(page.getByTestId('daily-phrase')).toHaveCount(0);
-  await page.getByTestId('greeting').click(); await page.getByRole('button', { name: 'Додати профіль', exact: true }).click();
+  await page.getByTestId('active-profile').click(); await page.getByRole('button', { name: 'Додати профіль', exact: true }).click();
   await page.getByLabel('Ім’я', { exact: true }).fill('Данило'); await expect(toggle).toBeChecked();
   await page.getByRole('button', { name: 'Зберегти профіль', exact: true }).click();
   await page.getByRole('button', { name: 'Відкрити профіль: Данило', exact: true }).click();
   await page.getByText('Інші способи почати').click(); await page.getByRole('button', { name: /^Пропустити/ }).click();
-  await expect(page.getByTestId('greeting')).toContainText('Данило'); await expect(page.getByTestId('daily-phrase')).toBeVisible();
+  await expect(page.getByTestId('active-profile')).toContainText('Данило'); await expect(page.getByTestId('daily-phrase')).toHaveCount(0);
   await page.goto('./?protocol-profile=main#/'); await expect(page.getByTestId('daily-phrase')).toHaveCount(0);
-  await page.getByTestId('greeting').click(); await page.getByRole('button', { name: 'Редагувати профіль: Олена', exact: true }).click();
+  await page.getByTestId('active-profile').click(); await page.getByRole('button', { name: 'Редагувати профіль: Олена', exact: true }).click();
   await toggle.check(); await page.getByRole('button', { name: 'Зберегти профіль', exact: true }).click();
-  await page.goto('./#/'); await expect(page.getByTestId('daily-phrase')).toBeVisible();
+  await page.reload();
+  await page.getByRole('button', { name: 'Редагувати профіль: Олена', exact: true }).click();
+  await expect(toggle).toBeChecked();
+  await expect(page.getByTestId('daily-phrase')).toBeVisible(); // Encouragement moved to the profile; its preference still applies.
+  await page.goto('./#/'); await expect(page.getByTestId('daily-phrase')).toHaveCount(0);
   await page.context().close();
 });
 
@@ -35,12 +40,12 @@ test('renaming updates other open tabs without reloading their current work', as
   await page.getByRole('button', { name: 'Редагувати профіль: Мій профіль', exact: true }).click();
   await page.getByLabel('Ім’я', { exact: true }).fill('Марія'); await page.getByRole('button', { name: 'Зберегти профіль', exact: true }).click();
   const other = await page.context().newPage(); await other.goto('./#/');
-  await expect(other.getByTestId('greeting')).toContainText('Марія');
+  await expect(other.getByTestId('active-profile')).toContainText('Марія');
   await other.evaluate(() => { (window as unknown as Record<string, unknown>).testProfileMarker = 'keep'; });
   await page.getByRole('button', { name: 'Редагувати профіль: Марія', exact: true }).click();
   await page.getByLabel('Ім’я', { exact: true }).fill('Марічка'); await page.getByRole('button', { name: 'Зберегти профіль', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Редагувати профіль: Марічка', exact: true })).toBeVisible();
-  await expect(other.getByTestId('greeting')).toContainText('Марічка');
+  await expect(other.getByTestId('active-profile')).toContainText('Марічка');
   expect(await other.evaluate(() => (window as unknown as Record<string, unknown>).testProfileMarker)).toBe('keep');
   await page.context().close();
 });

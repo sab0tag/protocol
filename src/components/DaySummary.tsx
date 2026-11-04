@@ -62,8 +62,8 @@ function metric(key: MetricKey, totals: DayTotals, targets: Targets, meds: { don
   }
 }
 
-export function DaySummary({ totals, targets, meds, streak, food, onComplete, allowed, title = L.title, quiet = false }: { totals: DayTotals; targets: Targets; meds: { done: number; total: number }; streak?: string; title?: string;
-  food?: FoodState; onComplete?: (on: boolean) => void; allowed?: readonly MetricKey[]; quiet?: boolean }) {
+export function DaySummary({ totals, targets, meds, streak, food, onComplete, allowed, title = L.title, quiet = false, compact = false }: { totals: DayTotals; targets: Targets; meds: { done: number; total: number }; streak?: string; title?: string;
+  food?: FoodState; onComplete?: (on: boolean) => void; allowed?: readonly MetricKey[]; quiet?: boolean; compact?: boolean }) {
   const { can } = useFeatures();
   const [main, setMain] = useState<MetricKey[]>(loadMain);
   const [all, setAll] = useState(false);
@@ -86,9 +86,9 @@ export function DaySummary({ totals, targets, meds, streak, food, onComplete, al
   if (!visible.length) return null;
 
   return (
-    <section aria-labelledby="summary" className="protocol-card mb-4 p-5">
+    <section aria-labelledby="summary" className={compact ? 'px-4 pb-4' : 'protocol-card mb-4 p-5'}>
       <div className="mb-3 flex items-baseline justify-between gap-2">
-        <h2 id="summary" className="text-lg font-semibold">{title}</h2>
+        <h2 id="summary" className={compact ? 'sr-only' : 'text-lg font-semibold'}>{title}</h2>
         {!quiet && <button type="button" onClick={() => setSetup((v) => !v)} aria-expanded={setup} className="min-h-tap px-1 text-sm text-accent">{setup ? L.done : L.setup}</button>}
       </div>
       {setup && !quiet ? (
@@ -105,8 +105,8 @@ export function DaySummary({ totals, targets, meds, streak, food, onComplete, al
         </fieldset>
       ) : (
         <>
-          <Metrics list={shown(effectiveMain)} />
-          {!quiet && all && <div className="mt-3 border-t border-line pt-3"><Metrics list={shown(rest)} /></div>}
+          <Metrics compact={compact} list={shown(effectiveMain)} />
+          {!quiet && all && <div className="mt-3 border-t border-line pt-3"><Metrics compact={compact} list={shown(rest)} /></div>}
           {!quiet && <button type="button" onClick={() => setAll((v) => !v)} aria-expanded={all} className="mt-2 min-h-tap text-sm text-accent">{all ? L.less : L.all}</button>}
         </>
       )}
@@ -126,7 +126,15 @@ export function DaySummary({ totals, targets, meds, streak, food, onComplete, al
   );
 }
 
-function Metrics({ list }: { list: [MetricKey, Metric][] }) {
+function Metrics({ list, compact = false }: { list: [MetricKey, Metric][]; compact?: boolean }) {
+  if (compact) return <ul className="space-y-4">{list.map(([key, metric]) => <li key={key}>
+    <p className="flex flex-wrap items-baseline justify-between gap-2 text-sm">
+      <span className="flex items-center gap-2 text-muted"><metric.Icon size={18} aria-hidden />{metric.label}</span>
+      <span className="tabular font-medium">{metric.value}{metric.target ? ` · ${metric.target}` : ''}</span>
+    </p>
+    {(metric.progressTarget || metric.target) && <div className="mt-2"><ProgressTrack ratio={metric.progress} label={metric.label} valueText={[metric.value, metric.target, metric.note].filter(Boolean).join(' · ')} tone={metric.over ? 'warn' : metric.tone} /></div>}
+    {metric.note && <p className="mt-1 text-xs text-muted">{metric.note}</p>}
+  </li>)}</ul>;
   const rings = list.filter(([, m]) => m.shape === 'ring'), bars = list.filter(([, m]) => m.shape !== 'ring');
   return (
     <div className="space-y-4">

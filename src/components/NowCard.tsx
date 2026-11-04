@@ -23,7 +23,7 @@ const label = 'text-sm font-semibold uppercase tracking-wider text-muted';
  *  «Не відмічено» — past items without a mark, folded into one line, asking what happened — never «take it now»;
  *  «Далі» — the next item, when nothing is due. A reminder opens to this. An earlier day shows only its own
  *  «Не відмічено» (D52) — today's screen never collects yesterday's. */
-export function NowCard({ entries, plan, date, observation, onConfirm }: { entries: DayEntry[]; plan: Plan | undefined; date: string; observation?: Observation; onConfirm: (e: DayEntry) => void }) {
+export function NowCard({ entries, plan, date, observation, onConfirm, compact = false }: { entries: DayEntry[]; plan: Plan | undefined; date: string; observation?: Observation; compact?: boolean; onConfirm: (e: DayEntry) => void }) {
   const { can, context } = useFeatures();
   const [clock, setClock] = useState(() => new Date());
   useEffect(() => { const id = setInterval(() => setClock(new Date()), 30_000); return () => clearInterval(id); }, []);
@@ -36,7 +36,7 @@ export function NowCard({ entries, plan, date, observation, onConfirm }: { entri
   return (
     <div className="mb-3 space-y-3">
       {focus.now && <Due item={focus.now} date={date} onSnoozed={() => setClock(new Date())} onConfirm={onConfirm} />}
-      {focus.next && (
+      {focus.next && (!compact || !focus.now) && (
         <section aria-label={L.next} className="flex min-h-tap items-center gap-3 protocol-card px-4 py-3">
           <span className={label}>{L.next}</span>
           <span className="tabular text-muted">{focus.next.time}</span>
@@ -69,7 +69,7 @@ function Due({ item, date, onSnoozed, onConfirm }: { item: NowItem; date: string
   const later = () => saved(snooze(item.key, Date.now() + SNOOZE_MIN * 60_000), t.toast.later(SNOOZE_MIN)).then(onSnoozed);
   const nowHm = () => ({ time: format(new Date(), 'HH:mm') });
   return (
-    <section aria-label={L.title} className="protocol-card border-accent/30 p-5">
+    <section aria-label={L.title} className="protocol-card border-warn/30 bg-warn-bg/30 p-5">
       <p className="flex items-center justify-between gap-2">
         <span className={`${label} flex items-center gap-2 text-ink`}><span className="h-2 w-2 rounded-full bg-accent" aria-hidden />{L.title}</span>
         <span className="tabular text-right text-muted">{when}</span>
@@ -77,7 +77,7 @@ function Due({ item, date, onSnoozed, onConfirm }: { item: NowItem; date: string
       <p className="mt-2 flex items-start gap-2 text-2xl font-semibold leading-tight"><Icon size={24} className="mt-0.5 shrink-0 text-accent" aria-hidden />{titleOf(item)}</p>
       {detail && <p className="mt-1 text-muted first-letter:uppercase">{detail}</p>}
       <button type="button" onClick={() => (overdue && !item.entry ? setAskingWhen(true) : item.entry?.items?.length ? onConfirm(item.entry) : void mark(item, date, 'done', nowHm()))}
-        className="mt-4 flex min-h-tap w-full items-center justify-center gap-2 rounded-xl bg-accent px-4 py-2 text-lg font-semibold text-surface">
+        className="mt-4 flex min-h-tap w-full items-center justify-center gap-2 rounded-xl bg-accent px-4 py-2 text-lg font-semibold text-on-accent">
         <Check size={22} aria-hidden />{overdue && !item.entry ? 'Відмітити прийом' : item.entry ? L.eaten : L.taken}</button>
       {overdue && !item.entry && <p className="mt-2 text-sm text-muted">Час за планом минув. Перевірте вказівки лікаря; застосунок не визначає, чи можна приймати пропущену дозу.</p>}
       {askingWhen && <TimeChoice title={titleOf(item)} planned={item.time} date={date} meal={false} allowUncertain onPick={(when) => { if ('uncertain' in when) void markMeds(meds ?? [], date, item.time, 'done', when); else void mark(item, date, 'done', when); setAskingWhen(false); }} onClose={() => setAskingWhen(false)} />}

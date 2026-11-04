@@ -25,6 +25,7 @@ async function setup(page: Page, kind: 'med' | 'meal', status = 'done', skipReas
       ...(skipReason ? { skipReason } : {}) } },
   ]);
   await page.goto('./#/');
+  await page.getByText(/^Виконано та інші відмітки/).click();
 }
 
 for (const kind of ['med', 'meal'] as const) {
@@ -59,6 +60,7 @@ for (const kind of ['med', 'meal'] as const) {
     await page.goto('./#/report');
     await expect(page.getByRole('region', { name: 'Підтверджені пропуски', exact: true })).toContainText('Підтверджена причина');
     await page.goto('./#/');
+    await page.getByText(/^Виконано та інші відмітки/).click();
     await row().click();
     await page.getByRole('dialog', { name: 'Тестовий запис', exact: true }).getByRole('button', { name: 'Повернути в план', exact: true }).click();
     await expect.poll(async () => (await stored(page)).status).toBe('planned');
