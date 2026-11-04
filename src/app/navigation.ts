@@ -53,11 +53,19 @@ export const ROUTES = {
 export type RouteId = keyof typeof ROUTES;
 export type StaticRouteId = { [K in RouteId]: (typeof ROUTES)[K]['path'] extends `${string}:${string}` | '*' ? never : K }[RouteId];
 
-export const TAB_ROUTES = ['day', 'food', 'plan', 'progress', 'more'] as const satisfies readonly StaticRouteId[];
+export const TAB_ROUTES = ['day', 'plan', 'progress', 'more'] as const satisfies readonly StaticRouteId[];
 export type TabRouteId = (typeof TAB_ROUTES)[number];
 
+/** Existing deep links retain their URLs while secondary modules belong to More. */
+export function primaryRouteForPath(pathname: string): TabRouteId {
+  if (pathname === '/' || pathname === '/my-day' || pathname.startsWith('/do/')) return 'day';
+  if (pathname === '/plan' || pathname.startsWith('/plan/')) return 'plan';
+  if (pathname === '/progress' || pathname.startsWith('/progress/') || pathname === '/week' || pathname === '/report') return 'progress';
+  return 'more';
+}
+
 export const MORE_ROUTE_GROUPS = [
-  { id: 'food', routes: ['assistant', 'menu', 'shopping', 'dishes', 'foods'] },
+  { id: 'food', routes: ['food', 'assistant', 'menu', 'shopping', 'dishes', 'foods'] },
   { id: 'health', routes: ['wellbeing', 'wellbeingJournal', 'weight', 'progressLabs', 'progressMotivation', 'progressInsights', 'workout', 'week', 'report'] },
   { id: 'settings', routes: ['profiles', 'modules', 'reminders', 'sync', 'quickLinks', 'data'] },
   { id: 'app', routes: ['frictions', 'pilot', 'onboarding', 'conciergeLog', 'about'] },

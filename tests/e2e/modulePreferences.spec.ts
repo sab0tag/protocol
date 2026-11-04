@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { expect, test } from '@playwright/test';
 import { device, seed } from './helpers';
+import { t } from '../../src/i18n/uk';
 
 test('module history survives restart and a backup restored on an already bootstrapped phone (D134)', async ({ browser }) => {
   const page = await device(browser, 'skip');
@@ -9,7 +10,8 @@ test('module history survives restart and a backup restored on an already bootst
     { store: 'moduleEvents', value: { id: 'own-light', v: 1, at, kind: 'light-day', date: '2026-10-25', enabled: true, source: 'manual' } },
     { store: 'entries', value: { id: 'water', at, kind: 'water', status: 'done', title: 'Вода', waterMl: 250 } }]);
   // Acceptance mode applies the module policy immediately; compatibility mode keeps legacy navigation.
-  const foodLink = page.getByRole('link', { name: 'Їжа', exact: true });
+  await page.goto('./#/more/food');
+  const foodLink = page.getByRole('link', { name: t.nutrition.title, exact: true });
   if (process.env.VITE_MODULE_POLICY_ENABLED === 'true') {
     await expect(foodLink).toHaveCount(0);
   } else {

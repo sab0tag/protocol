@@ -1,27 +1,21 @@
 // «День» header (SPEC.md §14.1, D53): the day by name, a week strip — a dot under a day means it has records —
-// and the sync status as a cloud with a mark (R6). A tap on a day opens it; the arrows open the next / previous week
+// Sync status and brand are in AppHeader. A tap on a day opens it; the arrows open the next / previous week
 // on the day next to this one (D99), or on today when it is there.
 import { addDays, format, parseISO, startOfISOWeek } from 'date-fns';
 import { uk } from 'date-fns/locale';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { ChevronLeft, ChevronRight, Cloud, CloudAlert, CloudCheck, CloudOff, Heart, TreePine } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Heart } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useActiveProfile } from '../app/profiles';
 import { greeting, dailyPhrase } from '../domain/greeting';
 import { db, inDemo } from '../data/db';
 import { todayISO, weekStep } from '../domain/dates';
 import { t } from '../i18n/uk';
-import { useSync, type SyncStatus } from '../sync/runner';
 
 const L = t.day;
-const CLOUD: Record<SyncStatus, { Icon: typeof Cloud; tone: string }> = {
-  off: { Icon: CloudOff, tone: 'text-muted' }, idle: { Icon: CloudCheck, tone: 'text-accent' }, syncing: { Icon: Cloud, tone: 'text-muted animate-pulse' },
-  offline: { Icon: CloudOff, tone: 'text-warn' }, error: { Icon: CloudAlert, tone: 'text-warn' },
-};
 
 export function DayHeader({ date, setDate, action }: { date: string; setDate: (d: string) => void; action?: ReactNode }) {
-  const navigate = useNavigate();
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
     const update = () => setNow(new Date());
@@ -38,18 +32,12 @@ export function DayHeader({ date, setDate, action }: { date: string; setDate: (d
   const days = Array.from({ length: 7 }, (_, i) => format(addDays(monday, i), 'yyyy-MM-dd'));
   const withRecords = useLiveQuery(async () => new Set((await db.entries.where('at').between(days[0]!, `${days[6]!}￿`).toArray())
     .map((e) => e.at.slice(0, 10))), [days[0]]);
-  const status = useSync((s) => s.status);
-  const { Icon } = CLOUD[status];
   const isToday = date === today;
   const d = parseISO(date);
 
   return (
     <header className="protocol-day-hero relative mb-3 overflow-hidden rounded-[1.35rem] px-3 pb-2 pt-2 text-white sm:px-5">
       <div className="relative z-10">
-        <div className="mb-1 flex items-center justify-between">
-          <span className="flex items-center gap-2 text-lg font-semibold"><TreePine size={22} className="text-emerald-200" aria-hidden />Протокол</span>
-          <button type="button" onClick={() => navigate('/sync')} aria-label={L.syncStatus[status]} className="flex min-h-tap min-w-tap items-center justify-center rounded-full border border-white/30 bg-black/25 md:mr-0"><Icon size={20} className="text-white" aria-hidden /></button>
-        </div>
         <Link to="/profiles" aria-label={t.profiles.title} className="block break-words text-xl font-semibold" data-testid="greeting">{greeting(now, name)}</Link>
         {showMotivation && <p data-testid="daily-phrase" className="mt-1 flex items-center gap-2 text-sm text-white/85">{dailyPhrase(now)} <Heart size={16} className="fill-emerald-300 text-emerald-300" aria-hidden /></p>}
       <h1 className="mt-1 text-base font-semibold">{isToday ? L.todayTitle : format(d, 'EEEE, d MMMM', { locale: uk })}</h1>

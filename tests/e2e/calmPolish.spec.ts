@@ -12,7 +12,7 @@ test('timeline clock states preserve outcomes and small navigation remains usabl
   for (const width of [320, 375, 390, 1024]) for (const colorScheme of ['light', 'dark'] as const) {
     await page.setViewportSize({ width, height: 844 }); await page.emulateMedia({ colorScheme });
     const tabs = page.getByRole('navigation', { name: 'Розділи', exact: true }).getByRole('link');
-    await expect(tabs).toHaveCount(5);
+    await expect(tabs).toHaveCount(4);
     for (const tab of await tabs.all()) {
       const box = await tab.boundingBox(); expect(box!.width).toBeGreaterThanOrEqual(44); expect(box!.height).toBeGreaterThanOrEqual(44);
     }

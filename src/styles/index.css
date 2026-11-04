@@ -1,24 +1,29 @@
-@import '@fontsource/golos-text/400.css';
-@import '@fontsource/golos-text/500.css';
-@import '@fontsource/golos-text/600.css';
+@import '@fontsource/inter/400.css';
+@import '@fontsource/inter/500.css';
+@import '@fontsource/inter/600.css';
+@import '@fontsource/inter/700.css';
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 /* Tokens (SPEC.md §7) as RGB triples; an explicit theme overrides the system setting. */
 :root {
-  --bg: 241 244 240; --surface: 253 255 252; --ink: 31 46 37; --muted: 91 108 97; --line: 219 229 220;
-  --accent: 15 118 98; --warn: 138 60 16; --warn-bg: 246 227 214; --water: 27 112 168;
+  --bg: 247 252 250; --surface: 255 255 255; --ink: 21 59 53; --muted: 91 117 110; --line: 223 235 231;
+  --surface-secondary: 243 248 246; --accent-hover: 0 107 76; --accent-pressed: 0 86 62; --on-accent: 255 255 255;
+  --accent: 0 125 89; --warn: 166 77 13; --warn-bg: 255 244 229; --water: 40 108 155;
   --meter-energy: 185 80 30; --meter-protein: 27 131 78; --meter-meds: 112 76 178;
   --meter-calcium: 142 105 23; --meter-carbs: 147 113 30;
-  --ok: 22 120 72; --ok-bg: 220 244 230; --danger: 176 32 48; --danger-bg: 252 228 230;
-  --pending: 52 82 140; --pending-bg: 226 234 250; --disabled: 112 122 116;
+  --ok: 20 119 84; --ok-bg: 232 247 238; --danger: 198 61 69; --danger-bg: 255 240 240;
+  --pending: 40 108 155; --pending-bg: 237 246 252; --disabled: 112 122 116;
+  --moved: 117 96 179; --moved-bg: 243 239 255;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme]) {
-    --bg: 8 13 10; --surface: 18 26 22; --ink: 235 242 233; --muted: 165 183 171; --line: 39 53 45;
-    --accent: 110 231 196; --warn: 240 172 130; --warn-bg: 72 42 26; --water: 91 174 236;
+    --bg: 16 28 25; --surface: 27 43 38; --ink: 240 248 244; --muted: 166 189 179; --line: 52 75 66;
+    --surface-secondary: 36 56 49; --accent-hover: 114 229 185; --accent-pressed: 66 192 146; --on-accent: 16 28 25;
+    --moved: 201 183 245; --moved-bg: 53 41 72;
+    --accent: 86 215 168; --warn: 240 172 130; --warn-bg: 72 42 26; --water: 91 174 236;
     --meter-energy: 248 145 77; --meter-protein: 117 220 160; --meter-meds: 186 160 255;
     --meter-calcium: 235 202 115; --meter-carbs: 227 186 111;
     --ok: 117 220 160; --ok-bg: 24 58 40; --danger: 255 150 150; --danger-bg: 74 28 32;
@@ -27,8 +32,10 @@
   }
 }
 :root[data-theme="dark"] {
-  --bg: 8 13 10; --surface: 18 26 22; --ink: 235 242 233; --muted: 165 183 171; --line: 39 53 45;
-  --accent: 110 231 196; --warn: 240 172 130; --warn-bg: 72 42 26; --water: 91 174 236;
+  --bg: 16 28 25; --surface: 27 43 38; --ink: 240 248 244; --muted: 166 189 179; --line: 52 75 66;
+  --surface-secondary: 36 56 49; --accent-hover: 114 229 185; --accent-pressed: 66 192 146; --on-accent: 16 28 25;
+  --moved: 201 183 245; --moved-bg: 53 41 72;
+  --accent: 86 215 168; --warn: 240 172 130; --warn-bg: 72 42 26; --water: 91 174 236;
   --meter-energy: 248 145 77; --meter-protein: 117 220 160; --meter-meds: 186 160 255;
   --meter-calcium: 235 202 115; --meter-carbs: 227 186 111;
   --ok: 117 220 160; --ok-bg: 24 58 40; --danger: 255 150 150; --danger-bg: 74 28 32;
@@ -37,7 +44,7 @@
 }
 
 html, body { background: rgb(var(--bg)); color: rgb(var(--ink)); }
-body { font-family: 'Golos Text', system-ui, -apple-system, sans-serif; -webkit-tap-highlight-color: transparent; }
+body { font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; -webkit-tap-highlight-color: transparent; }
 /* D97: a hint never looks like a value typed in («08:30» that is not set) */
 ::placeholder { color: rgb(var(--muted)); opacity: 0.55; font-style: italic; }
 .tabular { font-variant-numeric: tabular-nums; }
@@ -53,7 +60,7 @@ body { font-family: 'Golos Text', system-ui, -apple-system, sans-serif; -webkit-
   --protocol-radius-card: 1.125rem;
   --protocol-radius-control: 0.875rem;
   --protocol-space-page: clamp(1rem, 3vw, 1.5rem);
-  --protocol-shadow-card: 0 12px 32px -28px rgb(27 61 41 / .24);
+  --protocol-shadow-card: 0 4px 16px rgb(17 61 48 / .06);
 }
 @layer components {
   .protocol-card {
@@ -78,8 +85,10 @@ body { font-family: 'Golos Text', system-ui, -apple-system, sans-serif; -webkit-
     @apply inline-flex min-h-tap items-center justify-center gap-2 px-4 font-semibold;
     border-radius: var(--protocol-radius-control);
     background: rgb(var(--accent));
-    color: rgb(var(--bg));
+    color: rgb(var(--on-accent));
   }
+  .protocol-action:hover { background: rgb(var(--accent-hover)); }
+  .protocol-action:active { background: rgb(var(--accent-pressed)); }
   .protocol-state { @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold; }
   .protocol-state-ok { background: rgb(var(--ok-bg)); color: rgb(var(--ok)); }
   .protocol-state-warn { background: rgb(var(--warn-bg)); color: rgb(var(--warn)); }
@@ -254,3 +263,22 @@ main :where(details[open] > summary)::after { transform: rotate(180deg); }
 @media (min-width: 1024px) {
   .fold-nutrition-grid { grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); align-items: start; }
 }
+
+/* UI-ARCH-01: one responsive shell; screen bodies migrate in their own stages. */
+.protocol-app-header { min-height: 4rem; display: grid; grid-template-columns: 2.75rem minmax(0, 1fr) auto; align-items: center; gap: .25rem; }
+.protocol-header-control { display: inline-flex; align-items: center; justify-content: center; min-width: 2.75rem; min-height: 2.75rem; border-radius: .875rem; }
+.protocol-header-control:hover { background: rgb(var(--surface-secondary)); }
+.protocol-brand { display: inline-flex; align-items: center; justify-content: center; gap: .375rem; min-height: 2.75rem; min-width: 0; font-size: .875rem; font-weight: 650; letter-spacing: -.035em; white-space: nowrap; }
+.protocol-brand svg { flex-shrink: 0; }
+.protocol-bottom-nav a { min-height: 4rem; }
+.protocol-navigation-drawer summary { list-style: none; }
+.protocol-navigation-drawer summary::-webkit-details-marker { display: none; }
+.protocol-navigation-drawer details[open] > summary > svg:last-child { transform: rotate(90deg); }
+.protocol-skip-link { position: fixed; top: .5rem; left: 1rem; z-index: 60; padding: .75rem 1rem; border-radius: .875rem; background: rgb(var(--surface)); color: rgb(var(--ink)); transform: translateY(-200%); }
+.protocol-skip-link:focus { transform: none; }
+@media (min-width: 768px) {
+  .protocol-app-shell > .protocol-bottom-nav { background: rgb(var(--surface)); }
+  .protocol-brand { justify-content: flex-start; padding-left: .5rem; font-size: 1rem; }
+}
+
+.protocol-navigation-drawer { padding-top: max(1rem, env(safe-area-inset-top, 0px)); padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px)); overscroll-behavior: contain; }

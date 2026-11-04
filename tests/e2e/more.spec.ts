@@ -7,7 +7,7 @@ test('«Мої продукти» is reachable from the «Їжа» category in �
   const page = await device(browser);
   await page.goto('./#/more');
   await expect(page.getByRole('heading', { level: 1, name: 'Додаткові можливості' })).toBeVisible();
-  await page.getByRole('link', { name: /^Їжа Помічник, меню, покупки, страви й продукти/ }).click();
+  await page.getByRole('link', { name: /^Їжа Записи, помічник, меню, покупки, страви й продукти/ }).click();
 
   await expect(page).toHaveURL(/#\/more\/food$/);
   await page.getByRole('link', { name: 'Мої продукти' }).click();
