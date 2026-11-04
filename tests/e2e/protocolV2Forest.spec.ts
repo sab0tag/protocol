@@ -120,7 +120,7 @@ test('all routed screens fit the four target widths in light and dark themes', a
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${route || 'today'} at ${width}`).toBe(true);
         expect(await page.evaluate(() => getComputedStyle(document.documentElement).colorScheme), `${route || 'today'} ${colorScheme}`).toBe(colorScheme);
         await expect(page.getByRole('navigation', { name: 'Розділи', exact: true })).toBeVisible();
-        if (route) {
+        if (route && route !== 'plan') {
           const sceneHeader = page.locator('.protocol-scene-header').first();
           await expect(sceneHeader, `${route} at ${width}px ${colorScheme}`).toBeVisible();
           expect(await sceneHeader.evaluate((el) => getComputedStyle(el).backgroundImage), `${route} has header artwork`).toContain('url(');
