@@ -2,13 +2,13 @@ import { expect, test } from '@playwright/test';
 import { t } from '../../src/i18n/uk';
 import { device, kyivOffset, seed, ymd } from './helpers';
 
-test('water has no action under quick tiles and the floating action still adds, accumulates and undoes records', async ({ browser }) => {
+test('water shortcut and floating action retain accumulation and undo', async ({ browser }) => {
   const page = await device(browser, 'skip');
   await page.setViewportSize({ width: 320, height: 568 });
   const dock = page.getByRole('group', { name: t.dock.label });
   const water = dock.getByRole('button', { name: /Додати 250 мл води/ });
   await expect(water).not.toBeVisible();
-  await expect(page.getByText('+250 мл', { exact: true })).toHaveCount(0);
+  await expect(page.getByRole('navigation', { name: 'Швидкі дії' }).getByRole('button', { name: '+250 мл' })).toBeVisible();
   await page.getByRole('region', { name: t.summary.title, exact: true }).scrollIntoViewIfNeeded();
   await expect(water).toBeVisible();
   await expect(dock.getByText(t.summary.water, { exact: true })).toHaveCount(0);
