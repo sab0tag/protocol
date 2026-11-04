@@ -5,7 +5,7 @@ test('Protocol 2.0 Today hero retains accessible date navigation and actionable 
   const page = await device(browser);
   const hero = page.locator('header.protocol-day-hero');
   await expect(hero).toBeVisible();
-  await expect(hero.getByText('Протокол')).toBeVisible();
+  await expect(page.locator('.protocol-app-header').getByRole('link', { name: 'На сьогодні', exact: true })).toHaveText('Protocol 2.0');
   await expect(hero.getByRole('heading', { level: 1 })).toHaveText('Сьогодні');
   const week = hero.getByRole('navigation', { name: 'Тиждень' });
   await expect(week.getByRole('button')).toHaveCount(9);
