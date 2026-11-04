@@ -60,6 +60,8 @@ function foodNote(meds: NowMed[]): string | undefined {
 function Due({ item, date, onSnoozed, onConfirm }: { item: NowItem; date: string; onSnoozed: () => void; onConfirm: (e: DayEntry) => void }) {
   const Icon = item.entry ? UtensilsCrossed : Pill;
   const meds = item.meds;
+  const overdue = item.late > 60;
+  const [askingWhen, setAskingWhen] = useState(false);
   const detail = item.entry ? item.entry.items?.map((x) => `${x.name} ${amountText(x)}`).join(', ')
     : foodNote(meds ?? []);
   const when = item.late < 0 ? L.inMin(-item.late, item.time) : item.late > 0 ? L.ago(item.late, item.time) : L.at(item.time);
@@ -73,9 +75,11 @@ function Due({ item, date, onSnoozed, onConfirm }: { item: NowItem; date: string
       </p>
       <p className="mt-2 flex items-start gap-2 text-2xl font-semibold leading-tight"><Icon size={24} className="mt-0.5 shrink-0 text-accent" aria-hidden />{titleOf(item)}</p>
       {detail && <p className="mt-1 text-muted first-letter:uppercase">{detail}</p>}
-      <button type="button" onClick={() => (item.entry?.items?.length ? onConfirm(item.entry) : void mark(item, date, 'done', nowHm()))}
+      <button type="button" onClick={() => (overdue && !item.entry ? setAskingWhen(true) : item.entry?.items?.length ? onConfirm(item.entry) : void mark(item, date, 'done', nowHm()))}
         className="mt-4 flex min-h-tap w-full items-center justify-center gap-2 rounded-xl bg-accent px-4 py-2 text-lg font-semibold text-surface">
-        <Check size={22} aria-hidden />{item.entry ? L.eaten : L.taken}</button>
+        <Check size={22} aria-hidden />{overdue && !item.entry ? 'Відмітити прийом' : item.entry ? L.eaten : L.taken}</button>
+      {overdue && !item.entry && <p className="mt-2 text-sm text-muted">Час за планом минув. Перевірте вказівки лікаря; застосунок не визначає, чи можна приймати пропущену дозу.</p>}
+      {askingWhen && <TimeChoice title={titleOf(item)} planned={item.time} date={date} meal={false} allowUncertain onPick={(when) => { if ('uncertain' in when) void markMeds(meds ?? [], date, item.time, 'done', when); else void mark(item, date, 'done', when); setAskingWhen(false); }} onClose={() => setAskingWhen(false)} />}
       <div className="mt-1 flex justify-center gap-4">
         <button type="button" onClick={() => void later()} className="min-h-tap px-2 text-muted">{L.later(SNOOZE_MIN)}</button>
         {item.entry && <button type="button" onClick={() => void mark(item, date, 'skipped', { time: item.time })} className="min-h-tap px-2 text-muted">{L.skip}</button>}

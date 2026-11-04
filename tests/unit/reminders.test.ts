@@ -77,32 +77,34 @@ describe('«Зараз» / «Не відмічено» / «Далі» (D50)', ()
 
   it('after its window an item is «не відмічено», not «take it now»; medicines grouped by time', () => {
     const f = at('09:01');
-    expect(times(f.missed)).toEqual(['08:00']);
-    expect(f.now).toMatchObject({ kind: 'med', time: '08:30', key: 'med:2026-10-08:08:30', meds: [{ key: 'med:p-vitd:08:30', prescriptionId: 'p-vitd' }] });
+    expect(f.now).toMatchObject({ kind: 'meal', time: '08:00' });
+    expect(times(f.missed)).toEqual([]);
     const evening = at('20:00');
-    expect(evening.now).toBeUndefined();
+    expect(evening.now).toMatchObject({ time: '08:00' });
     expect(evening.next).toBeUndefined();
-    expect(times(evening.missed)).toEqual(['08:00', '08:30', '13:00']);
+    expect(times(evening.missed)).toEqual(['08:30', '13:00']);
   });
 
   it('a meal accepted from «Меню» is planned and becomes «не відмічено» after its window', () => {
     const accepted: DayEntry = { ...meal('m9', '2026-10-08T10:00:00+03:00'), menu: {} };
     const f = dayFocus({ entries: [...entries, accepted], plan, date: day, now: new Date(`${day}T20:00:00`) });
-    expect(times(f.missed)).toEqual(['08:00', '08:30', '10:00', '13:00']);
+    expect(f.now).toMatchObject({ time: '08:00' });
+    expect(times(f.missed)).toEqual(['08:30', '10:00', '13:00']);
     expect(at('08:10').now?.late).toBe(10);
     expect(at('07:40').now?.late).toBe(-20);
   });
 
   it('a snoozed item waits — «Далі» shows meanwhile', () => {
     const f = at('09:01', { snoozed: { 'med:2026-10-08:08:30': Date.parse('2026-10-08T09:16:00+03:00') } });
-    expect(f.now).toBeUndefined();
-    expect(f.next).toMatchObject({ time: '13:00' });
+    expect(f.now).toMatchObject({ time: '08:00' });
+    expect(f.next).toBeUndefined();
   });
 
   it('«Пропущено» is a mark too: off the list, and the reminder stops repeating', () => {
     const skipped: DayEntry = { id: 'x', at: '2026-10-08T08:30:00+03:00', kind: 'med', status: 'skipped', title: 'Вітамін D', checkKey: 'med:p-vitd:08:30' };
     const f = dayFocus({ entries: [...entries, skipped], plan, date: day, now: new Date(`${day}T20:00:00`) });
-    expect(times(f.missed)).toEqual(['08:00', '13:00']);
+    expect(f.now).toMatchObject({ time: '08:00' });
+    expect(times(f.missed)).toEqual(['13:00']);
     expect(reminders({ entries: [skipped], plan, settings: { ...OFF, meds: true }, now: new Date(`${day}T08:40:00`), days: 1 }).done).toContain('med:2026-10-08:08:30');
   });
 
@@ -114,6 +116,22 @@ describe('«Зараз» / «Не відмічено» / «Далі» (D50)', ()
     expect(focus).toEqual({ missed: [] });
     expect(result.done).toContain('med:2026-10-08:08:30');
     expect(result.items.some((x) => x.key === 'med:2026-10-08:08:30')).toBe(false);
+  });
+
+  it('overdue medicine outranks a future meal without suggesting a new dose time', () => {
+    const f = dayFocus({ entries: [meal('future', '2026-10-08T20:00:00+03:00')], plan, date: day, now: new Date('2026-10-08T12:00:00') });
+    expect(f.now).toMatchObject({ kind: 'med', time: '08:30', late: 210 });
+    expect(f.next).toBeUndefined();
+  });
+
+  it('snoozing an overdue medicine temporarily reveals a future task and keeps the original time', () => {
+    const key = 'med:2026-10-08:08:30';
+    const until = new Date('2026-10-08T12:30:00').getTime();
+    const args = { entries: [meal('future', '2026-10-08T20:00:00+03:00')], plan, date: day, snoozed: { [key]: until } };
+    const before = dayFocus({ ...args, now: new Date('2026-10-08T12:00:00') });
+    expect(before.next).toMatchObject({ time: '20:00' });
+    const after = dayFocus({ ...args, now: new Date('2026-10-08T12:31:00') });
+    expect(after.now).toMatchObject({ kind: 'med', time: '08:30' });
   });
 
   it('nothing when all is done', () => {

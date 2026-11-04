@@ -277,7 +277,12 @@ test('the time line tells waiting, deferred and unmarked apart — an unmarked d
   await expect(dose).toBeVisible();
   await expect(dose).not.toContainText('Пропущено');
   await expect(rhythm.getByRole('button', { name: /^Обід, Заплановано/ })).toBeVisible(); // 09:50 — still in its window
-  await page.getByRole('region', { name: 'Зараз' }).getByRole('button', { name: 'Нагадати за 15 хв' }).click();
+  // UI-UX-03.2: the unresolved 08:30 dose takes priority over the 09:50 lunch.
+  const nowCard = page.getByRole('region', { name: 'Зараз' });
+  await expect(nowCard).toContainText('Вітамін D');
+  await nowCard.getByRole('button', { name: 'Нагадати за 15 хв' }).click();
+  await expect(nowCard).toContainText('Обід'); // the snoozed dose yields to lunch
+  await nowCard.getByRole('button', { name: 'Нагадати за 15 хв' }).click();
   await expect(rhythm.getByRole('button', { name: /^Обід, Відкладено до 10:15/ })).toBeVisible();
   await expect(rhythm.getByRole('button', { name: /^Обід, / })).toContainText('Відкладено до 10:15');
   const stored = await page.evaluate(async () => {
