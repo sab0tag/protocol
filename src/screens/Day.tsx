@@ -41,11 +41,11 @@ import { PrnCard } from '../components/PrnCard';
 import { PilotOffer, PilotSurvey } from '../components/PilotConsent';
 import { VoiceSheet } from '../components/VoiceSheet';
 import { nearLimit, topups, type DayState } from '../domain/topup';
-import { dayRhythm } from '../domain/rhythm';
+import { presentDay } from '../domain/dayPresentation';
 import { runningLow } from '../domain/stock';
 import { unfinished } from '../domain/conclusion';
 import { useFeatures } from '../app/features';
-import { ENTRY_FEATURES, habitVisible, entryVisible, visibleChecklist } from '../domain/visibility';
+import { ENTRY_FEATURES, habitVisible, entryVisible } from '../domain/visibility';
 import type { FeatureId } from '../domain/features';
 
 import { lightDayOnDate } from '../domain/lightDay';
@@ -138,8 +138,9 @@ export function Day() {
     if (on) await saved(db.entries.put({ id, at: atLocal(date, '23:59'), kind: 'note', status: 'done', title: t.summary.foodComplete, checkKey: FOOD_COMPLETE }), t.summary.foodComplete, () => db.entries.delete(id));
     else { const was = await db.entries.get(id); await saved(db.entries.delete(id), t.toast.deleted(t.summary.foodComplete), () => (was ? db.entries.put(was) : undefined)); }
   };
-  const visibleEntries = entries?.filter((e) => entryVisible(e, context) && (!light || !['meal', 'water', 'workout'].includes(e.kind)));
-  const checklist = entries && foods && workouts ? visibleChecklist(buildChecklist({ plan, date, entries, workouts, foods, now: new Date(), observation }), context) : undefined;
+  const presentation = entries && foods && workouts ? presentDay({ plan, date, entries, workouts, foods,
+    context, now: new Date(), observation, light, lastMealBy: targets.lastMealBy }) : undefined;
+  const checklist = presentation?.checklist;
 
   const setStatus = async (e: DayEntry, status: DayEntry['status'], skipReason?: string) => {
     setRowFor(null);
@@ -197,7 +198,7 @@ export function Day() {
     else setSimple({ kind });
   };
 
-  const rhythm = visibleEntries ? dayRhythm({ entries: visibleEntries, date, observation, ...(checklist ? { checklist } : {}), ...(can('food.log') && targets.lastMealBy ? { lastMealBy: targets.lastMealBy } : {}) }) : undefined;
+  const rhythm = presentation?.rhythm;
   const quickCandidates: { feature: FeatureId; label: string; Icon: typeof Sparkles; go: () => void; done?: boolean; badge?: string }[] = [
     { feature: 'menu.ai', label: t.menu.quick, Icon: Sparkles, go: () => navigate(`/menu?date=${date}`) },
     { feature: 'wellbeing.log', label: t.well.short, Icon: HeartPulse, go: () => navigate('/wellbeing') },
