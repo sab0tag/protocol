@@ -22,6 +22,7 @@ test('mock-aligned labels distinguish adding food from saving an existing meal',
   });
   expect(entries.filter((e) => e.id === 'naming-meal')).toHaveLength(1);
   expect(entries.find((e) => e.id === 'naming-meal')?.items?.[0]?.grams).toBe(75);
+  await page.getByText('Ще дії').click();
   await page.getByRole('button', { name: 'Самопочуття', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Самопочуття', exact: true, level: 1 })).toBeVisible();
   await page.goto('./#/meal/new');
