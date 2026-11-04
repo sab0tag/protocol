@@ -165,7 +165,7 @@ export function buildReport(args: {
       ...wellbeingCoincidences(entries.filter((e) => inside(dateOf(e.at))), wellbeing.filter((x) => inside(x.date)), foods, plan, observation).map((p) => p.text)], // D71
     questions: plan?.questions ?? [],
     skipDetails: entries.filter((e) => e.status === 'skipped' && (e.kind === 'med' || e.kind === 'meal') && inside(dateOf(e.at)))
-      .map((e) => ({ kind: e.kind as 'med' | 'meal', title: e.title, date: dateOf(e.at), plannedTime: e.kind === 'med' ? e.checkKey?.split(':').at(-1) ?? format(parseISO(e.at), 'HH:mm') : format(parseISO(e.plannedAt ?? e.at), 'HH:mm'),
+      .map((e) => ({ kind: e.kind as 'med' | 'meal', title: e.title, date: dateOf(e.at), plannedTime: e.kind === 'med' ? e.checkKey?.match(/^med:.+:(\d{2}:\d{2})$/)?.[1] ?? format(parseISO(e.at), 'HH:mm') : format(parseISO(e.plannedAt ?? e.at), 'HH:mm'),
         ...(e.skipReason?.trim() ? { reason: e.skipReason.trim() } : {}) }))
       .sort((a, b) => b.date.localeCompare(a.date) || b.plannedTime.localeCompare(a.plannedTime)),
     ...(due ? { meds: { taken, due, completedLate, uncertain, noData, missed: [...missed.entries()].map(([title, count]) => ({ title, count })).sort((a, b) => b.count - a.count),

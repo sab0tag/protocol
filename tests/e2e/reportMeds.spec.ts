@@ -92,3 +92,65 @@ test('the report separates late completion, uncertainty, explicit skip, and no d
   await expect(main).not.toContainText('uncertain — пропущено');
   await expect(main).not.toContainText('no-data — пропущено');
 });
+
+test('confirmed skip history keeps full planned times in screen, print and consented export', async ({ browser }) => {
+  const page = await device(browser, 'skip');
+  await page.clock.setFixedTime(new Date('2026-10-28T12:00:00+02:00'));
+  await seed(page, [
+    { store: 'plan', value: { id: 'main', onboardedAt: date, lastVisit: date, constraints: [], targets: {}, modes: [],
+      prescriptions: [prescription('skipped', 'Тестовий препарат')] } },
+    { store: 'entries', value: { id: 'skipped', at: `${date}T08:30:00+02:00`, kind: 'med', status: 'skipped',
+      title: 'Тестовий препарат', checkKey: 'med:skipped:08:30', prescriptionId: 'skipped', skipReason: 'Не було вдома' } },
+    { store: 'entries', value: { id: 'lunch', at: `${date}T13:00:00+02:00`, plannedAt: `${date}T12:30:00+02:00`,
+      kind: 'meal', status: 'skipped', title: 'Тестовий обід' } },
+    { store: 'entries', value: { id: 'dinner', at: `${date}T20:00:00+02:00`, kind: 'meal', status: 'planned', title: 'Невідмічена вечеря' } },
+  ]);
+  await page.goto('./#/report');
+  const history = page.getByRole('region', { name: 'Підтверджені пропуски', exact: true });
+  const rows = history.getByRole('listitem');
+  await expect(rows).toHaveCount(2);
+  await expect(rows.nth(0)).toContainText('27.10.2026 · 12:30 · Їжа · Тестовий обід');
+  await expect(rows.nth(1)).toContainText('27.10.2026 · 08:30 · Ліки · Тестовий препарат');
+  await expect(rows.nth(1)).toContainText('Причина: Не було вдома');
+  await expect(history).not.toContainText('Невідмічена вечеря');
+
+  await page.evaluate(() => Object.defineProperty(navigator, 'share', { configurable: true,
+    value: async (data: ShareData) => { document.body.dataset.sharedReport = data.text; } }));
+  await page.getByRole('button', { name: 'Поділитися', exact: true }).click();
+  const consent = page.getByRole('region', { name: 'Підтвердження передачі' });
+  await expect(consent).toContainText('підтверджені пропуски та їх причини');
+  await expect(consent.getByRole('button', { name: 'Передати звіт', exact: true })).toBeDisabled();
+  expect(await page.locator('body').getAttribute('data-shared-report')).toBeNull();
+  await consent.getByRole('checkbox', { name: /Я погоджуюсь передати/ }).check();
+  await consent.getByRole('button', { name: 'Скасувати', exact: true }).click();
+  expect(await page.locator('body').getAttribute('data-shared-report')).toBeNull();
+  const text = await shareText(page);
+  expect(text).toContain('08:30 · Ліки · Тестовий препарат — причина: Не було вдома');
+  expect(text).toContain('12:30 · Їжа · Тестовий обід');
+  expect(text).not.toContain('Невідмічена вечеря');
+
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await expect(history).toBeVisible();
+  await page.emulateMedia({ media: 'print' });
+  await expect(rows.nth(1)).toBeVisible();
+  await expect(rows.nth(1)).toContainText('Причина: Не було вдома');
+  await page.context().close();
+});
+
+test('meal-only skip history remains visible without a medicine summary', async ({ browser }) => {
+  const page = await device(browser, 'skip');
+  await page.clock.setFixedTime(new Date('2026-10-28T12:00:00+02:00'));
+  await seed(page, [
+    { store: 'plan', value: { id: 'main', onboardedAt: date, lastVisit: date, prescriptions: [], constraints: [], targets: {}, modes: [] } },
+    { store: 'entries', value: { id: 'meal-only', at: `${date}T12:30:00+02:00`, kind: 'meal', status: 'skipped',
+      title: 'Обід без ліків', skipReason: 'Не встиг' } },
+  ]);
+  await page.goto('./#/report');
+  const history = page.getByRole('region', { name: 'Підтверджені пропуски', exact: true });
+  await expect(history).toContainText('Обід без ліків');
+  await expect(history).toContainText('Причина: Не встиг');
+  expect(await shareText(page)).toContain('12:30 · Їжа · Обід без ліків — причина: Не встиг');
+  await page.emulateMedia({ media: 'print' });
+  await expect(history).toBeVisible();
+  await page.context().close();
+});

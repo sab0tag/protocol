@@ -52,6 +52,30 @@ describe('report medicine outcomes without module observation', () => {
     expect(text).not.toContain('Вечеря');
   });
 
+  it('orders skips by newest day then full planned time, independently of recording time and input order', () => {
+    const skipped = (id: string, day: string, time: string): DayEntry => ({
+      id, kind: 'med', status: 'skipped', title: id, at: `${day}T23:00:00+02:00`, checkKey: `med:${id}:${time}`,
+    });
+    const r = report([
+      skipped('morning:external-id', date, '08:45'),
+      skipped('previous-evening', '2026-10-26', '22:00'),
+      skipped('afternoon', date, '14:05'),
+      { ...skipped('outside', '2026-10-25', '20:00'), skipReason: 'Outside range' },
+    ], plan, '2026-10-26', date);
+    expect(r.skipDetails?.map(x => [x.title, x.date, x.plannedTime])).toEqual([
+      ['afternoon', date, '14:05'],
+      ['morning:external-id', date, '08:45'],
+      ['previous-evening', '2026-10-26', '22:00'],
+    ]);
+    expect(reportText(r, d => d)).not.toContain('Outside range');
+  });
+
+  it.each([undefined, 'med:legacy:day', 'legacy-key'])('uses the recorded time for legacy keys without a scheduled time: %s', (checkKey) => {
+    const r = report([{ id: 'legacy', kind: 'med', status: 'skipped', title: 'Legacy',
+      at: `${date}T10:15:00+02:00`, checkKey, skipReason: '  Немає препарату  ' }]);
+    expect(r.skipDetails).toEqual([{ kind: 'med', title: 'Legacy', date, plannedTime: '10:15', reason: 'Немає препарату' }]);
+  });
+
   it('does not score days without records', () => {
     expect(report([]).meds).toBeUndefined();
     expect(report([water], plan, '2026-10-25', '2026-10-28').meds).toMatchObject({ due: 1, noData: 1, missed: [] });
