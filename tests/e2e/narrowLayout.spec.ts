@@ -56,21 +56,18 @@ for (const width of [673, 884, 1024]) test(`foldable shell remains usable at ${w
   await page.context().close();
 });
 
-test('mobile side menu opens, navigates, and closes with Escape', async ({ browser }) => {
+test('mobile routes have no global hamburger or artificial top gap', async ({ browser }) => {
   const page = await device(browser, 'demo');
   await page.setViewportSize({ width: 360, height: 800 });
-  await page.goto('./#/');
-  const open = page.getByRole('button', { name: 'Відкрити меню' });
-  await open.click();
-  const drawer = page.getByRole('dialog', { name: 'Бічне меню' });
-  await expect(drawer).toBeVisible();
-  await expect(drawer.getByRole('link', { name: 'План', exact: true })).toBeVisible();
-  await page.keyboard.press('Escape');
-  await expect(drawer).toBeHidden();
-  await expect(open).toBeFocused();
-  await open.click();
-  await drawer.getByRole('link', { name: 'План', exact: true }).click();
-  await expect(page).toHaveURL(/#\/plan$/);
-  await expect(drawer).toBeHidden();
+  for (const route of ['/', '/food', '/plan', '/progress', '/sync']) {
+    await page.goto('./#' + route);
+    const heading = page.locator('main h1').first();
+    await expect(heading).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Відкрити меню' })).toHaveCount(0);
+    await expect(page.getByRole('dialog', { name: 'Бічне меню' })).toHaveCount(0);
+    await expect(page.locator('nav.protocol-bottom-nav[aria-label="Розділи"]')).toBeVisible();
+    const topPadding = await page.locator('main').evaluate((el) => parseFloat(getComputedStyle(el).paddingTop));
+    expect(topPadding).toBeLessThan(40);
+  }
   await page.context().close();
 });
