@@ -29,6 +29,8 @@ export interface Report {
   /** D59: symptom and food coincidences, as counted — not a conclusion */
   coincidences: string[];
   questions: string[];
+  /** UI-UX-03.4: only explicitly skipped entries; planned and unmarked are excluded. */
+  skipDetails?: { kind: 'med' | 'meal'; title: string; date: ISODate; plannedTime: string; reason?: string }[];
   /** D40: the pace of the weight over the period, kg a week, and the plan's limit */
   weightPace?: number;
   maxLossPerWeek?: number;
@@ -162,6 +164,10 @@ export function buildReport(args: {
     coincidences: [...observedCoincidences(entries.filter((e) => inside(dateOf(e.at))), foods, observation).map(coincidenceText),
       ...wellbeingCoincidences(entries.filter((e) => inside(dateOf(e.at))), wellbeing.filter((x) => inside(x.date)), foods, plan, observation).map((p) => p.text)], // D71
     questions: plan?.questions ?? [],
+    skipDetails: entries.filter((e) => e.status === 'skipped' && (e.kind === 'med' || e.kind === 'meal') && inside(dateOf(e.at)))
+      .map((e) => ({ kind: e.kind as 'med' | 'meal', title: e.title, date: dateOf(e.at), plannedTime: e.kind === 'med' ? e.checkKey?.split(':').at(-1) ?? format(parseISO(e.at), 'HH:mm') : format(parseISO(e.plannedAt ?? e.at), 'HH:mm'),
+        ...(e.skipReason?.trim() ? { reason: e.skipReason.trim() } : {}) }))
+      .sort((a, b) => b.date.localeCompare(a.date) || b.plannedTime.localeCompare(a.plannedTime)),
     ...(due ? { meds: { taken, due, completedLate, uncertain, noData, missed: [...missed.entries()].map(([title, count]) => ({ title, count })).sort((a, b) => b.count - a.count),
       list: [...perMed.entries()].map(([key, n]) => {
         const p = plan?.prescriptions.find((x) => x.id === key);
@@ -210,6 +216,7 @@ export function reportText(r: Report, dm: (d: ISODate) => string): string {
     r.meds?.uncertain ? t.report.uncertain(r.meds.uncertain) : '',
     r.meds?.noData ? t.report.noData(r.meds.noData) : '',
     r.meds ? t.report.medsScope : '',
+    r.skipDetails?.length ? `Підтверджені пропуски (запланований час):\n${r.skipDetails.map((x) => `• ${dm(x.date)} ${x.plannedTime} · ${x.kind === 'med' ? 'Ліки' : 'Їжа'} · ${x.title}${x.reason ? ` — причина: ${x.reason}` : ''}`).join('\n')}` : '',
     r.meds && r.meds.list.length > 1 ? r.meds.list.map((m) => `• ${t.report.medLine(m)}`).join('\n') : '',
     ...r.prn.map((x) => `${t.prn.report(x.title, x.total, x.days)}${x.over.length ? ` — ${t.prn.over(prnLimitText(x.limit!), x.over.map((d) => d.slice(8, 10) + '.' + d.slice(5, 7)).join(', '))}` : ''}${x.unmatched ? ` — ${t.prn.reportUnmatched(x.unmatched)}` : ''}`), // D118, R01
     r.deviations ? (r.deviations.meals ? `${t.report.deviations(r.deviations.meals, r.deviations.of)}: ${r.deviations.by.map((b) => `${b.title} — ${b.count}`).join('; ')}`
