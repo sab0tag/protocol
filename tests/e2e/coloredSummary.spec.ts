@@ -26,7 +26,7 @@ test('water shortcut and floating action retain accumulation and undo', async ({
   await page.context().close();
 });
 
-test('colored rings keep the selected metrics, actual values and working SVG gradients across responsive themes', async ({ browser }) => {
+test('compact tracks keep selected metrics, actual values and distinct gradients across responsive themes', async ({ browser }) => {
   const page = await device(browser);
   const at = `${ymd(new Date())}T09:00:00${kyivOffset()}`;
   await seed(page, [
@@ -50,13 +50,10 @@ test('colored rings keep the selected metrics, actual values and working SVG gra
     await expect(ring).toHaveAttribute('aria-valuenow', percent);
     await expect(ring).toHaveAttribute('aria-valuetext', value);
     await expect(summary.getByText(value, { exact: true })).toHaveCount(1);
-    await expect(summary.getByText(`${percent}%`, { exact: true })).toBeVisible();
-    const item = ring.locator('xpath=..');
-    const headingIcon = await item.locator('.protocol-ring-icon').boundingBox();
-    const headingLabel = await item.getByText(label, { exact: true }).boundingBox();
-    const circle = await ring.boundingBox();
-    expect(headingIcon!.x + headingIcon!.width).toBeLessThan(headingLabel!.x);
-    expect(headingLabel!.y + headingLabel!.height).toBeLessThan(circle!.y);
+    await expect(summary.getByText(`${percent}%`, { exact: true })).toHaveCount(0);
+    const track = await ring.boundingBox();
+    expect(track!.height).toBeLessThanOrEqual(10);
+
   }
   for (const width of [320, 390, 768, 1024]) {
     for (const colorScheme of ['light', 'dark'] as const) {
@@ -64,15 +61,13 @@ test('colored rings keep the selected metrics, actual values and working SVG gra
       await page.emulateMedia({ colorScheme });
       await summary.scrollIntoViewIfNeeded();
       const colors = await summary.getByRole('listitem').evaluateAll((items) => items.map((item) => {
-        const ring = item.querySelector('[role="progressbar"]')!;
-        const path = ring.querySelector('circle[stroke^="url"]')!;
-        const id = path.getAttribute('stroke')!.slice(5, -1);
-        const gradient = document.getElementById(id);
-        const color = getComputedStyle(item.querySelector('.protocol-ring-icon')!).color.match(/\d+/g)!.map(Number);
-        return { color, gradient: gradient?.tagName.toLowerCase(), id };
+        const track = item.querySelector('[role="progressbar"]')!;
+        const fill = track.querySelector('.protocol-progress-fill')!;
+        const color = getComputedStyle(track).getPropertyValue('--progress-color').trim().split(/\s+/).map(Number);
+        return { color, gradient: getComputedStyle(fill).backgroundImage };
       }));
-      expect(colors.every((x) => x.gradient === 'lineargradient')).toBe(true);
-      expect(new Set(colors.map((x) => x.id)).size).toBe(3);
+      expect(colors.every(x => x.gradient.includes('linear-gradient'))).toBe(true);
+      expect(new Set(colors.map(x => x.color.join(','))).size).toBe(3);
       const [orange, green, blue] = colors.map((x) => x.color);
       expect(orange![0]).toBeGreaterThan(orange![1]!);
       expect(green![1]).toBeGreaterThan(green![0]!);

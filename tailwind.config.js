@@ -8,7 +8,7 @@ export default {
     extend: {
       colors: {
         bg: token('bg'), surface: token('surface'), ink: token('ink'), muted: token('muted'),
-        line: token('line'), accent: token('accent'), warn: token('warn'), 'warn-bg': token('warn-bg'),
+        line: token('line'), accent: token('accent'), 'on-accent': token('on-accent'), warn: token('warn'), 'warn-bg': token('warn-bg'),
         water: token('water'), ok: token('ok'), 'ok-bg': token('ok-bg'), danger: token('danger'), 'danger-bg': token('danger-bg'),
         pending: token('pending'), 'pending-bg': token('pending-bg'), disabled: token('disabled'),
       },

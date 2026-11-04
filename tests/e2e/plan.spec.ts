@@ -114,6 +114,7 @@ test('the day\'s own records are there after a look at the example — the examp
   const page = await device(browser, 'skip');
   const at = await page.evaluate(() => { const d = new Date(), p = (n: number) => String(n).padStart(2, '0'); const o = -d.getTimezoneOffset(); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T08:00:00${o < 0 ? '-' : '+'}${p(Math.floor(Math.abs(o) / 60))}:${p(Math.abs(o) % 60)}`; }); // the browser's own offset (not «+03:00» all year)
   await seed(page, [{ store: 'entries', value: { id: 'own-1', at, kind: 'meal', status: 'done', title: 'Сніданок', items: [{ foodId: 'egg-boiled', name: 'Яйце варене', grams: 100 }] } }]);
+  await page.getByText(/^Виконано та інші відмітки/).click();
   await expect(page.getByText('Сніданок').first()).toBeVisible();
   await page.goto('./#/more');
   await page.getByRole('button', { name: /Подивитись на прикладі/ }).click();
@@ -122,6 +123,7 @@ test('the day\'s own records are there after a look at the example — the examp
   await expect(page.getByText(/Ваші власні записи не зникли/)).toBeVisible();
   await page.getByRole('button', { name: 'Повернутися до своїх даних' }).click();
   await expect(page.getByText(/Ваші власні записи не зникли/)).toHaveCount(0);
+  await page.getByText(/^Виконано та інші відмітки/).click();
   await expect(page.getByText('Сніданок').first()).toBeVisible(); // the morning's record, as it was
 });
 
