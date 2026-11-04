@@ -27,9 +27,9 @@ test('«Зараз»: «Нагадати за 15 хв» hides it for 15 min; wat
   const dock = page.getByRole('group', { name: 'Ліки й вода' });
   await dock.getByRole('button', { name: /Додати 250 мл води/ }).click();
   await expect(dock.getByRole('status')).toContainText('+250 мл');
-  await expect(page.getByText(/^0,25 \/ [\d,]+ л$/)).toBeVisible(); // «Уже сьогодні»
+  await expect(page.getByRole('region', { name: 'Сьогодні', exact: true }).getByText(/^0,25 \/ [\d,]+ л$/)).toBeVisible(); // «Уже сьогодні»
   await dock.getByRole('button', { name: 'Скасувати' }).click();
-  await expect(page.getByText(/^0 \/ [\d,]+ л$/)).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Сьогодні', exact: true }).getByText(/^0 \/ [\d,]+ л$/)).toBeVisible();
 
   await page.goto('./#/workout');
   await page.getByRole('button', { name: 'Записати тренування' }).click();
@@ -128,7 +128,8 @@ test('«Як учора» stays on «День» and copies a prior meal to today
   }]);
 
   const quick = page.getByRole('navigation', { name: 'Швидкі дії' });
-  await expect(quick.getByRole('button')).toHaveCount(process.env.VITE_MODULE_POLICY_ENABLED === 'true' ? 5 : 4);
+  await expect(quick.getByRole('button', { name: 'Записати їжу' })).toBeVisible();
+  await expect(page.getByText('Ще дії')).toBeVisible();
   const rhythm = page.getByRole('region', { name: 'Найближче' });
   await rhythm.getByRole('button', { name: 'Як учора' }).click();
   const sheet = page.getByRole('dialog', { name: 'Повторити з учора' });

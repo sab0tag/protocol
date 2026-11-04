@@ -5,7 +5,7 @@ import { markMeds, TimeChoice } from '../components/MarkTime';
 import { ConfirmMeal } from '../components/ConfirmMeal';
 import { SymptomSheet } from '../components/SymptomSheet';
 import { saved } from '../components/Toast';
-import { Check, Droplet, Dumbbell, Frown, HeartPulse, ListChecks, Mic, NotebookPen, Pencil, Pill, Plus, Sparkles, Star, Target, Trash2, Undo2, UtensilsCrossed, X } from 'lucide-react';
+import { Check, Droplet, Dumbbell, Frown, HeartPulse, ListChecks, NotebookPen, Pencil, Pill, Plus, Sparkles, Star, Target, Trash2, Undo2, UtensilsCrossed, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Sheet, SheetButton } from '../components/Sheet';
@@ -220,25 +220,6 @@ export function Day() {
         <p className="text-muted">{t.day.returningAfterBreak.message}</p>
       </div>}
 
-      {/* D53: recording food is one strong button on «День», not a row under a table */}
-      <div className="mb-4 flex gap-2">
-        {/* D97: the main action keeps its width — the voice sits inside its right edge, not beside it */}
-        {can('food.log') && !light ? <div className="relative flex min-w-0 flex-1">
-          <button type="button" onClick={() => navigate('/meal/new')}
-            className="flex min-h-[3.5rem] min-w-0 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-2xl border border-accent/40 bg-surface pl-2 pr-11 text-base font-semibold text-accent shadow-sm">
-            <UtensilsCrossed size={20} className="shrink-0" aria-hidden />{t.day.recordFood}</button>
-          {/* D95: say it — a meal, a medicine, water — in one window */}
-          <button type="button" onClick={() => setVoice(true)} aria-label={t.voice.open} disabled={voice} /* D107: one window, one listener */
-            className="absolute inset-y-1 right-1 flex w-10 items-center justify-center rounded-xl border-l border-accent/20 text-accent"><Mic size={20} aria-hidden /></button>
-        </div> : <button type="button" onClick={() => setVoice(true)} disabled={voice} className="flex min-h-[3.5rem] flex-1 items-center justify-center gap-2 rounded-2xl border border-accent bg-surface px-3 font-medium text-accent"><Mic size={20} aria-hidden />{t.voice.open}</button>}
-        {/* D56: a symptom with its time, next to the food it may follow */}
-        <button type="button" onClick={() => setSymptom({})} aria-label={t.addKinds.symptom}
-          className="flex min-h-[3.5rem] shrink-0 items-center justify-center gap-1.5 protocol-card rounded-2xl border border-line bg-surface px-2.5 text-[15px] font-medium shadow-sm">
-          <Frown size={20} className="text-warn" aria-hidden />
-          {/* D97: narrow phones keep «Записати їжу» whole — the words here get shorter, the name for a screen reader stays */}
-          <span className="hidden min-[385px]:inline" aria-hidden>{t.addKinds.symptom}</span><span className="hidden min-[340px]:inline min-[385px]:hidden" aria-hidden>{t.day.unwellShort}</span></button>
-      </div>
-
       {light && (can('food.log') || can('water.log')) && <details className="mb-4 rounded-2xl border border-line bg-surface p-3">
         <summary className="min-h-tap cursor-pointer font-medium">{t.lightDay.voluntary}</summary>
         <div className="flex flex-wrap gap-2">
@@ -249,7 +230,33 @@ export function Day() {
           <button type="button" key={e.id} onClick={() => setRowFor(e)} className="block min-h-tap text-left text-sm">{timeOf(e.at)} · {e.title}</button>)}
       </details>}
 
-      {quick.length > 0 && <nav ref={tilesRef} aria-label={t.day.quick} className={`mb-5 grid gap-1 ${quick.length === 4 ? 'grid-cols-[0.8fr_1.2fr_1.2fr_0.8fr] min-[380px]:grid-cols-4' : ''}`}
+      {checklist && <QuickDock meds={{ done: meds.filter((i) => i.done).length, skipped: meds.filter((i) => i.skipped).length,
+          total: meds.length }} water={checklist.water}
+          med={medAction && { title: medAction.title, ...(medAction.time ? { time: medAction.time } : {}), missed: medAction === nextMed && medMissed,
+            ...(medAction.uncertain ? { uncertain: true } : {}) }}
+          onMed={dockMed} onWater={dockWater} hidden={tilesOnScreen} hideWater={light || !can('water.log')} />}
+
+      <ExampleNotice plan={plan} />
+      <nav ref={tilesRef} aria-label="Швидкі дії" className="mb-4 grid grid-cols-3 gap-2">
+        {can('food.log') && !light && <button type="button" onClick={() => navigate('/meal/new')} className="flex min-h-tap flex-col items-center justify-center gap-1 rounded-xl border border-line bg-surface p-2 text-center text-xs font-medium"><UtensilsCrossed size={20} className="text-accent" aria-hidden />{t.day.recordFood}</button>}
+        {can('water.log') && !light && <button type="button" onClick={() => { const e = waterRow(); void saved(db.entries.add(e), '+250 мл', () => db.entries.delete(e.id)); }} className="flex min-h-tap flex-col items-center justify-center gap-1 rounded-xl border border-line bg-surface p-2 text-center text-xs font-medium"><Droplet size={20} className="text-accent" aria-hidden />+250 мл</button>}
+        <button type="button" onClick={() => setSymptom({})} className="flex min-h-tap flex-col items-center justify-center gap-1 rounded-xl border border-line bg-surface p-2 text-center text-xs font-medium"><Frown size={20} className="text-warn" aria-hidden />{t.addKinds.symptom}</button>
+      </nav>
+      <div data-testid="focused-day-now">
+        <h2 className="mb-2 text-lg font-semibold">Зараз</h2>
+        {entries && <NowCard entries={entries} plan={plan} date={date} observation={observation} onConfirm={setConfirming} />}
+      </div>
+      {totals && <section aria-label="Прогрес дня" className="protocol-card mb-4 p-3">
+        <div className="mb-2 flex items-center justify-between gap-2"><h2 className="font-semibold">Прогрес дня</h2><button type="button" onClick={() => document.getElementById('summary')?.scrollIntoView({ behavior: 'smooth' })} className="text-sm text-accent">Усі показники</button></div>
+        <div className="grid grid-cols-3 gap-2 text-xs">
+          {can('water.log') && <div><span className="block text-muted">Вода</span><strong className="tabular">{(totals.waterMl / 1000).toLocaleString('uk-UA')} / {targets.waterMl ? (targets.waterMl / 1000).toLocaleString('uk-UA') : '—'} л</strong></div>}
+          {can('meds.log') && <div><span className="block text-muted">Ліки</span><strong className="tabular">{meds.filter((i) => i.done).length} з {meds.length}</strong></div>}
+          {can('food.log') && <div><span className="block text-muted">Вуглеводи</span><strong className="tabular">{Math.round(totals.carbs)} з {targets.carbsG?.max ?? '—'} г</strong>{targets.carbsG?.max != null && <span className="block text-muted">Обмеження</span>}</div>}
+        </div>
+      </section>}
+      <details className="mb-4 rounded-xl border border-line bg-surface p-3">
+        <summary className="min-h-tap cursor-pointer font-medium">Ще дії</summary>
+        {quick.length > 0 && <nav aria-label={t.day.quick} className={`mb-5 grid gap-1 ${quick.length === 4 ? 'grid-cols-[0.8fr_1.2fr_1.2fr_0.8fr] min-[380px]:grid-cols-4' : ''}`}
         style={quick.length === 4 ? undefined : { gridTemplateColumns: `repeat(${quick.length}, minmax(0, 1fr))` }}>
         {quick.map(({ label, Icon, go, badge, done }) => (
           <button key={label} type="button" onClick={go} aria-label={[label, done ? t.myday.workoutDone : badge].filter(Boolean).join(', ')} className="flex min-h-tap flex-col items-center gap-1 text-center">
@@ -260,14 +267,8 @@ export function Day() {
           </button>
         ))}
       </nav>}
-      {checklist && <QuickDock meds={{ done: meds.filter((i) => i.done).length, skipped: meds.filter((i) => i.skipped).length,
-          total: meds.length }} water={checklist.water}
-          med={medAction && { title: medAction.title, ...(medAction.time ? { time: medAction.time } : {}), missed: medAction === nextMed && medMissed,
-            ...(medAction.uncertain ? { uncertain: true } : {}) }}
-          onMed={dockMed} onWater={dockWater} hidden={tilesOnScreen} hideWater={light || !can('water.log')} />}
-
-      <ExampleNotice plan={plan} />
-      {entries && <NowCard entries={entries} plan={plan} date={date} observation={observation} onConfirm={setConfirming} />}
+        </details>
+      <button type="button" onClick={() => setVoice(true)} disabled={voice} className="mb-3 flex min-h-tap items-center gap-2 text-sm text-accent">{t.voice.open}</button>
       {/* D40: one notice at a time — the code first, then the backup */}
       {isToday && codeDue && (
         <div role="status" className="mb-3 space-y-2 protocol-card rounded-2xl border border-line bg-surface p-3 text-sm">
