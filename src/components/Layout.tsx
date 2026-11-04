@@ -44,7 +44,7 @@ export function Layout({ children }: { children: ReactNode }) {
   }, [drawerOpen]);
   const foodActive = ['/food', '/meal', '/dishes'].some(p => pathname === p || pathname.startsWith(p + '/'));
   return (
-    <div className="protocol-app-shell min-h-dvh min-w-0 md:flex">
+    <div className="protocol-app-shell relative min-h-dvh min-w-0 md:flex">
       <nav aria-label="Розділи"
         className="protocol-bottom-nav fixed inset-x-0 bottom-0 z-20 border-t border-line bg-surface pb-safe print:hidden md:static md:inset-auto md:w-20 md:shrink-0 md:border-r md:border-t-0 md:pt-safe lg:w-52">
         <ul className="flex gap-1 px-1 py-1.5 md:sticky md:top-0 md:flex-col md:gap-3 md:px-2 md:py-4 lg:px-3">
@@ -62,7 +62,7 @@ export function Layout({ children }: { children: ReactNode }) {
         </ul>
       </nav>
       <button ref={openerRef} type="button" aria-label="Відкрити меню" aria-expanded={drawerOpen} aria-controls="protocol-side-menu" onClick={() => setDrawerOpen(true)}
-        className="fixed right-4 top-[calc(.5rem+env(safe-area-inset-top))] z-20 flex h-11 w-11 items-center justify-center rounded-2xl border border-line bg-surface text-ink shadow-sm print:hidden md:hidden">
+        className={`z-20 flex h-11 w-11 items-center justify-center border shadow-sm print:hidden md:hidden ${pathname === '/' ? 'absolute right-8 top-[calc(1.75rem+env(safe-area-inset-top))] rounded-full border-white/30 bg-black/40 text-white' : 'fixed right-4 top-[calc(.5rem+env(safe-area-inset-top))] rounded-2xl border-line bg-surface text-ink'}`}>
         <Menu size={22} aria-hidden />
       </button>
       {drawerOpen && <div className="fixed inset-0 z-40 bg-black/50 print:hidden md:hidden" onClick={() => setDrawerOpen(false)} aria-hidden="true" />}
@@ -91,7 +91,7 @@ export function Layout({ children }: { children: ReactNode }) {
         </nav>
       </aside>
       <Toaster />
-      <main data-scene={artwork ?? 'day'} className="protocol-app-content mx-auto min-w-0 w-full max-w-2xl px-4 pb-28 pt-[calc(4rem+env(safe-area-inset-top))] md:pt-safe md:pb-10 lg:max-w-4xl lg:px-8 print:max-w-none print:pb-0">
+      <main data-scene={artwork ?? 'day'} className="protocol-app-content mx-auto min-w-0 w-full max-w-2xl px-4 pb-28 pt-[calc(4rem+env(safe-area-inset-top))] data-[scene=day]:pt-[calc(.75rem+env(safe-area-inset-top))] md:pt-safe md:pb-10 lg:max-w-4xl lg:px-8 print:max-w-none print:pb-0">
         {children}</main>
     </div>
   );
