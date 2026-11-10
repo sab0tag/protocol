@@ -76,6 +76,27 @@ test.describe('clinic → doctor → QR → patient acceptance', () => {
     await context.close(); await patient.context().close();
   });
 
+  test('preview alone does not accept a clinic plan or change its delivery status', async ({ browser, request }) => {
+    const doctorToken = (await addDoctor(request, createClinic('Клініка Preview'), 'Лікар Preview')).token;
+    const { context, code, deliveryId } = await issuePlan(browser, doctorToken, 'План лише для перегляду');
+    const patient = await patientDevice(browser);
+    await patient.goto(`./#/plan/import?code=${code}`);
+    await patient.getByRole('button', { name: 'Переглянути план', exact: true }).click();
+    await expect(patient.getByText(/Видано клінікою: Лікар Preview, Клініка Preview/)).toBeVisible();
+
+    // Seeing the contents must not be mistaken for an explicit patient acceptance.
+    expect(await localCarePlans(patient)).toBe(0);
+    const before = await request.get(`${API}/v1/clinic/plans/${deliveryId}`, { headers: auth(doctorToken) });
+    expect(before.status()).toBe(200);
+    expect((await before.json()).status).toBe('pending');
+
+    await patient.reload();
+    expect(await localCarePlans(patient)).toBe(0);
+    const after = await request.get(`${API}/v1/clinic/plans/${deliveryId}`, { headers: auth(doctorToken) });
+    expect((await after.json()).status).toBe('pending');
+    await context.close(); await patient.context().close();
+  });
+
   test('a revoked plan cannot be redeemed and nothing is stored on the patient device', async ({ browser, request }) => {
     const doctorToken = (await addDoctor(request, createClinic('Клініка A2'), 'Лікар A2')).token;
     const { context, code, deliveryId } = await issuePlan(browser, doctorToken, 'Відкликаний план');
