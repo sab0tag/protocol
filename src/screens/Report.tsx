@@ -40,20 +40,23 @@ export function Report() {
   const [question, setQuestion] = useState('');
   const [shared, setShared] = useState('');
   const [consenting, setConsenting] = useState(false);
-  const [agreed, setAgreed] = useState(false);
+  const [agreedText, setAgreedText] = useState<string | null>(null);
   if (!plan || !entries || !wellbeing || !workouts || !weights || !foods || !labs || !observationReady) return <Loading />;
 
   const first = [entries[0] && dateOf(entries[0].at), weights.find(w => validWeightDate(w.date))?.date].filter(Boolean).sort()[0];
   const from = range.from ?? plan.lastVisit ?? first ?? format(addDays(new Date(), -13), 'yyyy-MM-dd');
   const raw = buildReport({ from, to: range.to, plan, entries, workouts, wellbeing: can('wellbeing.log') ? wellbeing : [], weights, foods, labs, observation });
   const r = enabled ? visibleReport(raw, context) : raw;
+  const sharedText = reportText(r, dmy);
+  const agreed = agreedText === sharedText;
   const questions = plan.questions ?? [];
   const setQuestions = (q: string[], say: string = t.toast.saved) => saved(db.plan.update('main', { questions: q }), say);
 
   const share = async () => {
+    if (!agreed) return;
     void count('report'); // D119
-    setConsenting(false); setAgreed(false);
-    const text = reportText(r, dmy);
+    setConsenting(false); setAgreedText(null);
+    const text = sharedText;
     try {
       if (navigator.share) { await navigator.share({ title: L.title, text }); return; }
       await navigator.clipboard.writeText(text); setShared(L.copied);
@@ -184,18 +187,18 @@ export function Report() {
 
       <div className="flex flex-wrap gap-2 print:hidden">
         <button type="button" onClick={() => { void count('report'); window.print(); }} className="flex min-h-tap flex-1 items-center justify-center gap-2 rounded-xl bg-accent px-4 font-medium text-surface"><Printer size={18} />{L.print}</button>
-        <button type="button" aria-expanded={consenting} onClick={() => { setConsenting(c => !c); setAgreed(false); }} className="flex min-h-tap flex-1 items-center justify-center gap-2 rounded-xl border border-accent px-4 font-medium text-accent"><Share2 size={18} />{shared || L.share}</button>
+        <button type="button" aria-expanded={consenting} onClick={() => { setConsenting(c => !c); setAgreedText(null); }} className="flex min-h-tap flex-1 items-center justify-center gap-2 rounded-xl border border-accent px-4 font-medium text-accent"><Share2 size={18} />{shared || L.share}</button>
       </div>
       {consenting && <section aria-label="Підтвердження передачі" className="protocol-card space-y-3 p-4 text-sm print:hidden">
         <h2 className="text-lg font-semibold">Що буде передано</h2>
         <p>Текст звіту за {dmy(r.from)} — {dmy(r.to)}: {sharedParts(r).join(', ')}. Застосунок нічого не надсилає сам і не зберігає цей текст — його отримає лише той, кого ви оберете у вікні «Поділитися».</p>
         <label className="flex min-h-tap items-start gap-3">
-          <input type="checkbox" className="mt-1 h-5 w-5" checked={agreed} onChange={e => setAgreed(e.target.checked)} />
+          <input type="checkbox" className="mt-1 h-5 w-5" checked={agreed} onChange={e => setAgreedText(e.target.checked ? sharedText : null)} />
           <span>Я погоджуюсь передати ці дані своєму лікарю</span>
         </label>
         <div className="flex gap-2">
           <button type="button" disabled={!agreed} onClick={() => void share()} className="min-h-tap flex-1 rounded-xl bg-accent px-4 font-medium text-surface disabled:opacity-50">Передати звіт</button>
-          <button type="button" onClick={() => { setConsenting(false); setAgreed(false); }} className="min-h-tap rounded-xl border border-line px-4">Скасувати</button>
+          <button type="button" onClick={() => { setConsenting(false); setAgreedText(null); }} className="min-h-tap rounded-xl border border-line px-4">Скасувати</button>
         </div>
       </section>}
       <div className="print:hidden">
