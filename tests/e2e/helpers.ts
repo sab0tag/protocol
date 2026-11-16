@@ -1,4 +1,4 @@
-import { expect, type Browser, type Page } from '@playwright/test';
+import { expect, test, type Browser, type Page } from '@playwright/test';
 import { examplePlan } from '../../src/data/seed.example';
 
 /** A fresh «device»: the app loaded, its service worker settled (unless `sw: false`), then — `example`: the example plan put into the own
@@ -23,6 +23,9 @@ export async function device(browser: Browser, start: 'example' | 'demo' | 'skip
       throw new Error('service worker did not become ready');
     } catch (error) {
       if (attempt === 3) throw error;
+      // The retry exists so a stuck first load is not a failure; without more budget the attempts themselves
+      // (up to 25 s each) can exhaust the 60 s test timeout and turn a recovered start into a timed-out test.
+      test.info().setTimeout(test.info().timeout + 25_000);
     }
   }
   await page.waitForTimeout(500);
