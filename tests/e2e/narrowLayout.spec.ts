@@ -56,15 +56,20 @@ for (const width of [673, 884, 1024]) test(`foldable shell remains usable at ${w
   await page.context().close();
 });
 
-test('mobile routes have no global hamburger or artificial top gap', async ({ browser }) => {
+test('mobile routes have one compact global header without an artificial content gap', async ({ browser }) => {
   const page = await device(browser, 'demo');
   await page.setViewportSize({ width: 360, height: 800 });
   for (const route of ['/', '/food', '/plan', '/progress', '/sync']) {
     await page.goto('./#' + route);
     const heading = page.locator('main h1').first();
     await expect(heading).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Відкрити меню' })).toHaveCount(0);
-    await expect(page.getByRole('dialog', { name: 'Бічне меню' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Відкрити меню' })).toHaveCount(1);
+    await expect(page.getByRole('dialog', { name: 'Меню застосунку' })).toHaveCount(0);
+    const header = await page.locator('.protocol-app-header').boundingBox();
+    expect(header!.height).toBeGreaterThanOrEqual(56);
+    expect(header!.height).toBeLessThanOrEqual(64);
+    const content = await page.locator('main').boundingBox();
+    expect(content!.y - header!.y - header!.height).toBeLessThanOrEqual(16);
     await expect(page.locator('nav.protocol-bottom-nav[aria-label="Розділи"]')).toBeVisible();
     const topPadding = await page.locator('main').evaluate((el) => parseFloat(getComputedStyle(el).paddingTop));
     expect(topPadding).toBeLessThan(40);

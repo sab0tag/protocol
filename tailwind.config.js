@@ -12,7 +12,7 @@ export default {
         water: token('water'), ok: token('ok'), 'ok-bg': token('ok-bg'), danger: token('danger'), 'danger-bg': token('danger-bg'),
         pending: token('pending'), 'pending-bg': token('pending-bg'), disabled: token('disabled'),
       },
-      fontFamily: { sans: ['"Golos Text"', 'system-ui', '-apple-system', 'sans-serif'] },
+      fontFamily: { sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'sans-serif'] },
       minHeight: { tap: '44px' }, minWidth: { tap: '44px' },
     },
   },

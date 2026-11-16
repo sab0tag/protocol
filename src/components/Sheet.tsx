@@ -4,15 +4,19 @@ import { t } from '../i18n/uk';
 import { activateSheet, focusSheet } from './sheetFocus';
 
 /** A bottom sheet on phones, a centred dialog on wider screens. Escape, a tap outside or the visible × closes it (D74). */
-export function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+export function Sheet({ title, onClose, children, placement = 'bottom', id }: {
+  title: string; onClose: () => void; children: ReactNode; placement?: 'bottom' | 'left'; id?: string;
+}) {
   const panel = useRef<HTMLDivElement>(null);
   const close = useRef(onClose);
   close.current = onClose;
   useLayoutEffect(() => panel.current ? activateSheet(panel.current, () => close.current()) : undefined, []);
   return (
-    <div className="fixed inset-0 z-30 flex items-end justify-center bg-black/50 backdrop-blur-sm md:items-center" onClick={onClose}>
-      <div ref={panel} role="dialog" aria-modal="true" aria-label={title}
-        className="max-h-[88dvh] w-full max-w-md overflow-y-auto rounded-t-[1.75rem] border border-line bg-surface p-5 pb-safe shadow-xl md:rounded-[1.75rem]"
+    <div className={`fixed inset-0 z-30 flex bg-black/50 backdrop-blur-sm ${placement === 'left' ? 'items-stretch justify-start' : 'items-end justify-center md:items-center'}`} onClick={onClose}>
+      <div ref={panel} id={id} role="dialog" aria-modal="true" aria-label={title}
+        className={placement === 'left'
+          ? 'protocol-navigation-drawer h-dvh w-[min(22rem,calc(100%-2rem))] overflow-y-auto border-r border-line bg-surface p-4 pb-safe shadow-xl'
+          : 'max-h-[88dvh] w-full max-w-md overflow-y-auto rounded-t-[1.75rem] border border-line bg-surface p-5 pb-safe shadow-xl md:rounded-[1.75rem]'}
         onClick={(e) => e.stopPropagation()}>
         <span tabIndex={0} data-sheet-focus-guard className="pointer-events-none fixed h-px w-px opacity-0" onFocus={() => focusSheet(panel.current, true)} />
         <div className="mb-3 flex items-start gap-2">

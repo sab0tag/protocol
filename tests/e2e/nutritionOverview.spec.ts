@@ -5,9 +5,12 @@ import { t } from '../../src/i18n/uk';
 
 const L = t.nutrition;
 
-test('food tab opens the daily hub and keeps empty data and absent targets explicit', async ({ browser }) => {
+test('food menu opens the daily hub and keeps empty data and absent targets explicit', async ({ browser }) => {
   const page = await device(browser, 'skip');
-  await page.getByRole('navigation', { name: 'Розділи', exact: true }).getByRole('link', { name: t.nav.food, exact: true }).click();
+  await page.getByRole('button', { name: t.shell.openMenu }).click();
+  const menu = page.getByRole('dialog', { name: t.shell.menu });
+  await menu.locator('summary').filter({ hasText: t.more.food }).click();
+  await menu.getByRole('link', { name: t.nutrition.title, exact: true }).click();
   await expect(page).toHaveURL(/#\/food$/);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(L.title);
   await expect(page.getByText(L.empty, { exact: true })).toBeVisible();
@@ -18,7 +21,7 @@ test('food tab opens the daily hub and keeps empty data and absent targets expli
   await page.getByRole('link', { name: t.meal.title, exact: true }).click();
   await expect(page).toHaveURL(/#\/meal\/new$/);
   await expect(page.getByRole('group', { name: t.meal.entryModes }).getByRole('button')).toHaveCount(3);
-  await expect(page.getByRole('navigation', { name: 'Розділи', exact: true }).getByRole('link', { name: t.nav.food, exact: true })).toHaveAttribute('aria-current', 'page');
+  await expect(page.getByRole('navigation', { name: 'Розділи', exact: true }).getByRole('link', { name: t.nav.more, exact: true })).toHaveAttribute('aria-current', 'page');
   await page.context().close();
 });
 
