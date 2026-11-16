@@ -6,6 +6,7 @@ import { BEFORE_HOURS, eatenBefore } from '../domain/symptoms';
 import { itemAllergens, mealAllergens } from '../domain/allergens';
 import { AllergenNote } from './AllergenPicker';
 import { t } from '../i18n/uk';
+import { ScheduleHistory } from './ScheduleHistory';
 
 const fmt = (n: number) => String(round(n, 1)).replace('.', ',');
 
@@ -27,7 +28,7 @@ export function EntryPreview({ entry, foods, all }: { entry: DayEntry; foods?: M
   }
   const outcome = entry.adherence === 'uncertain' ? t.adherence.uncertain
     : entry.adherence === 'completed_late' ? t.adherence.completedLate : t.status[entry.status];
-  const head = <p className="text-sm text-muted">{entry.adherence === 'uncertain' ? '—' : entry.timeUnknown ? t.day.timeUnknown : shownTime(entry) ?? t.day.timeUnknown} · {outcome}</p>;
+  const head = <><p className="text-sm text-muted">{entry.adherence === 'uncertain' ? '—' : entry.timeUnknown ? t.day.timeUnknown : shownTime(entry) ?? t.day.timeUnknown} · {outcome}</p><ScheduleHistory entry={entry} /></>;
   if (entry.kind !== 'meal' || !entry.items?.length || !foods) {
     return <div className="mb-3">{head}{entry.kind === 'water' && <p>{entry.waterMl ?? 0} {t.units.ml}</p>}</div>;
   }

@@ -1,5 +1,6 @@
 import { differenceInMinutes, format } from 'date-fns';
 import { EntryPreview } from '../components/EntryPreview';
+import { RescheduleMeal } from '../components/RescheduleMeal';
 import { pinMeal } from '../components/Favorites';
 import { markMeds, SkipChoice, TimeChoice } from '../components/MarkTime';
 import { ConfirmMeal } from '../components/ConfirmMeal';
@@ -98,6 +99,7 @@ export function Day() {
   const navigate = useNavigate();
   const [rowFor, setRowFor] = useState<DayEntry | null>(null);
   const [skippingRow, setSkippingRow] = useState<DayEntry | null>(null);
+  const [rescheduling, setRescheduling] = useState<DayEntry | null>(null);
   const [confirming, setConfirming] = useState<DayEntry | null>(null); // D55
   const [adding, setAdding] = useState(false);
   const [yesterday, setYesterday] = useState(false);
@@ -243,7 +245,7 @@ export function Day() {
       <ExampleNotice plan={plan} />
       <div data-testid="focused-day-now">
         {presentation && (presentation.focus.now || presentation.focus.missed.length > 0) && <h2 className="mb-2 text-lg font-semibold">{t.todayView.attention}</h2>}
-        {entries && <NowCard compact entries={entries} plan={plan} date={date} observation={observation} onConfirm={setConfirming} />}
+        {entries && <NowCard compact entries={entries} plan={plan} date={date} observation={observation} onConfirm={setConfirming} onReschedule={setRescheduling} />}
       </div>
       <nav ref={tilesRef} aria-label="Швидкі дії" className="mb-4 grid grid-cols-3 gap-2">
         {can('food.log') && !light && <button type="button" onClick={() => navigate('/meal/new')} className="flex min-h-tap flex-col items-center justify-center gap-1 rounded-xl border border-line bg-surface p-2 text-center text-xs font-medium"><UtensilsCrossed size={20} className="text-accent" aria-hidden />{t.day.recordFood}</button>}
@@ -365,6 +367,7 @@ export function Day() {
             else void setStatus(rowFor, 'skipped');
           }}><X size={20} />{t.rowActions.skipped}</SheetButton>}
           {rowFor.kind !== 'symptom' && (rowFor.status !== 'planned' || rowFor.adherence === 'uncertain') && <SheetButton onClick={() => setStatus(rowFor, 'planned')}><Undo2 size={20} />{t.rowActions.planned}</SheetButton>}
+          {rowFor.kind === 'meal' && rowFor.status === 'planned' && <SheetButton onClick={() => { setRescheduling(rowFor); setRowFor(null); }}>{t.reschedule.action}</SheetButton>}
           <SheetButton onClick={() => edit(rowFor)}><Pencil size={20} />{t.rowActions.edit}</SheetButton>
           {rowFor.kind === 'meal' && !!rowFor.items?.length && (
             <SheetButton onClick={() => { const e = rowFor; setRowFor(null); void pinMeal(e.title, e.items!); }}><Star size={20} />{t.meal.pin}</SheetButton>
@@ -376,9 +379,11 @@ export function Day() {
       {skippingRow && entryVisible(skippingRow, context) && <SkipChoice title={skippingRow.title} onClose={() => setSkippingRow(null)}
         onConfirm={(reason) => { const entry = skippingRow; setSkippingRow(null); void setStatus(entry, 'skipped', reason); }} />}
       {confirming && can('food.log') && <ConfirmMeal entry={confirming} date={date} foods={foods} onClose={() => setConfirming(null)}
+        onReschedule={() => { setRescheduling(confirming); setConfirming(null); }}
         onEdit={() => { const e = confirming; setConfirming(null); edit(e); }}
         onPin={() => { const e = confirming; setConfirming(null); void pinMeal(e.title, e.items!); }}
         onDelete={() => { const e = confirming; setConfirming(null); void saved(db.entries.delete(e.id), t.toast.deleted(e.title), () => db.entries.put(e)); }} />}
+      {rescheduling && can('food.log') && entryVisible(rescheduling, context) && <RescheduleMeal entry={rescheduling} onClose={() => setRescheduling(null)} onMoved={e => setDate(dateOf(e.at))} />}
       {adding && (
         <Sheet title={t.day.addRow} onClose={() => setAdding(false)}>
           {(Object.keys(KIND_ICON) as EntryKind[]).filter((k) => can(ENTRY_FEATURES[k]) && (!light || k !== 'workout')).map((k) => {
