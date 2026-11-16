@@ -13,7 +13,12 @@ export async function device(browser: Browser, start: 'example' | 'demo' | 'skip
   // burn the whole test timeout; a short per-attempt limit and a fresh load make it a retry instead of a flaky test.
   for (let attempt = 1; ; attempt++) {
     try {
-      await page.goto('./', { timeout: 15_000 });
+      // The app's worker may reload the page as it takes control; that reload is a load, not a failed one — wait for it
+      // instead of starting yet another navigation that the next reload interrupts again.
+      await page.goto('./', { timeout: 15_000 }).catch(async (error: unknown) => {
+        if (!/interrupted by another navigation/.test(String(error))) throw error;
+        await page.waitForLoadState('load', { timeout: 15_000 });
+      });
       if (!sw) break;
       const ready = await page.evaluate(() => Promise.race([
         navigator.serviceWorker.ready.then(() => true),
