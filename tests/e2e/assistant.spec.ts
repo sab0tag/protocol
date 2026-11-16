@@ -137,3 +137,32 @@ test('open, fill and send are told apart: a filled question waits in the field a
   expect(calls).toBe(0);
   await expect(page.getByRole('button', { name: 'Дозволити й запитати' })).toHaveCount(0);
 });
+
+test('an answer still on its way when «Нова розмова» is pressed does not land in the new talk (D130)', async ({ browser }) => {
+  const page = await device(browser, 'example', { sw: false });
+  let release: () => void = () => undefined;
+  const held = new Promise<void>((resolve) => { release = resolve; });
+  let calls = 0;
+  await page.context().route('**/concierge/chat', async (r) => {
+    calls += 1;
+    if (calls === 2) await held; // the second answer waits until the talk has been cleared
+    await r.fulfill({ json: { topic: 'food', text: calls === 1 ? 'Перша відповідь.' : 'Запізніла відповідь.', items: [] } });
+  });
+  await page.goto('./#/assistant');
+  const input = page.getByRole('textbox', { name: 'Питання помічнику' });
+  await input.fill('що на обід?'); await page.getByRole('button', { name: 'Надіслати' }).click();
+  await page.getByRole('button', { name: 'Дозволити й запитати' }).click();
+  await expect(page.getByText('Перша відповідь.')).toBeVisible();
+  await input.fill('а що на вечерю?'); await page.getByRole('button', { name: 'Надіслати' }).click();
+  await expect(page.locator('ul[aria-label="Помічник"] > li[role="status"]')).toBeVisible(); // «thinking»
+  await expect.poll(() => calls).toBe(2);
+  await page.getByRole('button', { name: 'Нова розмова' }).click();
+  const talk = page.locator('ul[aria-label="Помічник"] > li');
+  await expect(talk).toHaveCount(0);
+  release();
+  await page.waitForTimeout(1_000); // the late answer arrives and must be dropped
+  await expect(talk).toHaveCount(0);
+  await expect(page.getByText('Запізніла відповідь.')).toHaveCount(0);
+  await input.fill('ще питання'); // a cleared talk can be asked again at once
+  await expect(page.getByRole('button', { name: 'Надіслати' })).toBeEnabled();
+});
