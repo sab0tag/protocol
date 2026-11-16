@@ -1,5 +1,6 @@
 import type { ProtocolDB } from './db';
 import type { DayEntry } from '../domain/types';
+import { sameEntry as same } from './entryActions';
 
 export class MealScheduleError extends Error {
   constructor(public readonly code: 'changed' | 'not_planned' | 'not_future' | 'same_time') { super(code); }
@@ -19,7 +20,6 @@ export function movedMeal(entry: DayEntry, at: string, now = new Date()): DayEnt
   return next;
 }
 
-const same = (a: DayEntry | undefined, b: DayEntry) => !!a && JSON.stringify(a) === JSON.stringify(b);
 
 /** Read/check/write is one transaction, so an open stale dialog cannot overwrite a newer outcome. */
 export async function rescheduleMeal(target: ProtocolDB, expected: DayEntry, at: string, now = new Date()): Promise<MealScheduleChange> {
