@@ -8,6 +8,7 @@ import { MORE_ROUTE_GROUPS, ROUTES, type MoreGroupId, type MoreRouteId } from '.
 import { useFeatures } from '../app/features';
 
 const LINKS = {
+  food: { Icon: Salad, title: t.nutrition.title },
   profiles: { Icon: UserRound, title: t.profiles.title },
   assistant: { Icon: MessageCircle, title: t.assistant.title },
   menu: { Icon: Sparkles, title: t.menu.quick },
