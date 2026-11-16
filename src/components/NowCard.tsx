@@ -23,7 +23,7 @@ const label = 'text-sm font-semibold uppercase tracking-wider text-muted';
  *  «Не відмічено» — past items without a mark, folded into one line, asking what happened — never «take it now»;
  *  «Далі» — the next item, when nothing is due. A reminder opens to this. An earlier day shows only its own
  *  «Не відмічено» (D52) — today's screen never collects yesterday's. */
-export function NowCard({ entries, plan, date, observation, onConfirm }: { entries: DayEntry[]; plan: Plan | undefined; date: string; observation?: Observation; onConfirm: (e: DayEntry) => void }) {
+export function NowCard({ entries, plan, date, observation, onConfirm, onReschedule }: { entries: DayEntry[]; plan: Plan | undefined; date: string; observation?: Observation; onConfirm: (e: DayEntry) => void; onReschedule: (e: DayEntry) => void }) {
   const { can, context } = useFeatures();
   const [clock, setClock] = useState(() => new Date());
   useEffect(() => { const id = setInterval(() => setClock(new Date()), 30_000); return () => clearInterval(id); }, []);
@@ -35,7 +35,7 @@ export function NowCard({ entries, plan, date, observation, onConfirm }: { entri
   if (!focus.now && !focus.next && !focus.missed.length) return null;
   return (
     <div className="mb-3 space-y-3">
-      {focus.now && <Due item={focus.now} date={date} onSnoozed={() => setClock(new Date())} onConfirm={onConfirm} />}
+      {focus.now && <Due item={focus.now} date={date} onSnoozed={() => setClock(new Date())} onConfirm={onConfirm} onReschedule={onReschedule} />}
       {focus.next && (
         <section aria-label={L.next} className="flex min-h-tap items-center gap-3 protocol-card px-4 py-3">
           <span className={label}>{L.next}</span>
@@ -43,7 +43,7 @@ export function NowCard({ entries, plan, date, observation, onConfirm }: { entri
           <span className="min-w-0 flex-1 truncate font-medium">{titleOf(focus.next)}</span>
         </section>
       )}
-      {focus.missed.length > 0 && <Missed items={focus.missed} date={date} onConfirm={onConfirm} />}
+      {focus.missed.length > 0 && <Missed items={focus.missed} date={date} onConfirm={onConfirm} onReschedule={onReschedule} />}
     </div>
   );
 }
@@ -57,7 +57,7 @@ function foodNote(meds: NowMed[]): string | undefined {
   return said.length === meds.length && said.every((m) => m.withFood === said[0]!.withFood) ? word(said[0]!) : said.map((m) => `${m.title} — ${word(m)}`).join('; ');
 }
 
-function Due({ item, date, onSnoozed, onConfirm }: { item: NowItem; date: string; onSnoozed: () => void; onConfirm: (e: DayEntry) => void }) {
+function Due({ item, date, onSnoozed, onConfirm, onReschedule }: { item: NowItem; date: string; onSnoozed: () => void; onConfirm: (e: DayEntry) => void; onReschedule: (e: DayEntry) => void }) {
   const Icon = item.entry ? UtensilsCrossed : Pill;
   const meds = item.meds;
   const overdue = item.late > 60;
@@ -85,6 +85,7 @@ function Due({ item, date, onSnoozed, onConfirm }: { item: NowItem; date: string
       <div className="mt-1 flex flex-wrap justify-center gap-x-4">
         <button type="button" onClick={() => void later()} className="min-h-tap px-2 text-muted">{L.later(SNOOZE_MIN)}</button>
         <button type="button" onClick={() => setAskingSkip(true)} className="min-h-tap px-2 text-muted">{L.skip}</button>
+        {item.entry && <button type="button" onClick={() => onReschedule(item.entry!)} className="min-h-tap px-2 text-muted">{t.reschedule.action}</button>}
         {meds && <button type="button" onClick={() => void markMeds(meds, date, item.time, 'done', { uncertain: true })}
           className="min-h-tap px-2 text-muted">{t.mark.uncertain}</button>}
       </div>
@@ -93,7 +94,7 @@ function Due({ item, date, onSnoozed, onConfirm }: { item: NowItem; date: string
 }
 
 /** Folded to «Не відмічено · 3» — after a heavy day the list must not take the screen. */
-function Missed({ items, date, onConfirm }: { items: NowItem[]; date: string; onConfirm: (e: DayEntry) => void }) {
+function Missed({ items, date, onConfirm, onReschedule }: { items: NowItem[]; date: string; onConfirm: (e: DayEntry) => void; onReschedule: (e: DayEntry) => void }) {
   const [open, setOpen] = useState(false);
   const [asking, setAsking] = useState<NowItem | null>(null);
   const [skipping, setSkipping] = useState<NowItem | null>(null);
@@ -110,9 +111,10 @@ function Missed({ items, date, onConfirm }: { items: NowItem[]; date: string; on
             <li key={x.key} className="grid grid-cols-[3rem_1fr] items-center gap-x-2 px-3 py-1 sm:grid-cols-[3rem_1fr_auto]">
               <span className="tabular text-muted">{x.time}</span>
               <span className="min-w-0 font-medium">{titleOf(x)}</span>
-              <span className="col-start-2 flex gap-1 sm:col-start-3">
+              <span className="col-start-2 flex flex-wrap gap-1 sm:col-start-3">
                 <button type="button" onClick={() => (x.entry?.items?.length ? onConfirm(x.entry) : setAsking(x))} className="min-h-tap rounded-xl border border-line px-3 text-sm font-medium">{L.mark}</button>
                 <button type="button" onClick={() => setSkipping(x)} className="min-h-tap rounded-xl px-2 text-sm text-muted">{L.skipped}</button>
+                {x.entry && <button type="button" onClick={() => onReschedule(x.entry!)} className="min-h-tap rounded-xl px-2 text-sm text-muted">{t.reschedule.action}</button>}
               </span>
             </li>
           ))}

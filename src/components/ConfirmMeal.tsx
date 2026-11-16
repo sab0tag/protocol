@@ -16,13 +16,14 @@ import { t } from '../i18n/uk';
 import { Amount } from './Amount';
 import { markMeal, SkipChoice, type ConfirmedWhen } from './MarkTime';
 import { Sheet } from './Sheet';
+import { ScheduleHistory } from './ScheduleHistory';
 
 const L = t.confirm;
 const M = t.mark;
 type Choice = 'now' | 'planned' | 'other' | 'unknown';
 
-export function ConfirmMeal({ entry, date, foods, onClose, onEdit, onPin, onDelete }: {
-  entry: DayEntry; date: string; foods?: Map<string, Food>; onClose: () => void; onEdit: () => void; onPin: () => void; onDelete: () => void;
+export function ConfirmMeal({ entry, date, foods, onClose, onEdit, onPin, onDelete, onReschedule }: {
+  entry: DayEntry; date: string; foods?: Map<string, Food>; onClose: () => void; onEdit: () => void; onPin: () => void; onDelete: () => void; onReschedule?: () => void;
 }) {
   const planned = timeOf(entry.at);
   const now = format(new Date(), 'HH:mm');
@@ -58,6 +59,7 @@ export function ConfirmMeal({ entry, date, foods, onClose, onEdit, onPin, onDele
   return (
     <Sheet title={L.title(entry.title)} onClose={onClose}>
       <p className="mb-2 text-sm text-muted">{L.hint}</p>
+      <ScheduleHistory entry={entry} />
       <ul className="divide-y divide-line border-y border-line">
         {items.map((it, i) => {
           const on = ticked.has(i);
@@ -102,6 +104,7 @@ export function ConfirmMeal({ entry, date, foods, onClose, onEdit, onPin, onDele
       <button type="button" onClick={none} className="mt-2 min-h-tap w-full rounded-xl border border-line px-4">{L.none}</button>
 
       <div className="mt-3 flex flex-wrap justify-center gap-x-5 text-sm">
+        {onReschedule && entry.status === 'planned' && <button type="button" onClick={onReschedule} className="min-h-tap text-muted">{t.reschedule.action}</button>}
         <button type="button" onClick={onEdit} className="flex min-h-tap items-center gap-1 text-muted"><Pencil size={16} aria-hidden />{t.rowActions.edit}</button>
         <button type="button" onClick={onPin} className="flex min-h-tap items-center gap-1 text-muted"><Star size={16} aria-hidden />{t.meal.pin}</button>
         <button type="button" onClick={onDelete} className="flex min-h-tap items-center gap-1 text-warn"><Trash2 size={16} aria-hidden />{t.rowActions.delete}</button>
