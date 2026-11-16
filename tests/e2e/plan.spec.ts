@@ -96,9 +96,15 @@ test('the example is a database of its own: the own records stay, «Подиви
   await page.getByRole('dialog', { name: 'Призначення' }).getByRole('button', { name: 'Зберегти' }).click();
   await page.goto('./#/more');
   await page.getByRole('button', { name: /Подивитись на прикладі/ }).click(); // the own plan is not empty — still there
-  await page.getByRole('button', { name: 'Відкрити приклад' }).click(); // D99: asked first — the own data stays
+  // D99: asked first — the own data stays. Entering also reloads; the old page already shows the example banner
+  // (the flag is set before the reload), so wait for the reload itself, or the next navigation is lost to it.
+  await Promise.all([page.waitForEvent('load'), page.getByRole('button', { name: 'Відкрити приклад' }).click()]);
   await expect(page.getByText(/Це приклад:/)).toBeVisible();
-  await page.goto('./#/plan/prescriptions');
+  // The example's database is seeded before the router mounts; a hash change in those first moments can be lost.
+  await expect(async () => {
+    await page.goto('./#/plan/prescriptions');
+    await expect(page.getByRole('heading', { name: 'Призначення', exact: true }).first()).toBeVisible({ timeout: 2_000 });
+  }).toPass();
   await expect(page.getByText('Вітамін D')).toBeVisible();
   await expect(page.getByText('Мій препарат')).toHaveCount(0); // not mixed
   await page.goto('./#/sync');
