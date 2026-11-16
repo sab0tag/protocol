@@ -126,6 +126,12 @@ export async function clearModules(page: Page): Promise<void> {
   });
 }
 
+/** Today keeps confirmed records in a collapsed history; open it without toggling an already open one shut. */
+export async function openHistory(page: Page): Promise<void> {
+  await page.locator('details').filter({ has: page.locator('summary', { hasText: /^Виконано та інші відмітки/ }) })
+    .evaluate((d) => { (d as HTMLDetailsElement).open = true; });
+}
+
 export async function seed(page: Page, rows: { store: string; value: unknown }[]): Promise<void> {
   await page.evaluate(async (rs) => {
     const req = indexedDB.open('protocol');

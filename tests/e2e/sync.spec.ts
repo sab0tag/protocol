@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { device, syncOn, toast } from './helpers';
+import { device, openHistory, syncOn, toast } from './helpers';
 
 test('two devices: a short pairing code connects the second; a meal and its deletion travel', async ({ browser }) => {
   const phone = await device(browser);
@@ -20,7 +20,9 @@ test('two devices: a short pairing code connects the second; a meal and its dele
   await laptop.getByRole('button', { name: 'У мене вже є код' }).click();
   await laptop.getByRole('textbox').fill(pair.toLowerCase());
   await laptop.getByRole('button', { name: 'Підключити' }).click();
-  await expect(laptop.getByText('Яйце варене')).toBeVisible({ timeout: 20_000 });
+  await expect(laptop.getByText('Яйце варене')).toBeAttached({ timeout: 20_000 }); // a recorded meal lives in Today's history
+  await openHistory(laptop);
+  await expect(laptop.getByText('Яйце варене')).toBeVisible();
 
   // the short code works once
   const third = await device(browser);

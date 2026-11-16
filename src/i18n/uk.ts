@@ -1,5 +1,12 @@
 // All interface texts (SPEC.md §12). Ukrainian only in v0.
 export const t = {
+  todayView: {
+    chooseDate: 'Обрати день', attention: 'Потребує уваги', goals: 'Цілі на сьогодні',
+    remaining: (count: number) => `За планом: ${count} без відмітки`,
+    remainingScope: 'Відмітки ліків, тренувань і часу вечері; їжа та кількісні цілі показані окремо.',
+    history: (count: number) => `Виконано та інші відмітки · ${count}`, historyLabel: 'Історія відміток',
+    emptyHistory: 'Підтверджених записів ще немає.',
+  },
   weightQuality: {
     chart: 'Виміри ваги, кг', weekly: 'Тижневі середні та темп', changed: 'Вимір уже змінено в іншій вкладці. Відкрийте його для редагування ще раз.',
     history: 'Історія вимірів', needsReview: (n: number) => `Вимірів на перевірці: ${n}. До підсумків і графіка їх поки не включено.`,
@@ -268,7 +275,7 @@ export const t = {
     quick: 'Швидкі дії',
     rhythm: 'Ритм дня',
     deferredUntil: (hm: string) => `Відкладено до ${hm}`, unmarked: 'Не відмічено', // D142: ТЗ 4.1 — not «пропущено»
-    upcoming: 'Найближче',
+    upcoming: 'Далі за планом',
     anytime: 'Сьогодні, будь-коли:',
     nearest: 'Найближче', elapsed: 'Час минув',
     empty: 'Почніть з одного запису — їжі, самопочуття чи іншої події. Ваш день поступово з’явиться тут.',

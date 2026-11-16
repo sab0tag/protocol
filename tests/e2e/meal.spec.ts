@@ -33,6 +33,7 @@ test('«Записати їжу» shows entry methods before search; the meal li
   await page.getByRole('button', { name: 'Додати до дня', exact: true }).click();
   await expect(toast(page)).toContainText('Перекус');
 
+  await page.getByText(/^Виконано та інші відмітки/).click();
   const recordedMeal = page.getByRole('button', { name: /^Перекус, Виконано/ });
   // Center the row before the tap so the scroll-triggered floating dock settles outside its hit area.
   await recordedMeal.evaluate(element => element.scrollIntoView({ block: 'center', behavior: 'instant' }));
