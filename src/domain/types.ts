@@ -222,6 +222,8 @@ export interface DayEntry {
   skipReason?: string;
   markedAt?: ISODateTime;
   plannedAt?: ISODateTime;
+  /** Explicit changes to a planned meal's schedule; the entry keeps its original identity. */
+  scheduleChanges?: { from: ISODateTime; to: ISODateTime; changedAt: ISODateTime }[];
   /** D119: how a meal was recorded — said in the voice window, or with lines from a photo of the plate; absent = typed or tapped */
   via?: 'voice' | 'photo';
 }

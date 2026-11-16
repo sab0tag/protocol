@@ -125,8 +125,9 @@ export function draftTotals(meals: { items: MealItem[] }[], foods: Map<string, F
 }
 
 /** «Прийняти»: planned meals for the day; an earlier menu's meals not yet ticked are replaced. */
+export const replaceableMenuMeal = (e: DayEntry) => !!e.menu && e.status === 'planned' && !e.scheduleChanges?.length;
 export function acceptPlan(draft: MenuDraft, existing: DayEntry[], newId: () => string, atLocal: (d: ISODate, t: string) => string) {
-  const remove = existing.filter((e) => e.menu && e.status === 'planned').map((e) => e.id);
+  const remove = existing.filter(replaceableMenuMeal).map((e) => e.id);
   const add: DayEntry[] = draft.meals.filter((m) => m.items.length).map((m, i) => ({
     id: newId(), at: atLocal(draft.date, m.time), kind: 'meal', status: 'planned', title: m.title, items: m.items,
     menu: i === 0 && draft.tips.length ? { tips: draft.tips } : {},
