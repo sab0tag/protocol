@@ -76,24 +76,29 @@ test.describe('clinic → doctor → QR → patient acceptance', () => {
     await context.close(); await patient.context().close();
   });
 
-  test('preview alone does not accept a clinic plan or change its delivery status', async ({ browser, request }) => {
+  test('preview alone does not accept a clinic plan: nothing is stored and the server records only receipt', async ({ browser, request }) => {
     const doctorToken = (await addDoctor(request, createClinic('Клініка Preview'), 'Лікар Preview')).token;
-    const { context, code, deliveryId } = await issuePlan(browser, doctorToken, 'План лише для перегляду');
+    const { doctor, context, code, deliveryId } = await issuePlan(browser, doctorToken, 'План лише для перегляду');
     const patient = await patientDevice(browser);
     await patient.goto(`./#/plan/import?code=${code}`);
     await patient.getByRole('button', { name: 'Переглянути план', exact: true }).click();
     await expect(patient.getByText(/Видано клінікою: Лікар Preview, Клініка Preview/)).toBeVisible();
 
-    // Seeing the contents must not be mistaken for an explicit patient acceptance.
+    // Seeing the contents must not be mistaken for an explicit patient acceptance. By design (clinic-secure-delivery.md,
+    // steps 5 and 7) the preview is the single-use redemption: the server marks the code received and erases the payload,
+    // while acceptance exists only on the patient's device, after «Зберегти обране». There is no server «accepted» state.
     expect(await localCarePlans(patient)).toBe(0);
     const before = await request.get(`${API}/v1/clinic/plans/${deliveryId}`, { headers: auth(doctorToken) });
     expect(before.status()).toBe(200);
-    expect((await before.json()).status).toBe('pending');
+    expect((await before.json()).status).toBe('redeemed');
+    await doctor.getByRole('button', { name: 'Оновити статус', exact: true }).click();
+    await expect(doctor.getByRole('status').filter({ hasText: 'Статус: отримано' })).toBeVisible();
+    expect((await redeem(request, code).then(r => r.json())).error).toBe('used'); // previewing again needs a new code
 
     await patient.reload();
     expect(await localCarePlans(patient)).toBe(0);
     const after = await request.get(`${API}/v1/clinic/plans/${deliveryId}`, { headers: auth(doctorToken) });
-    expect((await after.json()).status).toBe('pending');
+    expect((await after.json()).status).toBe('redeemed');
     await context.close(); await patient.context().close();
   });
 
