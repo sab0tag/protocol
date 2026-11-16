@@ -48,9 +48,12 @@ test('shell fits all approved widths and themes, bundles Ukrainian fonts and kee
         .map(([a, b]) => { const light = [luminance(a!), luminance(b!)].sort((x, y) => x - y); return (light[1]! + .05) / (light[0]! + .05); });
     });
     for (const ratio of contrast) expect(ratio).toBeGreaterThanOrEqual(4.5);
-    for (const link of await page.getByRole('navigation', { name: 'Розділи', exact: true }).getByRole('link').all()) {
-      const box = await link.boundingBox(); expect(box!.width).toBeGreaterThanOrEqual(44); expect(box!.height).toBeGreaterThanOrEqual(44);
-    }
+    // measured once the layout has settled at the new width (crossing the md breakpoint reflows the bar into a rail)
+    await expect(async () => {
+      for (const link of await page.getByRole('navigation', { name: 'Розділи', exact: true }).getByRole('link').all()) {
+        const box = await link.boundingBox(); expect(box!.width).toBeGreaterThanOrEqual(44); expect(box!.height).toBeGreaterThanOrEqual(44);
+      }
+    }).toPass({ timeout: 5_000 });
     await page.screenshot({ path: `test-results/mockup-shell-${width}-${scheme}.png`, fullPage: true });
   }
   expect(await page.locator('body').evaluate(el => getComputedStyle(el).fontFamily)).toContain('Inter');
