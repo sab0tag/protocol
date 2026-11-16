@@ -25,8 +25,8 @@ test('family profiles isolate records and drafts; greeting follows the selected 
   await page.getByLabel('Ім’я', { exact: true }).fill('Олена');
   await page.getByRole('button', { name: 'Зберегти профіль', exact: true }).click();
   await page.goto('./#/');
-  await expect(page.getByTestId('greeting')).toContainText('Олена');
-  await page.getByTestId('greeting').click();
+  await expect(page.getByTestId('active-profile')).toContainText('Олена');
+  await page.getByTestId('active-profile').click();
   await page.getByRole('button', { name: 'Додати профіль', exact: true }).click();
   await page.getByLabel('Ім’я', { exact: true }).fill('Данило');
   await page.getByLabel('Ким доводиться').selectOption('child');
@@ -35,7 +35,7 @@ test('family profiles isolate records and drafts; greeting follows the selected 
   const child = directory.profiles.find((p: { name: string }) => p.name === 'Данило');
   await page.getByRole('button', { name: 'Відкрити профіль: Данило', exact: true }).click();
   await page.getByText('Інші способи почати').click(); await page.getByRole('button', { name: /^Пропустити/ }).click();
-  await expect(page.getByTestId('greeting')).toContainText('Данило');
+  await expect(page.getByTestId('active-profile')).toContainText('Данило');
   const childData = await page.evaluate(async id => {
     const req = indexedDB.open(`protocol-profile-${id}`);
     await new Promise(r => { req.onsuccess = r; });
@@ -67,7 +67,7 @@ test('family profiles isolate records and drafts; greeting follows the selected 
   expect(childWater).toEqual([500]);
   // A notification for the original person must restore that profile before navigating.
   await page.goto('./?protocol-profile=main#/');
-  await expect(page.getByTestId('greeting')).toContainText('Олена');
+  await expect(page.getByTestId('active-profile')).toContainText('Олена');
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('protocol.profiles.v1')!).active)).toBe('main');
   expect(await page.evaluate(() => localStorage.getItem('protocol.kept.menu'))).toContain('own draft');
   const ownWater = await page.evaluate(async () => {
@@ -84,7 +84,7 @@ test('family profiles isolate records and drafts; greeting follows the selected 
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: `test-results/profiles-${width}-${colorScheme}.png`, fullPage: true });
     await page.goto('./#/');
-    await expect(page.getByTestId('greeting')).toContainText('Олена');
+    await expect(page.getByTestId('active-profile')).toContainText('Олена');
     const wellbeing = page.locator('details').filter({ hasText: 'Ще дії' }).getByText('Самопочуття', { exact: true });
     // The label may legitimately wrap to two lines at 320px; reject clipping or a third line.
     await page.getByText('Ще дії').click();
@@ -101,12 +101,21 @@ test('family profiles isolate records and drafts; greeting follows the selected 
 });
 
 
-test('greeting updates across time boundaries and a new phrase appears at local midnight', async ({ browser }) => {
+test('Today keeps the active profile visible without a motivational banner', async ({ browser }) => {
+  const page = await device(browser, 'skip');
+  await expect(page.getByTestId('active-profile')).toBeVisible();
+  await expect(page.getByTestId('daily-phrase')).toHaveCount(0);
+  await page.getByTestId('active-profile').click();
+  await expect(page.getByRole('heading', { name: 'Сім’я та профілі', exact: true })).toBeVisible();
+  await page.context().close();
+});
+
+test('profile encouragement updates at time boundaries and local midnight', async ({ browser }) => {
   const page = await device(browser, 'skip');
   await page.clock.install({ time: new Date('2026-10-27T11:59:50+02:00') });
-  await page.reload();
+  await page.goto('./#/profiles');
   const greeting = page.getByTestId('greeting');
-  const phrase = page.locator('.protocol-day-hero p').filter({ has: page.locator('svg') });
+  const phrase = page.getByTestId('daily-phrase');
   await expect(greeting).toHaveText('Добрий ранок');
   await page.clock.runFor(30000);
   await expect(greeting).toHaveText('Добрий день');

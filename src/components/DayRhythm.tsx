@@ -1,11 +1,13 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useEffect, useState } from 'react';
 import { db } from '../data/db';
+import { timeOf } from '../domain/dates';
+import { FOOD_COMPLETE } from '../domain/habits';
 import { pendingStatus, rhythmPresentation, type PendingStatus } from '../domain/rhythmPresentation';
 import { localSnoozed, SNOOZED } from '../sync/push';
 // «Ритм дня» (SPEC.md §14.1, D53, D142): the day as a time line — done is a filled dot with «Записано», ahead is an open
 // circle, skipped is quiet. A whole row is the button (the row's sheet, D46); a dose of the plan asks when (D52).
-import { Dumbbell, Pill, Plus, Undo2 } from 'lucide-react';
+import { Dumbbell, Pill, Plus, Undo2, UtensilsCrossed, Droplet, NotebookPen, HeartPulse } from 'lucide-react';
 import type { CheckItem } from '../domain/checklist';
 import { amountText } from '../domain/foodSearch';
 import { mealNutrients, round } from '../domain/nutrition';
@@ -14,9 +16,11 @@ import type { DayEntry, Food } from '../domain/types';
 import { t } from '../i18n/uk';
 
 const L = t.day;
+const ENTRY_ICON = { meal: UtensilsCrossed, med: Pill, water: Droplet, workout: Dumbbell, note: NotebookPen, symptom: HeartPulse };
+const ignoreDose = () => undefined;
 
-export function DayRhythm({ date, rhythm, foods, onEntry, onDose, onAnytime, onAdd, onYesterday, title = L.rhythm, addLabel = L.addOther }: {
-  date: string; rhythm: Rhythm; foods?: Map<string, Food>; title?: string;
+export function DayRhythm({ date, rhythm, foods, onEntry, onDose, onAnytime, onAdd, onYesterday, title = L.rhythm, addLabel = L.addOther, pendingOnly = false }: {
+  date: string; rhythm: Rhythm; pendingOnly?: boolean; foods?: Map<string, Food>; title?: string;
   onEntry: (e: DayEntry) => void; onDose: (i: CheckItem) => void; onAnytime: (i: CheckItem) => void; onAdd: () => void; onYesterday?: () => void; addLabel?: string;
 }) {
   const [now, setNow] = useState(() => new Date());
@@ -29,9 +33,11 @@ export function DayRhythm({ date, rhythm, foods, onEntry, onDose, onAnytime, onA
   }, []);
   const synced = useLiveQuery(async () => (await db.meta.get('sync'))?.snoozed ?? {}, [], {});
   const snoozed = { ...localSnoozed, ...synced };
-  const phases = rhythmPresentation(rhythm.nodes, date, now);
   const pending = (n: RhythmNode) => pendingStatus(n, date, now, snoozed);
-  const empty = rhythm.nodes.length === 0 && rhythm.anytime.length === 0;
+  const nodes = pendingOnly ? rhythm.nodes.filter(node => node.kind !== 'entry' || (node.entry.status === 'planned' && node.entry.adherence !== 'uncertain')) : rhythm.nodes;
+  // Outcomes remain separate from planned actions. Water and voluntary light-day records are retained here too.
+  const nodePhases = rhythmPresentation(nodes, date, now);
+  const empty = nodes.length === 0 && rhythm.anytime.length === 0;
   return (
     <section aria-labelledby="rhythm" className="protocol-card mb-4 p-4 sm:p-5">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
@@ -50,11 +56,24 @@ export function DayRhythm({ date, rhythm, foods, onEntry, onDose, onAnytime, onA
           ))}
         </div>
       )}
-      {rhythm.nodes.length === 0
+      {nodes.length === 0
         ? empty && <p className="py-4 text-muted">{L.empty}</p>
-        : <ol className="relative space-y-1">{rhythm.nodes.map((n, k) => <Node key={k} phase={phases[k]!} pending={pending(n)} node={n} last={k === rhythm.nodes.length - 1} foods={foods} onEntry={onEntry} onDose={onDose} />)}</ol>}
+        : <ol className="relative space-y-1">{nodes.map((n, k) => <Node key={k} phase={nodePhases[k]!} pending={pending(n)} node={n} last={k === nodes.length - 1} foods={foods} onEntry={onEntry} onDose={onDose} />)}</ol>}
       {!empty && <button type="button" onClick={onAdd} className="protocol-action-secondary mt-3 w-full"><Plus size={18} aria-hidden />{addLabel}</button>}
     </section>
+  );
+}
+
+/** Confirmed records use actual times; neither skips nor unknown outcomes are presented as completed. */
+export function DayHistory({ records, foods, onEntry }: { records: DayEntry[]; foods?: Map<string, Food>; onEntry: (entry: DayEntry) => void }) {
+  const history: RhythmNode[] = records.filter(entry => entry.checkKey !== FOOD_COMPLETE).map(entry => ({ kind: 'entry', entry, at: timeOf(entry.at) }));
+  return (
+    <details className="protocol-card mb-4">
+      <summary className="min-h-tap cursor-pointer font-semibold">{t.todayView.history(history.length)}</summary>
+      <section aria-label={t.todayView.historyLabel}>
+        {history.length === 0 ? <p className="py-3 text-sm text-muted">{t.todayView.emptyHistory}</p> : <ol className="mt-2 space-y-1">{history.map((node, index) => <Node key={node.kind === 'entry' ? node.entry.id : index} node={node} phase="past" pending={{ state: 'planned' }} last={index === history.length - 1} foods={foods} onEntry={onEntry} onDose={ignoreDose} />)}</ol>}
+      </section>
+    </details>
   );
 }
 
@@ -78,12 +97,13 @@ function Node({ node, phase, pending, last, foods, onEntry, onDose }: {
         <button type="button" onClick={() => onDose(i)} aria-label={`${i.title}, ${pendingWord(pending, t.status.planned)}`}
           className="grid min-h-tap w-full grid-cols-[3.5rem_1.5rem_1fr] items-start gap-x-2 rounded-xl px-2 py-3 text-left transition-colors hover:bg-accent/5 focus-visible:outline-offset-0">
           <span className="tabular text-muted">{node.at}</span><Dot state={pending.state === 'unmarked' ? 'unmarked' : 'ahead'} />
-          <span className="min-w-0"><span className="protocol-rhythm-phase">{phase === 'current' ? L.nearest : phase === 'past' ? L.elapsed : null}</span><span className="block font-medium">{i.title}</span><span className="block text-sm text-muted">{[note, pendingWord(pending, L.byPlan)].filter(Boolean).join(' · ')}</span></span>
+          <span className="min-w-0"><span className="protocol-rhythm-phase">{phase === 'current' ? L.nearest : phase === 'past' ? L.elapsed : null}</span><span className="flex items-center gap-2 font-medium"><Pill size={16} className="shrink-0 text-accent" aria-hidden />{i.title}</span><span className="block text-sm text-muted">{[note, pendingWord(pending, L.byPlan)].filter(Boolean).join(' · ')}</span></span>
         </button>{line}
       </li>
     );
   }
   const e = node.entry;
+  const Icon = ENTRY_ICON[e.kind];
   const detail = e.kind === 'meal' ? e.items?.map((x) => `${x.name} ${amountText(x)}`).join(', ') : undefined;
   const carbs = e.kind === 'meal' && e.items?.length && foods ? round(mealNutrients(e.items, foods).carbs) : null;
   const sym = e.kind === 'symptom'; // D56
@@ -99,7 +119,7 @@ function Node({ node, phase, pending, last, foods, onEntry, onDose }: {
           {e.timeUnknown || e.adherence === 'uncertain' ? '—' : node.at}</span><Dot state={state} />
         <span className="min-w-0">
           {phase === 'current' && <span className="protocol-rhythm-phase">{L.nearest}</span>}
-          <span className={`block font-medium ${state === 'skipped' ? 'line-through' : ''}`}>{e.title}</span>
+          <span className={`flex items-start gap-2 font-medium ${state === 'skipped' ? 'line-through' : ''}`}><Icon size={16} className="mt-0.5 shrink-0 text-accent" aria-hidden />{e.title}</span>
           {detail && <span className="block truncate text-sm text-muted">{detail}</span>}
           <span className={`block text-sm ${state === 'done' ? 'text-accent' : state === 'symptom' ? 'text-warn' : 'text-muted'}`}>{word}</span>
         </span>

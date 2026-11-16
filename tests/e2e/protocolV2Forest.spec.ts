@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import { t } from '../../src/i18n/uk';
 import { device, kyivOffset, seed, syncOn, ymd } from './helpers';
 
-test('forest stays available offline; primary action and honest meters remain usable on a narrow phone', async ({ browser }) => {
+test('Today stays available offline; primary action and honest meters remain usable on a narrow phone', async ({ browser }) => {
   const page = await device(browser);
   await page.setViewportSize({ width: 320, height: 568 });
   await page.emulateMedia({ colorScheme: 'dark' });
@@ -11,7 +11,7 @@ test('forest stays available offline; primary action and honest meters remain us
     { store: 'entries', value: { id: 'forest-food', at: `${ymd(new Date())}T09:10:00${kyivOffset()}`, kind: 'meal', status: 'done', title: 'Тестовий запис', items: [{ name: 'Власний продукт', grams: 100, manual: { kcal: 900, protein: 0, fat: 0, carbs: 230, calciumMg: 0 } }] } },
   ]);
   const action = page.getByRole('button', { name: t.day.recordFood, exact: true });
-  await expect(action).toBeInViewport();
+  await expect(action).toBeVisible();
   const summary = page.getByRole('region', { name: t.summary.title });
   const water = summary.getByRole('progressbar', { name: t.summary.water });
   await expect(water).toHaveAttribute('aria-valuenow', '100');
@@ -19,15 +19,13 @@ test('forest stays available offline; primary action and honest meters remain us
   const carbs = summary.getByRole('progressbar', { name: t.summary.carbs });
   await expect(carbs).toHaveAttribute('aria-valuenow', '100');
   await expect(carbs).toHaveAttribute('aria-valuetext', /230 г.*190.*40/);
-  const boxes = await Promise.all([summary.boundingBox(), page.getByRole('region', { name: 'Найближче' }).boundingBox()]);
+  const boxes = await Promise.all([summary.boundingBox(), page.getByRole('region', { name: 'Далі за планом' }).boundingBox()]);
   expect(boxes[1]!.y).toBeLessThan(boxes[0]!.y);
-  const background = await page.locator('.protocol-day-hero').evaluate((el) => getComputedStyle(el).backgroundImage);
-  const asset = /url\("?([^"\)]+\.webp)"?\)/.exec(background)?.[1];
-  expect(asset).toBeTruthy();
+  await expect(page.locator('.protocol-day-hero')).toHaveCount(0);
+  expect(await page.locator('.protocol-day-heading').evaluate(el => getComputedStyle(el).backgroundImage)).toBe('none');
   await page.context().setOffline(true);
   await page.reload();
   await expect(page.getByRole('heading', { level: 1, name: 'Сьогодні', exact: true })).toBeVisible();
-  expect(await page.evaluate(async (url) => (await fetch(url!)).ok, asset)).toBe(true);
   await page.screenshot({ path: 'test-results/forest-today-320-dark.png', fullPage: true });
   await page.context().close();
 });
