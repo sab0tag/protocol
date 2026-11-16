@@ -89,10 +89,12 @@ test('«Ще» shows four categories; the exercise library is inside «Трен�
   await expect(page).toHaveURL(/#\/sync\?back=%2Freminders/);
 });
 
-test('floating medicine and water actions stay off the first screen and return after scrolling', async ({ browser }) => {
+test('floating medicine and water actions stay hidden while the quick tiles are on screen and return after scrolling', async ({ browser }) => {
   const page = await device(browser);
   const dock = page.getByRole('group', { name: 'Ліки й вода' });
-  await expect(page.getByRole('navigation', { name: 'Швидкі дії' })).toBeInViewport();
+  const tiles = page.getByRole('navigation', { name: 'Швидкі дії' });
+  await tiles.scrollIntoViewIfNeeded(); // Today puts what needs attention first; the tiles may sit just below it
+  await expect(tiles).toBeInViewport();
   await expect(dock.getByRole('button', { name: /Додати 250 мл води/ })).not.toBeVisible();
   await expect(dock.getByRole('button', { name: /^Відмітити прийнятим|^Ліки на сьогодні/ })).toHaveCount(0);
   await page.setViewportSize({ width: 375, height: 600 }); // a small phone

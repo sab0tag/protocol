@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { device, seed, toast } from './helpers';
+import { device, seed, toast, openHistory } from './helpers';
 
 const date = '2026-11-04';
 const original = { id: 'reschedule-meal', kind: 'meal', status: 'planned', at: `${date}T08:30:00+02:00`, title: 'Тестовий обід',
@@ -93,6 +93,7 @@ test('a planned meal without products has the same move action; recorded meals c
   await page.getByRole('dialog', { name: 'Перенести: Тестовий обід', exact: true }).getByRole('button', { name: 'Скасувати', exact: true }).click();
   for (const status of ['done', 'skipped']) {
     await seed(page, [{ store: 'entries', value: { ...original, status } }]);
+    await openHistory(page); // recorded outcomes are listed in Today's history, not among planned actions
     await page.getByRole('button', { name: new RegExp(`^Тестовий обід, ${status === 'done' ? 'Виконано' : 'Пропущено'}`) }).click();
     await expect(page.getByRole('dialog', { name: 'Тестовий обід', exact: true }).getByRole('button', { name: 'Перенести', exact: true })).toHaveCount(0);
     await page.getByRole('button', { name: 'Закрити', exact: true }).click();
