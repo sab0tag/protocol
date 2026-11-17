@@ -1,3 +1,4 @@
+import { PlanContext } from '../components/PlanContext';
 import { PlanOverview } from '../components/PlanOverview';
 import { format, parseISO } from 'date-fns';
 import { ExampleNotice } from '../components/ExampleNotice';
@@ -73,6 +74,7 @@ export function Plan({ section = 'home' }: { section?: PlanSection }) {
     if (enabled && before && planModuleSuggestions(before, plan, events).length) setReview((prior) => ({ before: prior?.before ?? before, after: plan }));
   }, [plan, events, enabled]);
   useEffect(() => { if ((location.state as { moduleReview?: unknown } | null)?.moduleReview) navigate(location.pathname, { replace: true, state: null }); }, []); // consume a completed repeat-onboarding review once
+  const [addingPlan, setAddingPlan] = useState(false);
   const [editing, setEditing] = useState<Editing | null>(null);
   const pieces = useLiveQuery(async () => new Map((await db.pieces.toArray()).map((x) => [x.id, x.url])), []); // D114
   if (!plan) return <Loading />;
@@ -93,7 +95,7 @@ export function Plan({ section = 'home' }: { section?: PlanSection }) {
 
   return (
     <section className="space-y-4 pt-4">
-      {section === 'home' ? <header className="protocol-scene-header"><h1 className="text-2xl font-semibold">{P.title}</h1></header> : (
+      {section === 'home' ? <header className="protocol-plan-heading flex flex-wrap items-center justify-between gap-3"><h1 className="text-3xl font-semibold tracking-tight">{P.title}</h1><button type="button" className="protocol-action" onClick={() => setAddingPlan(true)}><Plus size={18} aria-hidden />{t.planView.add}</button></header> : (
         <header className="protocol-scene-header space-y-2">
           <Link to="/plan" className="inline-flex min-h-tap items-center gap-1 text-sm text-muted">
             <ChevronLeft size={18} aria-hidden />{P.title}
@@ -102,7 +104,8 @@ export function Plan({ section = 'home' }: { section?: PlanSection }) {
         </header>
       )}
       <ExampleNotice plan={plan} />
-      {section === 'home' && <section className="protocol-card space-y-3 p-4" aria-label="Чернетки від клінік">
+      {section === 'home' && <PlanContext plan={plan} />}
+      {section === 'home' && (!clinicDrafts || clinicDrafts.length > 0) && <section className="protocol-card space-y-3 p-4" aria-label="Чернетки від клінік">
         <h2 className="text-lg font-semibold">Отримані плани від клінік</h2>
         <p className="text-sm text-muted">Ці призначення збережено окремо від поточного плану. Вони не створюють щоденних завдань або нагадувань, поки ви не перевірите їх із лікарем.</p>
         {clinicDrafts === undefined && <p role="status" className="text-sm text-muted">Завантажуємо чернетки…</p>}
@@ -137,6 +140,14 @@ export function Plan({ section = 'home' }: { section?: PlanSection }) {
         goalsPreview={goalsPreview}
         checkupPreview={checkupPreview}
       />}
+      {addingPlan && <Sheet title={t.planView.add} onClose={() => setAddingPlan(false)}>
+        <nav aria-label={t.planView.add} className="space-y-3">
+          <Link to="/plan/scan" onClick={() => setAddingPlan(false)} className="protocol-action flex">{t.conclusion.button}</Link>
+          <p className="text-sm text-muted">{t.planView.photoHint}</p>
+          <Link to="/plan/import" onClick={() => setAddingPlan(false)} className="protocol-action-secondary flex">{t.planView.qr}</Link>
+          <Link to="/plan/prescriptions" onClick={() => setAddingPlan(false)} className="protocol-action-secondary flex">{t.planView.manual}</Link>
+        </nav>
+      </Sheet>}
       {review && <PlanModuleReview before={review.before} after={plan} onClose={() => setReview(null)} />}
 
       {section === 'prescriptions' && duplicateInn(plan.prescriptions).map((d) => ( /* D89: information, never «не приймайте» */

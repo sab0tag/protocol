@@ -42,6 +42,7 @@ test('a doctor’s conclusion, two pages, no account (model stubbed) → «Ос�
       unread: [{ text: 'Ам…ин 1/2 т', page: 2, box: [0.1, 0.6, 0.4, 0.05] }] } });
   });
   await page.goto('./#/plan');
+  await page.getByRole('button', { name: 'Додати план', exact: true }).click();
   await page.getByRole('link', { name: /Фото висновку лікаря/ }).click();
   await expect(page).toHaveURL(/#\/plan\/scan$/);
   await page.getByRole('button', { name: 'Фото висновку лікаря' }).click();
