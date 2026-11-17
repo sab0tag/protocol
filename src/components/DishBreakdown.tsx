@@ -8,7 +8,10 @@ import { useMemo, useState } from 'react';
 import { db, inDemo } from '../data/db';
 import { newId } from '../domain/dates';
 import { breakdown, recipeItems, type DishLine } from '../domain/dishBreakdown';
-import type { Food, Plan } from '../domain/types';
+import { similarDish } from '../domain/recipes';
+import { useRecipes } from '../data/queries';
+import { SameDish } from './SameDish';
+import type { Food, Plan, Recipe } from '../domain/types';
 import { BreakdownEditor } from './BreakdownEditor';
 import { t } from '../i18n/uk';
 import { ApiError, dishBreakdown } from '../sync/api';
@@ -48,9 +51,13 @@ export function DishBreakdown({ foods, plan, initial = '', replace }: { foods: M
       setError((L.errors as Record<string, string>)[code] ?? L.errors.other); setState('none');
     }
   };
-  const save = async () => {
-    const recipe = { id: replace ?? newId(), name: name.trim(), items: recipeItems(lines, portions) };
-    const was = replace ? await db.recipes.get(replace) : undefined; // «Скасувати» gives the draft back
+  const recipes = useRecipes();
+  const [same, setSame] = useState<Recipe | null>(null); // D164: «Це те саме?»
+  const trySave = () => { const similar = replace ? undefined : similarDish(name, recipes ?? []); if (similar) setSame(similar); else void save(); };
+  const save = async (into?: Recipe) => {
+    setSame(null);
+    const recipe = { id: into?.id ?? replace ?? newId(), name: (into?.name ?? name).trim(), items: recipeItems(lines, portions) };
+    const was = into ?? (replace ? await db.recipes.get(replace) : undefined); // «Скасувати» gives the draft (or the dish it updated) back
     await saved(db.recipes.put(recipe), L.saved(recipe.name), () => (was ? db.recipes.put(was) : db.recipes.delete(recipe.id)));
     setState('none'); setLines([]); setText('');
   };
@@ -78,10 +85,11 @@ export function DishBreakdown({ foods, plan, initial = '', replace }: { foods: M
         <BreakdownEditor foods={foods} {...(plan ? { plan } : {})} name={name} onName={setName} portions={portions} onPortions={setPortions}
           lines={lines} onLines={setLines} note={note}>
           <div className="flex flex-wrap gap-2">
-            <button type="button" disabled={!name.trim() || !lines.some((l) => l.grams > 0)} onClick={() => void save()}
+            <button type="button" disabled={!name.trim() || !lines.some((l) => l.grams > 0)} onClick={trySave}
               className="min-h-tap rounded-xl bg-accent px-4 font-medium text-surface disabled:opacity-40">{L.save}</button>
             <button type="button" onClick={() => { setState('none'); setLines([]); }} className="min-h-tap rounded-xl border border-line px-4">{t.meal.cancel}</button>
           </div>
+          {same && <SameDish similar={same} onSame={() => void save(same)} onNew={() => void save()} />}
         </BreakdownEditor>
       )}
       {error && <p role="alert" className="text-sm text-warn">{error}</p>}

@@ -390,6 +390,8 @@ export const t = {
     waterAdded: (ml: number) => `+${ml} мл`, medsNow: 'Ліки на зараз', medsDay: 'Ліки на сьогодні',
     hold: 'Утримуйте, щоб відкрити історію', moodTitle: 'Як ви почуваєтеся?', moodSaved: (word: string) => `Самопочуття: ${word.toLowerCase()}`,
     unwellLink: 'Мені погано →',
+    order: 'Порядок відміток на «Сьогодні»', orderHint: 'Видно лише відмітки ввімкнених розділів, не більше чотирьох.',
+    up: (name: string) => `${name}: вище`, down: (name: string) => `${name}: нижче`,
   },
   tiles: { // D159, D161: the day's food as tiles — three meals and each snack
     title: 'Їжа',
@@ -408,8 +410,11 @@ export const t = {
     swipeHint: 'Проведіть ліворуч, щоб прибрати',
     mic: 'Сказати голосом', listening: 'Слухаю…', camera: 'Фото тарілки',
     addFood: 'Додати їжу', which: 'Що це за прийом?', // D161
+    otherDay: 'Як у який день?', otherDayHint: 'Утримуйте, щоб обрати інший день тижня', likeDay: (weekday: string) => `Як у ${weekday}`, // D164
+    weekdayAcc: ['неділю', 'понеділок', 'вівторок', 'середу', 'четвер', 'пʼятницю', 'суботу'],
   },
   meal: {
+    checkPortion: 'Перевірте кількість — зазвичай ви їсте інакше', // D164
     moreEntryMethods: 'Голос та скан етикетки',
     planClear: 'Відомих конфліктів із вашим планом не знайдено', planAttention: 'Потребує уваги',
     planAllergen: 'Виявлено алерген із вашого плану', partialBadge: 'Перевірка неповна', planIncomplete: 'Перевірка неповна — уточніть склад або обмеження',
@@ -1063,6 +1068,7 @@ export const t = {
     scheduleEnded: (until: string) => `Розклад закінчився ${until} — відкрийте Протокол з інтернетом, щоб надіслати новий.`,
   },
   dishes: {
+    same: { ask: (name: string) => `Це те саме, що «${name}»?`, yes: (name: string) => `Так, оновити «${name}»`, no: 'Ні, це інша страва' }, // D164
     harch: (diet: string, n: number) => `Картки страв Харчоблоку для ${diet} — ${n}`, // D90
     harchHint: 'Довідково, не перевірено дієтологом: лікарняні порції, у деяких є цукор і молоко. У пошук їжі вони не потрапляють.',
     title: 'Мої страви',

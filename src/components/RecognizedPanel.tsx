@@ -1,11 +1,14 @@
 import { useState, type ReactNode } from 'react';
 import { amountText, approxG, needsGrams, type Recognized } from '../domain/foodSearch';
 import type { MealItem } from '../domain/types';
+import { portionSuspect } from '../domain/mealSlots';
 import { t } from '../i18n/uk';
 
 /** Lines recognized from a dictated phrase (D30) or a photo (D32), each with a tick; nothing is added until «Додати». */
-export function RecognizedPanel({ title, rows: given, note, onAdd, notFound, addLabel }: {
-  title: string; addLabel?: (n: number) => string; rows: Recognized[]; note?: string; onAdd: (items: MealItem[], missing: string[]) => void; notFound?: (text: string) => ReactNode;
+export function RecognizedPanel({ title, rows: given, note, onAdd, notFound, addLabel, usualGrams }: {
+  title: string; addLabel?: (n: number) => string;
+  /** D164: the person's usual portion of a food — an amount 3× off it is marked «Перевірте» */
+  usualGrams?: (item: MealItem) => number | undefined; rows: Recognized[]; note?: string; onAdd: (items: MealItem[], missing: string[]) => void; notFound?: (text: string) => ReactNode;
 }) {
   const [skip, setSkip] = useState<Set<number>>(new Set());
   const [chosen, setChosen] = useState<Record<number, MealItem>>({}); // D81: another kind picked in one tap
@@ -23,7 +26,8 @@ export function RecognizedPanel({ title, rows: given, note, onAdd, notFound, add
                 <input type="checkbox" checked={!skip.has(k)} className="h-5 w-5 shrink-0"
                   onChange={(e) => setSkip((s) => { const n = new Set(s); if (e.target.checked) n.delete(k); else n.add(k); return n; })} />
                 <span className="flex-1">{r.item.name} <span className="text-muted">· {amountText(r.item)}{needsGrams(r.item) ? ` ≈ ${approxG(r.item.grams)} г` : ''}</span>
-                  {(r.unsure || r.estimate) && <span className="block text-xs text-warn">{[r.unsure && t.meal.photoUnsure, r.estimate && t.meal.photoEstimate].filter(Boolean).join(' · ')}</span>}
+                  {(r.unsure || r.estimate || portionSuspect(r.item.grams, usualGrams?.(r.item))) && <span className="block text-xs text-warn">{[r.unsure && t.meal.photoUnsure, r.estimate && t.meal.photoEstimate,
+                    portionSuspect(r.item.grams, usualGrams?.(r.item)) && t.meal.checkPortion].filter(Boolean).join(' · ')}</span>}
                 </span>
               </label>
             ) : <div className="py-2"><p className="text-sm text-muted">«{r.text}» — {t.meal.notFound}</p>{notFound?.(r.text)}</div>}

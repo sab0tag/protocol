@@ -3,7 +3,7 @@
 // the voice or a photo of the plate is a draft written only with «Додати все» (the reading or the AI chose there). Which
 // meal and when are never asked: the tile is the meal, the time is «now» or the person's usual time for it.
 import { Camera, Check, ChevronDown, Mic, Plus, Square, Trash2 } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type RefObject } from 'react';
+import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode, type RefObject } from 'react';
 import { Link } from 'react-router-dom';
 import { db } from '../data/db';
 import { useFavorites } from '../data/queries';
@@ -16,7 +16,7 @@ import { foodPlanStatus } from '../domain/foodPlanStatus';
 import { amountText, approxG, itemFor, parseQuery, readMeal, searchFoods, type Candidate } from '../domain/foodSearch';
 import { frequentItems } from '../domain/habits';
 import { medFoodNotes } from '../domain/medFood';
-import { blockKeyFor, hitLabels, mealBlocks, NEW_SNACK, sameFood, SLOTS, slotEntries, slotTime, tileState, usualForSlot, withFoodDose, yesterdaySlot, type MealBlock, type Slot, type TileState } from '../domain/mealSlots';
+import { blockKeyFor, hitLabels, mealBlocks, NEW_SNACK, recentSlotDays, sameFood, SLOTS, slotEntries, slotTime, tileState, usualForSlot, withFoodDose, yesterdaySlot, type MealBlock, type Slot, type TileState } from '../domain/mealSlots';
 import { mealNutrients, round } from '../domain/nutrition';
 import { dishItem, setPortions } from '../domain/recipes';
 import type { ItemCheck, RuleHit } from '../domain/rules';
@@ -157,7 +157,9 @@ function TileBody({ slot, name, date, lines, planned, checks, all, day, foods, r
   const items = lines.map((l) => l.item);
   // the tile's own records are the candidate meal, never also counted as the rest of the day (R03)
   const others = useMemo(() => { const ids = new Set(lines.map((l) => l.entry.id)); return all.filter((e) => !ids.has(e.id)); }, [all, lines]);
-  const usual = useMemo(() => new Set(frequentItems(all, date, 60, 50).map((f) => f.item.recipe?.id ?? f.item.foodId ?? '')), [all, date]);
+  const frequent = useMemo(() => frequentItems(all, date, 60, 50), [all, date]);
+  const usual = useMemo(() => new Set(frequent.map((f) => f.item.recipe?.id ?? f.item.foodId ?? '')), [frequent]);
+  const usualGrams = (item: MealItem) => frequent.find((f) => sameFood(f.item, item))?.item.grams; // D164: «Перевірте» on a 3× amount
   const slotUsual = useMemo(() => usualForSlot(all, date, slot, 50), [all, date, slot]);
   const { photo, setPhoto, pick, allow, fileInput } = usePlatePhoto({ foods, recipes, usual });
 
@@ -196,6 +198,8 @@ function TileBody({ slot, name, date, lines, planned, checks, all, day, foods, r
     ? hitLabels(evaluate({ plan, date, foods, entries: others, intent: 'proposed', meal: [...items, item] }).checks.at(-1)?.hits ?? []) : [];
 
   const yesterday = yesterdaySlot(all, date, slot);
+  const [otherDay, setOtherDay] = useState(false); // D164: «Як у понеділок» — a long press on «Як учора»
+  const pastDays = useMemo(() => (otherDay ? recentSlotDays(all, date, slot) : []), [otherDay, all, date, slot]);
   const chips: { key: string; label: string; aria?: string; items: MealItem[] }[] = [
     ...(yesterday.length ? [{ key: 'y', label: L.yesterday, aria: L.yesterdayItems(names(yesterday)), items: yesterday }] : []),
     ...[...(favorites ?? []).map((f) => ({ key: `f:${f.id}`, label: f.title, items: f.items })),
@@ -224,12 +228,20 @@ function TileBody({ slot, name, date, lines, planned, checks, all, day, foods, r
 
       {!danger && !query.trim() && chips.length > 0 && (
         <div role="group" aria-label={L.suggestions} className="flex flex-wrap gap-2">
-          {chips.map((c) => (
-            <button key={c.key} type="button" aria-label={c.aria} onClick={() => void write(copy(c.items))}
-              className="min-h-tap rounded-full border-2 border-line bg-surface px-3 text-sm font-semibold">{c.label}</button>
-          ))}
+          {chips.map((c) => c.key === 'y'
+            ? <HoldButton key={c.key} aria-label={c.aria} aria-description={L.otherDayHint} onTap={() => void write(copy(c.items))} onHold={() => setOtherDay(true)}
+              className="min-h-tap rounded-full border-2 border-line bg-surface px-3 text-sm font-semibold">{c.label}</HoldButton>
+            : <button key={c.key} type="button" aria-label={c.aria} onClick={() => void write(copy(c.items))}
+              className="min-h-tap rounded-full border-2 border-line bg-surface px-3 text-sm font-semibold">{c.label}</button>)}
         </div>
       )}
+      {otherDay && pastDays.length > 0 && <div role="group" aria-label={L.otherDay} className="space-y-1 rounded-xl border border-line p-2">
+        <p className="text-sm text-muted">{L.otherDay}</p>
+        {pastDays.map((d) => <button key={d.date} type="button" onClick={() => { setOtherDay(false); void write(copy(d.items)); }}
+          className="flex min-h-tap w-full items-baseline gap-2 rounded-lg px-2 text-left">
+          <span className="shrink-0 font-semibold">{L.likeDay(L.weekdayAcc[new Date(`${d.date}T12:00:00`).getDay()]!)}</span>
+          <span className="min-w-0 truncate text-sm text-muted">{names(d.items)}</span></button>)}
+      </div>}
 
       {suggestions.length > 0 && (
         <ul aria-label={L.suggestions} className="divide-y divide-line rounded-xl border border-line">
@@ -250,7 +262,7 @@ function TileBody({ slot, name, date, lines, planned, checks, all, day, foods, r
           })}
         </ul>
       )}
-      {!danger && phrase && <RecognizedPanel key={query} title={t.meal.recognized} rows={phrase} addLabel={L.addAll}
+      {!danger && phrase && <RecognizedPanel key={query} title={t.meal.recognized} rows={phrase} addLabel={L.addAll} usualGrams={usualGrams}
         onAdd={(picked, missing) => { void write(picked, listened.current ? 'voice' : undefined); setQuery(''); for (const m of missing) void countOnce('nf', m); }}
         notFound={(text) => <ConciergeNotFound text={text} plan={plan} foods={foods} recipes={recipes} date={date} onAdd={(s) => void write([s.item])} />} />}
       {!danger && !phrase && typed && suggestions.length === 0 && (
@@ -262,7 +274,7 @@ function TileBody({ slot, name, date, lines, planned, checks, all, day, foods, r
         </div>
       )}
       <PhotoStatus photo={photo} allow={allow} />
-      {photo.state === 'done' && photo.rows.length > 0 && <RecognizedPanel title={t.meal.photoTitle} rows={photo.rows} note={photo.note} addLabel={L.addAll}
+      {photo.state === 'done' && photo.rows.length > 0 && <RecognizedPanel title={t.meal.photoTitle} rows={photo.rows} note={photo.note} addLabel={L.addAll} usualGrams={usualGrams}
         onAdd={(picked, missing) => { void write(picked, 'photo'); setPhoto({ state: 'none' }); for (const m of missing) void countOnce('nf', m); }} />}
 
       {items.length > 0 && <PlanLine checks={checks} foods={foods} plan={plan} kcal={round(meal.kcal)} protein={round(meal.protein)} />}
@@ -431,4 +443,14 @@ function PlanLine({ checks, foods, plan, kcal, protein }: { checks: ItemCheck[];
       </div>}
     </div>
   );
+}
+
+/** A tap does one thing, a long press (or a right click) another — «Як учора» and «Як у понеділок» (D164). */
+function HoldButton({ onTap, onHold, children, ...rest }: { onTap: () => void; onHold: () => void; children: ReactNode; className?: string; 'aria-label'?: string; 'aria-description'?: string }) {
+  const timer = useRef<number | undefined>(undefined);
+  const held = useRef(false);
+  const stop = () => window.clearTimeout(timer.current);
+  return <button type="button" {...rest} onClick={() => { if (!held.current) onTap(); held.current = false; }}
+    onPointerDown={() => { held.current = false; timer.current = window.setTimeout(() => { held.current = true; onHold(); }, 550); }}
+    onPointerUp={stop} onPointerLeave={stop} onPointerCancel={stop} onContextMenu={(e) => { e.preventDefault(); stop(); onHold(); }}>{children}</button>;
 }

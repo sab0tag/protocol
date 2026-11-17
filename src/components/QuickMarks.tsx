@@ -5,6 +5,7 @@ import { Activity, Dumbbell, Droplet, HeartPulse, Pill, type LucideIcon } from '
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useFeatures } from '../app/features';
+import { useMarkOrder } from '../data/markOrder';
 import { db } from '../data/db';
 import { atLocal, newId } from '../domain/dates';
 import { dosesNow, glasses, GLASS_ML, medsState, MOOD_WORDS, openDoses } from '../domain/quickMarks';
@@ -32,6 +33,7 @@ export function QuickMarks({ date, isToday, light, items, water, entries, wellbe
   const [medsSheet, setMedsSheet] = useState<{ mode: 'now' | 'day'; keys: string[] } | null>(null);
   const [moodSheet, setMoodSheet] = useState(false);
   const [ticked, setTicked] = useState<ReadonlySet<string>>(new Set()); // shown at once, before the record comes back
+  const order = useMarkOrder();
   const notYet = light ? '' : L.notYet; // D139: a light day keeps the tiles, without «ще ні»
   const hm = () => (isToday ? format(new Date(), 'HH:mm') : '12:00');
 
@@ -58,7 +60,7 @@ export function QuickMarks({ date, isToday, light, items, water, entries, wellbe
       state: wellbeing?.mood ? MOOD_WORDS[wellbeing.mood - 1]! : notYet }] : []),
     ...(can('workout.log') ? [{ key: 'workout', label: L.workout, Icon: Dumbbell, history: '/workout', tap: tapWorkout,
       state: workoutDone ? L.done : plannedWorkout ? L.planned : notYet }] : []),
-  ].slice(0, 4);
+  ].sort((a, b) => order.indexOf(a.key as never) - order.indexOf(b.key as never)).slice(0, 4);
   useEffect(() => {
     if (!request) return;
     if (request === 'meds' && tiles.some((x) => x.key === 'meds')) tapMeds();
