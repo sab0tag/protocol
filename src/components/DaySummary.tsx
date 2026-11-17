@@ -56,7 +56,7 @@ function metric(key: MetricKey, totals: DayTotals, targets: Targets, meds: { don
       if (min != null) return { label: L.carbs, value: `${c} г`, target: L.atLeast(min), progress: c / min, shape: 'min', Icon: Wheat, tone: 'accent',
         note: c < min ? L.toGo(min - c) : L.reached };
       if (max != null) return { label: L.carbs, value: `${c} г`, target: L.limit(max), progress: c / max, shape: 'limit', Icon: Wheat, tone: 'accent',
-        over: c > max, note: c > max ? L.over(c - max) : L.limitNote };
+        over: c > max, ...(c > max ? { note: L.over(c - max) } : {}) };
       return { label: L.carbs, value: `${c} г`, progress: 0, shape: 'limit', Icon: Wheat, tone: 'accent' };
     }
   }
@@ -112,7 +112,7 @@ export function DaySummary({ totals, targets, meds, streak, food, onComplete, al
       )}
       {food && visible.some((k) => k !== 'water' && k !== 'meds') && ( /* R06: only the person can say all food is written */
         <div className="mt-2 flex flex-wrap items-center gap-x-2 text-sm" data-food={food}>
-          <span className="text-muted">{food === 'none' ? L.foodNone : food === 'partial' ? L.foodPartial : L.foodComplete}</span>
+          {food !== 'none' && <span className="text-muted">{food === 'partial' ? L.foodPartial : L.foodComplete}</span>}
           {onComplete && food !== 'none' && (
             <button type="button" aria-pressed={food === 'complete'} onClick={() => onComplete(food !== 'complete')} className="min-h-tap px-1 text-accent underline">
               {food === 'complete' ? L.undoComplete : L.markComplete}</button>

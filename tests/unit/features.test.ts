@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { ALL_MODULES, can, FEATURES, isEntitled, isFeatureId, isFeatureVisible, isModuleId, LEGACY_FEATURE_CONTEXT,
   MODULE_IDS, type FeatureContext, type FeatureDefinition, type FeatureId, type ModuleFlags } from '../../src/domain/features';
-import { MORE_ROUTES, parentPath, QUICK_ACTION_FEATURES, ROUTES, SETTINGS_ROUTES, TAB_ROUTES, tabForPath } from '../../src/app/navigation';
+import { MORE_ROUTES, parentPath, QUICK_ACTION_FEATURES, ROUTES, SETTINGS_PATH, SETTINGS_ROUTES, TAB_ROUTES, tabForPath } from '../../src/app/navigation';
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 const off: ModuleFlags = { meds: false, water: false, food: false, menu: false, assistant: false, wellbeing: false, workout: false, progress: false };
 const disabled: FeatureContext = { modules: off, tier: 'free' };
@@ -112,3 +114,40 @@ describe('navigation ownership (D133)', () => {
     expect(can(QUICK_ACTION_FEATURES.voice, disabled)).toBe(true);
   });
 });
+
+describe('nothing is lost after the simplification (ТЗ 17.11, «Ничего не потеряно»)', () => {
+  // where each function is used; a screen route, or the screen that holds it
+  const ENTRY: Record<FeatureId, string> = {
+    profiles: '/profiles', day: '/', 'day.checklist': '/my-day', 'day.light': '/', 'meds.log': '/', 'meds.reminders': '/reminders', 'meds.prn': '/',
+    'water.log': '/', 'water.reminders': '/reminders', 'food.log': '/', 'food.photo': '/', 'food.label': '/meal/new', 'food.check': '/', 'food.why': '/',
+    'food.products': '/foods', 'food.favorites': '/', 'food.not-found': '/', 'dishes.list': '/dishes', 'dishes.single': '/dishes', 'dishes.batch': '/dishes',
+    'dishes.export': '/dishes', 'menu.ai': '/menu', 'menu.yesterday': '/', 'menu.shopping': '/shopping', 'menu.evening': '/', 'menu.topup': '/',
+    'assistant.chat': '/assistant', 'assistant.log': '/concierge-log', 'wellbeing.log': '/wellbeing', 'wellbeing.weight': '/weight',
+    'workout.log': '/workout', 'workout.exercises': '/exercises', 'workout.progression': '/workout', 'workout.ai': '/workout',
+    progress: '/progress', 'progress.week': '/week', 'progress.patterns': '/progress/insights', 'progress.labs': '/progress/labs', 'progress.labs-photo': '/progress/labs',
+    plan: '/plan', 'plan.scan': '/plan/scan', 'plan.medbox': '/plan', 'plan.incomplete': '/plan', 'plan.course-end': '/plan', report: '/report',
+    unwell: '/', 'danger.cards': '/', voice: '/', sync: '/sync', backup: '/data', pilot: '/pilot', frictions: '/frictions', about: '/about',
+    'clinic.portal': '/clinic', onboarding: '/welcome', more: '/more', 'modules.settings': '/modules', 'reminders.settings': '/reminders',
+    'quick.links': '/quick', 'quick.action': '/do/water',
+  };
+  const source = (dir: string): string => readdirSync(dir, { withFileTypes: true })
+    .map((f) => (f.isDirectory() ? source(join(dir, f.name)) : /\.tsx?$/.test(f.name) && f.name !== 'navigation.ts' ? readFileSync(join(dir, f.name), 'utf8') : '')).join('\n');
+  const code = source(join(__dirname, '../../src'));
+  const matches = (pattern: string, path: string) => new RegExp(`^${pattern.replace(/:[^/]+/g, '[^/]+')}$`).test(path);
+  const listed = new Set<string>(['/more', SETTINGS_PATH, ...TAB_ROUTES.map((id) => ROUTES[id].path), ...[...MORE_ROUTES, ...SETTINGS_ROUTES].map((id) => ROUTES[id].path)]);
+
+  it('every function in the registry has a route, and the route has a way in — a tab, «Ще», «Налаштування» or a link from a screen', () => {
+    const missing: string[] = [];
+    for (const [feature, path] of Object.entries(ENTRY) as [FeatureId, string][]) {
+      const route = Object.values(ROUTES).find((r) => r.path !== '*' && matches(r.path, path));
+      if (!route) { missing.push(`${feature}: no route for ${path}`); continue; }
+      const base = route.path.split('/:')[0]!;
+      // the clinic portal is for staff (not in the patient menu); a way in is still checked: its own address
+      const linked = listed.has(route.path) || feature === 'clinic.portal'
+        || new RegExp(`(to=|to: |navigate\\(|href=|#)\\{?[\`'"]?${base.replace(/[/]/g, '\\/')}(?:[\`'"?/$])`).test(code);
+      if (!linked) missing.push(`${feature}: nothing links to ${route.path}`);
+    }
+    expect(missing).toEqual([]);
+  });
+});
+

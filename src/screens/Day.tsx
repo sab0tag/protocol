@@ -219,7 +219,7 @@ export function Day() {
   if (!observationReady) return <Loading />;
   return (
     <section className="pt-4">
-      <DayHeader remaining={presentation && presentation.execution.total > 0 ? presentation.execution.pending + presentation.execution.uncertain : undefined} date={date} setDate={setDate} action={enabled ? <LightDayControl date={date} /> : undefined} />
+      <DayHeader date={date} setDate={setDate} action={enabled ? <LightDayControl date={date} /> : undefined} />
       {light && !isToday && <p className="mb-3 text-sm">{t.lightDay.enable}</p>}
       {enabled && isToday && <LightDayNotice date={date} />}
       {returningAfterBreak && <div role="status" aria-label={t.day.returningAfterBreak.title}

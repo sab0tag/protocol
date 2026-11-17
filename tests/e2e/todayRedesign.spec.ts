@@ -4,11 +4,8 @@ import { atLocalNoon, device } from './helpers';
 test('Today separates actions, quantities and history across all approved widths and themes', async ({ browser }) => {
   const page = await device(browser);
   await atLocalNoon(page);
-  const counter = page.getByTestId('remaining-actions');
-  await expect(counter).toBeVisible();
-  const before = await counter.textContent();
+  await expect(page.getByTestId('remaining-actions')).toHaveCount(0); // D160: no «За планом: N без відмітки» chip in the header
   await page.getByRole('navigation', { name: 'Швидкі дії', exact: true }).getByRole('button', { name: '+250 мл', exact: true }).click();
-  await expect(counter).toHaveText(before!); // Quantitative water progress is not an execution score.
   await expect(page.locator('.protocol-day-hero')).toHaveCount(0);
   await expect(page.getByTestId('daily-phrase')).toHaveCount(0);
   const goals = page.locator('details').filter({ has: page.locator('summary', { hasText: 'Цілі на сьогодні' }) });
@@ -51,7 +48,7 @@ test('Today separates actions, quantities and history across all approved widths
     await page.evaluate(() => scrollTo(0, 0));
     await page.screenshot({ path: `test-results/today-redesign-${width}-${colorScheme}.png`, fullPage: true });
   }
-  await page.getByText('Обрати день', { exact: true }).click();
+  await page.locator('button[aria-controls="day-week"]').click(); // D160: a tap on the date opens the week
   const week = page.getByRole('navigation', { name: 'Тиждень' });
   for (const button of await week.getByRole('button').all()) {
     const size = await button.boundingBox();

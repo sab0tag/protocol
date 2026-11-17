@@ -18,14 +18,14 @@ test('profile name updates immediately and each person can control the daily phr
   await page.goto('./#/'); await expect(page.getByTestId('active-profile')).toContainText('Олена');
   await expect(page.getByTestId('daily-phrase')).toHaveCount(0);
   await page.reload(); await expect(page.getByTestId('daily-phrase')).toHaveCount(0);
-  await page.getByTestId('active-profile').click(); await page.getByRole('button', { name: 'Додати профіль', exact: true }).click();
+  await page.goto('./#/profiles'); // D160: profiles are in «Ще», the greeting names the person await page.getByRole('button', { name: 'Додати профіль', exact: true }).click();
   await page.getByLabel('Ім’я', { exact: true }).fill('Данило'); await expect(toggle).toBeChecked();
   await page.getByRole('button', { name: 'Зберегти профіль', exact: true }).click();
   await page.getByRole('button', { name: 'Відкрити профіль: Данило', exact: true }).click();
   await page.getByText('Інші способи почати').click(); await page.getByRole('button', { name: /^Пропустити/ }).click();
   await expect(page.getByTestId('active-profile')).toContainText('Данило'); await expect(page.getByTestId('daily-phrase')).toHaveCount(0);
   await page.goto('./?protocol-profile=main#/'); await expect(page.getByTestId('daily-phrase')).toHaveCount(0);
-  await page.getByTestId('active-profile').click(); await page.getByRole('button', { name: 'Редагувати профіль: Олена', exact: true }).click();
+  await page.goto('./#/profiles'); // D160: profiles are in «Ще», the greeting names the person await page.getByRole('button', { name: 'Редагувати профіль: Олена', exact: true }).click();
   await toggle.check(); await page.getByRole('button', { name: 'Зберегти профіль', exact: true }).click();
   await page.reload();
   await page.getByRole('button', { name: 'Редагувати профіль: Олена', exact: true }).click();

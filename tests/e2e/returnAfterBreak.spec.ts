@@ -48,7 +48,7 @@ test('after a week without records the patient can continue today without backfi
   await expect(page.getByRole('region', { name: 'Історія відміток' }).getByRole('button', { name: /^Вітамін D, Виконано/ })).toBeVisible();
 
   const pastDate = addDays(now, -1);
-  await page.getByText('Обрати день', { exact: true }).click();
+  await page.locator('button[aria-controls="day-week"]').click(); // D160: a tap on the date opens the week
   const week = page.getByRole('navigation', { name: 'Тиждень' });
   // On Mondays, yesterday belongs to the previous ISO week and is not in the visible strip.
   // Navigate using the real calendar control instead of assuming yesterday is always visible.

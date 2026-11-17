@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { ProtocolDB, ensureSeeded } from '../../src/data/db';
 import { initialiseModulePreferences, setModuleEnabled, setWeightEnabled } from '../../src/data/modulePreferences';
-import { acceptPlanModules, ensureProgressOpened, finishModuleOnboarding } from '../../src/data/moduleStart';
+import { acceptPlanModules, ensureCoreModules, ensureProgressOpened, finishModuleOnboarding } from '../../src/data/moduleStart';
 import { hasActivity, onboardingAnchor, planModuleSuggestions, progressOpening, starterModules } from '../../src/domain/moduleStart';
 import { isModuleEvent, moduleChoiceAt, modulePreferences, type ModuleEvent } from '../../src/domain/modulePreferences';
 import type { Plan, Prescription } from '../../src/domain/types';
@@ -20,6 +20,12 @@ async function fresh() {
   await initialiseModulePreferences(d, start.toISOString(), {}, { minimalNew: true }); return d;
 }
 afterEach(async () => { for (const d of databases.splice(0)) await d.delete(); });
+/** A profile onboarded before D160, when «Результати» started off and opened on day eight. */
+async function startedBeforeCore(d: ProtocolDB) {
+  await finishModuleOnboarding(d, {}, start);
+  const progress = (await d.moduleEvents.toArray()).find((e) => e.kind === 'module' && e.module === 'progress')!;
+  await d.moduleEvents.put({ ...progress, enabled: false } as ModuleEvent);
+}
 
 describe('confirmed starter policy (D138)', () => {
   it.each([
@@ -55,7 +61,8 @@ describe('confirmed starter policy (D138)', () => {
     const d = await fresh();
     const result = await finishModuleOnboarding(d, { patch: { ...empty(), prescriptions: [med()], constraints: [diet] }, weightKg: 95 }, start);
     expect(result.fresh).toBe(true);
-    expect(modulePreferences(await d.moduleEvents.toArray()).modules).toMatchObject({ meds: true, food: false, water: false, menu: false, progress: false });
+    // D160: food and «Результати» are the core and start on, whatever the plan
+    expect(modulePreferences(await d.moduleEvents.toArray()).modules).toMatchObject({ meds: true, food: true, water: false, menu: false, progress: true });
     await setModuleEnabled(d, 'meds', false, 'manual', '2026-10-20T10:00:00.000Z');
     const count = await d.moduleEvents.count();
     const repeat = await finishModuleOnboarding(d, { patch: { targets: { waterMl: 2000 } }, choices: { meds: true, water: true } }, new Date('2026-10-22T12:00:00+03:00'));
@@ -69,7 +76,7 @@ describe('confirmed starter policy (D138)', () => {
     await setModuleEnabled(a, 'wellbeing', true, 'manual', '2026-10-20T10:00:00.000Z');
     expect(modulePreferences(await a.moduleEvents.toArray()).overrides).toEqual({});
     const b = await fresh(); await finishModuleOnboarding(b, { patch: { targets: { weightGoalKg: 90 } } }, start);
-    expect(modulePreferences(await b.moduleEvents.toArray())).toMatchObject({ modules: { wellbeing: false, progress: false }, overrides: { 'wellbeing.weight': true } });
+    expect(modulePreferences(await b.moduleEvents.toArray())).toMatchObject({ modules: { wellbeing: false, progress: true }, overrides: { 'wellbeing.weight': true } });
   });
   it('rolls back first-start history and weight when the plan cannot be written', async () => {
     const d = await fresh(), before = await d.moduleEvents.toArray();
@@ -82,7 +89,7 @@ describe('confirmed starter policy (D138)', () => {
 
 describe('day eight across clocks, restore and devices', () => {
   it('uses local calendar midnight across the 25-hour DST day, and opens once even after a late launch', async () => {
-    const d = await fresh(); await finishModuleOnboarding(d, {}, start);
+    const d = await fresh(); await startedBeforeCore(d);
     const anchor = (await d.moduleEvents.toArray()).find((e) => e.kind === 'onboarded');
     expect(anchor).toMatchObject({ date: '2026-10-19', progressAt: '2026-10-25T22:00:00.000Z' });
     expect(await ensureProgressOpened(d, new Date('2026-10-25T23:59:59+02:00'))).toBe(false);
@@ -102,7 +109,7 @@ describe('day eight across clocks, restore and devices', () => {
     expect(modulePreferences(await restored.moduleEvents.toArray()).modules.progress).toBe(false);
   });
   it('merges an unseen older manual off with a later automatic on consistently in encrypted sync and push policy', async () => {
-    const a = await fresh(), b = await fresh(); await finishModuleOnboarding(a, {}, start);
+    const a = await fresh(), b = await fresh(); await startedBeforeCore(a);
     const records = new Map<string, RemoteRecord>(); let seq = 0;
     const api: Api = { async pull(since) { return { records: [...records.values()].filter((r) => r.seq > since), more: false, seq }; },
       async push(rows) { for (const r of rows) records.set(r.k, { ...r, seq: ++seq }); return { seq }; } };
@@ -134,9 +141,24 @@ it('offers only changed positive confirmed plan evidence and applies only the ex
   const before = empty(), after: Plan = { ...empty(), constraints: [diet], targets: { waterMl: 2000, weightGoalKg: 90 },
     prescriptions: [{ id: 'free', kind: 'lifestyle', title: 'Ходьба і силові', source: '' }] };
   const events = await d.moduleEvents.toArray();
-  expect(planModuleSuggestions(before, after, events).sort()).toEqual(['food', 'water', 'weight']);
+  expect(planModuleSuggestions(before, after, events).sort()).toEqual(['water', 'weight']); // food is already on (D160)
   expect(planModuleSuggestions(after, after, events)).toEqual([]);
   await acceptPlanModules(d, ['water'], '2026-10-21T10:00:00.000Z');
-  expect(modulePreferences(await d.moduleEvents.toArray())).toMatchObject({ modules: { water: true, food: false, workout: false }, overrides: { 'wellbeing.weight': false } });
+  expect(modulePreferences(await d.moduleEvents.toArray())).toMatchObject({ modules: { water: true, food: true, workout: false }, overrides: { 'wellbeing.weight': false } });
   expect((await d.moduleEvents.toArray()).some((e) => e.kind === 'module' && e.module === 'water' && e.source === 'plan-review')).toBe(true);
+});
+
+it('D160: a profile with food or «Результати» switched off gets them back once, after the «off», as an ordinary choice', async () => {
+  const d = await fresh(); await startedBeforeCore(d);
+  await setModuleEnabled(d, 'food', false, 'manual', '2030-01-01T00:00:00.000Z'); // a device clock far ahead
+  expect(modulePreferences(await d.moduleEvents.toArray()).modules).toMatchObject({ food: false, progress: false });
+  expect(await ensureCoreModules(d, new Date('2026-10-21T10:00:00Z'))).toBe(true);
+  const events = await d.moduleEvents.toArray();
+  expect(modulePreferences(events).modules).toMatchObject({ food: true, progress: true });
+  expect(events.filter((e) => e.kind === 'module' && e.enabled && e.source === 'manual').map((e) => (e as { module: string }).module).sort()).toEqual(['food', 'progress']);
+  expect(policyFromEvents(events).modules.food).toMatchObject({ enabled: true });
+  expect(await ensureCoreModules(d, new Date('2026-10-21T10:01:00Z'))).toBe(false); // once, not every minute
+  const pending = new ProtocolDB('module-start-' + crypto.randomUUID()); databases.push(pending); await ensureSeeded(pending);
+  await initialiseModulePreferences(pending, start.toISOString(), {}, { minimalNew: true }); // an unfinished onboarding is left alone
+  expect(await ensureCoreModules(pending, start)).toBe(false);
 });

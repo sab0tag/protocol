@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 
-/** Section heading with the route-specific image treatment supplied by the page shell. */
+/** Section heading: text only — no photo behind it (ТЗ 17.11, D160). */
 export function SceneHeader({ title, description, eyebrow, children }: {
   title: string; description?: string; eyebrow?: string; children?: ReactNode;
 }) {

@@ -123,14 +123,8 @@ test('all routed screens fit the four target widths in light and dark themes', a
         const section = route === '' || route === 'plan' || route === 'progress';
         await expect(page.getByRole('navigation', { name: 'Розділи', exact: true })).toHaveCount(section ? 1 : 0);
         if (!section) await expect(page.getByRole('button', { name: 'Назад', exact: true })).toBeVisible();
-        // «Мій план», «Результати» (UI-PLAN-01, UI-RESULTS-01) and «Ще» with its settings (D160) have a plain heading
-        if (!section && route !== 'more' && route !== 'more/settings') {
-          const sceneHeader = page.locator('.protocol-scene-header').first();
-          await expect(sceneHeader, `${route} at ${width}px ${colorScheme}`).toBeVisible();
-          expect(await sceneHeader.evaluate((el) => getComputedStyle(el).backgroundImage), `${route} has header artwork`).toContain('url(');
-        } else {
-          await expect(page.locator('.protocol-scene-header')).toHaveCount(0);
-        }
+        // D160: no section has a photo header any more — headings are text
+        for (const header of await page.locator('.protocol-scene-header').all()) expect(await header.evaluate((el) => getComputedStyle(el).backgroundImage), route).toBe('none');
         await page.screenshot({ path: `test-results/mockup-${route.replace(/[^a-z0-9-]+/gi, '-') || 'today'}-${width}-${colorScheme}.png`, fullPage: true });
       }
     }

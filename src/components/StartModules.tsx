@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { MODULE_IDS, type ModuleFlags } from '../domain/features';
+import { isCoreModule, MODULE_IDS, type ModuleFlags } from '../domain/features';
 import { starterModules } from '../domain/moduleStart';
 import { modulePreferences, type ModuleEvent } from '../domain/modulePreferences';
 import type { Plan } from '../domain/types';
@@ -13,16 +13,16 @@ export function StartModules({ plan, fresh, events, choices, weightChoice, onCho
 }) {
   const [confirm, setConfirm] = useState(false);
   const initial = starterModules(plan), current = modulePreferences(events);
-  const modules = fresh ? { ...initial.modules, ...choices } : current.modules;
+  const modules = fresh ? { ...initial.modules, ...choices, food: true, progress: true } : current.modules; // D160: the core is always on
   const weight = fresh ? weightChoice ?? (initial.weight || modules.wellbeing) : current.overrides['wellbeing.weight'] ?? current.modules.wellbeing;
   const labels: string[] = MODULE_IDS.filter((key) => modules[key]).map((key) => t.modules.names[key]);
   if (weight) labels.push(t.progress.weight);
   return <div className="space-y-3">
     <p className="font-medium">{t.startFlow.summary}</p><ul className="list-disc pl-5">{labels.map((label) => <li key={label}>{label}</li>)}</ul>
     <p className="text-sm text-muted">{t.startFlow.always}</p>
-    {fresh ? <><p className="text-sm text-muted">{t.startFlow.progress}</p>
+    {fresh ? <>
       <details className="rounded-2xl border border-line bg-surface p-3"><summary className="min-h-tap cursor-pointer font-medium">{t.startFlow.choose}</summary>
-        {MODULE_IDS.map((key) => <label key={key} className="flex min-h-tap items-center gap-3"><input type="checkbox" checked={modules[key]} onChange={(e) => {
+        {MODULE_IDS.filter((key) => !isCoreModule(key)).map((key) => <label key={key} className="flex min-h-tap items-center gap-3"><input type="checkbox" checked={modules[key]} onChange={(e) => {
           if (key === 'meds' && !e.target.checked && initial.modules.meds) setConfirm(true);
           else onChoices({ ...choices, [key]: e.target.checked });
         }} className="h-5 w-5 accent-[rgb(var(--accent))]" /><span>{t.modules.names[key]}</span></label>)}
