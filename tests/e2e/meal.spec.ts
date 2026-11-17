@@ -12,7 +12,6 @@ test('a meal pinned «У звичні» comes back as a chip in any meal tile, o
   await expect(toast(page)).toContainText('Додано: Кефір 2,5 %');
   await snack.getByRole('button', { name: 'Готово' }).click();
 
-  await page.getByText(/^Виконано та інші відмітки/).click();
   const recordedMeal = page.getByRole('button', { name: /^Перекус, Виконано/ });
   // Center the row before the tap so the scroll-triggered floating dock settles outside its hit area.
   await recordedMeal.evaluate(element => element.scrollIntoView({ block: 'center', behavior: 'instant' }));

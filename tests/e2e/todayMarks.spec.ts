@@ -105,10 +105,13 @@ test('a module switched off has no tile; switched on in «Що показува�
   await expect(marks(page).getByRole('button', { name: /^Самопочуття:/ })).toBeVisible();
   await page.goto('./#/modules');
   await page.getByRole('switch', { name: 'Самопочуття', exact: true }).click();
+  await expect(page.getByRole('switch', { name: 'Самопочуття', exact: true })).not.toBeChecked();
   await page.goto('./#/');
   await expect(marks(page).getByRole('button', { name: /^Самопочуття:/ })).toHaveCount(0);
   await page.goto('./#/modules');
   await page.getByRole('switch', { name: 'Самопочуття', exact: true }).click();
-  await page.goto('./#/');
-  await expect(marks(page).getByRole('button', { name: /^Самопочуття:/ })).toBeVisible();
+  await expect(page.getByRole('switch', { name: 'Самопочуття', exact: true })).toBeChecked(); // saved before leaving
+  await page.getByRole('navigation', { name: 'Розділи' }).getByRole('link', { name: 'Сьогодні' }).or(page.getByRole('button', { name: 'Назад', exact: true })).first().click();
+  await expect(page).toHaveURL(/#\/$/);
+  await expect(marks(page).getByRole('button', { name: /^Самопочуття:/ })).toBeVisible(); // no reload
 });

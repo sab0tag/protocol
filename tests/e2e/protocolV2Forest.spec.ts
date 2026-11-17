@@ -19,7 +19,7 @@ test('Today stays available offline; primary action and honest meters remain usa
   const carbs = summary.getByRole('progressbar', { name: t.summary.carbs });
   await expect(carbs).toHaveAttribute('aria-valuenow', '100');
   await expect(carbs).toHaveAttribute('aria-valuetext', /230 г.*190.*40/);
-  const boxes = await Promise.all([summary.boundingBox(), page.getByRole('region', { name: 'Далі за планом' }).boundingBox()]);
+  const boxes = await Promise.all([summary.boundingBox(), page.getByRole('region', { name: 'Ритм дня' }).boundingBox()]);
   expect(boxes[1]!.y).toBeLessThan(boxes[0]!.y);
   await expect(page.locator('.protocol-day-hero')).toHaveCount(0);
   expect(await page.locator('.protocol-day-heading').evaluate(el => getComputedStyle(el).backgroundImage)).toBe('none');
