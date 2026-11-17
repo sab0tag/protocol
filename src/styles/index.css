@@ -2,6 +2,7 @@
 @import '@fontsource/inter/500.css';
 @import '@fontsource/inter/600.css';
 @import '@fontsource/inter/700.css';
+@import './palette-c.css'; /* D163: off unless data-palette="c" */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
