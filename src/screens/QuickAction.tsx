@@ -1,4 +1,4 @@
-// D66: records from a link — `#/do/water`, `#/do/med`, `#/do/symptom`, `#/do/meal` — for a phone's Back Tap, Shortcuts
+// D66, D164: records from a link — `#/do/water`, `#/do/meds`, `#/do/mood`, `#/do/food`, `#/do/symptom` — for a phone's Back Tap, Shortcuts
 // or a home-screen bookmark: one tap, the record is made, «День» opens with «Скасувати». A dose whose window has passed
 // is not marked from a link — «День» asks when (D52). Each opening acts once, even if the page re-renders.
 import { differenceInMinutes, format } from 'date-fns';
@@ -10,6 +10,7 @@ import { buildChecklist } from '../domain/checklist';
 import { completedLate } from '../domain/adherence';
 import { atLocal, newId, todayISO } from '../domain/dates';
 import { NOW_AFTER_MIN } from '../domain/reminders';
+import { slotAt } from '../domain/mealSlots';
 import { useObservation } from '../app/observation';
 import type { Observation } from '../domain/observation';
 import type { DayEntry } from '../domain/types';
@@ -56,6 +57,10 @@ async function run(action: string, ml: number, observation?: Observation): Promi
     await saved(db.entries.add(e), t.toast.water(ml), () => db.entries.delete(e.id));
     return '/';
   }
+  // D164: «Ліки» from a shortcut does what the tile does — one dose due now is marked, several open the list with ticks
+  if (action === 'meds') return '/?open=meds';
+  if (action === 'mood') return '/?open=mood';
+  if (action === 'food') return `/?meal=${slotAt(new Date())}&mic=1`;
   if (action === 'med') {
     const [plan, entries, workouts, foods] = await Promise.all([db.plan.get('main'), db.entries.where('at').startsWith(date).toArray(),
       db.workouts.toArray(), db.foods.toArray()]);

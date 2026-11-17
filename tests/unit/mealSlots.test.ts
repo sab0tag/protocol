@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { FOOD_COMPLETE } from '../../src/domain/habits';
-import { blockKeyFor, hitLabel, hitLabels, mealBlocks, NEW_SNACK, slotAt, slotMissed, slotTime, tileState, usualForSlot, usualTime, withFoodDose, yesterdaySlot } from '../../src/domain/mealSlots';
+import { blockKeyFor, hitLabel, portionSuspect, recentSlotDays, hitLabels, mealBlocks, NEW_SNACK, slotAt, slotMissed, slotTime, tileState, usualForSlot, usualTime, withFoodDose, yesterdaySlot } from '../../src/domain/mealSlots';
 import type { RuleHit } from '../../src/domain/rules';
 import type { DayEntry, MealItem, Plan } from '../../src/domain/types';
 
@@ -86,4 +86,20 @@ describe('meal tiles (D159)', () => {
     expect(mealBlocks([], D, `${D}T12:15:00+02:00`).map((b) => b.key)).toEqual(['s0', NEW_SNACK, 's1', 's2']); // 12:15 — before lunch at 13:00
     expect([0, 1, 2, 3].map((s) => blockKeyFor(s as 0 | 1 | 2 | 3))).toEqual(['s0', 's1', 's2', NEW_SNACK]);
   });
+
+  it('D164: «Як у понеділок» — the same meal on each of the last 7 days that had it, newest first', () => {
+    const all = [meal(Y, '08:10', 'Сніданок', [oats]), meal('2026-11-14', '08:00', 'Сніданок', [egg, coffee]), meal('2026-11-14', '13:00', 'Обід', [soup]),
+      meal('2026-11-09', '08:00', 'Сніданок', [coffee]), meal('2026-11-15', '08:00', 'Сніданок', [egg], 'planned')];
+    expect(recentSlotDays(all, D, 0).map((d) => [d.date, d.items.map((i) => i.name)])).toEqual([
+      [Y, ['Вівсянка на воді']], ['2026-11-14', ['Яйце варене', 'Кава']]]); // 11-09 is 8 days back; a planned one is not eaten
+  });
+
+  it('D164: an amount more than 3× off the usual portion is «Перевірте» — 4,5 г read as 45 г; no usual portion, no mark', () => {
+    expect(portionSuspect(500, 150)).toBe(true); expect(portionSuspect(450, 150)).toBe(false); // exactly 3× is still plausible
+    expect(portionSuspect(45, 150)).toBe(true);
+    expect(portionSuspect(400, 150)).toBe(false);
+    expect(portionSuspect(60, 150)).toBe(false);
+    expect(portionSuspect(450, undefined)).toBe(false);
+  });
 });
+

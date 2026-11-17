@@ -72,3 +72,25 @@ export function regram(it: MealItem, grams: number): MealItem {
   return { ...it, grams, manual: { kcal: m.kcal * k, protein: m.protein * k, fat: m.fat * k, carbs: m.carbs * k,
     ...(m.calciumMg !== undefined ? { calciumMg: m.calciumMg * k } : {}) } };
 }
+
+const norm = (s: string) => s.toLocaleLowerCase('uk').replace(/[ʼ’'`]/g, '').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+function close(a: string, b: string): boolean {
+  if (Math.abs(a.length - b.length) > 2) return false;
+  const row = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    let prev = row[0]!; row[0] = i;
+    for (let j = 1; j <= b.length; j++) { const cur = row[j]!; row[j] = Math.min(row[j]! + 1, row[j - 1]! + 1, prev + (a[i - 1] === b[j - 1] ? 0 : 1)); prev = cur; }
+  }
+  return row[b.length]! <= 2;
+}
+
+/** D164 (learning from Calorize's reviews: duplicates in the base): before a dish is saved under a name, the person's own
+ *  dish with the same or a nearly same name — «Сирники» / «сирники з родзинками» / «Сырники» — so the app can ask «Це те саме?». */
+export function similarDish(name: string, recipes: readonly Recipe[], except?: string): Recipe | undefined {
+  const n = norm(name);
+  if (n.length < 3) return undefined;
+  return recipes.filter((r) => !r.builtIn && r.id !== except).find((r) => {
+    const m = norm(r.name);
+    return m === n || (m.length >= 4 && n.length >= 4 && (m.includes(n) || n.includes(m))) || (n.length >= 5 && close(m, n));
+  });
+}

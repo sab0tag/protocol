@@ -4,7 +4,7 @@ import { addDays, format, parseISO } from 'date-fns';
 import { uk } from 'date-fns/locale';
 import { saved } from './Toast';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Check, ChevronDown, Pill, UtensilsCrossed } from 'lucide-react';
+import { Check, ChevronDown, MoreHorizontal, Pill, UtensilsCrossed } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { db } from '../data/db';
 import { todayISO } from '../domain/dates';
@@ -35,7 +35,7 @@ export function NowCard({ entries, plan, date, observation, onConfirm, onResched
   const focus = dayFocus({ entries: entries.filter((e) => entryVisible(e, context)), plan: plan && !can('meds.log') ? { ...plan, prescriptions: [] } : plan, date, now, observation, snoozed: { ...localSnoozed, ...synced } });
   if (!focus.now && !focus.next && !focus.missed.length) return null;
   return (
-    <div className="mb-3 space-y-3">
+    <div className="mb-2 space-y-2">
       {focus.now && <Due item={focus.now} date={date} onSnoozed={() => setClock(new Date())} onConfirm={onConfirm} onReschedule={onReschedule} />}
       {focus.next && (!compact || !focus.now) && (
         <section aria-label={L.next} className="flex min-h-tap items-center gap-3 protocol-card px-4 py-3">
@@ -71,27 +71,37 @@ function Due({ item, date, onSnoozed, onConfirm, onReschedule }: { item: NowItem
   const when = item.late < 0 && item.late >= -60 ? L.inMin(-item.late, item.time) : item.late !== 0 ? L.ago(day, item.time) : L.at(item.time);
   const later = () => saved(snooze(item.key, Date.now() + SNOOZE_MIN * 60_000), t.toast.later(SNOOZE_MIN)).then(onSnoozed);
   const nowHm = () => ({ time: format(new Date(), 'HH:mm') });
+  const [menu, setMenu] = useState(false);
+  const [help, setHelp] = useState(false);
+  const act = (f: () => void) => () => { setMenu(false); f(); };
+  // ТЗ 17.11, step 3: compact — what to take with the doctor's word in one line, one «Прийнято», the rest behind «⋯»
   return (
-    <section aria-label={L.title} className="protocol-card border-warn/30 bg-warn-bg/30 p-5">
-      <p className="flex items-center justify-between gap-2">
-        <span className={`${label} flex items-center gap-2 text-ink`}><span className="h-2 w-2 rounded-full bg-accent" aria-hidden />{L.title}</span>
-        <span className="tabular text-right text-muted">{when}</span>
-      </p>
-      <p className="mt-2 flex items-start gap-2 text-2xl font-semibold leading-tight"><Icon size={24} className="mt-0.5 shrink-0 text-accent" aria-hidden />{titleOf(item)}</p>
-      {detail && <p className="mt-1 text-muted first-letter:uppercase">{detail}</p>}
+    <section aria-label={L.title} className="protocol-card protocol-now-card border-warn/30 bg-warn-bg/30 px-4 pb-3 pt-1">
+      <div className="flex items-center justify-between gap-2">
+        <p className="flex min-w-0 items-center gap-2 text-sm">
+          <span className={`${label} flex items-center gap-2 text-ink`}><span className="h-2 w-2 rounded-full bg-accent" aria-hidden />{L.title}</span>
+          <span className="tabular truncate text-muted">{when}</span>
+        </p>
+        <button type="button" aria-label={L.more} aria-expanded={menu} aria-controls="now-menu" onClick={() => setMenu((v) => !v)}
+          onKeyDown={(e) => { if (e.key === 'Escape') setMenu(false); }}
+          className="-mr-2 flex min-h-tap min-w-tap items-center justify-center rounded-full text-muted"><MoreHorizontal size={22} aria-hidden /></button>
+      </div>
+      <p className="flex items-start gap-2 font-semibold leading-snug"><Icon size={18} className="mt-0.5 shrink-0 text-accent" aria-hidden />
+        <span className="min-w-0">{titleOf(item)}{detail && <span className="font-normal text-muted"> · <span className="first-letter:uppercase">{detail}</span></span>}</span></p>
+      {menu && <div id="now-menu" role="group" aria-label={L.more} className="mt-2 flex flex-wrap gap-2">
+        <button type="button" onClick={act(() => void later())} className="min-h-tap rounded-full border-2 border-line bg-surface px-3 text-sm font-semibold">{L.later(SNOOZE_MIN)}</button>
+        <button type="button" onClick={act(() => setAskingSkip(true))} className="min-h-tap rounded-full border-2 border-line bg-surface px-3 text-sm font-semibold">{L.skip}</button>
+        {item.entry && <button type="button" onClick={act(() => onReschedule(item.entry!))} className="min-h-tap rounded-full border-2 border-line bg-surface px-3 text-sm font-semibold">{t.reschedule.action}</button>}
+        {meds && <button type="button" onClick={act(() => void markMeds(meds, date, item.time, 'done', { uncertain: true }))}
+          className="min-h-tap rounded-full border-2 border-line bg-surface px-3 text-sm font-semibold">{t.mark.uncertain}</button>}
+        {overdue && !item.entry && <button type="button" aria-expanded={help} onClick={act(() => setHelp((v) => !v))} className="min-h-tap rounded-full border-2 border-line bg-surface px-3 text-sm font-semibold">{L.whatToDo}</button>}
+      </div>}
+      {help && <p className="mt-2 text-sm text-muted">{L.missedHelp}</p>}
       <button type="button" onClick={() => (overdue && !item.entry ? setAskingWhen(true) : item.entry?.items?.length ? onConfirm(item.entry) : void mark(item, date, 'done', nowHm()))}
-        className="mt-4 flex min-h-tap w-full items-center justify-center gap-2 rounded-xl bg-accent px-4 py-2 text-lg font-semibold text-on-accent">
-        <Check size={22} aria-hidden />{overdue && !item.entry ? 'Відмітити прийом' : item.entry ? L.eaten : L.taken}</button>
-      {overdue && !item.entry && <MissedHelp />}
+        className="mt-2 flex min-h-[3.25rem] w-full items-center justify-center gap-2 rounded-full bg-accent px-4 text-lg font-semibold text-on-accent">
+        <Check size={22} aria-hidden />{item.entry ? L.eaten : L.taken}</button>
       {askingWhen && <TimeChoice title={titleOf(item)} planned={item.time} date={date} meal={false} allowUncertain onPick={(when) => { if ('uncertain' in when) void markMeds(meds ?? [], date, item.time, 'done', when); else void mark(item, date, 'done', when); setAskingWhen(false); }} onClose={() => setAskingWhen(false)} />}
       {askingSkip && <SkipChoice title={titleOf(item)} onClose={() => setAskingSkip(false)} onConfirm={(reason) => void mark(item, date, 'skipped', { time: item.time }, reason)} />}
-      <div className="mt-1 flex flex-wrap justify-center gap-x-4">
-        <button type="button" onClick={() => void later()} className="min-h-tap px-2 text-muted">{L.later(SNOOZE_MIN)}</button>
-        <button type="button" onClick={() => setAskingSkip(true)} className="min-h-tap px-2 text-muted">{L.skip}</button>
-        {item.entry && <button type="button" onClick={() => onReschedule(item.entry!)} className="min-h-tap px-2 text-muted">{t.reschedule.action}</button>}
-        {meds && <button type="button" onClick={() => void markMeds(meds, date, item.time, 'done', { uncertain: true })}
-          className="min-h-tap px-2 text-muted">{t.mark.uncertain}</button>}
-      </div>
     </section>
   );
 }
@@ -138,13 +148,4 @@ const titleOf = (x: NowItem) => x.entry?.title ?? x.meds?.map((m) => m.title).jo
 
 function mark(x: NowItem, date: string, status: 'done' | 'skipped', when: ConfirmedWhen, reason?: string) {
   return x.entry ? markMeal(x.entry, date, status, when, {}, reason) : markMeds(x.meds ?? [], date, x.time, status, when, reason);
-}
-
-/** ТЗ 17.11 (D160): a missed dose's advice is behind «Що робити?» — not a paragraph under every overdue card. */
-function MissedHelp() {
-  const [open, setOpen] = useState(false);
-  return <div className="mt-1 text-center">
-    <button type="button" aria-expanded={open} onClick={() => setOpen((v) => !v)} className="min-h-tap px-2 text-sm text-accent underline">{t.now.whatToDo}</button>
-    {open && <p className="text-left text-sm text-muted">{t.now.missedHelp}</p>}
-  </div>;
 }

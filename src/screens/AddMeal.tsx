@@ -22,7 +22,8 @@ import { db } from '../data/db';
 import { useAllEntries, useDayEntries, useFoods, usePlan, useRecentEntries, useRecipes } from '../data/queries';
 import { frequentItems } from '../domain/habits';
 import { Amount } from '../components/Amount';
-import { dishItem, foodFromLine, recipeFrom, setPortions, withComponents } from '../domain/recipes';
+import { dishItem, foodFromLine, recipeFrom, setPortions, similarDish, withComponents } from '../domain/recipes';
+import { SameDish } from '../components/SameDish';
 import { atLocal, dateOf, newId, timeOf, todayISO } from '../domain/dates';
 import { dayTotals, effectiveTargets, lineNutrients, mealNutrients, round } from '../domain/nutrition';
 import { hasSwaps, mealVerdict, type ItemCheck } from '../domain/rules';
@@ -35,7 +36,7 @@ import { keep, kept } from '../data/kept';
 import { dietCoverage } from '../domain/diets';
 import { evaluate, safeSwaps } from '../domain/evaluate';
 import { currentKeys } from '../sync/runner';
-import type { Cooking, DayEntry, Food, MealItem, Nutrients, Plan } from '../domain/types';
+import type { Cooking, DayEntry, Food, MealItem, Nutrients, Plan, Recipe } from '../domain/types';
 import { t } from '../i18n/uk';
 import { CrisisCard } from '../components/CrisisCard';
 import { useUi } from '../store/ui';
@@ -63,6 +64,11 @@ export function AddMeal() {
   const all = useAllEntries();
   const plan = usePlan();
   const [dishName, setDishName] = useState<string | null>(null);
+  const [sameDish, setSameDish] = useState<Recipe | null>(null); // D164: «Це те саме?»
+  const saveDish = async (name: string, id: string) => {
+    await saved(db.recipes.put(recipeFrom(name, items, id)), t.toast.dish(name.trim()));
+    setDishSaved(t.meal.dishSaved(name.trim())); setDishName(null); setSameDish(null);
+  };
   const [dishSaved, setDishSaved] = useState('');
 
   const [loaded, setLoaded] = useState(id === undefined);
@@ -307,10 +313,11 @@ export function AddMeal() {
                   <input value={dishName} onChange={(e) => setDishName(e.target.value)} placeholder={t.meal.dishName}
                     className="block min-h-tap w-full rounded-xl border border-line bg-bg px-3" /></label>
                 <button type="button" disabled={!dishName.trim()}
-                  onClick={async () => { await saved(db.recipes.put(recipeFrom(dishName, items, newId())), t.toast.dish(dishName.trim())); setDishSaved(t.meal.dishSaved(dishName.trim())); setDishName(null); }}
+                  onClick={() => { const similar = similarDish(dishName, recipes ?? []); if (similar) setSameDish(similar); else void saveDish(dishName, newId()); }}
                   className="min-h-tap rounded-xl bg-accent px-3 font-medium text-surface disabled:opacity-40">{t.dishes.save}</button>
               </div>
             ))}
+          {sameDish && dishName !== null && <SameDish similar={sameDish} onSame={() => void saveDish(sameDish.name, sameDish.id)} onNew={() => void saveDish(dishName, newId())} />}
           {dishSaved && <p role="status" className="mt-1 text-sm text-accent">{dishSaved}</p>}
         </section>
 

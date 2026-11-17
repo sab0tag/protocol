@@ -119,7 +119,7 @@ function Node({ node, phase, pending, last, foods, onEntry, onDose }: {
           {e.timeUnknown || e.adherence === 'uncertain' ? '—' : node.at}</span><Dot state={state} />
         <span className="min-w-0">
           {phase === 'current' && <span className="protocol-rhythm-phase">{L.nearest}</span>}
-          <span className={`flex items-start gap-2 font-medium ${state === 'skipped' ? 'line-through' : ''}`}><Icon size={16} className="mt-0.5 shrink-0 text-accent" aria-hidden />{e.title}</span>
+          <span className={`flex items-start gap-2 font-medium ${state === 'skipped' || state === 'done' ? 'line-through decoration-muted' : ''}`}><Icon size={16} className="mt-0.5 shrink-0 text-accent" aria-hidden />{e.title}</span>
           {detail && <span className="block truncate text-sm text-muted">{detail}</span>}
           <span className={`block text-sm ${state === 'done' ? 'text-accent' : state === 'symptom' ? 'text-warn' : 'text-muted'}`}>{word}</span>
         </span>

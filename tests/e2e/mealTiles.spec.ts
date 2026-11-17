@@ -129,3 +129,22 @@ test('D161: a snack is added as a block of its own — two snacks are two blocks
   await expect(tile(page, 'Обід').getByPlaceholder('Додати до обіду…')).toBeFocused();
   await expect(blocks).toHaveCount(5); // a main meal is not doubled
 });
+
+test('D164: a long press on «Як учора» offers the same meal on another day of the week — «Як у …» writes it', async ({ browser }) => {
+  const page = await device(browser);
+  const day = (back: number) => { const d = new Date(); d.setDate(d.getDate() - back); return d; };
+  await seed(page, [
+    { store: 'entries', value: { id: 'b-1', at: `${ymd(day(1))}T08:00:00${kyivOffset(day(1))}`, kind: 'meal', status: 'done', title: 'Сніданок', items: [{ foodId: 'egg-boiled', name: 'Яйце варене', grams: 50 }] } },
+    { store: 'entries', value: { id: 'b-3', at: `${ymd(day(3))}T08:00:00${kyivOffset(day(3))}`, kind: 'meal', status: 'done', title: 'Сніданок', items: [{ foodId: 'oatmeal-water', name: 'Вівсянка на воді', grams: 250 }] } },
+  ]);
+  await at(page, '09:00');
+  const breakfast = tile(page, 'Сніданок');
+  await breakfast.getByRole('button', { name: /^Сніданок/ }).click();
+  await breakfast.getByRole('button', { name: /^Як учора/ }).click({ button: 'right' }); // a long press on a phone
+  const days = breakfast.getByRole('group', { name: 'Як у який день?' });
+  await expect(days.getByRole('button')).toHaveCount(2);
+  await days.getByRole('button').filter({ hasText: 'Вівсянка на воді' }).click();
+  await expect(toast(page)).toContainText('Додано: Вівсянка на воді');
+  await expect(breakfast.getByRole('list', { name: 'Сніданок' })).toContainText('Вівсянка на воді');
+});
+

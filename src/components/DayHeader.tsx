@@ -34,10 +34,11 @@ export function DayHeader({ date, setDate, action }: { date: string; setDate: (d
   const d = parseISO(date);
 
   return (
-    <header className="protocol-day-heading mb-4 space-y-3" onPointerDown={down} onPointerUp={up} onPointerCancel={() => { swipe.current = null; }} style={{ touchAction: 'pan-y' }}>
+    <header className="protocol-day-heading mb-2 space-y-2" onPointerDown={down} onPointerUp={up} onPointerCancel={() => { swipe.current = null; }} style={{ touchAction: 'pan-y' }}>
       <div>
-        <h1 className="text-3xl font-semibold tracking-tight">{isToday ? L.todayTitle : format(d, 'EEEE, d MMMM', { locale: uk })}</h1>
-        <p className="mt-1 flex flex-wrap items-center gap-x-2 text-sm text-muted">
+        {/* ТЗ 17.11, step 3: date and greeting in one line; the section's name stays for screen readers */}
+        <h1 className={isToday ? 'sr-only' : 'text-2xl font-semibold tracking-tight'}>{isToday ? L.todayTitle : format(d, 'EEEE, d MMMM', { locale: uk })}</h1>
+        <p className="flex flex-wrap items-center gap-x-2 text-base text-muted">
           {isToday && <span data-testid="active-profile">{greeting(new Date(), currentProfile.name)}</span>}
           <button type="button" aria-expanded={week} aria-controls="day-week" onClick={() => setWeek((v) => !v)}
             className="inline-flex min-h-tap items-center gap-1 font-medium text-accent first-letter:uppercase">
