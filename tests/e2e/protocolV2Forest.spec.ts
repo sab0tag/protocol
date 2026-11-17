@@ -12,6 +12,9 @@ test('Today stays available offline; primary action and honest meters remain usa
   ]);
   const action = page.getByRole('region', { name: t.tiles.title, exact: true });
   await expect(action).toBeVisible();
+  await expect(page.locator('.protocol-day-hero')).toHaveCount(0);
+  expect(await page.locator('.protocol-day-heading').evaluate(el => getComputedStyle(el).backgroundImage)).toBe('none');
+  await page.goto('./#/progress'); // D164: the day's goals live in «Мій прогрес»
   const summary = page.getByRole('region', { name: t.summary.title });
   const water = summary.getByRole('progressbar', { name: t.summary.water });
   await expect(water).toHaveAttribute('aria-valuenow', '100');
@@ -19,10 +22,7 @@ test('Today stays available offline; primary action and honest meters remain usa
   const carbs = summary.getByRole('progressbar', { name: t.summary.carbs });
   await expect(carbs).toHaveAttribute('aria-valuenow', '100');
   await expect(carbs).toHaveAttribute('aria-valuetext', /230 г.*190.*40/);
-  const boxes = await Promise.all([summary.boundingBox(), page.getByRole('region', { name: 'Ритм дня' }).boundingBox()]);
-  expect(boxes[1]!.y).toBeLessThan(boxes[0]!.y);
-  await expect(page.locator('.protocol-day-hero')).toHaveCount(0);
-  expect(await page.locator('.protocol-day-heading').evaluate(el => getComputedStyle(el).backgroundImage)).toBe('none');
+  await page.goto('./#/');
   await page.context().setOffline(true);
   await page.reload();
   await expect(page.getByRole('heading', { level: 1, name: 'Сьогодні', exact: true })).toBeVisible();
@@ -87,6 +87,7 @@ test('theme preference overrides the device and returns to the system setting', 
 
 test('metrics without plan targets show values without a made-up completion percentage', async ({ browser }) => {
   const page = await device(browser, 'skip');
+  await page.goto('./#/progress');
   const summary = page.getByRole('region', { name: t.summary.title });
   await expect(summary.getByRole('progressbar')).toHaveCount(0);
   await summary.getByRole('button', { name: t.summary.all }).click();

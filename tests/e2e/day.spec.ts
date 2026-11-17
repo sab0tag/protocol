@@ -75,6 +75,7 @@ test('the new «День»: the plan on an empty day, a dose asks when, main num
   await expect(toast(page)).toContainText(/Вітамін D — відмічено о \d\d:\d\d/);
   await expect(page.getByRole('region', { name: 'Ритм дня' }).getByRole('button', { name: /^Вітамін D, Виконано/ })).toBeVisible();
 
+  await page.goto('./#/progress'); // D164: the day's goals live in «Мій прогрес»
   const summary = page.getByRole('region', { name: 'Сьогодні' });
   await expect(summary.getByText('Білок')).toHaveCount(0);
   for (const label of ['Вода', 'Ліки', 'Вуглеводи']) {
@@ -102,6 +103,7 @@ test('the new «День»: the plan on an empty day, a dose asks when, main num
   await page.reload();
   await expect(page.getByRole('region', { name: 'Сьогодні' }).getByText('Білок')).toBeVisible(); // kept on this device
 
+  await page.goto('./#/');
   await page.locator('button[aria-controls="day-week"]').click(); // D160: a tap on the date opens the week
   const week = page.getByRole('navigation', { name: 'Тиждень' });
   const weekdays = week.locator('ol > li button span:first-child');

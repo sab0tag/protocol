@@ -23,8 +23,7 @@ test('ordinary builds keep legacy UI and do not expose module switches', async (
   test.skip(enabled, 'compatibility build');
   const page = await device(browser); await minimal(page, []);
   await expect(page.getByRole('region', { name: 'Їжа', exact: true })).toBeVisible();
-  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight)); // the dock waits until the quick tiles leave view
-  await expect(page.getByRole('button', { name: /Додати 250 мл води/ })).toBeVisible();
+  await expect(page.getByRole('navigation', { name: 'Швидкі відмітки', exact: true }).getByRole('button', { name: /^Вода:/ })).toBeVisible(); // D164
   await page.goto('./#/modules'); await expect(page.getByText('Налаштування модулів ще готуються до ввімкнення.')).toBeVisible();
   await expect(page.getByRole('switch')).toHaveCount(0);
 });

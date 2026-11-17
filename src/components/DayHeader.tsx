@@ -35,7 +35,8 @@ export function DayHeader({ date, setDate, action }: { date: string; setDate: (d
 
   return (
     <header className="protocol-day-heading mb-2 space-y-2" onPointerDown={down} onPointerUp={up} onPointerCancel={() => { swipe.current = null; }} style={{ touchAction: 'pan-y' }}>
-      <div>
+      <div className="flex flex-wrap items-center justify-between gap-x-2">
+      <div className="min-w-0">
         {/* ТЗ 17.11, step 3: date and greeting in one line; the section's name stays for screen readers */}
         <h1 className={isToday ? 'sr-only' : 'text-2xl font-semibold tracking-tight'}>{isToday ? L.todayTitle : format(d, 'EEEE, d MMMM', { locale: uk })}</h1>
         <p className="flex flex-wrap items-center gap-x-2 text-base text-muted">
@@ -45,6 +46,8 @@ export function DayHeader({ date, setDate, action }: { date: string; setDate: (d
             <CalendarDays size={16} aria-hidden />{isToday ? format(d, 'EEEE, d MMMM', { locale: uk }) : L.week}
           </button>
         </p>
+      </div>
+      {action}
       </div>
       {week && <div id="day-week">
       <nav aria-label={L.week} className="protocol-calendar mb-2 overflow-x-auto flex items-center gap-1 rounded-xl p-1">
@@ -70,7 +73,6 @@ export function DayHeader({ date, setDate, action }: { date: string; setDate: (d
           className="flex min-h-tap w-11 shrink-0 items-center justify-center text-muted"><ChevronRight size={18} aria-hidden /></button>
       </nav>
       </div>}
-      {action && <div>{action}</div>}
       {!isToday && (
         <p className="mt-1 text-center"><button type="button" className="min-h-tap px-3 text-accent underline" onClick={() => setDate(today)}>{L.today}</button></p>
       )}
