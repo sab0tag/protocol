@@ -1,4 +1,4 @@
-import { differenceInMinutes, format } from 'date-fns';
+import { format } from 'date-fns';
 import { ActionDetail, applyEntryChange } from '../components/ActionDetail';
 import { withStatus } from '../data/entryActions';
 import { RescheduleMeal } from '../components/RescheduleMeal';
@@ -7,34 +7,30 @@ import { markMeds, SkipChoice, TimeChoice } from '../components/MarkTime';
 import { ConfirmMeal } from '../components/ConfirmMeal';
 import { SymptomSheet } from '../components/SymptomSheet';
 import { saved } from '../components/Toast';
-import { Check, Droplet, Dumbbell, Frown, HeartPulse, ListChecks, NotebookPen, Pencil, Pill, Plus, Sparkles, Star, Target, Trash2, Undo2, UtensilsCrossed, X } from 'lucide-react';
+import { Check, ChevronRight, Droplet, Dumbbell, Frown, NotebookPen, Pencil, Pill, Plus, Star, Target, Trash2, Undo2, UtensilsCrossed, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Sheet, SheetButton } from '../components/Sheet';
 import { db } from '../data/db';
 import { useAllEntries, useDayEntries, useFoods, usePlan, useRecipes, useWorkouts } from '../data/queries';
 import { buildChecklist, type CheckItem } from '../domain/checklist';
-import { NOW_AFTER_MIN } from '../domain/reminders';
-import { FOOD_COMPLETE, foodState, habits, mealsOf, frequentItems } from '../domain/habits';
+import { FOOD_COMPLETE, foodState, mealsOf, frequentItems } from '../domain/habits';
 import { addDays, differenceInCalendarDays, parseISO as parseDay } from 'date-fns';
 import { amountText } from '../domain/foodSearch';
 import { exportDue } from '../data/backup';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { atLocal, dateOf, newId, timeOf, todayISO } from '../domain/dates';
 import { activeMode, dayTotals, effectiveTargets } from '../domain/nutrition';
-import { completedLate } from '../domain/adherence';
 import type { DayEntry, EntryKind } from '../domain/types';
 import { t } from '../i18n/uk';
 import { useUi } from '../store/ui';
 import { useSync } from '../sync/runner';
 import { SimpleEntrySheet } from './SimpleEntrySheet';
 import { NowCard } from '../components/NowCard';
-import { QuickDock, useOnScreen } from '../components/QuickDock';
 import { DayHeader } from '../components/DayHeader';
-import { DayRhythm, DayHistory } from '../components/DayRhythm';
+import { DayRhythm } from '../components/DayRhythm';
 import { ExampleNotice } from '../components/ExampleNotice';
 import { hasExample } from '../data/seed.example';
-import { DaySummary, type MetricKey } from '../components/DaySummary';
 import { Loading } from '../components/Recovery';
 import { useObservation } from '../app/observation';
 import { observedTargets, scoredDay } from '../domain/observation';
@@ -48,9 +44,9 @@ import { runningLow } from '../domain/stock';
 import { unfinished } from '../domain/conclusion';
 import { useFeatures } from '../app/features';
 import { MealTiles } from '../components/MealTiles';
+import { QuickMarks } from '../components/QuickMarks';
 import { blockKeyFor, slotAt, type Slot } from '../domain/mealSlots';
-import { ENTRY_FEATURES, habitVisible, entryVisible } from '../domain/visibility';
-import type { FeatureId } from '../domain/features';
+import { ENTRY_FEATURES, entryVisible } from '../domain/visibility';
 
 import { lightDayOnDate } from '../domain/lightDay';
 import { LightDayControl } from '../components/LightDayControl';
@@ -86,12 +82,15 @@ export function Day() {
   const opening = params.get('open'); // D66: `#/do/symptom` lands here
   const mealParam = params.get('meal'); // D159: `#/meal/new` opens the tile of the meal going on now
   const [openTile, setOpenTile] = useState<string | null>(null);
+  const [listenTile, setListenTile] = useState(false); // D164: `#/do/food` — the tile open and the microphone on
+  const [openMark, setOpenMark] = useState<'meds' | 'mood' | null>(null); // D164: `#/do/meds`, `#/do/mood`
   useEffect(() => {
-    if (mealParam !== null && /^[0-3]$/.test(mealParam)) { setOpenTile(blockKeyFor(Number(mealParam) as Slot)); setParams({}, { replace: true }); }
-  }, [mealParam, setParams]);
+    if (mealParam !== null && /^[0-3]$/.test(mealParam)) { setOpenTile(blockKeyFor(Number(mealParam) as Slot)); setListenTile(params.get('mic') === '1'); setParams({}, { replace: true }); }
+  }, [mealParam, params, setParams]);
   useEffect(() => {
     if (opening === 'symptom') { setSymptom({}); setParams({}, { replace: true }); }
     if (opening === 'voice') { setVoice(true); setParams({}, { replace: true }); } // D95: `#/do/voice` — Back Tap straight to the voice
+    if (opening === 'meds' || opening === 'mood') { setOpenMark(opening); setParams({}, { replace: true }); }
   }, [opening, setParams]);
   const entries = useDayEntries(date);
   const foods = useFoods();
@@ -111,7 +110,6 @@ export function Day() {
   const [confirming, setConfirming] = useState<DayEntry | null>(null); // D55
   const [adding, setAdding] = useState(false);
   const [yesterday, setYesterday] = useState(false);
-  const [tilesRef, tilesOnScreen] = useOnScreen<HTMLElement>(); // D82
   const all = useAllEntries();
   const lastRecordedDate = useLiveQuery(async () => {
     const [entries, wellbeing, workouts, weights, labs, frictions] = await Promise.all([
@@ -130,9 +128,6 @@ export function Day() {
       ...frictions.map((entry) => dateOf(entry.at)),
     ].reduce((latest, recordedDate) => recordedDate <= todayISO() && recordedDate > latest ? recordedDate : latest, '');
   }, []);
-  const best = foods && all && workouts
-    ? habits({ plan, entries: all, workouts, foods, today: todayISO(), observation }).filter((h) => h.streak >= 3 && habitVisible(h.key, context)).sort((a, b) => b.streak - a.streak)[0]
-    : undefined; // D38
   const [simple, setSimple] = useState<{ kind: Exclude<EntryKind, 'meal' | 'symptom'>; entry?: DayEntry } | null>(null);
   const [symptom, setSymptom] = useState<{ entry?: DayEntry } | null>(null); // D56
 
@@ -151,6 +146,7 @@ export function Day() {
   const presentation = entries && foods && workouts ? presentDay({ plan, date, entries, workouts, foods,
     context, now: new Date(), observation, light, lastMealBy: targets.lastMealBy }) : undefined;
   const checklist = presentation?.checklist;
+  const wellbeingToday = useLiveQuery(() => db.wellbeing.get(date).then((w) => w ?? null), [date]);
 
   /** UI-ACTION-01: an outcome is written against the record the person saw (a stale sheet writes nothing). */
   const setStatus = async (e: DayEntry, status: DayEntry['status'], skipReason?: string) => {
@@ -159,27 +155,7 @@ export function Day() {
     await applyEntryChange(e, (current) => withStatus(current, status, skipReason), say(e.title));
   };
   const remove = (e: DayEntry) => applyEntryChange(e, () => null, t.toast.deleted(e.title));
-  const waterRow = (): DayEntry => ({ id: newId(), at: atLocal(date, isToday ? format(new Date(), 'HH:mm') : '12:00'), kind: 'water', status: 'done',
-    title: t.addKinds.water, waterMl: 250 });
-  const meds = checklist?.items.filter((i) => i.kind === 'med') ?? [];
-  const nextMed = meds.find((i) => !i.done && !i.skipped && !i.uncertain);
-  const uncertainMed = meds.find((i) => i.uncertain);
-  const medAction = uncertainMed ?? nextMed;
-  // D50: a dose past its window is «не відмічено» (orange); D52: then — and on any other day — the dock asks when it was taken
-  const medMissed = !!nextMed?.time && (date < todayISO() || (isToday && differenceInMinutes(new Date(), new Date(`${date}T${nextMed.time}:00`)) > NOW_AFTER_MIN));
   const [askMed, setAskMed] = useState<CheckItem | null>(null);
-  /** The dock's two taps (D48): written at once, the dock itself says so and takes the undo. */
-  const dockWater = async () => { if (!can('water.log')) return undefined; const e = waterRow(); await db.entries.add(e); return () => db.entries.delete(e.id); };
-  const dockMed = async () => {
-    if (!can('meds.log') || !medAction) return undefined;
-    if (medAction.uncertain || !isToday || medMissed) { setAskMed(medAction); return undefined; }
-    const now = format(new Date(), 'HH:mm');
-    const e: DayEntry = { id: newId(), at: atLocal(date, now), kind: 'med', status: 'done', title: medAction.title, checkKey: medAction.key,
-      ...(completedLate(now, medAction.time) ? { adherence: 'completed_late' as const } : {}),
-      ...(medAction.prescriptionId ? { prescriptionId: medAction.prescriptionId } : {}) };
-    await db.entries.add(e);
-    return () => db.entries.delete(e.id);
-  };
   const prevDay = format(addDays(parseDay(date), -1), 'yyyy-MM-dd');
   const copyMeal = async (e: DayEntry) => {
     const time = timeOf(e.at);
@@ -203,19 +179,7 @@ export function Day() {
   };
 
   const rhythm = presentation?.rhythm;
-  const quickCandidates: { feature: FeatureId; label: string; Icon: typeof Sparkles; go: () => void; done?: boolean; badge?: string }[] = [
-    { feature: 'menu.ai', label: t.menu.quick, Icon: Sparkles, go: () => navigate(`/menu?date=${date}`) },
-    { feature: 'wellbeing.log', label: t.well.short, Icon: HeartPulse, go: () => navigate('/wellbeing') },
-    { feature: 'workout.log', label: t.workout.title, Icon: Dumbbell, go: () => navigate('/workout'), done: !!workouts?.some((w) => w.date === date) },
-    { feature: 'day.checklist', label: t.myday.title, Icon: ListChecks, go: () => navigate('/my-day'), badge: checklist && checklist.total > 0 ? t.myday.counter(checklist.done, checklist.total) : undefined },
-    ...(enabled ? [{ feature: 'wellbeing.weight' as const, label: t.progress.weight, Icon: Target, go: () => navigate('/weight') }] : []),
-  ];
-  const quick = light ? [] : quickCandidates.filter((q) => can(q.feature));
 
-  const allowedMetrics: MetricKey[] | undefined = observation ? [
-    ...(can('meds.log') && meds.length ? ['meds' as const] : []), ...(can('water.log') && scoredDay(observation, 'water', date) ? ['water' as const] : []),
-    ...(can('food.log') && scoredDay(observation, 'food', date) ? ['carbs', 'protein', 'calcium', 'kcal'] as const : []),
-  ] : undefined;
   if (!observationReady) return <Loading />;
   return (
     <section className="pt-4">
@@ -228,55 +192,23 @@ export function Day() {
         <p className="text-muted">{t.day.returningAfterBreak.message}</p>
       </div>}
 
-      {light && can('water.log') && <details className="mb-4 rounded-2xl border border-line bg-surface p-3">
-        <summary className="min-h-tap cursor-pointer font-medium">{t.lightDay.voluntary}</summary>
-        <div className="flex flex-wrap gap-2">
-          {can('water.log') && <button type="button" onClick={() => setSimple({ kind: 'water' })} className="min-h-tap px-3 text-accent underline">{t.addKinds.water}</button>}
-        </div>
-        {(entries ?? []).filter((e) => entryVisible(e, context) && e.status !== 'planned' && ['meal', 'water', 'workout'].includes(e.kind)).map((e) =>
-          <button type="button" key={e.id} onClick={() => setRowFor(e)} className="block min-h-tap text-left text-sm">{timeOf(e.at)} · {e.title}</button>)}
-      </details>}
-
-      {checklist && <QuickDock meds={{ done: meds.filter((i) => i.done).length, skipped: meds.filter((i) => i.skipped).length,
-          total: meds.length }} water={checklist.water}
-          med={medAction && { title: medAction.title, ...(medAction.time ? { time: medAction.time } : {}), missed: medAction === nextMed && medMissed,
-            ...(medAction.uncertain ? { uncertain: true } : {}) }}
-          onMed={dockMed} onWater={dockWater} hidden={tilesOnScreen} hideWater={light || !can('water.log')} />}
-
       <ExampleNotice plan={plan} />
+      {/* ТЗ 17.11, step 3 (D164): the first screen — «Зараз», the quick marks, the food tiles and «Мені погано» */}
       <div data-testid="focused-day-now">
-        {presentation && (presentation.focus.now || presentation.focus.missed.length > 0) && <h2 className="mb-2 text-lg font-semibold">{t.todayView.attention}</h2>}
         {entries && <NowCard compact entries={entries} plan={plan} date={date} observation={observation} onConfirm={setConfirming} onReschedule={setRescheduling} />}
       </div>
-      <nav ref={tilesRef} aria-label="Швидкі дії" className="mb-4 grid grid-cols-2 gap-2">
-        {can('water.log') && !light && <button type="button" onClick={() => { const e = waterRow(); void saved(db.entries.add(e), '+250 мл', () => db.entries.delete(e.id)); }} className="flex min-h-tap flex-col items-center justify-center gap-1 rounded-xl border border-line bg-surface p-2 text-center text-xs font-medium"><Droplet size={20} className="text-accent" aria-hidden />+250 мл</button>}
-        <button type="button" onClick={() => setSymptom({})} className="flex min-h-tap flex-col items-center justify-center gap-1 rounded-xl border border-line bg-surface p-2 text-center text-xs font-medium"><Frown size={20} className="text-warn" aria-hidden />{t.addKinds.symptom}</button>
-      </nav>
+      {checklist && entries && <QuickMarks date={date} isToday={isToday} light={light} items={checklist.items} water={checklist.water} entries={entries}
+        wellbeing={wellbeingToday ?? undefined} workoutDone={!!workouts?.some((w) => w.date === date) || entries.some((e) => e.kind === 'workout' && e.status === 'done')}
+        onWorkout={() => setSimple({ kind: 'workout' })} onUnwell={() => setSymptom({})} request={openMark} onRequestDone={() => setOpenMark(null)} />}
       {can('food.log') && date <= today && entries && all && foods && recipes && <MealTiles date={date} day={entries} all={all} foods={foods} recipes={recipes} plan={plan}
-        quiet={light || !scoredDay(observation, 'food', date)} open={openTile} onOpen={setOpenTile} onConfirm={setConfirming} />}
-      {rhythm && <DayRhythm date={date} pendingOnly title={isToday ? t.day.upcoming : t.day.rhythm} rhythm={rhythm} foods={foods} {...(can('menu.yesterday') && can('food.log') ? { onYesterday: () => setYesterday(true) } : {})} addLabel={enabled ? t.modules.addOther : undefined} onEntry={(e) => (e.kind === 'meal' && e.status === 'planned' && e.items?.length ? setConfirming(e) : setRowFor(e))} onDose={setAskMed} onAdd={() => setAdding(true)}
-        onAnytime={(i) => (i.kind === 'workout' ? navigate('/workout') : setAskMed(i))} />}
-      {totals && <details className="protocol-card mb-4 p-0" open>
-        <summary className="min-h-tap cursor-pointer p-4 font-semibold">{t.todayView.goals}</summary>
-        <DaySummary compact quiet={light} title={isToday ? t.summary.title : t.summary.forDay} totals={totals} targets={targets} allowed={allowedMetrics} meds={{ done: meds.filter((i) => i.done).length, total: meds.length }}
-        {...(!light && isToday && best ? { streak: t.day.streak(t.progress.habit[best.key], best.streak) } : {})}
-        {...(!light && entries ? { food: foodState(entries), onComplete: (on: boolean) => void markComplete(on) } : {})} />
-      </details>}
-      {presentation && <DayHistory records={presentation.records.map(record => record.entry)} foods={foods} onEntry={setRowFor} />}
-      <details className="mb-4 rounded-xl border border-line bg-surface p-3">
-        <summary className="min-h-tap cursor-pointer font-medium">Ще дії</summary>
-        {quick.length > 0 && <nav aria-label={t.day.quick} className={`mb-5 grid gap-1 ${quick.length === 4 ? 'grid-cols-[0.8fr_1.2fr_1.2fr_0.8fr] min-[380px]:grid-cols-4' : ''}`}
-        style={quick.length === 4 ? undefined : { gridTemplateColumns: `repeat(${quick.length}, minmax(0, 1fr))` }}>
-        {quick.map(({ label, Icon, go, badge, done }) => (
-          <button key={label} type="button" onClick={go} aria-label={[label, done ? t.myday.workoutDone : badge].filter(Boolean).join(', ')} className="flex min-h-tap flex-col items-center gap-1 text-center">
-            <span className="relative flex h-12 w-12 items-center justify-center rounded-2xl bg-surface shadow-sm"><Icon size={22} className="text-accent" aria-hidden />
-              {badge && <span className="tabular absolute -right-2 -top-1.5 rounded-full bg-accent px-1.5 text-xs font-medium text-surface">{badge}</span>}
-              {done && <span className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full border-2 border-bg bg-accent text-surface" aria-hidden><Check size={11} strokeWidth={3} /></span>}</span>
-            <span className="max-w-full break-words text-[11px] leading-tight min-[380px]:text-xs">{label}</span>
-          </button>
-        ))}
-      </nav>}
-        </details>
+        quiet={light || !scoredDay(observation, 'food', date)} open={openTile} onOpen={(key) => { setListenTile(false); setOpenTile(key); }} listen={listenTile} onConfirm={setConfirming} />}
+      {can('food.log') && !light && entries && foodState(entries) !== 'none' && ( /* R06: only the person can say all food is written */
+        <p className="-mt-2 mb-3 text-right"><button type="button" aria-pressed={foodState(entries) === 'complete'} onClick={() => void markComplete(foodState(entries) !== 'complete')}
+          className="min-h-tap px-1 text-sm text-accent underline">{foodState(entries) === 'complete' ? t.summary.undoComplete : t.summary.markComplete}</button></p>)}
+      <button type="button" onClick={() => setSymptom({})} data-testid="unwell"
+        className="mb-4 flex min-h-tap w-full items-center gap-3 rounded-2xl border border-line bg-surface px-4 py-3 text-left font-semibold">
+        <Frown size={20} className="shrink-0 text-muted" aria-hidden /><span className="flex-1">{t.addKinds.symptom}</span><ChevronRight size={18} className="text-muted" aria-hidden />
+      </button>
       <button type="button" onClick={() => setVoice(true)} disabled={voice} className="mb-3 flex min-h-tap items-center gap-2 text-sm text-accent">{t.voice.open}</button>
       {/* D40: one notice at a time — the code first, then the backup */}
       {isToday && codeDue && (
@@ -298,6 +230,9 @@ export function Day() {
       )}
 
       {isToday && !codeDue && plan && !hasExample(plan) && <><PilotOffer /><PilotSurvey /></> /* D120, D121 */}
+      {/* the day list: every dose, water and workout of the day, the done ones struck through (D164) */}
+      {rhythm && <DayRhythm date={date} title={t.day.rhythm} rhythm={rhythm} foods={foods} {...(can('menu.yesterday') && can('food.log') ? { onYesterday: () => setYesterday(true) } : {})} addLabel={enabled ? t.modules.addOther : undefined} onEntry={(e) => (e.kind === 'meal' && e.status === 'planned' && e.items?.length ? setConfirming(e) : setRowFor(e))} onDose={setAskMed} onAdd={() => setAdding(true)}
+        onAnytime={(i) => (i.kind === 'workout' ? navigate('/workout') : setAskMed(i))} />}
 
       {can('meds.log') && isToday && plan && all && runningLow(plan.prescriptions, all).map(({ p, days }) => ( /* D69: buy in time */
         <div key={p.id} role="status" className="mb-3 flex flex-wrap items-center gap-2 rounded-2xl border border-warn/30 bg-warn-bg p-3 text-sm text-warn">
@@ -414,7 +349,6 @@ export function Day() {
         );
       })()}
       <p className="text-center"><button type="button" onClick={() => navigate('/frictions')} className="min-h-tap px-2 text-sm text-muted underline">{t.friction.ask}</button></p>
-      {checklist && <div className="h-40 md:h-16" aria-hidden /> /* D48: the last record stays above the floating dock */}
       {askMed && can('meds.log') && <TimeChoice title={askMed.title} {...(askMed.time ? { planned: askMed.time } : {})} date={date} allowUncertain onClose={() => setAskMed(null)}
         onPick={(when) => void markMeds([{ key: askMed.key, title: askMed.title, ...(askMed.prescriptionId ? { prescriptionId: askMed.prescriptionId } : {}) }],
           date, askMed.time, 'done', when)} />}

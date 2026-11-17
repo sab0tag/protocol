@@ -44,6 +44,8 @@ export interface MealTilesProps {
   quiet: boolean;
   /** the open block's key (`blockKeyFor`, or `e:<id>` for a snack) */
   open: string | null; onOpen: (key: string | null) => void; onConfirm: (planned: DayEntry) => void;
+  /** D164: `#/do/food` — the open tile starts the microphone (after the same consent, D95) */
+  listen?: boolean;
 }
 
 export function MealTiles(props: MealTilesProps) {
@@ -94,7 +96,7 @@ function blockEntries(block: MealBlock, day: DayEntry[], date: string): { done: 
   return { done: e?.status === 'done' ? [e] : [], planned: e?.status === 'planned' ? [e] : [] };
 }
 
-function MealTile({ block, now, date, day, all, foods, recipes, plan, quiet, open, onOpen, onConfirm }: MealTilesProps & { block: MealBlock; now: Date }) {
+function MealTile({ block, now, date, day, all, foods, recipes, plan, quiet, open, onOpen, onConfirm, listen }: MealTilesProps & { block: MealBlock; now: Date }) {
   const { slot } = block;
   const name = t.meal.names[slot]!;
   const expanded = open === block.key;
@@ -134,7 +136,7 @@ function MealTile({ block, now, date, day, all, foods, recipes, plan, quiet, ope
       </button>
       {expanded && <TileBody slot={slot} name={name} date={date} lines={lines} planned={planned} checks={checks} all={all} day={day}
         foods={foods} recipes={recipes} plan={plan} onConfirm={onConfirm} onClose={() => onOpen(null)}
-        at={block.key === NEW_SNACK ? block.at : undefined} onCreated={slot === 3 ? (id) => onOpen(`e:${id}`) : undefined} />}
+        at={block.key === NEW_SNACK ? block.at : undefined} onCreated={slot === 3 ? (id) => onOpen(`e:${id}`) : undefined} listen={!!listen} />}
     </div>
   );
 }
@@ -143,11 +145,11 @@ function PlanLabel({ text }: { text: string }) {
   return <span className="rounded-full bg-warn-bg px-2 py-0.5 text-xs font-semibold text-warn">{text}</span>;
 }
 
-function TileBody({ slot, name, date, lines, planned, checks, all, day, foods, recipes, plan, onConfirm, onClose, at, onCreated }: {
+function TileBody({ slot, name, date, lines, planned, checks, all, day, foods, recipes, plan, onConfirm, onClose, at, onCreated, listen }: {
   slot: Slot; name: string; date: string; lines: Line[]; planned: DayEntry[]; checks: ItemCheck[]; all: DayEntry[]; day: DayEntry[];
   foods: Map<string, Food>; recipes: Recipe[]; plan: Plan | undefined; onConfirm: (e: DayEntry) => void; onClose: () => void;
   /** a new snack: the time it was opened with; its first line makes the record, which then is this block */
-  at?: string; onCreated?: (id: string) => void;
+  at?: string; onCreated?: (id: string) => void; listen?: boolean;
 }) {
   const [query, setQuery] = useState('');
   const [editing, setEditing] = useState<Line | null>(null);
@@ -218,7 +220,7 @@ function TileBody({ slot, name, date, lines, planned, checks, all, day, foods, r
         </div>
       ))}
 
-      <TileField input={input} listened={listened} name={name} query={query} setQuery={setQuery} onPhoto={pick} photoBusy={photo.state === 'busy'}
+      <TileField autoStart={listen} input={input} listened={listened} name={name} query={query} setQuery={setQuery} onPhoto={pick} photoBusy={photo.state === 'busy'}
         onEnter={() => { const first = suggestions[0]; if (first) pickOne(first.item); }} />
       {fileInput}
       {danger && (crisis ? <CrisisCard className="mt-2" /> : <DangerCard className="mt-2" />) /* D97, D130: the card and nothing else about those words */}
@@ -294,14 +296,15 @@ function ordered(list: Candidate[], slotUsual: MealItem[], query: string): Candi
   });
 }
 
-function TileField({ input, listened, name, query, setQuery, onPhoto, photoBusy, onEnter }: {
-  input: RefObject<HTMLInputElement>; listened: { current: boolean }; name: string; query: string; setQuery: (q: string) => void; onPhoto: () => void; photoBusy: boolean; onEnter: () => void;
+function TileField({ autoStart, input, listened, name, query, setQuery, onPhoto, photoBusy, onEnter }: {
+  autoStart?: boolean; input: RefObject<HTMLInputElement>; listened: { current: boolean }; name: string; query: string; setQuery: (q: string) => void; onPhoto: () => void; photoBusy: boolean; onEnter: () => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [ask, setAsk] = useState(false);
   const [error, setError] = useState<SpeechError | null>(null);
   const stop = useRef<() => void>(() => undefined);
   useEffect(() => () => stop.current(), []);
+  useEffect(() => { if (autoStart && speechSupported()) start(); }, []); // eslint-disable-line react-hooks/exhaustive-deps -- once, on opening
   const start = () => {
     if (!okGiven()) { setAsk(true); return; }
     setAsk(false); setError(null); setBusy(true);

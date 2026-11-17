@@ -67,7 +67,7 @@ export function tabForPath(pathname: string): TabRouteId | null {
 export const MORE_ROUTES = ['assistant', 'menu', 'wellbeing', 'workout', 'dishes', 'foods', 'profiles', 'frictions', 'pilot', 'conciergeLog', 'about'] as const satisfies readonly StaticRouteId[];
 export type MoreRouteId = (typeof MORE_ROUTES)[number];
 export const SETTINGS_PATH = '/more/settings';
-export const SETTINGS_ROUTES = ['reminders', 'sync', 'data', 'modules', 'quickLinks', 'onboarding'] as const satisfies readonly StaticRouteId[];
+export const SETTINGS_ROUTES = ['reminders', 'sync', 'data', 'modules', 'quickLinks', 'myDay', 'onboarding'] as const satisfies readonly StaticRouteId[];
 export type SettingsRouteId = (typeof SETTINGS_ROUTES)[number];
 
 const isOneOf = (pathname: string, ids: readonly StaticRouteId[]) => ids.some((id) => ROUTES[id].path === pathname);
@@ -87,4 +87,5 @@ export function parentPath(pathname: string): string {
 /** The generic /do/:action shell stays available; each action has its own module boundary. */
 export const QUICK_ACTION_FEATURES = {
   voice: 'voice', water: 'water.log', med: 'meds.log', symptom: 'unwell', meal: 'food.log', friction: 'frictions',
+  meds: 'meds.log', mood: 'wellbeing.log', food: 'food.log', // D164: the home-screen shortcuts
 } as const satisfies Readonly<Record<string, FeatureId>>;

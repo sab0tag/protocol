@@ -7,7 +7,8 @@ import { useFeatures } from '../app/features';
 import { QUICK_ACTION_FEATURES } from '../app/navigation';
 
 const L = t.quick;
-const ACTIONS = [['voice', t.voice.open], ['water', L.water], ['water?ml=500', L.water500], ['med', L.med], ['symptom', L.symptom], ['meal', L.meal]] as const;
+// D164: the four marks of «Сьогодні» first — the same links the Android icon offers on a long press
+const ACTIONS = [['meds', L.meds], ['water', L.water], ['mood', L.mood], ['food', L.food], ['water?ml=500', L.water500], ['voice', t.voice.open], ['symptom', L.symptom]] as const;
 
 export function QuickLinks() {
   const { can } = useFeatures();
