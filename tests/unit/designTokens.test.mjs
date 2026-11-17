@@ -51,3 +51,36 @@ describe('design tokens meet WCAG AA in both themes', () => {
     for (const name of Object.keys(themes.dark)) expect(system[name], name).toEqual(themes.dark[name]);
   });
 });
+
+// D163: direction C (src/styles/palette-c.css) — the spec's pairs: text 4.5:1, borders and the water meter 3:1.
+const paletteC = readFileSync(join(process.cwd(), 'src/styles/palette-c.css'), 'utf8');
+function block(source, opener) {
+  const start = source.indexOf(opener);
+  if (start < 0) throw new Error(`no block ${opener}`);
+  const body = source.slice(start, source.indexOf('}', start));
+  const out = {};
+  for (const m of body.matchAll(/--([a-z-]+):\s*(\d+) (\d+) (\d+);/g)) out[m[1]] = [Number(m[2]), Number(m[3]), Number(m[4])];
+  return out;
+}
+const withBase = (base, over) => ({ ...base, ...over });
+
+describe('direction C meets the spec\'s contrast in both themes (D163)', () => {
+  const c = {
+    light: withBase(themes.light, block(paletteC, ':root[data-palette="c"] {')),
+    dark: withBase(themes.dark, block(paletteC, ':root[data-palette="c"][data-theme="dark"] {')),
+  };
+  const large = [['line', 'surface', 'field and button border'], ['line', 'bg', 'border on the screen'], ['water', 'surface', 'water meter'],
+    ['accent', 'surface', 'main action on a card']];
+  const text = [...pairs, ['on-accent', 'accent', 'label on the main action'], ['on-accent', 'ok', 'label on «Прийняв»'], ['muted', 'warn-bg', 'secondary text on a plan remark']];
+  for (const [theme, set] of Object.entries(c)) {
+    for (const [fg, bg, what] of text) it(`${theme}: ${what} (${fg} on ${bg}) ≥ 4.5`, () => expect(contrast(set[fg], set[bg])).toBeGreaterThanOrEqual(4.5));
+    for (const [fg, bg, what] of large) it(`${theme}: ${what} (${fg} on ${bg}) ≥ 3`, () => expect(contrast(set[fg], set[bg])).toBeGreaterThanOrEqual(3));
+  }
+  it('the system dark theme uses the same values as the explicit one', () => {
+    const system = block(paletteC, ':root[data-palette="c"]:not([data-theme]) {');
+    expect(system).toEqual(block(paletteC, ':root[data-palette="c"][data-theme="dark"] {'));
+  });
+  it('danger stays the only red: direction C does not redefine it', () => {
+    expect(block(paletteC, ':root[data-palette="c"] {').danger).toBeUndefined();
+  });
+});

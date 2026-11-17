@@ -1,0 +1,30 @@
+/* D163: direction C «Теплий і людяний» (ТЗ «спрощення» 17.11, «Визуальный стиль») — the same token names as index.css,
+   so a component never names a colour. Off until `data-palette="c"` is on <html> (preview: ?palette=c); step 6 makes it
+   the default. Values from the spec; where a pair failed the contrast test, the foreground was darkened, never the
+   background: line #E8D6C8 → #998D83 (3:1 for field and button borders), water #5BA6C9 → #5398B8 (3:1 for its meter).
+   Mapping: warn / warn-bg = the spec's accent-soft text / background (plan remarks — a hint, not an alarm); ok-bg = ok-soft;
+   accent is both the main action and link text (#B4492A is 5.3:1 on white, the spec's accent-text is not needed);
+   danger stays as it is — the only red, for the 103 and 7333 cards. Dark: the spec's orientation values, checked. */
+:root[data-palette="c"] {
+  --bg: 255 246 238; --surface: 255 255 255; --ink: 43 29 22; --muted: 107 90 80; --line: 153 141 131;
+  --surface-secondary: 251 239 228; --accent-hover: 158 63 36; --accent-pressed: 138 55 32; --on-accent: 255 255 255;
+  --accent: 180 73 42; --warn: 92 58 18; --warn-bg: 255 241 226; --water: 83 152 184;
+  --ok: 31 111 107; --ok-bg: 227 241 239;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-palette="c"]:not([data-theme]) {
+    --bg: 30 23 20; --surface: 42 33 28; --ink: 245 236 228; --muted: 201 184 172; --line: 128 108 96;
+    --surface-secondary: 52 41 35; --accent-hover: 232 146 112; --accent-pressed: 200 104 70; --on-accent: 30 23 20;
+    --accent: 224 122 85; --warn: 242 192 143; --warn-bg: 58 42 28; --water: 127 191 223;
+    --ok: 79 179 172; --ok-bg: 23 59 57;
+    color-scheme: dark;
+  }
+}
+:root[data-palette="c"][data-theme="dark"] {
+  --bg: 30 23 20; --surface: 42 33 28; --ink: 245 236 228; --muted: 201 184 172; --line: 128 108 96;
+  --surface-secondary: 52 41 35; --accent-hover: 232 146 112; --accent-pressed: 200 104 70; --on-accent: 30 23 20;
+  --accent: 224 122 85; --warn: 242 192 143; --warn-bg: 58 42 28; --water: 127 191 223;
+  --ok: 79 179 172; --ok-bg: 23 59 57;
+  color-scheme: dark;
+}
