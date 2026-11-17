@@ -21,7 +21,7 @@ async function rows(page: Page, table: string) {
 test('ordinary builds keep legacy UI and do not expose module switches', async ({ browser }) => {
   test.skip(enabled, 'compatibility build');
   const page = await device(browser); await minimal(page, []);
-  await expect(page.getByRole('button', { name: 'Записати їжу', exact: true })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Їжа', exact: true })).toBeVisible();
   await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight)); // the dock waits until the quick tiles leave view
   await expect(page.getByRole('button', { name: /Додати 250 мл води/ })).toBeVisible();
   await page.goto('./#/modules'); await expect(page.getByText('Налаштування модулів ще готуються до ввімкнення.')).toBeVisible();
@@ -31,7 +31,7 @@ test('ordinary builds keep legacy UI and do not expose module switches', async (
 test('minimal day hides disabled actions and More stays short; food comes back with its saved records', async ({ browser }) => {
   test.skip(!enabled, 'acceptance build');
   const page = await device(browser); await minimal(page);
-  await expect(page.getByRole('button', { name: 'Записати їжу', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('region', { name: 'Їжа', exact: true })).toHaveCount(0);
   await expect(page.getByRole('button', { name: /Додати 250 мл води/ })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Сказати голосом', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Мені погано', exact: true })).toBeVisible();
@@ -52,7 +52,7 @@ test('minimal day hides disabled actions and More stays short; food comes back w
   await page.goto('./#/'); await page.getByText(/^Виконано та інші відмітки/).click();
   await expect(page.getByRole('button', { name: /Збережена страва, Виконано/ })).toBeVisible();
   expect((await rows(page, 'entries')).filter((e) => e.id === 'kept-meal')).toHaveLength(1);
-  await page.reload(); await expect(page.getByRole('button', { name: 'Записати їжу', exact: true })).toBeVisible();
+  await page.reload(); await expect(page.getByRole('region', { name: 'Їжа', exact: true })).toBeVisible();
 });
 
 test('meds off asks first; cancelling writes nothing, and plan/report/incomplete-course warnings remain accessible', async ({ browser }) => {

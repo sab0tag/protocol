@@ -133,7 +133,8 @@ test('«Як учора» stays on «День» and copies a prior meal to today
   }]);
 
   const quick = page.getByRole('navigation', { name: 'Швидкі дії' });
-  await expect(quick.getByRole('button', { name: 'Записати їжу' })).toBeVisible();
+  await expect(quick.getByRole('button', { name: 'Записати їжу' })).toHaveCount(0); // D159: the meal tiles are the way in
+  await expect(page.getByRole('region', { name: 'Їжа', exact: true })).toBeVisible();
   await expect(page.getByText('Ще дії')).toBeVisible();
   const rhythm = page.getByRole('region', { name: 'Далі за планом' });
   await rhythm.getByRole('button', { name: 'Як учора' }).click();
@@ -154,7 +155,7 @@ test('an empty Day rhythm keeps one explanation and leaves food recording as the
   await expect(rhythm.getByText(t.day.empty, { exact: true })).toBeVisible();
   await expect(rhythm.getByRole('button', { name: 'Як учора' })).toBeVisible();
   await expect(rhythm.getByRole('button', { name: 'Додати інше — ліки, тренування, нотатку' })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Записати їжу' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Їжа', exact: true })).toBeVisible();
 });
 
 test('a once-daily medicine without a time is not followed by the empty-rhythm message', async ({ browser }) => {

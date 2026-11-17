@@ -20,7 +20,7 @@ test('a diet of Наказ №931: «стіл 5» suggests ЩД to confirm, its 
   await expect(page.getByText('не перевірено дієтологом', { exact: true })).toBeVisible();
   await expect(page.getByText(/автоматичну перевірку її правил ще не налаштовано/)).toBeVisible();
   // the meal check: no green «Підходить» as if the diet were checked
-  await page.goto('./#/meal/new');
+  await page.goto('./#/meal/new?slot=1');
   await page.getByRole('searchbox').fill('гречка');
   await page.getByRole('button', { name: /^Гречка варена/ }).first().click();
   await expect(page.locator('[data-plan-status="incomplete"]')).toContainText(t.meal.planIncomplete);

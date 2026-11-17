@@ -13,7 +13,7 @@ test('a package photo (model stubbed) → checked numbers → own food, added to
     await r.fulfill({ json: { readable: true, name: 'Йогурт грецький Галичина 2 %', servingG: 140, note: null,
       per100g: { kcal: 73, protein: 9.5, fat: 2, carbs: 3.9, calciumMg: null } } });
   });
-  await page.goto('./#/meal/new');
+  await page.goto('./#/meal/new?slot=1');
   await page.getByText('Голос та скан етикетки', { exact: true }).click();
   await page.getByRole('button', { name: 'Скан етикетки' }).click();
   await page.getByRole('button', { name: /Фото етикетки/ }).click();

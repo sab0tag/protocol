@@ -29,9 +29,12 @@ async function turnOn(page: Page) {
 test('light day quiets non-medication tasks, retains help/PRN and voluntary input, and cancel restores the plan', async ({ browser }) => {
   test.skip(!enabled, 'acceptance build');
   const page = await profile(browser);
-  await expect(page.getByRole('button', { name: 'Записати їжу', exact: true })).toBeVisible();
+  await expect(page.locator('[data-testid=meal-tiles] [data-state=planned]')).toHaveCount(1);
   const before = await rows(page, 'entries'); await turnOn(page);
-  await expect(page.getByRole('button', { name: 'Записати їжу', exact: true })).toHaveCount(0);
+  // D159: the meal tiles stay as voluntary input — without «не записано» and without the planned menu
+  await expect(page.getByRole('region', { name: 'Їжа', exact: true })).toBeVisible();
+  await expect(page.locator('[data-testid=meal-tiles] [data-state=missed]')).toHaveCount(0);
+  await expect(page.locator('[data-testid=meal-tiles] [data-state=planned]')).toHaveCount(0);
   await expect(page.getByRole('button', { name: /Додати 250 мл води/ })).toHaveCount(0);
   await expect(page.getByText('Плановий обід', { exact: true })).toHaveCount(0);
   await expect(page.getByText('Порада меню', { exact: true })).toHaveCount(0);
@@ -50,7 +53,7 @@ test('light day quiets non-medication tasks, retains help/PRN and voluntary inpu
   await water.getByLabel('Вода, мл', { exact: true }).fill('350'); await water.getByRole('button', { name: 'Записати', exact: true }).click();
   expect((await rows(page, 'entries')).find((e) => e.kind === 'water')?.waterMl).toBe(350);
   await page.getByRole('button', { name: 'Повернути звичайний день', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Записати їжу', exact: true })).toBeVisible();
+  await expect(page.locator('[data-testid=meal-tiles] [data-state=planned]')).toHaveCount(1);
   expect((await rows(page, 'entries')).find((e) => e.id === 'planned-lunch')).toEqual(before[0]);
 });
 

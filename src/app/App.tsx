@@ -1,6 +1,7 @@
 import { ClinicInvitationScreen } from '../screens/ClinicInvitationScreen';
 import type { ReactNode } from 'react';
-import { HashRouter, Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom';
+import { HashRouter, Navigate, Route, Routes, useLocation, useParams, useSearchParams } from 'react-router-dom';
+import { slotAt } from '../domain/mealSlots';
 import { Layout } from '../components/Layout';
 import { ErrorBoundary } from '../components/Recovery';
 import { usePlan } from '../data/queries';
@@ -50,10 +51,13 @@ import { Modules } from '../screens/Modules';
 import { Weight } from '../screens/Weight';
 import type { FeatureId } from '../domain/features';
 
-/** A fresh form for every meal: /meal/new after editing /meal/:id must not keep the old state. */
+/** A fresh form for every meal: /meal/new after editing /meal/:id must not keep the old state.
+ *  D159: /meal/new alone is «Сьогодні» with the tile of the meal going on now; the full form is /meal/new?slot=N. */
 function MealRoute() {
   const { id } = useParams();
-  return <AddMeal key={id ?? 'new'} />;
+  const [params] = useSearchParams();
+  if (id === undefined && !params.has('slot')) return <Navigate to={`/?meal=${slotAt(new Date())}`} replace />;
+  return <AddMeal key={id ?? `new-${params.get('slot')}`} />;
 }
 
 // Exhaustive against ROUTES: adding a screen also requires choosing its feature owner in navigation.ts.

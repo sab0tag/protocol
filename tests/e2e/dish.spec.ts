@@ -13,7 +13,7 @@ test('a dish of one’s own described in words → ingredients with grams and К
       { said: 'грецький йогурт', base: 'Йогурт грецький 2 %', grams: 40, amountSaid: false, kcal: 73, protein: 9, fat: 2, carbs: 4 },
       { said: 'кінза', base: '', grams: 5, amountSaid: false, kcal: 23, protein: 2.1, fat: 0.5, carbs: 3.7 }] } });
   });
-  await page.goto('./#/meal/new');
+  await page.goto('./#/meal/new?slot=1');
   await page.getByRole('searchbox').fill('лаваш рол зі свининою');
   await page.getByRole('link', { name: 'Своя страва? Розкласти на інгредієнти' }).click();
   const box = page.getByRole('region', { name: 'Розкласти свою страву' });
@@ -33,7 +33,7 @@ test('a dish of one’s own described in words → ingredients with grams and К
   await expect(box).toContainText(/Уся страва: 270 г/);
   await box.getByRole('button', { name: 'Зберегти як страву' }).click();
   await expect(toast(page)).toContainText('Страву «Лаваш-рол з томленою свининою» збережено');
-  await page.goto('./#/meal/new');
+  await page.goto('./#/meal/new?slot=1');
   await page.getByRole('searchbox').fill('лаваш-рол');
   await expect(page.locator('[data-item="Лаваш-рол з томленою свининою"]')).toBeVisible();
 });

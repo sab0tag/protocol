@@ -1,8 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { device, seed, ymd, kyivOffset } from './helpers';
-import { t } from '../../src/i18n/uk';
 
-test('an identical composition remains repeatable in each meal category', async ({ browser }) => {
+test('an identical composition remains repeatable in each meal tile — «Як учора» (D159)', async ({ browser }) => {
   const page = await device(browser, 'skip');
   const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
   const date = ymd(yesterday), offset = kyivOffset(yesterday);
@@ -11,15 +10,14 @@ test('an identical composition remains repeatable in each meal category', async 
     { store: 'entries', value: { id: 'category-breakfast', kind: 'meal', status: 'done', at: `${date}T08:00:00${offset}`, title: 'Сніданок', items } },
     { store: 'entries', value: { id: 'category-snack', kind: 'meal', status: 'done', at: `${date}T16:00:00${offset}`, title: 'Перекус', items } },
   ]);
-  await page.goto('./#/meal/new');
-  const recent = page.getByRole('region', { name: t.meal.recent, exact: true });
-  for (const name of ['Сніданок', 'Перекус']) {
-    await recent.getByRole('tab', { name, exact: true }).click();
-    await expect(recent.getByTestId('recent-meal-add')).toHaveCount(1);
-    await expect(recent.getByTestId('recent-meal-add')).toContainText(name);
+  for (const [slot, name] of [[0, 'Сніданок'], [3, 'Перекус']] as const) {
+    const tile = page.locator(`[data-testid=meal-tiles] [data-slot="${slot}"]`);
+    await tile.getByRole('button', { name: new RegExp(`^${name}`) }).click();
+    await expect(tile.getByRole('button', { name: 'Як учора: Кефір 2,5 %' })).toHaveCount(1);
   }
-  await recent.getByTestId('recent-meal-add').click();
-  await expect(page.getByRole('region', { name: 'Позиції', exact: true }).getByLabel('Грами')).toHaveValue('250');
+  const snack = page.locator('[data-testid=meal-tiles] [data-slot="3"]');
+  await snack.getByRole('button', { name: 'Як учора: Кефір 2,5 %' }).click();
+  await expect(snack.getByRole('list', { name: 'Перекус' })).toContainText('250 г');
   await page.context().close();
 });
 

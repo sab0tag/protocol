@@ -19,9 +19,9 @@ test('food menu opens the daily hub and keeps empty data and absent targets expl
   await expect(page.getByRole('progressbar')).toHaveCount(0);
   await expect(page.getByText(L.noRestrictions, { exact: true })).toBeVisible();
   await page.getByRole('link', { name: t.meal.title, exact: true }).click();
-  await expect(page).toHaveURL(/#\/meal\/new$/);
-  await expect(page.getByRole('group', { name: t.meal.entryModes }).getByRole('button')).toHaveCount(3);
-  await expect(page.getByRole('navigation', { name: 'Розділи', exact: true }).getByRole('link', { name: t.nav.more, exact: true })).toHaveAttribute('aria-current', 'page');
+  // D159: the way in is the tile of the meal going on now, open on «Сьогодні»
+  await expect(page).toHaveURL(/#\/$/);
+  await expect(page.locator('[data-testid=meal-tiles] input[type=search]')).toBeFocused();
   await page.context().close();
 });
 

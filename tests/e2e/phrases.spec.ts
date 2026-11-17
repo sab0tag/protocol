@@ -10,7 +10,7 @@ interface Row { id: string; phrase: string; profile: 'clean' | 'demo'; expect: {
 const rows = parse(readFileSync('tests/fixtures/meal-phrases.yaml', 'utf8')) as Row[];
 
 async function onScreen(page: Page, phrase: string): Promise<{ names: string[]; missing: string[] }> {
-  await page.goto('./#/meal/new');
+  await page.goto('./#/meal/new?slot=1');
   await page.getByRole('searchbox', { name: /^Що з’їли/ }).fill(phrase);
   await page.waitForTimeout(150);
   const panel = page.locator('div', { has: page.getByText('Розпізнано', { exact: true }) }).last();

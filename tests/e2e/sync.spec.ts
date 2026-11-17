@@ -3,7 +3,7 @@ import { device, openHistory, syncOn, toast } from './helpers';
 
 test('two devices: a short pairing code connects the second; a meal and its deletion travel', async ({ browser }) => {
   const phone = await device(browser);
-  await phone.goto('./#/meal/new');
+  await phone.goto('./#/meal/new?slot=1');
   await phone.getByRole('searchbox').fill('2 варених яйця');
   await phone.locator('form ul button').first().click();
   await phone.getByRole('button', { name: 'Додати до дня', exact: true }).click();
@@ -20,9 +20,9 @@ test('two devices: a short pairing code connects the second; a meal and its dele
   await laptop.getByRole('button', { name: 'У мене вже є код' }).click();
   await laptop.getByRole('textbox').fill(pair.toLowerCase());
   await laptop.getByRole('button', { name: 'Підключити' }).click();
-  await expect(laptop.getByText('Яйце варене')).toBeAttached({ timeout: 20_000 }); // a recorded meal lives in Today's history
+  await expect(laptop.getByText('Яйце варене').first()).toBeAttached({ timeout: 20_000 }); // a recorded meal: its tile and Today's history
   await openHistory(laptop);
-  await expect(laptop.getByText('Яйце варене')).toBeVisible();
+  await expect(laptop.getByRole('region', { name: 'Історія відміток' }).getByText('Яйце варене')).toBeVisible();
 
   // the short code works once
   const third = await device(browser);
@@ -31,7 +31,7 @@ test('two devices: a short pairing code connects the second; a meal and its dele
   await expect(third.getByRole('alert')).toContainText('Короткий код не знайдено');
 
   // deleted on the laptop → gone on the phone
-  await laptop.getByText('Яйце варене').click();
+  await laptop.getByRole('region', { name: 'Історія відміток' }).getByText('Яйце варене').click();
   await laptop.getByRole('button', { name: 'Видалити' }).click();
   await expect(toast(laptop)).toContainText('Видалено');
   await laptop.goto('./#/sync');

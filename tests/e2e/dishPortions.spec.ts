@@ -16,7 +16,7 @@ test('dish yield 2 → blank → 1, invalid blur, and saved per-portion ingredie
       ],
     } });
   });
-  await page.goto('./#/meal/new');
+  await page.goto('./#/meal/new?slot=1');
   await page.getByRole('searchbox').fill('рис зі свининою');
   await page.getByRole('link', { name: 'Своя страва? Розкласти на інгредієнти' }).click();
   const editor = page.getByRole('region', { name: 'Розкласти свою страву' });
