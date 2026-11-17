@@ -72,7 +72,7 @@ function MealTile({ slot, now, date, day, all, foods, recipes, plan, quiet, open
   const dose = withFoodDose({ slot, date, day, plan });
   // R03: the meal against the rest of the day and the week before; the tile's own records are the candidate
   const ids = new Set(done.map((e) => e.id));
-  const others = useMemo(() => all.filter((e) => !ids.has(e.id)), [all, done]); // eslint-disable-line react-hooks/exhaustive-deps
+  const others = all.filter((e) => !ids.has(e.id));
   const checks: ItemCheck[] = plan && items.length ? evaluate({ plan, date, foods, entries: others, intent: 'recorded', meal: items }).checks : [];
   const labels = hitLabels(checks.flatMap((c) => c.hits));
 
@@ -118,6 +118,8 @@ function TileBody({ slot, name, date, lines, planned, checks, all, day, foods, r
   useEffect(() => { input.current?.focus(); }, []);
   const favorites = useFavorites();
   const items = lines.map((l) => l.item);
+  // the tile's own records are the candidate meal, never also counted as the rest of the day (R03)
+  const others = useMemo(() => { const ids = new Set(lines.map((l) => l.entry.id)); return all.filter((e) => !ids.has(e.id)); }, [all, lines]);
   const usual = useMemo(() => new Set(frequentItems(all, date, 60, 50).map((f) => f.item.recipe?.id ?? f.item.foodId ?? '')), [all, date]);
   const slotUsual = useMemo(() => usualForSlot(all, date, slot, 50), [all, date, slot]);
   const { photo, setPhoto, pick, allow, fileInput } = usePlatePhoto({ foods, recipes, usual });
@@ -153,7 +155,7 @@ function TileBody({ slot, name, date, lines, planned, checks, all, day, foods, r
   const list = read?.list?.length ? read.list : typed && read?.list ? prefix(query, foods, recipes) : [];
   const suggestions = !danger && !phrase && typed ? ordered(list, slotUsual, query).slice(0, 6) : [];
   const hint = (item: MealItem): string[] => plan
-    ? hitLabels(evaluate({ plan, date, foods, entries: all, intent: 'proposed', meal: [...items, item] }).checks.at(-1)?.hits ?? []) : [];
+    ? hitLabels(evaluate({ plan, date, foods, entries: others, intent: 'proposed', meal: [...items, item] }).checks.at(-1)?.hits ?? []) : [];
 
   const yesterday = yesterdaySlot(all, date, slot);
   const chips: { key: string; label: string; aria?: string; items: MealItem[] }[] = [
