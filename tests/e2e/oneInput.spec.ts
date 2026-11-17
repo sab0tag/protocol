@@ -12,8 +12,8 @@ const rows = (page: Page) => page.evaluate(async () => {
   const out = await new Promise<{ kind: string; status: string; title: string; waterMl?: number; checkKey?: string; items?: { name: string }[] }[]>((ok) => { all.onsuccess = () => ok(all.result); });
   r.result.close(); return out;
 });
-/** Requests to the API server (the e2e API is on :8099; the app's own files are not counted). */
-const apiCalls = (page: Page) => { const seen: string[] = []; page.on('request', (r) => { if (new URL(r.url()).port === '8099') seen.push(r.url()); }); return seen; };
+/** Requests that leave the app's own origin — the API server, a model (the app's own files are not counted). */
+const apiCalls = (page: Page) => { const seen: string[] = []; page.on('request', (r) => { if (new URL(r.url()).origin !== new URL(page.url()).origin) seen.push(r.url()); }); return seen; };
 
 test('water is written at once with «Скасувати»; «скасуй останнє» takes it back', async ({ browser }) => {
   const page = await device(browser);
@@ -38,15 +38,19 @@ test('a medicine is marked only after «Так»', async ({ browser }) => {
   await expect.poll(async () => (await rows(page)).filter((e) => e.kind === 'med' && e.status === 'done').map((e) => e.title)).toEqual(['Вітамін D']);
 });
 
-test('food is a card written with «Записати» into the meal going on now', async ({ browser }) => {
+test('food said in the field opens the current meal tile with a draft, written only with «Додати все»; «прибери …» edits it', async ({ browser }) => {
   const page = await device(browser);
-  await say(page, 'гречка і кава, це все');
-  const card = page.getByRole('group', { name: /^Їжа → / });
-  await expect(card).toContainText('Гречка');
+  await say(page, 'гречка, яйце і кава, це все');
+  const tiles = page.getByTestId('meal-tiles');
+  await expect(tiles.getByText('Розпізнано')).toBeVisible();
+  await expect(tiles).toContainText('Гречка');
   expect((await rows(page)).filter((e) => e.kind === 'meal')).toEqual([]);
-  await card.getByRole('button', { name: 'Записати' }).click();
-  await expect.poll(async () => (await rows(page)).filter((e) => e.kind === 'meal').flatMap((e) => e.items ?? []).length).toBe(2);
-  await expect(page.getByTestId('meal-tiles')).toContainText('Гречка');
+  await say(page, 'прибери каву');
+  await expect(tiles.getByText('Розпізнано')).toBeVisible();
+  await expect(tiles.locator('label[data-item]')).toHaveCount(2);
+  await tiles.getByRole('button', { name: /Додати все/ }).click();
+  await expect.poll(async () => (await rows(page)).filter((e) => e.kind === 'meal').flatMap((e) => e.items ?? []).map((i) => i.name).length).toBe(2);
+  await expect(tiles.getByText('Розпізнано')).toHaveCount(0);
 });
 
 test('danger and crisis words: their card, and nothing goes to the server', async ({ browser }) => {

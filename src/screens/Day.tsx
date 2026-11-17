@@ -47,7 +47,8 @@ import { presentDay } from '../domain/dayPresentation';
 import { runningLow } from '../domain/stock';
 import { unfinished } from '../domain/conclusion';
 import { useFeatures } from '../app/features';
-import { MealTiles } from '../components/MealTiles';
+import { MealTiles, type TileDraft } from '../components/MealTiles';
+import { OneInput } from '../components/OneInput';
 import { blockKeyFor, slotAt, type Slot } from '../domain/mealSlots';
 import { ENTRY_FEATURES, habitVisible, entryVisible } from '../domain/visibility';
 import type { FeatureId } from '../domain/features';
@@ -86,6 +87,7 @@ export function Day() {
   const opening = params.get('open'); // D66: `#/do/symptom` lands here
   const mealParam = params.get('meal'); // D159: `#/meal/new` opens the tile of the meal going on now
   const [openTile, setOpenTile] = useState<string | null>(null);
+  const [tileDraft, setTileDraft] = useState<TileDraft | null>(null); // D162: food said in the one field
   useEffect(() => {
     if (mealParam !== null && /^[0-3]$/.test(mealParam)) { setOpenTile(blockKeyFor(Number(mealParam) as Slot)); setParams({}, { replace: true }); }
   }, [mealParam, setParams]);
@@ -253,7 +255,8 @@ export function Day() {
         <button type="button" onClick={() => setSymptom({})} className="flex min-h-tap flex-col items-center justify-center gap-1 rounded-xl border border-line bg-surface p-2 text-center text-xs font-medium"><Frown size={20} className="text-warn" aria-hidden />{t.addKinds.symptom}</button>
       </nav>
       {can('food.log') && date <= today && entries && all && foods && recipes && <MealTiles date={date} day={entries} all={all} foods={foods} recipes={recipes} plan={plan}
-        quiet={light || !scoredDay(observation, 'food', date)} open={openTile} onOpen={setOpenTile} onConfirm={setConfirming} />}
+        quiet={light || !scoredDay(observation, 'food', date)} open={openTile} onOpen={(key) => { setOpenTile(key); setTileDraft(null); }} onConfirm={setConfirming}
+        draft={tileDraft} onDraftDone={() => setTileDraft(null)} />}
       {rhythm && <DayRhythm date={date} pendingOnly title={isToday ? t.day.upcoming : t.day.rhythm} rhythm={rhythm} foods={foods} {...(can('menu.yesterday') && can('food.log') ? { onYesterday: () => setYesterday(true) } : {})} addLabel={enabled ? t.modules.addOther : undefined} onEntry={(e) => (e.kind === 'meal' && e.status === 'planned' && e.items?.length ? setConfirming(e) : setRowFor(e))} onDose={setAskMed} onAdd={() => setAdding(true)}
         onAnytime={(i) => (i.kind === 'workout' ? navigate('/workout') : setAskMed(i))} />}
       {totals && <details className="protocol-card mb-4 p-0" open>
@@ -421,7 +424,9 @@ export function Day() {
       {symptom && all && <SymptomSheet date={date} {...(symptom.entry ? { entry: symptom.entry } : {})} all={all} {...(foods ? { foods } : {})} onClose={() => setSymptom(null)} />}
       {simple && can(ENTRY_FEATURES[simple.kind]) && <SimpleEntrySheet kind={simple.kind} entry={simple.entry} date={date} onClose={() => setSimple(null)} />}
       {/* ТЗ 17.11, step 3: the one field «Скажіть або напишіть…», pinned above the tabs (protocol-c2's OneInput goes here) */}
-      <div data-slot="one-input" />
+      {foods && recipes && all && <OneInput date={date} plan={plan} foods={foods} recipes={recipes} all={all} medItems={meds} can={can}
+        lightDay={enabled && !context.demo && isToday && !light} /* D162: one field above the tabs */
+        onFood={(draft) => { setOpenTile(blockKeyFor(slotAt(new Date()))); setTileDraft(draft); }} />}
     </section>
   );
 }

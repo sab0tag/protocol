@@ -8,7 +8,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { applyLightDay } from '../app/lightDay';
 import { db } from '../data/db';
-import { writeToSlot } from '../data/mealWrite';
 import { listen, speechSupported, type SpeechError } from '../data/speech';
 import type { CheckItem } from '../domain/checklist';
 import { atLocal, newId } from '../domain/dates';
@@ -20,6 +19,7 @@ import { readOneInput, type DueMed, type OneInput as Reading } from '../domain/o
 import { dishItem } from '../domain/recipes';
 import type { DayEntry, Food, Plan, Recipe } from '../domain/types';
 import type { VoiceDraft } from '../domain/voice';
+import type { TileDraft } from './MealTiles';
 import { t } from '../i18n/uk';
 import { CrisisCard } from './CrisisCard';
 import { DangerCard } from './DangerCard';
@@ -50,9 +50,12 @@ export function dueMeds(items: CheckItem[], plan: Plan | undefined): { open: Due
   return { open: meds.filter((i) => !i.done && !i.skipped).map(one), taken: meds.filter((i) => i.done).map(one) };
 }
 
-export function OneInput({ date, plan, foods, recipes, all, medItems, can, lightDay }: {
+/** Food said here lands in the tile of the meal going on now, opened with a draft (spec: «попадает в плитку текущего приёма»). */
+export type OnFood = (draft: TileDraft) => void;
+
+export function OneInput({ date, plan, foods, recipes, all, medItems, can, lightDay, onFood }: {
   date: string; plan: Plan | undefined; foods: Map<string, Food>; recipes: Recipe[]; all: DayEntry[]; medItems: CheckItem[];
-  can: (feature: FeatureId) => boolean; lightDay: boolean;
+  can: (feature: FeatureId) => boolean; lightDay: boolean; onFood: OnFood;
 }) {
   const navigate = useNavigate();
   const [text, setText] = useState('');
@@ -62,6 +65,7 @@ export function OneInput({ date, plan, foods, recipes, all, medItems, can, light
   const [ask, setAsk] = useState(false);
   const [error, setError] = useState<SpeechError | null>(null);
   const undo = useRef<(() => Promise<void>) | null>(null);
+  const listened = useRef(false); // the words came by voice (D119)
   const stop = useRef<() => void>(() => undefined);
   useEffect(() => () => stop.current(), []);
   const { open, taken } = useMemo(() => dueMeds(medItems, plan), [medItems, plan]);
@@ -87,15 +91,14 @@ export function OneInput({ date, plan, foods, recipes, all, medItems, can, light
       void act(() => saved(db.entries.add(e), L.water(r.ml), () => db.entries.delete(e.id)));
       return;
     }
-    if (r.kind === 'food') { setFood(r.draft); setCard(r); return; }
-    if (r.kind === 'edit') { setFood(r.draft); setCard({ kind: 'food', draft: r.draft }); setText(''); return; }
+    if (r.kind === 'food' || r.kind === 'edit') { toTile(r.draft); return; }
     setCard(r);
   };
   const submit = () => { if (text.trim()) read(text); };
   const listenNow = () => {
     if (!okGiven()) { setAsk(true); return; }
     setAsk(false); setError(null); setBusy(true);
-    stop.current = listen({ interim: setText, final: (x) => { setText(x); read(x); }, error: setError, end: () => setBusy(false) });
+    stop.current = listen({ interim: setText, final: (x) => { listened.current = true; setText(x); read(x); }, error: setError, end: () => setBusy(false) });
   };
   const markYes = (meds: DueMed[]) => act(async () => {
     const groups = new Map<string, DueMed[]>();
@@ -103,31 +106,37 @@ export function OneInput({ date, plan, foods, recipes, all, medItems, can, light
     for (const [time, ms] of groups) await markMeds(ms.map((m) => ({ key: m.key, title: m.title, ...(m.prescriptionId ? { prescriptionId: m.prescriptionId } : {}) })),
       date, time || undefined, 'done', { time: format(new Date(), 'HH:mm') });
   });
-  const writeFood = (draft: VoiceDraft) => act(async () => {
-    const items = draft.items.map((x) => x.item);
-    if (items.length && can('food.log')) await writeToSlot({ date, slot, items, all, via: 'voice' });
-    if (draft.waterMl && can('water.log')) {
-      const e: DayEntry = { id: newId(), at: atLocal(date, format(new Date(), 'HH:mm')), kind: 'water', status: 'done', title: t.addKinds.water, waterMl: draft.waterMl };
-      await saved(db.entries.add(e), L.water(draft.waterMl), () => db.entries.delete(e.id));
+  // the food goes to the tile as a draft; the field keeps it for «прибери …» until the tile writes it. Water said with it
+  // («два яйця і склянка води») is written at once, as water alone is.
+  const toTile = (draft: VoiceDraft) => {
+    setText('');
+    if (!can('food.log')) { setCard({ kind: 'food', draft }); return; }
+    const water = draft.waterMl - (food?.waterMl ?? 0);
+    if (water > 0 && can('water.log')) {
+      const e: DayEntry = { id: newId(), at: atLocal(date, format(new Date(), 'HH:mm')), kind: 'water', status: 'done', title: t.addKinds.water, waterMl: water };
+      void act(() => saved(db.entries.add(e), L.water(water), () => db.entries.delete(e.id)));
     }
-  });
+    setFood(draft); setCard(null);
+    onFood({ rows: [...draft.items.map((x) => ({ text: x.said, item: x.item, ...(x.others ? { others: x.others } : {}) })), ...draft.notFound.map((x) => ({ text: x }))],
+      ...(listened.current ? { via: 'voice' as const } : {}) });
+  };
 
   return (
     <section aria-label={L.field} className="sticky bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-10 mb-4 space-y-2 md:bottom-4" data-testid="one-input">
       {card && <Card card={card} meal={meal} can={can} lightDay={lightDay} onClose={() => { setCard(null); setFood(null); }}
         onMeds={(m) => void markYes(m)} onWhich={(m) => setCard({ kind: 'meds', meds: [m] })}
-        onLightDay={() => void act(() => applyLightDay(true, 'voice'))} onFood={(d) => void writeFood(d)}
+        onLightDay={() => void act(() => applyLightDay(true, 'voice'))} onFood={toTile}
         onAsk={(q) => navigate(`/assistant?q=${encodeURIComponent(q)}`)} />}
       <PhotoStatus photo={photo} allow={allow} />
       {photo.state === 'done' && photo.rows.length > 0 && !card && (() => {
         const draft: VoiceDraft = { items: photo.rows.flatMap((r) => (r.item ? [{ item: r.item, said: r.text, sure: true }] : [])), notFound: photo.rows.filter((r) => !r.item).map((r) => r.text), meds: [], waterMl: 0 };
         return <Card card={{ kind: 'food', draft }} meal={meal} can={can} lightDay={lightDay} onClose={() => setPhoto({ state: 'none' })}
           onMeds={() => undefined} onWhich={() => undefined} onLightDay={() => undefined} onAsk={() => undefined}
-          onFood={(d) => { setPhoto({ state: 'none' }); void act(() => writeToSlot({ date, slot, items: d.items.map((x) => x.item), all, via: 'photo' })); }} />;
+          onFood={() => { setPhoto({ state: 'none' }); onFood({ rows: photo.rows, via: 'photo' }); }} />;
       })()}
-      <form className="protocol-card flex items-center gap-2 rounded-full p-1.5 pl-4 shadow-sm" onSubmit={(e) => { e.preventDefault(); submit(); }}>
+      <form className="flex items-center gap-2 rounded-full border border-line bg-surface p-1.5 pl-4 shadow-sm" onSubmit={(e) => { e.preventDefault(); submit(); }}>
         <label className="min-w-0 flex-1"><span className="sr-only">{L.field}</span>
-          <input type="text" value={text} onChange={(e) => setText(e.target.value)} placeholder={L.field} autoComplete="off" enterKeyHint="send"
+          <input type="text" value={text} onChange={(e) => { listened.current = false; setText(e.target.value); }} placeholder={L.field} autoComplete="off" enterKeyHint="send"
             className="block min-h-tap w-full bg-transparent outline-none" /></label>
         {text.trim() && <button type="submit" aria-label={L.write} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-accent"><Send size={20} aria-hidden /></button>}
         {can('food.log') && <button type="button" onClick={pick} disabled={photo.state === 'busy'} aria-label={t.tiles.camera}

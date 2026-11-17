@@ -256,7 +256,7 @@ function TileBody({ slot, name, date, lines, planned, checks, all, day, foods, r
           })}
         </ul>
       )}
-      {draft && <RecognizedPanel title={t.meal.recognized} rows={draft.rows} addLabel={L.addAll}
+      {draft && <RecognizedPanel key={draft.rows.map((r) => r.text).join('|')} title={t.meal.recognized} rows={draft.rows} addLabel={L.addAll}
         onAdd={(picked, missing) => { void write(picked, draft.via); onDraftDone?.(); for (const m of missing) void countOnce('nf', m); }}
         notFound={(text) => <ConciergeNotFound text={text} plan={plan} foods={foods} recipes={recipes} date={date} onAdd={(s) => void write([s.item])} />} />}
       {!danger && phrase && <RecognizedPanel key={query} title={t.meal.recognized} rows={phrase} addLabel={L.addAll}
