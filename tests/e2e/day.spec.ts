@@ -121,8 +121,10 @@ test('the new «День»: the plan on an empty day, a dose asks when, main num
 
 test('«Як учора» stays on «День» and copies a prior meal to today', async ({ browser }) => {
   const page = await device(browser, 'skip');
-  const previous = new Date();
-  previous.setDate(previous.getDate() - 1);
+  // A copy keeps yesterday's time and is only «done» once that time has passed today; before 13:00 it is planned.
+  // Pin the clock to the evening so the run does not depend on the hour CI happens to start.
+  await page.clock.setFixedTime(new Date('2026-10-29T18:00:00+02:00'));
+  const previous = new Date('2026-10-28T12:00:00+02:00');
   const date = ymd(previous);
   await seed(page, [{
     store: 'entries',
