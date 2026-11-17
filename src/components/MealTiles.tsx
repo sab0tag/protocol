@@ -1,4 +1,4 @@
-// D159: «Їжа» on «Сьогодні» — Сніданок, Обід, Вечеря, Перекус. A tile is the meal: tap opens it in place with the field
+// D159: «Їжа» on «Сьогодні» — Сніданок, Обід, Вечеря and each snack (D161: as many as were eaten, «Додати їжу» adds one). A tile is the meal: tap opens it in place with the field
 // focused; a tap on a suggestion or a chip writes the line at once (the person chose it, «Скасувати» in the toast); a phrase,
 // the voice or a photo of the plate is a draft written only with «Додати все» (the reading or the AI chose there). Which
 // meal and when are never asked: the tile is the meal, the time is «now» or the person's usual time for it.
@@ -16,7 +16,7 @@ import { foodPlanStatus } from '../domain/foodPlanStatus';
 import { amountText, approxG, itemFor, parseQuery, readMeal, searchFoods, type Candidate } from '../domain/foodSearch';
 import { frequentItems } from '../domain/habits';
 import { medFoodNotes } from '../domain/medFood';
-import { hitLabels, sameFood, slotEntries, slotTime, SLOTS, tileState, usualForSlot, withFoodDose, yesterdaySlot, type Slot } from '../domain/mealSlots';
+import { blockKeyFor, hitLabels, mealBlocks, NEW_SNACK, sameFood, SLOTS, slotEntries, slotTime, tileState, usualForSlot, withFoodDose, yesterdaySlot, type MealBlock, type Slot, type TileState } from '../domain/mealSlots';
 import { mealNutrients, round } from '../domain/nutrition';
 import { dishItem, setPortions } from '../domain/recipes';
 import type { ItemCheck, RuleHit } from '../domain/rules';
@@ -42,12 +42,15 @@ export interface MealTilesProps {
   date: string; day: DayEntry[]; all: DayEntry[]; foods: Map<string, Food>; recipes: Recipe[]; plan: Plan | undefined;
   /** a light day, or a day the food module did not observe: no «не записано» */
   quiet: boolean;
-  open: Slot | null; onOpen: (slot: Slot | null) => void; onConfirm: (planned: DayEntry) => void;
+  /** the open block's key (`blockKeyFor`, or `e:<id>` for a snack) */
+  open: string | null; onOpen: (key: string | null) => void; onConfirm: (planned: DayEntry) => void;
 }
 
 export function MealTiles(props: MealTilesProps) {
   const [now, setNow] = useState(() => new Date());
   useEffect(() => { const timer = window.setInterval(() => setNow(new Date()), 60_000); return () => clearInterval(timer); }, []);
+  const { date, day, all, open } = props;
+  const blocks = mealBlocks(day, date, open === NEW_SNACK ? atLocal(date, slotTime({ slot: 3, date, now, entries: all })) : undefined);
   return (
     <section aria-labelledby="meal-tiles" className="protocol-card mb-4 p-4 sm:p-5" data-testid="meal-tiles">
       <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-3">
@@ -56,23 +59,50 @@ export function MealTiles(props: MealTilesProps) {
         <Link to="/food" className="inline-flex min-h-tap items-center text-sm text-accent underline-offset-4 hover:underline">{t.nutrition.title}</Link>
       </div>
       <ul className="space-y-2">
-        {SLOTS.map((slot) => <li key={slot}><MealTile {...props} slot={slot} now={now} /></li>)}
+        {blocks.map((block) => <li key={block.key}><MealTile {...props} block={block} now={now} /></li>)}
       </ul>
+      <AddFood onPick={(slot) => props.onOpen(blockKeyFor(slot))} />
     </section>
+  );
+}
+
+/** D161: «Додати їжу» → which meal → its tile opens (a snack — a new one), and the rest is the tile as usual. */
+function AddFood({ onPick }: { onPick: (slot: Slot) => void }) {
+  const [asking, setAsking] = useState(false);
+  return (
+    <div className="mt-3">
+      <button type="button" aria-expanded={asking} onClick={() => setAsking((v) => !v)}
+        className="flex min-h-tap w-full items-center justify-center gap-2 rounded-full border-2 border-dashed border-line px-4 font-semibold text-accent">
+        <Plus size={18} aria-hidden />{L.addFood}
+      </button>
+      {asking && <div role="group" aria-label={L.which} className="mt-2 flex flex-wrap gap-2">
+        <p className="w-full text-sm text-muted">{L.which}</p>
+        {SLOTS.map((slot) => <button key={slot} type="button" onClick={() => { setAsking(false); onPick(slot); }}
+          className="min-h-tap rounded-full border-2 border-line bg-surface px-4 font-semibold">{t.meal.names[slot]}</button>)}
+      </div>}
+    </div>
   );
 }
 
 /** Lines with the record and the place in it they came from. */
 interface Line { entry: DayEntry; index: number; item: MealItem }
 
-function MealTile({ slot, now, date, day, all, foods, recipes, plan, quiet, open, onOpen, onConfirm }: MealTilesProps & { slot: Slot; now: Date }) {
+/** A main meal gathers its records; a snack block is one record (or none yet, when just opened). */
+function blockEntries(block: MealBlock, day: DayEntry[], date: string): { done: DayEntry[]; planned: DayEntry[] } {
+  if (block.slot !== 3) return slotEntries(day, date, block.slot);
+  const e = block.entry;
+  return { done: e?.status === 'done' ? [e] : [], planned: e?.status === 'planned' ? [e] : [] };
+}
+
+function MealTile({ block, now, date, day, all, foods, recipes, plan, quiet, open, onOpen, onConfirm }: MealTilesProps & { block: MealBlock; now: Date }) {
+  const { slot } = block;
   const name = t.meal.names[slot]!;
-  const expanded = open === slot;
-  const { done, planned: menu } = slotEntries(day, date, slot);
+  const expanded = open === block.key;
+  const { done, planned: menu } = blockEntries(block, day, date);
   const planned = quiet ? [] : menu;
   const lines: Line[] = done.flatMap((entry) => (entry.items ?? []).map((item, index) => ({ entry, index, item })));
   const items = lines.map((l) => l.item);
-  const state = tileState({ slot, date, now, day, light: quiet });
+  const state: TileState = slot !== 3 ? tileState({ slot, date, now, day, light: quiet }) : done.length ? 'recorded' : planned.length ? 'planned' : 'open';
   const dose = withFoodDose({ slot, date, day, plan });
   // R03: the meal against the rest of the day and the week before; the tile's own records are the candidate
   const ids = new Set(done.map((e) => e.id));
@@ -82,14 +112,15 @@ function MealTile({ slot, now, date, day, all, foods, recipes, plan, quiet, open
 
   const summary = state === 'recorded' ? names(items)
     : state === 'planned' ? L.planned(names(planned.flatMap((e) => e.items ?? []))) : '';
-  const headerId = `tile-${slot}`;
+  const headerId = `tile-${block.key.replace(/\W/g, '-')}`;
   return (
     <div className={`rounded-2xl border ${expanded ? 'border-accent/40 bg-surface' : state === 'missed' || dose ? 'border-line border-dashed bg-surface' : 'border-line bg-surface'}`}
       data-slot={slot} data-state={state}>
-      <button type="button" id={headerId} aria-expanded={expanded} onClick={() => onOpen(expanded ? null : slot)}
+      <button type="button" id={headerId} aria-expanded={expanded} onClick={() => onOpen(expanded ? null : block.key)}
         className="flex min-h-tap w-full items-center gap-2 px-3 py-2 text-left">
         <span className="min-w-0 flex-1">
           <span className={`font-semibold ${state === 'ahead' && !dose ? 'text-muted' : ''}`}>{name}</span>
+          {slot === 3 && block.at && <span className="tabular text-sm text-muted"> {timeOf(block.at)}</span>}
           {dose && state !== 'recorded'
             ? <span className="block text-sm">{L.withFood(dose.title, dose.time, name)}</span>
             : state === 'missed' ? <span className="text-muted"> — {L.notRecorded} · <span className="font-medium text-accent">{L.add}</span></span>
@@ -102,7 +133,8 @@ function MealTile({ slot, now, date, day, all, foods, recipes, plan, quiet, open
         {expanded && <ChevronDown size={18} className="shrink-0 rotate-180 text-muted" aria-hidden />}
       </button>
       {expanded && <TileBody slot={slot} name={name} date={date} lines={lines} planned={planned} checks={checks} all={all} day={day}
-        foods={foods} recipes={recipes} plan={plan} onConfirm={onConfirm} onClose={() => onOpen(null)} />}
+        foods={foods} recipes={recipes} plan={plan} onConfirm={onConfirm} onClose={() => onOpen(null)}
+        at={block.key === NEW_SNACK ? block.at : undefined} onCreated={slot === 3 ? (id) => onOpen(`e:${id}`) : undefined} />}
     </div>
   );
 }
@@ -111,9 +143,11 @@ function PlanLabel({ text }: { text: string }) {
   return <span className="rounded-full bg-warn-bg px-2 py-0.5 text-xs font-semibold text-warn">{text}</span>;
 }
 
-function TileBody({ slot, name, date, lines, planned, checks, all, day, foods, recipes, plan, onConfirm, onClose }: {
+function TileBody({ slot, name, date, lines, planned, checks, all, day, foods, recipes, plan, onConfirm, onClose, at, onCreated }: {
   slot: Slot; name: string; date: string; lines: Line[]; planned: DayEntry[]; checks: ItemCheck[]; all: DayEntry[]; day: DayEntry[];
   foods: Map<string, Food>; recipes: Recipe[]; plan: Plan | undefined; onConfirm: (e: DayEntry) => void; onClose: () => void;
+  /** a new snack: the time it was opened with; its first line makes the record, which then is this block */
+  at?: string; onCreated?: (id: string) => void;
 }) {
   const [query, setQuery] = useState('');
   const [editing, setEditing] = useState<Line | null>(null);
@@ -137,9 +171,10 @@ function TileBody({ slot, name, date, lines, planned, checks, all, day, foods, r
       const next: DayEntry = { ...target, items: [...(target.items ?? []), ...add], ...(via ? { via } : {}) };
       await saved(db.entries.put(next), label, () => db.entries.put(target));
     } else {
-      const entry: DayEntry = { id: newId(), at: atLocal(date, slotTime({ slot, date, now: new Date(), entries: all })), kind: 'meal', status: 'done',
+      const entry: DayEntry = { id: newId(), at: at ?? atLocal(date, slotTime({ slot, date, now: new Date(), entries: all })), kind: 'meal', status: 'done',
         title: name, items: add, ...(via ? { via } : {}) };
       await saved(db.entries.add(entry), label, () => db.entries.delete(entry.id));
+      onCreated?.(entry.id);
     }
   };
   const pickOne = (item: MealItem) => { setQuery(''); void write([copy([item])[0]!]); input.current?.focus(); };

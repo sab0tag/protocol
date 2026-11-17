@@ -382,7 +382,7 @@ export const t = {
     details: 'Склад і дії', edit: 'Переглянути й змінити', restrictions: 'Ваші обмеження', openPlan: 'Відкрити план',
     noRestrictions: 'Активних обмежень не внесено. Перевірку відповідності плану ще не налаштовано.',
   },
-  tiles: { // D159: the day's food as four tiles
+  tiles: { // D159, D161: the day's food as tiles — three meals and each snack
     title: 'Їжа',
     notRecorded: 'не записано', add: 'Додати',
     planned: (items: string) => `у плані: ${items}`, confirm: 'Підтвердити з меню',
@@ -398,6 +398,7 @@ export const t = {
     editLine: 'Порція і час', time: 'Час прийому', save: 'Зберегти', remove: 'Прибрати з прийому',
     swipeHint: 'Проведіть ліворуч, щоб прибрати',
     mic: 'Сказати голосом', listening: 'Слухаю…', camera: 'Фото тарілки',
+    addFood: 'Додати їжу', which: 'Що це за прийом?', // D161
   },
   meal: {
     moreEntryMethods: 'Голос та скан етикетки',

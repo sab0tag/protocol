@@ -10,11 +10,12 @@ test('an identical composition remains repeatable in each meal tile — «Як �
     { store: 'entries', value: { id: 'category-breakfast', kind: 'meal', status: 'done', at: `${date}T08:00:00${offset}`, title: 'Сніданок', items } },
     { store: 'entries', value: { id: 'category-snack', kind: 'meal', status: 'done', at: `${date}T16:00:00${offset}`, title: 'Перекус', items } },
   ]);
-  for (const [slot, name] of [[0, 'Сніданок'], [3, 'Перекус']] as const) {
-    const tile = page.locator(`[data-testid=meal-tiles] [data-slot="${slot}"]`);
-    await tile.getByRole('button', { name: new RegExp(`^${name}`) }).click();
-    await expect(tile.getByRole('button', { name: 'Як учора: Кефір 2,5 %' })).toHaveCount(1);
-  }
+  const breakfast = page.locator('[data-testid=meal-tiles] [data-slot="0"]');
+  await breakfast.getByRole('button', { name: /^Сніданок/ }).click();
+  await expect(breakfast.getByRole('button', { name: 'Як учора: Кефір 2,5 %' })).toHaveCount(1);
+  // D161: a snack is a new block of its own, opened with «Додати їжу → Перекус»
+  await page.getByTestId('meal-tiles').getByRole('button', { name: 'Додати їжу', exact: true }).click();
+  await page.getByRole('group', { name: 'Що це за прийом?' }).getByRole('button', { name: 'Перекус', exact: true }).click();
   const snack = page.locator('[data-testid=meal-tiles] [data-slot="3"]');
   await snack.getByRole('button', { name: 'Як учора: Кефір 2,5 %' }).click();
   await expect(snack.getByRole('list', { name: 'Перекус' })).toContainText('250 г');

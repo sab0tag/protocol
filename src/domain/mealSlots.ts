@@ -1,4 +1,4 @@
-// D159: the day's food as four tiles — Сніданок, Обід, Вечеря, Перекус. A tile is the meal itself: nothing is asked
+// D159: the day's food as tiles — Сніданок, Обід, Вечеря, and as many snacks as were eaten (D161). A tile is the meal itself: nothing is asked
 // about which meal or when. Pure: what a tile shows, which time a new line gets, what is offered before anything is typed.
 import { addDays, format, parseISO } from 'date-fns';
 import { byAt, dateOf, timeOf } from './dates';
@@ -45,6 +45,28 @@ export function slotTime(args: { slot: Slot; date: ISODate; now: Date; entries: 
   const today = format(now, 'yyyy-MM-dd');
   if (date === today && (slot === 3 || slot >= slotAt(now))) return format(now, 'HH:mm');
   return usualTime(entries, slot, today) ?? SLOT_DEFAULT_TIME[slot];
+}
+
+/** One block of «Їжа». Сніданок, Обід, Вечеря are always there (each can be «не записано»); a snack is not one fixed tile:
+ *  every snack record is a block of its own, and «Додати їжу → Перекус» opens a new, empty one. */
+export interface MealBlock { key: string; slot: Slot; entry?: DayEntry; at?: string }
+export const NEW_SNACK = 'snack:new';
+/** The block a «which meal» choice opens: the main meal's tile, or a new snack. */
+export const blockKeyFor = (slot: Slot): string => (slot === 3 ? NEW_SNACK : `s${slot}`);
+
+/** The day's blocks in eating order: a snack stands between the meals around its time, by their usual hours 08:00 / 13:00 /
+ *  19:00 (10:30 — between breakfast and lunch, 16:30 — before dinner); several snacks by time. `newSnackAt` — the time an
+ *  opened new snack will be written with. */
+export function mealBlocks(day: DayEntry[], date: ISODate, newSnackAt?: string): MealBlock[] {
+  const snacks = day.filter((e) => isMeal(e) && dateOf(e.at) === date && slotOf(e) === 3 && !!e.items?.length
+    && (e.status === 'done' || e.status === 'planned'));
+  const rankAt = (at: string) => 2 * ([0, 1, 2] as const).filter((m) => SLOT_DEFAULT_TIME[m] <= timeOf(at)).length - 1;
+  const blocks: (MealBlock & { rank: number })[] = [
+    ...([0, 1, 2] as const).map((slot) => ({ key: `s${slot}`, slot, rank: 2 * slot })),
+    ...snacks.map((entry) => ({ key: `e:${entry.id}`, slot: 3 as Slot, entry, at: entry.at, rank: rankAt(entry.at) })),
+    ...(newSnackAt ? [{ key: NEW_SNACK, slot: 3 as Slot, at: newSnackAt, rank: rankAt(newSnackAt) }] : []),
+  ];
+  return blocks.sort((a, b) => a.rank - b.rank || (a.at ?? '').localeCompare(b.at ?? '')).map(({ rank: _rank, ...block }) => block);
 }
 
 /** Has the window of this meal closed with nothing in it? Never for a snack, a light day, a day said to be complete. */
