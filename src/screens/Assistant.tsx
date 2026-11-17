@@ -56,6 +56,9 @@ export function Assistant() {
   const stop = useRef<() => void>(() => undefined);
   const end = useRef<HTMLDivElement>(null);
   const field = useRef<HTMLInputElement>(null);
+  /** D130: each cleared talk is a new one — an answer still on its way to a cleared talk must not land in the next. */
+  const talk = useRef(0);
+  const clearTalk = (next: Msg[] = []) => { talk.current += 1; setMsgs(next); setBusy(false); };
   /** D143: a filled question waits in the field, the caret at its end — sending stays the person's tap. */
   const fill = (q: string) => { setText(q); requestAnimationFrame(() => { field.current?.focus(); field.current?.setSelectionRange(q.length, q.length); }); };
   useEffect(() => { keep(`assistant:${date}`, msgs); end.current?.scrollIntoView({ block: 'end' }); }, [msgs, date]);
@@ -66,7 +69,7 @@ export function Assistant() {
 
   const say = (m: Omit<Msg, 'id'>) => setMsgs((xs) => [...xs, { ...m, id: newId() }]);
   /** D130: a 103 or crisis card — the talk is cleared (its words are not kept here and never go with the next question) */
-  const card = (kind: 'danger' | 'crisis') => setMsgs([{ id: newId(), role: 'assistant', text: '', card: kind }]);
+  const card = (kind: 'danger' | 'crisis') => clearTalk([{ id: newId(), role: 'assistant', text: '', card: kind }]);
   /** Scenario 3 asked in words — the code's numbers and three things that pass the plan; no model. */
   const topupAnswer = () => {
     if (!plan || !foods || !totals || !entries) return;
@@ -98,11 +101,13 @@ export function Assistant() {
     if (!consent) { setAskConsent(words); return; }
     setAskConsent(null); setBusy(true);
     const names = [...[...foods.values()].map((f) => f.name), ...recipes.map((r) => r.name)];
+    const asked = talk.current;
     const history = historyFor(msgs.map((m) => ({ role: m.role, text: m.text, ...(m.card || m.danger ? { card: m.card ?? 'danger' } : {}) })));
     try {
       const r = await assistantChat(currentKeys() ?? null, { text: words, history, names, log: !!meta?.conciergeLog && !!currentKeys(),
         context: dayContext(plan, targets, totals, format(new Date(), 'HH:mm'), usual.map((id) => foods.get(id)?.name ?? '').filter(Boolean)),
         versions: { app: appVersion(), plan: planVersion(plan) } });
+      if (asked !== talk.current) return; // the talk was cleared while the model answered
       const reply = shownReply(r, plan); // D130: the model said to call now — the 103 card, never a softer «запишіть у звіт»
       if ('card' in reply) { card('danger'); return; }
       if (reply.fixed) { say({ role: 'assistant', text: reply.text }); return; }
@@ -113,9 +118,10 @@ export function Assistant() {
       const text = lines.length && !shown.length ? `${said ? `${said} ` : ''}${L.allDropped(dropped.join(', '))}` : said || L.empty;
       say({ role: 'assistant', text, ...(shown.length ? { items: shown } : {}), ...(shown.length && why.length ? { notOffered: why } : {}) });
     } catch (e) {
+      if (asked !== talk.current) return;
       const code = e instanceof ApiError ? (e.status === 0 ? 'offline' : e.code) : 'other';
       say({ role: 'assistant', text: (L.errors as Record<string, string>)[code] ?? L.errors.other ?? '', error: true });
-    } finally { setBusy(false); }
+    } finally { if (asked === talk.current) setBusy(false); }
   };
 
   const mic = () => {
@@ -145,7 +151,7 @@ export function Assistant() {
   return (
     <section className="flex min-h-[calc(100dvh-5.5rem)] flex-col gap-3 pt-4">
       <SceneHeader title={L.title} description={L.hint}>
-        {msgs.length > 0 && <button type="button" onClick={() => setMsgs([])} className="min-h-tap rounded-xl border border-white/25 px-3 text-sm text-white">{L.newTalk}</button> /* D130 */}
+        {msgs.length > 0 && <button type="button" onClick={() => clearTalk()} className="min-h-tap rounded-xl border border-white/25 px-3 text-sm text-white">{L.newTalk}</button> /* D130 */}
       </SceneHeader>
       <ExampleNotice plan={plan} />
       <p className="protocol-card rounded-2xl border border-line bg-surface p-3 text-sm">{facts.length ? `${L.today} ${facts.join(' · ')}` : L.noTargetsShort}</p>
