@@ -56,7 +56,6 @@ test('a 2-day menu (model stubbed): checked by the plan, a line added to one mea
   await page.screenshot({ path: 'test-results/meal-confirm.png' });
   await sheet.getByRole('button', { name: 'Записати вибране (1)' }).click();
   await expect(toast(page)).toContainText('Обід — відмічено, час невідомий');
-  await page.getByText(/^Виконано та інші відмітки/).click();
   await expect(page.getByRole('button', { name: /^Обід, Виконано, час невідомий/ })).toBeVisible();
   const tomorrow = ymd(new Date(Date.now() + 86_400_000));
   await page.goto(`./#/shopping?from=${tomorrow}&to=${ymd(new Date(Date.now() + 2 * 86_400_000))}`);
@@ -95,7 +94,7 @@ test('a meal 45 minutes ahead does not preselect «Щойно» for confirmation
       items: [{ foodId: 'kefir', name: 'Кефір 2,5 %', grams: 250 }] },
   }]);
 
-  const rhythm = page.getByRole('region', { name: 'Далі за планом' });
+  const rhythm = page.getByRole('region', { name: 'Ритм дня' });
   await rhythm.getByRole('button', { name: /^Обід, Заплановано/ }).click();
   const sheet = page.getByRole('dialog', { name: 'Підтвердити: Обід' });
   await expect(sheet.getByRole('button', { name: /^Щойно/ })).toHaveAttribute('aria-pressed', 'false');

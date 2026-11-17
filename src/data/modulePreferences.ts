@@ -17,6 +17,13 @@ export async function appendModuleEvents(target: ProtocolDB, events: readonly Mo
   });
 }
 
+/** A choice made now on this device comes after the one it replaces, even within the same millisecond or under a frozen
+ *  clock: equal times fall back to the random id (D134), which could let the earlier tap win. */
+const nowAfter = (prev?: { at: string }) => {
+  const now = Date.now(), last = prev ? Date.parse(prev.at) : NaN;
+  return new Date(Number.isFinite(last) && last >= now ? last + 1 : now).toISOString();
+};
+
 // Key order is not part of an event's identity (a JSON backup or sync may reorder it).
 export function sameModuleEvent(a: ModuleEvent, b: ModuleEvent): boolean {
   const sorted = (x: ModuleEvent) => Object.fromEntries(Object.entries(x).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0));
@@ -24,28 +31,29 @@ export function sameModuleEvent(a: ModuleEvent, b: ModuleEvent): boolean {
 }
 
 export async function setModuleEnabled(target: ProtocolDB, module: ModuleId, enabled: boolean,
-  source: ModuleSource = 'manual', at = new Date().toISOString()): Promise<void> {
+  source: ModuleSource = 'manual', at?: string): Promise<void> {
   await target.transaction('rw', target.moduleEvents, async () => {
     const current = moduleChoiceAt(await target.moduleEvents.toArray(), module);
     if (current?.enabled === enabled && current.source === source) return;
-    await appendModuleEvents(target, [{ id: newId(), v: 1, at, kind: 'module', module, enabled, source }]);
+    await appendModuleEvents(target, [{ id: newId(), v: 1, at: at ?? nowAfter(current), kind: 'module', module, enabled, source }]);
   });
 }
 
 export async function setLightDay(target: ProtocolDB, date: string, enabled: boolean,
-  source: 'manual' | 'voice' = 'manual', at = new Date().toISOString()): Promise<void> {
+  source: 'manual' | 'voice' = 'manual', at?: string): Promise<void> {
   await target.transaction('rw', target.moduleEvents, async () => {
-    if ((lightDayChoice(await target.moduleEvents.toArray(), date)?.enabled ?? false) === enabled) return;
-    await appendModuleEvents(target, [{ id: newId(), v: 1, at, kind: 'light-day', date, enabled, source }]);
+    const current = lightDayChoice(await target.moduleEvents.toArray(), date);
+    if ((current?.enabled ?? false) === enabled) return;
+    await appendModuleEvents(target, [{ id: newId(), v: 1, at: at ?? nowAfter(current), kind: 'light-day', date, enabled, source }]);
   });
 }
 
 export async function setWeightEnabled(target: ProtocolDB, enabled: boolean,
-  source: ModuleSource = 'manual', at = new Date().toISOString()): Promise<void> {
+  source: ModuleSource = 'manual', at?: string): Promise<void> {
   await target.transaction('rw', target.moduleEvents, async () => {
     const current = weightChoiceAt(await target.moduleEvents.toArray());
     if (current?.enabled === enabled && current.source === source) return;
-    await appendModuleEvents(target, [{ id: newId(), v: 1, at, kind: 'weight', enabled, source }]);
+    await appendModuleEvents(target, [{ id: newId(), v: 1, at: at ?? nowAfter(current), kind: 'weight', enabled, source }]);
   });
 }
 

@@ -108,6 +108,19 @@ export function yesterdaySlot(entries: DayEntry[], date: ISODate, slot: Slot): M
   return slotEntries(entries, prev, slot).done.flatMap((e) => e.items ?? []);
 }
 
+/** D164 (learning from Calorize's reviews: a photo read «4,5 г» as «45 г»): an amount more than 3 times off this person's
+ *  usual portion of the same food is marked «Перевірте» in the draft. No usual portion — nothing to compare with. */
+export function portionSuspect(grams: number, usualGrams: number | undefined): boolean {
+  return !!usualGrams && usualGrams > 0 && grams > 0 && (grams > 3 * usualGrams || grams * 3 < usualGrams);
+}
+
+/** D164 («Як у понеділок»): the same meal on each of the last 7 days that had it, newest first — a long press on «Як учора». */
+export function recentSlotDays(entries: DayEntry[], date: ISODate, slot: Slot, days = 7): { date: ISODate; items: MealItem[] }[] {
+  return Array.from({ length: days }, (_, i) => format(addDays(parseISO(date), -(i + 1)), 'yyyy-MM-dd'))
+    .map((d) => ({ date: d, items: slotEntries(entries, d, slot).done.flatMap((e) => e.items ?? []) }))
+    .filter((d) => d.items.length > 0);
+}
+
 const keyOf = (it: MealItem) => it.recipe ? `r:${it.recipe.id}` : it.foodId ? `f:${it.foodId}` : `n:${it.name.toLocaleLowerCase('uk')}`;
 export const sameFood = (a: MealItem, b: MealItem) => keyOf(a) === keyOf(b);
 

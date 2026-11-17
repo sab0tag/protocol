@@ -19,17 +19,17 @@ test('«Зараз»: «Нагадати за 15 хв» hides it for 15 min; wat
   const card = page.getByRole('region', { name: 'Зараз' });
   await expect(card).toBeVisible();
   const first = await card.innerText();
-  await card.getByRole('button', { name: /Нагадати/ }).click();
+  await card.getByRole('button', { name: 'Інші дії', exact: true }).click(); await card.getByRole('button', { name: /Нагадати/ }).click(); // D164: behind «⋯»
   await expect(toast(page)).toContainText('Нагадаю через 15 хв');
   if (/Обід/.test(first)) await expect(card.getByText('Обід')).toHaveCount(0);
   await page.reload();
-  await page.getByRole('region', { name: 'Сьогодні', exact: true }).scrollIntoViewIfNeeded();
-  const dock = page.getByRole('group', { name: 'Ліки й вода' });
-  await dock.getByRole('button', { name: /Додати 250 мл води/ }).click();
-  await expect(dock.getByRole('status')).toContainText('+250 мл');
-  await expect(page.getByRole('region', { name: 'Сьогодні', exact: true }).getByText(/^0,25 \/ [\d,]+ л$/)).toBeVisible(); // «Уже сьогодні»
-  await dock.getByRole('button', { name: 'Скасувати' }).click();
-  await expect(page.getByRole('region', { name: 'Сьогодні', exact: true }).getByText(/^0 \/ [\d,]+ л$/)).toBeVisible();
+  // D164: water is a quick mark on «Сьогодні» (the floating dock is gone), counted in glasses, with «Скасувати»
+  const water = page.getByRole('navigation', { name: 'Швидкі відмітки', exact: true }).getByRole('button', { name: /^Вода:/ });
+  await water.click();
+  await expect(toast(page)).toContainText('+250 мл');
+  await expect(water).toHaveAccessibleName(/^Вода: 1 з \d+$/);
+  await toast(page).getByRole('button', { name: 'Скасувати' }).click();
+  await expect(water).toHaveAccessibleName(/^Вода: 0 з \d+$/);
 
   await page.goto('./#/workout');
   await page.getByRole('button', { name: 'Записати тренування' }).click();
@@ -52,17 +52,14 @@ test('«Не відмічено» is folded and asks when — or «не пам�
   await when.getByRole('button', { name: 'Час не пам’ятаю' }).click();
   await expect(toast(page)).toContainText('Сніданок — відмічено, час невідомий');
   await expect(missed.getByText('Сніданок')).toHaveCount(0);
-  await page.getByText(/^Виконано та інші відмітки/).click();
   await expect(page.getByRole('button', { name: /^Сніданок, Виконано, час невідомий/ })).toContainText('—');
 
-  await page.getByRole('region', { name: 'Сьогодні', exact: true }).scrollIntoViewIfNeeded();
-  const dock = page.getByRole('group', { name: 'Ліки й вода' });
-  const water = dock.getByRole('button', { name: /Додати 250 мл води/ });
+  const water = page.getByRole('navigation', { name: 'Швидкі відмітки', exact: true }).getByRole('button', { name: /^Вода:/ }); // D164
   await water.click();
   await water.click();
-  await expect(dock.getByRole('status')).toContainText('+500 мл · 0,5 л');
-  await dock.getByRole('button', { name: 'Скасувати' }).click();
-  await expect(water).toHaveAttribute('aria-label', /зараз 0 з/);
+  await expect(water).toHaveAccessibleName(/^Вода: 2 з \d+$/);
+  await toast(page).getByRole('button', { name: 'Скасувати' }).click();
+  await expect(water).toHaveAccessibleName(/^Вода: 1 з \d+$/); // the undo takes back the last glass
 });
 
 const kyivDay = () => new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Kyiv' }).format(new Date());
@@ -71,14 +68,14 @@ test('the new «День»: the plan on an empty day, a dose asks when, main num
   const page = await device(browser);
   await page.clock.setFixedTime(new Date(`${kyivDay()}T08:00:00${kyivOffset()}`)); // before the 08:30 dose: still «заплановано» (D142)
   await page.reload();
-  const rhythm = page.getByRole('region', { name: 'Далі за планом' });
+  const rhythm = page.getByRole('region', { name: 'Ритм дня' });
   await expect(rhythm.getByRole('button', { name: 'Вітамін D, Заплановано' })).toBeVisible(); // nothing recorded, the plan is there
   await rhythm.getByRole('button', { name: 'Вітамін D, Заплановано' }).click();
   await page.getByRole('dialog', { name: 'Вітамін D — коли прийняли?' }).getByRole('button', { name: /^Щойно/ }).click();
   await expect(toast(page)).toContainText(/Вітамін D — відмічено о \d\d:\d\d/);
-  await page.getByText(/^Виконано та інші відмітки/).click();
-  await expect(page.getByRole('region', { name: 'Історія відміток' }).getByRole('button', { name: /^Вітамін D, Виконано/ })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Ритм дня' }).getByRole('button', { name: /^Вітамін D, Виконано/ })).toBeVisible();
 
+  await page.goto('./#/progress'); // D164: the day's goals live in «Мій прогрес»
   const summary = page.getByRole('region', { name: 'Сьогодні' });
   await expect(summary.getByText('Білок')).toHaveCount(0);
   for (const label of ['Вода', 'Ліки', 'Вуглеводи']) {
@@ -106,6 +103,7 @@ test('the new «День»: the plan on an empty day, a dose asks when, main num
   await page.reload();
   await expect(page.getByRole('region', { name: 'Сьогодні' }).getByText('Білок')).toBeVisible(); // kept on this device
 
+  await page.goto('./#/');
   await page.locator('button[aria-controls="day-week"]').click(); // D160: a tap on the date opens the week
   const week = page.getByRole('navigation', { name: 'Тиждень' });
   const weekdays = week.locator('ol > li button span:first-child');
@@ -135,15 +133,13 @@ test('«Як учора» stays on «День» and copies a prior meal to today
   const quick = page.getByRole('navigation', { name: 'Швидкі дії' });
   await expect(quick.getByRole('button', { name: 'Записати їжу' })).toHaveCount(0); // D159: the meal tiles are the way in
   await expect(page.getByRole('region', { name: 'Їжа', exact: true })).toBeVisible();
-  await expect(page.getByText('Ще дії')).toBeVisible();
-  const rhythm = page.getByRole('region', { name: 'Далі за планом' });
+  const rhythm = page.getByRole('region', { name: 'Ритм дня' });
   await rhythm.getByRole('button', { name: 'Як учора' }).click();
   const sheet = page.getByRole('dialog', { name: 'Повторити з учора' });
   await expect(sheet.getByText('Кефір 2,5 % 250 г')).toBeVisible();
   await sheet.getByRole('button', { name: /13:00 · Обід/ }).click();
   await expect(toast(page)).toContainText('Обід');
-  await page.getByText(/^Виконано та інші відмітки/).click();
-  await expect(page.getByRole('region', { name: 'Історія відміток' })).toContainText('Обід');
+  await expect(rhythm.getByRole('button', { name: /^Обід, Виконано/ })).toBeVisible(); // D164: done, struck through in the day list
 
   await page.goto('./#/meal/new');
   await expect(page.getByText(/^Як раніше ·/)).toHaveCount(0);
@@ -151,7 +147,7 @@ test('«Як учора» stays on «День» and copies a prior meal to today
 
 test('an empty Day rhythm keeps one explanation and leaves food recording as the action', async ({ browser }) => {
   const page = await device(browser, 'skip');
-  const rhythm = page.getByRole('region', { name: 'Далі за планом' });
+  const rhythm = page.getByRole('region', { name: 'Ритм дня' });
   await expect(rhythm.getByText(t.day.empty, { exact: true })).toBeVisible();
   await expect(rhythm.getByRole('button', { name: 'Як учора' })).toBeVisible();
   await expect(rhythm.getByRole('button', { name: 'Додати інше — ліки, тренування, нотатку' })).toHaveCount(0);
@@ -177,7 +173,7 @@ test('a once-daily medicine without a time is not followed by the empty-rhythm m
   });
   await page.reload();
 
-  const rhythm = page.getByRole('region', { name: 'Далі за планом' });
+  const rhythm = page.getByRole('region', { name: 'Ритм дня' });
   await expect(rhythm.getByText('Сьогодні, будь-коли:')).toBeVisible();
   await expect(rhythm.getByRole('button', { name: 'Вітамін D' })).toBeVisible();
   await expect(rhythm.getByText(t.day.empty, { exact: true })).toHaveCount(0);
@@ -194,7 +190,7 @@ test('«Нічого з цього» skips the planned meal and undo restores th
       items: [{ foodId: 'kefir', name: 'Кефір 2,5 %', grams: 250 }], menu: {} },
   }]);
 
-  const rhythm = page.getByRole('region', { name: 'Далі за планом' });
+  const rhythm = page.getByRole('region', { name: 'Ритм дня' });
   await rhythm.getByRole('button', { name: /^Обід, Заплановано/ }).click();
   await page.getByRole('dialog', { name: 'Підтвердити: Обід' }).getByRole('button', { name: 'Нічого з цього' }).click();
   const confirmation = page.getByRole('dialog', { name: 'Пропустити: Обід' });
@@ -204,8 +200,7 @@ test('«Нічого з цього» skips the planned meal and undo restores th
   await confirmation.getByPlaceholder('Що завадило?').fill('Не було апетиту');
   await confirmation.getByRole('button', { name: 'Підтвердити пропуск' }).click();
   await expect(toast(page)).toContainText('Обід — пропущено');
-  await page.getByText(/^Виконано та інші відмітки/).click();
-  await expect(page.getByRole('region', { name: 'Історія відміток' }).getByRole('button', { name: /^Обід, Пропущено/ })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Ритм дня' }).getByRole('button', { name: /^Обід, Пропущено/ })).toBeVisible();
 
   await toast(page).getByRole('button', { name: 'Скасувати' }).click();
   await expect(rhythm.getByRole('button', { name: /^Обід, Заплановано/ })).toBeVisible();
@@ -239,8 +234,7 @@ test('«Мені погано»: a symptom with its time, what was eaten before 
     await followup.getByRole('button', { name: 'Закрити', exact: true }).first().click();
     await expect(followup).toHaveCount(0);
   }
-  await page.getByText(/^Виконано та інші відмітки/).click();
-  const node = page.getByRole('region', { name: 'Історія відміток' }).getByRole('button', { name: 'Здуття, Симптом' });
+  const node = page.getByRole('region', { name: 'Ритм дня' }).getByRole('button', { name: 'Здуття, Симптом' });
   await expect(node).toContainText('Симптом · помірно');
   await node.click();
   await expect(page.getByRole('dialog', { name: 'Здуття' })).toContainText('Кефір 2,5 %');
@@ -287,7 +281,7 @@ test('the time line tells waiting, deferred and unmarked apart — an unmarked d
   await seed(page, [{ store: 'entries', value: { id: 'late-lunch', at: `${day}T09:50:00${kyivOffset()}`, kind: 'meal', status: 'planned', title: 'Обід',
     items: [{ foodId: 'kefir', name: 'Кефір 2,5 %', grams: 250 }] } }]);
   await page.goto('./#/'); await page.reload();
-  const rhythm = page.getByRole('region', { name: 'Далі за планом' });
+  const rhythm = page.getByRole('region', { name: 'Ритм дня' });
   const dose = rhythm.getByRole('button', { name: 'Вітамін D, Не відмічено' }); // 08:30, its hour has passed
   await expect(dose).toBeVisible();
   await expect(dose).not.toContainText('Пропущено');
@@ -295,9 +289,9 @@ test('the time line tells waiting, deferred and unmarked apart — an unmarked d
   // UI-UX-03.2: the unresolved 08:30 dose takes priority over the 09:50 lunch.
   const nowCard = page.getByRole('region', { name: 'Зараз' });
   await expect(nowCard).toContainText('Вітамін D');
-  await nowCard.getByRole('button', { name: 'Нагадати за 15 хв' }).click();
+  await nowCard.getByRole('button', { name: 'Інші дії', exact: true }).click(); await nowCard.getByRole('button', { name: 'Нагадати за 15 хв' }).click(); // D164: behind «⋯»
   await expect(nowCard).toContainText('Обід'); // the snoozed dose yields to lunch
-  await nowCard.getByRole('button', { name: 'Нагадати за 15 хв' }).click();
+  await nowCard.getByRole('button', { name: 'Інші дії', exact: true }).click(); await nowCard.getByRole('button', { name: 'Нагадати за 15 хв' }).click(); // D164: behind «⋯»
   await expect(rhythm.getByRole('button', { name: /^Обід, Відкладено до 10:15/ })).toBeVisible();
   await expect(rhythm.getByRole('button', { name: /^Обід, / })).toContainText('Відкладено до 10:15');
   const stored = await page.evaluate(async () => {
@@ -342,12 +336,12 @@ test('UI-UX-03.3: skipping a due meal requires confirmation and stores an option
   await page.goto('./#/'); await page.reload();
   const now = page.getByRole('region', { name: 'Зараз' });
   await expect(now).toContainText('Тестовий обід');
-  await now.getByRole('button', { name: t.now.skip }).click();
+  await now.getByRole('button', { name: 'Інші дії', exact: true }).click(); await now.getByRole('button', { name: t.now.skip }).click(); // D164: behind «⋯»
   const dialog = page.getByRole('dialog', { name: 'Пропустити: Тестовий обід' });
   await expect(dialog).toBeVisible();
   await dialog.getByRole('button', { name: 'Скасувати' }).click();
   await expect(now).toContainText('Тестовий обід');
-  await now.getByRole('button', { name: t.now.skip }).click();
+  await now.getByRole('button', { name: 'Інші дії', exact: true }).click(); await now.getByRole('button', { name: t.now.skip }).click(); // D164: behind «⋯»
   await page.getByRole('dialog', { name: 'Пропустити: Тестовий обід' }).getByPlaceholder('Що завадило?').fill('Не було можливості поїсти');
   await page.getByRole('button', { name: 'Підтвердити пропуск' }).click();
   const row = await page.evaluate(async () => {

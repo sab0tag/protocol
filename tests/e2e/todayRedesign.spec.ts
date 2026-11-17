@@ -5,27 +5,18 @@ test('Today separates actions, quantities and history across all approved widths
   const page = await device(browser);
   await atLocalNoon(page);
   await expect(page.getByTestId('remaining-actions')).toHaveCount(0); // D160: no «За планом: N без відмітки» chip in the header
-  await page.getByRole('navigation', { name: 'Швидкі дії', exact: true }).getByRole('button', { name: '+250 мл', exact: true }).click();
+  // D164: water is a quick mark; the done record is struck through in the day list; no «Цілі на сьогодні», no history to open
+  await page.getByRole('navigation', { name: 'Швидкі відмітки', exact: true }).getByRole('button', { name: /^Вода:/ }).click();
   await expect(page.locator('.protocol-day-hero')).toHaveCount(0);
   await expect(page.getByTestId('daily-phrase')).toHaveCount(0);
-  const goals = page.locator('details').filter({ has: page.locator('summary', { hasText: 'Цілі на сьогодні' }) });
-  const history = page.locator('details').filter({ has: page.locator('summary', { hasText: 'Виконано та інші відмітки' }) });
-  await expect(history).not.toHaveAttribute('open');
-  await history.locator('summary').click();
-  await expect(history.getByRole('button', { name: /^Вода, Виконано/ })).toBeVisible();
-  await history.locator('summary').click();
-  await expect(goals).toHaveAttribute('open');
-  await goals.locator('summary').focus();
-  await page.keyboard.press('Space');
-  await expect(goals).not.toHaveAttribute('open');
-  await page.keyboard.press('Space');
-  await expect(goals).toHaveAttribute('open');
-  await expect(goals.locator('.protocol-ring')).toHaveCount(0);
+  await expect(page.getByRole('navigation', { name: 'Швидкі відмітки', exact: true }).getByRole('button', { name: /^Вода:/ })).toHaveAccessibleName(/^Вода: 1 з \d+$/);
+  await expect(page.getByText('Цілі на сьогодні')).toHaveCount(0);
+  await expect(page.getByText(/^Виконано та інші відмітки/)).toHaveCount(0);
   for (const colorScheme of ['light', 'dark'] as const) for (const width of [320, 375, 390, 430, 768, 1024, 1440]) {
     await page.emulateMedia({ colorScheme });
     await page.setViewportSize({ width, height: 900 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${width} ${colorScheme}`).toBe(true);
-    const action = page.getByRole('region', { name: 'Зараз', exact: true }).getByRole('button', { name: 'Відмітити прийом', exact: true });
+    const action = page.getByRole('region', { name: 'Зараз', exact: true }).getByRole('button', { name: /Прийнято/ });
     const contrast = await action.evaluate(element => {
       const style = getComputedStyle(element);
       const luminance = (color: string) => {
@@ -39,12 +30,9 @@ test('Today separates actions, quantities and history across all approved widths
       return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
     });
     expect(contrast, `primary action ${colorScheme}`).toBeGreaterThanOrEqual(4.5);
-    const [schedule, quantities, records] = await Promise.all([
-      page.getByRole('region', { name: 'Далі за планом', exact: true }).boundingBox(), goals.boundingBox(), history.boundingBox(),
-    ]);
-    expect(schedule!.y).toBeLessThan(quantities!.y);
-    expect(quantities!.y).toBeLessThan(records!.y);
-    await page.locator('h1').click();
+    const [now, marks, food] = await Promise.all([page.getByRole('region', { name: 'Зараз', exact: true }).boundingBox(),
+      page.getByTestId('quick-marks').boundingBox(), page.getByTestId('meal-tiles').boundingBox()]);
+    expect(now!.y).toBeLessThan(marks!.y); expect(marks!.y).toBeLessThan(food!.y); // the order of the first screen
     await page.evaluate(() => scrollTo(0, 0));
     await page.screenshot({ path: `test-results/today-redesign-${width}-${colorScheme}.png`, fullPage: true });
   }

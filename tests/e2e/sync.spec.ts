@@ -22,7 +22,7 @@ test('two devices: a short pairing code connects the second; a meal and its dele
   await laptop.getByRole('button', { name: 'Підключити' }).click();
   await expect(laptop.getByText('Яйце варене').first()).toBeAttached({ timeout: 20_000 }); // a recorded meal: its tile and Today's history
   await openHistory(laptop);
-  await expect(laptop.getByRole('region', { name: 'Історія відміток' }).getByText('Яйце варене')).toBeVisible();
+  await expect(laptop.getByRole('region', { name: 'Ритм дня' }).getByText('Яйце варене')).toBeVisible();
 
   // the short code works once
   const third = await device(browser);
@@ -31,7 +31,7 @@ test('two devices: a short pairing code connects the second; a meal and its dele
   await expect(third.getByRole('alert')).toContainText('Короткий код не знайдено');
 
   // deleted on the laptop → gone on the phone
-  await laptop.getByRole('region', { name: 'Історія відміток' }).getByText('Яйце варене').click();
+  await laptop.getByRole('region', { name: 'Ритм дня' }).getByText('Яйце варене').click();
   await laptop.getByRole('button', { name: 'Видалити' }).click();
   await expect(toast(laptop)).toContainText('Видалено');
   await laptop.goto('./#/sync');

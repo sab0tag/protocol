@@ -34,16 +34,20 @@ export function DayHeader({ date, setDate, action }: { date: string; setDate: (d
   const d = parseISO(date);
 
   return (
-    <header className="protocol-day-heading mb-4 space-y-3" onPointerDown={down} onPointerUp={up} onPointerCancel={() => { swipe.current = null; }} style={{ touchAction: 'pan-y' }}>
-      <div>
-        <h1 className="text-3xl font-semibold tracking-tight">{isToday ? L.todayTitle : format(d, 'EEEE, d MMMM', { locale: uk })}</h1>
-        <p className="mt-1 flex flex-wrap items-center gap-x-2 text-sm text-muted">
+    <header className="protocol-day-heading mb-2 space-y-2" onPointerDown={down} onPointerUp={up} onPointerCancel={() => { swipe.current = null; }} style={{ touchAction: 'pan-y' }}>
+      <div className="flex flex-wrap items-center justify-between gap-x-2">
+      <div className="min-w-0">
+        {/* ТЗ 17.11, step 3: date and greeting in one line; the section's name stays for screen readers */}
+        <h1 className={isToday ? 'sr-only' : 'text-2xl font-semibold tracking-tight'}>{isToday ? L.todayTitle : format(d, 'EEEE, d MMMM', { locale: uk })}</h1>
+        <p className="flex flex-wrap items-center gap-x-2 text-base text-muted">
           {isToday && <span data-testid="active-profile">{greeting(new Date(), currentProfile.name)}</span>}
           <button type="button" aria-expanded={week} aria-controls="day-week" onClick={() => setWeek((v) => !v)}
             className="inline-flex min-h-tap items-center gap-1 font-medium text-accent first-letter:uppercase">
             <CalendarDays size={16} aria-hidden />{isToday ? format(d, 'EEEE, d MMMM', { locale: uk }) : L.week}
           </button>
         </p>
+      </div>
+      {action}
       </div>
       {week && <div id="day-week">
       <nav aria-label={L.week} className="protocol-calendar mb-2 overflow-x-auto flex items-center gap-1 rounded-xl p-1">
@@ -69,7 +73,6 @@ export function DayHeader({ date, setDate, action }: { date: string; setDate: (d
           className="flex min-h-tap w-11 shrink-0 items-center justify-center text-muted"><ChevronRight size={18} aria-hidden /></button>
       </nav>
       </div>}
-      {action && <div>{action}</div>}
       {!isToday && (
         <p className="mt-1 text-center"><button type="button" className="min-h-tap px-3 text-accent underline" onClick={() => setDate(today)}>{L.today}</button></p>
       )}

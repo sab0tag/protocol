@@ -90,20 +90,6 @@ test('«Ще» is one list led by «Налаштування»; the exercise lib
   await expect(page).toHaveURL(/#\/sync\?back=%2Freminders/);
 });
 
-test('floating medicine and water actions stay hidden while the quick tiles are on screen and return after scrolling', async ({ browser }) => {
-  const page = await device(browser);
-  const dock = page.getByRole('group', { name: 'Ліки й вода' });
-  const tiles = page.getByRole('navigation', { name: 'Швидкі дії' });
-  await tiles.scrollIntoViewIfNeeded(); // Today puts what needs attention first; the tiles may sit just below it
-  await expect(tiles).toBeInViewport();
-  await expect(dock.getByRole('button', { name: /Додати 250 мл води/ })).not.toBeVisible();
-  await expect(dock.getByRole('button', { name: /^Відмітити прийнятим|^Ліки на сьогодні/ })).toHaveCount(0);
-  await page.setViewportSize({ width: 375, height: 600 }); // a small phone
-  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight)); // the tiles go off the top
-  await expect(dock.getByRole('button', { name: /^Відмітити прийнятим: Вітамін D/ })).toBeVisible();
-  await expect(dock.getByRole('button', { name: /Додати 250 мл води/ })).toBeVisible();
-});
-
 test('a word alone: the list line says what a tap adds; a cooked food has no «Як приготовано» (D88)', async ({ browser }) => {
   const page = await device(browser, 'skip');
   await page.goto('./#/meal/new?slot=1');
