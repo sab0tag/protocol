@@ -13,7 +13,7 @@ import { whyFlagged } from '../domain/concierge';
 import { atLocal, dateOf, newId, timeOf } from '../domain/dates';
 import { evaluate } from '../domain/evaluate';
 import { foodPlanStatus } from '../domain/foodPlanStatus';
-import { amountText, approxG, itemFor, parseQuery, readMeal, searchFoods, type Candidate } from '../domain/foodSearch';
+import { amountText, approxG, itemFor, parseQuery, readMeal, searchFoods, type Candidate, type Recognized } from '../domain/foodSearch';
 import { frequentItems } from '../domain/habits';
 import { medFoodNotes } from '../domain/medFood';
 import { blockKeyFor, hitLabels, mealBlocks, NEW_SNACK, sameFood, SLOTS, slotEntries, slotTime, tileState, usualForSlot, withFoodDose, yesterdaySlot, type MealBlock, type Slot, type TileState } from '../domain/mealSlots';
@@ -44,7 +44,10 @@ export interface MealTilesProps {
   quiet: boolean;
   /** the open block's key (`blockKeyFor`, or `e:<id>` for a snack) */
   open: string | null; onOpen: (key: string | null) => void; onConfirm: (planned: DayEntry) => void;
+  /** D162: food said in the one field — a draft for the open tile, written only with «Додати все» */
+  draft?: TileDraft | null; onDraftDone?: () => void;
 }
+export interface TileDraft { rows: Recognized[]; via?: DayEntry['via'] }
 
 export function MealTiles(props: MealTilesProps) {
   const [now, setNow] = useState(() => new Date());
@@ -94,7 +97,7 @@ function blockEntries(block: MealBlock, day: DayEntry[], date: string): { done: 
   return { done: e?.status === 'done' ? [e] : [], planned: e?.status === 'planned' ? [e] : [] };
 }
 
-function MealTile({ block, now, date, day, all, foods, recipes, plan, quiet, open, onOpen, onConfirm }: MealTilesProps & { block: MealBlock; now: Date }) {
+function MealTile({ block, now, date, day, all, foods, recipes, plan, quiet, open, onOpen, onConfirm, draft, onDraftDone }: MealTilesProps & { block: MealBlock; now: Date }) {
   const { slot } = block;
   const name = t.meal.names[slot]!;
   const expanded = open === block.key;
@@ -134,7 +137,8 @@ function MealTile({ block, now, date, day, all, foods, recipes, plan, quiet, ope
       </button>
       {expanded && <TileBody slot={slot} name={name} date={date} lines={lines} planned={planned} checks={checks} all={all} day={day}
         foods={foods} recipes={recipes} plan={plan} onConfirm={onConfirm} onClose={() => onOpen(null)}
-        at={block.key === NEW_SNACK ? block.at : undefined} onCreated={slot === 3 ? (id) => onOpen(`e:${id}`) : undefined} />}
+        at={block.key === NEW_SNACK ? block.at : undefined} onCreated={slot === 3 ? (id) => onOpen(`e:${id}`) : undefined}
+        {...(draft ? { draft, onDraftDone } : {})} />}
     </div>
   );
 }
@@ -143,11 +147,12 @@ function PlanLabel({ text }: { text: string }) {
   return <span className="rounded-full bg-warn-bg px-2 py-0.5 text-xs font-semibold text-warn">{text}</span>;
 }
 
-function TileBody({ slot, name, date, lines, planned, checks, all, day, foods, recipes, plan, onConfirm, onClose, at, onCreated }: {
+function TileBody({ slot, name, date, lines, planned, checks, all, day, foods, recipes, plan, onConfirm, onClose, at, onCreated, draft, onDraftDone }: {
   slot: Slot; name: string; date: string; lines: Line[]; planned: DayEntry[]; checks: ItemCheck[]; all: DayEntry[]; day: DayEntry[];
   foods: Map<string, Food>; recipes: Recipe[]; plan: Plan | undefined; onConfirm: (e: DayEntry) => void; onClose: () => void;
   /** a new snack: the time it was opened with; its first line makes the record, which then is this block */
   at?: string; onCreated?: (id: string) => void;
+  draft?: TileDraft; onDraftDone?: () => void;
 }) {
   const [query, setQuery] = useState('');
   const [editing, setEditing] = useState<Line | null>(null);
@@ -251,6 +256,9 @@ function TileBody({ slot, name, date, lines, planned, checks, all, day, foods, r
           })}
         </ul>
       )}
+      {draft && <RecognizedPanel title={t.meal.recognized} rows={draft.rows} addLabel={L.addAll}
+        onAdd={(picked, missing) => { void write(picked, draft.via); onDraftDone?.(); for (const m of missing) void countOnce('nf', m); }}
+        notFound={(text) => <ConciergeNotFound text={text} plan={plan} foods={foods} recipes={recipes} date={date} onAdd={(s) => void write([s.item])} />} />}
       {!danger && phrase && <RecognizedPanel key={query} title={t.meal.recognized} rows={phrase} addLabel={L.addAll}
         onAdd={(picked, missing) => { void write(picked, listened.current ? 'voice' : undefined); setQuery(''); for (const m of missing) void countOnce('nf', m); }}
         notFound={(text) => <ConciergeNotFound text={text} plan={plan} foods={foods} recipes={recipes} date={date} onAdd={(s) => void write([s.item])} />} />}
