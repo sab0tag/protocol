@@ -48,7 +48,7 @@ import { runningLow } from '../domain/stock';
 import { unfinished } from '../domain/conclusion';
 import { useFeatures } from '../app/features';
 import { MealTiles } from '../components/MealTiles';
-import { slotAt, type Slot } from '../domain/mealSlots';
+import { blockKeyFor, slotAt, type Slot } from '../domain/mealSlots';
 import { ENTRY_FEATURES, habitVisible, entryVisible } from '../domain/visibility';
 import type { FeatureId } from '../domain/features';
 
@@ -85,9 +85,9 @@ export function Day() {
   }, [linked, setDate, setParams]);
   const opening = params.get('open'); // D66: `#/do/symptom` lands here
   const mealParam = params.get('meal'); // D159: `#/meal/new` opens the tile of the meal going on now
-  const [openSlot, setOpenSlot] = useState<Slot | null>(null);
+  const [openTile, setOpenTile] = useState<string | null>(null);
   useEffect(() => {
-    if (mealParam !== null && /^[0-3]$/.test(mealParam)) { setOpenSlot(Number(mealParam) as Slot); setParams({}, { replace: true }); }
+    if (mealParam !== null && /^[0-3]$/.test(mealParam)) { setOpenTile(blockKeyFor(Number(mealParam) as Slot)); setParams({}, { replace: true }); }
   }, [mealParam, setParams]);
   useEffect(() => {
     if (opening === 'symptom') { setSymptom({}); setParams({}, { replace: true }); }
@@ -197,7 +197,7 @@ export function Day() {
   const startAdd = (kind: EntryKind) => {
     setAdding(false);
     if (!can(ENTRY_FEATURES[kind]) || (light && kind === 'workout')) return;
-    if (kind === 'meal') setOpenSlot(slotAt(new Date()));
+    if (kind === 'meal') setOpenTile(blockKeyFor(slotAt(new Date())));
     else if (kind === 'symptom') setSymptom({});
     else setSimple({ kind });
   };
@@ -253,7 +253,7 @@ export function Day() {
         <button type="button" onClick={() => setSymptom({})} className="flex min-h-tap flex-col items-center justify-center gap-1 rounded-xl border border-line bg-surface p-2 text-center text-xs font-medium"><Frown size={20} className="text-warn" aria-hidden />{t.addKinds.symptom}</button>
       </nav>
       {can('food.log') && date <= today && entries && all && foods && recipes && <MealTiles date={date} day={entries} all={all} foods={foods} recipes={recipes} plan={plan}
-        quiet={light || !scoredDay(observation, 'food', date)} open={openSlot} onOpen={setOpenSlot} onConfirm={setConfirming} />}
+        quiet={light || !scoredDay(observation, 'food', date)} open={openTile} onOpen={setOpenTile} onConfirm={setConfirming} />}
       {rhythm && <DayRhythm date={date} pendingOnly title={isToday ? t.day.upcoming : t.day.rhythm} rhythm={rhythm} foods={foods} {...(can('menu.yesterday') && can('food.log') ? { onYesterday: () => setYesterday(true) } : {})} addLabel={enabled ? t.modules.addOther : undefined} onEntry={(e) => (e.kind === 'meal' && e.status === 'planned' && e.items?.length ? setConfirming(e) : setRowFor(e))} onDose={setAskMed} onAdd={() => setAdding(true)}
         onAnytime={(i) => (i.kind === 'workout' ? navigate('/workout') : setAskMed(i))} />}
       {totals && <details className="protocol-card mb-4 p-0" open>
@@ -398,7 +398,7 @@ export function Day() {
         return (
           <Sheet title={t.day.yesterdayTitle} onClose={() => setYesterday(false)}>
             {meals.length === 0 && <p className="mb-2 text-muted">{t.day.yesterdayEmpty}</p>}
-            {meals.length === 0 && <SheetButton tone="accent" onClick={() => { setYesterday(false); setOpenSlot(slotAt(new Date())); }}><UtensilsCrossed size={20} />{t.day.firstMeal}</SheetButton>}
+            {meals.length === 0 && <SheetButton tone="accent" onClick={() => { setYesterday(false); setOpenTile(blockKeyFor(slotAt(new Date()))); }}><UtensilsCrossed size={20} />{t.day.firstMeal}</SheetButton>}
             {meals.map((e) => (
               <SheetButton key={e.id} onClick={() => void copyMeal(e).then(() => setYesterday(false))}>
                 <UtensilsCrossed size={20} className="shrink-0" />

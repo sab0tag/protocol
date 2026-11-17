@@ -32,7 +32,8 @@ test('a meal tile\'s chips are the usual lines of that meal — eaten ones only,
   await seed(page, rows);
   const before = await records(page);
   const snack = page.locator('[data-testid=meal-tiles] [data-slot="3"]');
-  await snack.getByRole('button', { name: /^Перекус/ }).click();
+  await page.getByTestId('meal-tiles').getByRole('button', { name: 'Додати їжу', exact: true }).click(); // D161: a snack is added, not a fixed tile
+  await page.getByRole('group', { name: 'Що це за прийом?' }).getByRole('button', { name: 'Перекус', exact: true }).click();
   const chips = snack.getByRole('group', { name: 'Підказки' });
   await expect(chips.getByRole('button', { name: 'Молоко 2,5 % · 180 г' })).toHaveCount(1);
   await expect(chips.getByRole('button', { name: 'Яблуко · 200 г' })).toHaveCount(1);

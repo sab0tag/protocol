@@ -5,7 +5,8 @@ test('a meal pinned «У звичні» comes back as a chip in any meal tile, o
   const page = await device(browser);
   await page.setViewportSize({ width: 320, height: 844 });
   const snack = page.locator('[data-testid=meal-tiles] [data-slot="3"]');
-  await snack.getByRole('button', { name: /^Перекус/ }).click();
+  await page.getByTestId('meal-tiles').getByRole('button', { name: 'Додати їжу', exact: true }).click(); // D161: a snack is added, not a fixed tile
+  await page.getByRole('group', { name: 'Що це за прийом?' }).getByRole('button', { name: 'Перекус', exact: true }).click();
   await snack.getByPlaceholder('Додати до перекусу…').fill('кефір');
   await snack.getByRole('list', { name: 'Підказки' }).getByRole('button', { name: /^Кефір 2,5 %/ }).first().click();
   await expect(toast(page)).toContainText('Додано: Кефір 2,5 %');
