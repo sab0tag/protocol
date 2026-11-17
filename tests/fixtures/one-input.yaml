@@ -1,0 +1,155 @@
+# Одне поле «Скажіть або напишіть…» на «Сьогодні» (SPEC.md D162, ТЗ «спрощення» 17.11, крок 3). Код, без моделі.
+# say — що сказано або написано; expect — що з цього робить поле:
+#   kind: crisis | danger | question | assistant-off | light-day | undo | edit | no-card | meds | which-med | med-done |
+#         med-unknown | water | food | empty
+#   meds / options — які дози (назви) у картці «Відмітити: …?» чи в питанні «яку?»; water_ml — скільки води одразу;
+#   items — позиції чернетки їжі (початок назви); not_found — нерозібране; draft_water_ml — вода в чернетці їжі.
+# Контекст (tests/unit/oneInput.test.ts): зараз 08:30; на сьогодні не відмічено Метформін 08:00, Еналаприл 08:00,
+# Аторвастатин 20:00; уже відмічено Вітамін D 08:00. assistant: true, якщо не сказано assistant: false; card — чернетка на екрані.
+# Небезпечні й кризові фрази з concierge-cases.yaml тест бере звідти ж — тут їх не повторюємо.
+# status: fixed | open; рядки не видаляються.
+
+# ── фрази з таблиці ТЗ ──
+
+- id: food-phrase-stop
+  say: "гречка з куркою і чай, це все"
+  expect: { kind: food, items: ["Гречка з куркою", "Чай"] }
+  status: fixed
+
+- id: med-named
+  say: "випив метформін"
+  expect: { kind: meds, meds: ["Метформін"] }
+  status: fixed
+
+- id: med-morning
+  say: "ранкові таблетки прийняв"
+  expect: { kind: meds, meds: ["Метформін", "Еналаприл"] }
+  status: fixed
+
+- id: water-glass
+  say: "склянка води"
+  expect: { kind: water, water_ml: 250 }
+  status: fixed
+
+- id: water-two-more
+  say: "ще дві склянки"
+  expect: { kind: water, water_ml: 500 }
+  status: fixed
+
+- id: question-dinner
+  say: "що з’їсти на вечерю?"
+  expect: { kind: question }
+  status: fixed
+
+- id: question-banana
+  say: "можна мені банан?"
+  expect: { kind: question }
+  status: fixed
+
+- id: question-assistant-off
+  say: "можна мені банан?"
+  assistant: false
+  expect: { kind: assistant-off }
+  status: fixed
+
+- id: light-day
+  say: "сьогодні легкий день"
+  expect: { kind: light-day }
+  status: fixed
+
+- id: edit-remove-from-card
+  card: "гречка з куркою 2 яйця"
+  say: "прибери яйця"
+  expect: { kind: edit, items: ["Гречка з куркою"] }
+  status: fixed
+
+- id: edit-amount-on-card
+  card: "2 яйця"
+  say: "не два, а три яйця"
+  expect: { kind: edit, items: ["Яйце варене 3 шт"] }
+  status: fixed
+
+- id: undo-last
+  say: "скасуй останнє"
+  expect: { kind: undo }
+  status: fixed
+
+# ── пограничні з ТЗ ──
+
+- id: water-with-lemon-is-food
+  # не миттєва вода: чернетка, яку записують лише «Записати»
+  say: "вода з лимоном"
+  expect: { kind: food, draft_water_ml: 250 }
+  status: fixed
+
+- id: tablets-bare
+  say: "таблетки"
+  expect: { kind: meds, meds: ["Метформін", "Еналаприл"] }
+  status: fixed
+
+- id: kefir-drunk-is-food
+  say: "випив кефір"
+  expect: { kind: food, items: ["Кефір"] }
+  status: fixed
+
+- id: which-tablet
+  say: "випив таблетку"
+  expect: { kind: which-med, options: ["Метформін", "Еналаприл"] }
+  status: fixed
+
+# ── межі, які не можна переплутати ──
+
+- id: question-about-med-is-not-a-tick
+  say: "чи можна метформін після кави?"
+  expect: { kind: question }
+  status: fixed
+
+- id: med-already-marked
+  say: "випив вітамін д"
+  expect: { kind: med-done }
+  status: fixed
+
+- id: med-not-in-plan
+  say: "прийняв но-шпу"
+  expect: { kind: med-unknown }
+  status: fixed
+
+- id: evening-tablets
+  say: "вечірні таблетки випив"
+  expect: { kind: meds, meds: ["Аторвастатин"] }
+  status: fixed
+
+- id: kefir-glass-is-food
+  say: "склянка кефіру"
+  expect: { kind: food, items: ["Кефір"] }
+  status: fixed
+
+- id: water-ml
+  say: "300 мл води"
+  expect: { kind: water, water_ml: 300 }
+  status: fixed
+
+- id: food-and-water-is-a-draft
+  say: "два яйця і склянка води"
+  expect: { kind: food, items: ["Яйце варене"], draft_water_ml: 250 }
+  status: fixed
+
+- id: remove-without-card
+  say: "прибери курку"
+  expect: { kind: no-card }
+  status: fixed
+
+- id: light-day-not-a-food
+  say: "легкий салат"
+  expect: { kind: food }
+  status: fixed
+
+- id: empty-stop-only
+  say: "це все"
+  expect: { kind: empty }
+  status: fixed
+
+- id: food-unknown-word
+  say: "бабусин пиріжок"
+  expect: { kind: food }
+  status: fixed
