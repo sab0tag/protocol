@@ -752,8 +752,12 @@ export const t = {
     noSync: 'Це приклад — синхронізація в ньому вимкнена, щоб вигадані записи нікуди не пішли.',
   },
   progress: {
-    title: 'Прогрес',
+    title: 'Результати',
     details: 'Розділи прогресу',
+    // UI-RESULTS-01: results and goals are two separate parts; no combined score
+    recorded: 'Вимірювання і записи', recordedHint: 'Те, що ви виміряли й записали, — без порівняння з цілями.',
+    goals: 'Цілі плану', goalsHint: 'Скільки днів записи вклалися в цілі та межі вашого плану. Це не оцінка здоров’я.',
+    reportHint: 'Звіт збирає ваші записи за обраний період. Передати його лікарю можна лише після вашої згоди.',
     motivationTitle: 'Мотивація',
     insightsTitle: 'Інсайти',
     noHabits: 'Ще немає достатньо записів, щоб показати звички.',
@@ -776,7 +780,6 @@ export const t = {
     cardWeightDelta: (from: string, delta: string) => `Від ${from}: ${delta} кг`, cardWeightFirst: 'Додайте перше вимірювання',
     cardWeightLink: 'Вимірювання →', cardDays: (n: number) => `${n} з 7 дн.`, cardWellDetail: 'днів із записом самопочуття',
     cardWellLink: 'Щоденник →', cardActivity: 'Активність', cardWorkouts: 'записаних тренувань', cardWorkoutLink: 'Тренування →',
-    cardPlan: 'План', cardPlanDetail: (days: number) => `відмічених пунктів плану; днів із записами: ${days}`, cardPlanNone: 'за тиждень пунктів плану не було',
     cardPlanLink: 'Тиждень по днях →',
     addLab: 'Додати результат', noLabs: 'Результатів аналізів ще немає.',
     editLab: 'Редагувати результат', labHistory: 'Історія та виправлення',

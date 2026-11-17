@@ -1,8 +1,7 @@
-import { SceneHeader } from '../components/SceneHeader';
 import { format, parseISO } from 'date-fns';
 import { ExampleNotice } from '../components/ExampleNotice';
 import { Loading } from '../components/Recovery';
-import { Activity, ChevronRight, Dumbbell, FileText, HeartPulse, Scale, type LucideIcon } from 'lucide-react';
+import { ChevronRight, Dumbbell, FileText, HeartPulse, Scale, type LucideIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAllEntries, useAllWellbeing, useFoods, usePlan, useWeights, useWorkouts } from '../data/queries';
 import { todayISO } from '../domain/dates';
@@ -13,7 +12,7 @@ import { useObservation } from '../app/observation';
 import { WeekCard } from './Motivation';
 import { WeightCard } from './Weight';
 import { useFeatures } from '../app/features';
-import { habitVisible, visibleWeek } from '../domain/visibility';
+import { visibleWeek } from '../domain/visibility';
 
 const L = t.progress;
 const kg = (n: number) => n.toLocaleString('uk-UA', { maximumFractionDigits: 1 });
@@ -33,8 +32,9 @@ function Card({ icon: Icon, title, value, detail, period, to, link }: { icon: Lu
   );
 }
 
-/** «Прогрес» (SPEC.md §5.7). The charts show accepted measurements and weekly averages against the plan's limit;
- *  the current weight and the change since the start are numbers above it (D23). */
+/** «Результати» (SPEC.md §5.7, UI-RESULTS-01). Two separate parts: what was measured and recorded, with no goal applied
+ *  to it, and how many days the records kept the plan's goals and limits — never one combined health score.
+ *  The doctor's report opens from here; sharing it still needs its own explicit consent on that screen (D158). */
 export function Progress() {
   const plan = usePlan();
   const weights = useWeights();
@@ -51,28 +51,38 @@ export function Progress() {
   const week = L.cardWeek(dm(weekly.from), dm(weekly.to)); // the same seven days for every card below
   const wellDays = new Set(wellbeing.filter((w) => w.date >= weekly.from && w.date <= weekly.to
     && (w.energy || w.mood || w.sleep || w.symptoms.length || w.note)).map((w) => w.date)).size;
+  const showResults = can('wellbeing.weight') || can('wellbeing.log') || can('workout.log');
+  // The workout count is a record, shown with the results; the goals part keeps only what is measured against the plan.
+  const goals = can('workout.log') ? { ...weekly, showWorkouts: false } : weekly;
 
   return (
-    <section className="space-y-4 pt-4">
-      <SceneHeader title={L.title} description={t.visual.progressHint}>
-        <Link to="/report" className="inline-flex min-h-tap items-center gap-2 rounded-xl border border-white/25 bg-white/10 px-3 text-sm font-medium text-white">
-          <FileText size={18} aria-hidden />{L.report}</Link>
-      </SceneHeader>
+    <section className="space-y-5 pt-4">
+      <header className="protocol-results-heading space-y-1">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h1 className="text-3xl font-semibold tracking-tight">{L.title}</h1>
+          <Link to="/report" className="protocol-action-secondary"><FileText size={18} aria-hidden />{L.report}</Link>
+        </div>
+        <p className="text-sm text-muted">{L.reportHint}</p>
+      </header>
       <ExampleNotice plan={plan} />
-      <section aria-label="Огляд прогресу" className="grid grid-cols-2 gap-3">
-        {can('wellbeing.weight') && <Card icon={Scale} title={L.weight} value={sum.now ? `${kg(sum.now.kg)} ${L.kg}` : '—'}
-          detail={sum.delta != null ? L.cardWeightDelta(dm(sum.start!.date), signed(sum.delta)) : L.cardWeightFirst}
-          {...(sum.now ? { period: L.cardLast(dm(sum.now.date)) } : {})} to="/weight" link={L.cardWeightLink} />}
-        {can('wellbeing.log') && <Card icon={HeartPulse} title={t.well.title} value={L.cardDays(wellDays)} detail={L.cardWellDetail}
-          period={week} to="/wellbeing/journal" link={L.cardWellLink} />}
-        {can('workout.log') && <Card icon={Dumbbell} title={L.cardActivity} value={String(weekly.workouts)} detail={L.cardWorkouts}
-          period={week} to="/workout" link={L.cardWorkoutLink} />}
-        {habitVisible('plan', context) && <Card icon={Activity} title={L.cardPlan} value={weekly.checklistPct != null ? `${weekly.checklistPct} %` : '—'}
-          detail={weekly.checklistPct != null ? L.cardPlanDetail(weekly.days) : L.cardPlanNone} period={week}
-          {...(can('progress.week') ? { to: '/week' } : {})} link={L.cardPlanLink} />}
+      {showResults && <section aria-labelledby="results-recorded" className="space-y-3">
+        <div><h2 id="results-recorded" className="text-lg font-semibold">{L.recorded}</h2><p className="text-sm text-muted">{L.recordedHint}</p></div>
+        <div className="grid grid-cols-2 gap-3">
+          {can('wellbeing.weight') && <Card icon={Scale} title={L.weight} value={sum.now ? `${kg(sum.now.kg)} ${L.kg}` : '—'}
+            detail={sum.delta != null ? L.cardWeightDelta(dm(sum.start!.date), signed(sum.delta)) : L.cardWeightFirst}
+            {...(sum.now ? { period: L.cardLast(dm(sum.now.date)) } : {})} to="/weight" link={L.cardWeightLink} />}
+          {can('wellbeing.log') && <Card icon={HeartPulse} title={t.well.title} value={L.cardDays(wellDays)} detail={L.cardWellDetail}
+            period={week} to="/wellbeing/journal" link={L.cardWellLink} />}
+          {can('workout.log') && <Card icon={Dumbbell} title={L.cardActivity} value={String(weekly.workouts)} detail={L.cardWorkouts}
+            period={week} to="/workout" link={L.cardWorkoutLink} />}
+        </div>
+        {can('wellbeing.weight') && <WeightCard />}
+      </section>}
+      <section aria-labelledby="results-goals" className="space-y-3">
+        <div><h2 id="results-goals" className="text-lg font-semibold">{L.goals}</h2><p className="text-sm text-muted">{L.goalsHint}</p></div>
+        <WeekCard summary={goals} variant="rings" />
+        {can('progress.week') && <Link to="/week" className="inline-flex min-h-tap items-center text-sm text-accent underline-offset-4 hover:underline">{L.cardPlanLink}</Link>}
       </section>
-      <WeekCard summary={weekly} variant="rings" />
-      {can('wellbeing.weight') && <WeightCard />}
       <nav aria-label={L.details} className="grid grid-cols-2 gap-2">
         {[
           { to: '/progress/labs', label: L.labs, feature: 'progress.labs' as const },
