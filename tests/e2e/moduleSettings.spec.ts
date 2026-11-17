@@ -39,10 +39,10 @@ test('minimal day hides disabled actions and More stays short; food comes back w
   await expect(page.getByRole('button', { name: 'Як учора', exact: true })).toHaveCount(0); // food/menu off: nothing to copy
   await page.screenshot({ path: test.info().outputPath('minimal-day.png'), fullPage: true });
   const tabs = page.getByRole('navigation', { name: 'Розділи' });
-  await expect(tabs.getByRole('link')).toHaveCount(3);
+  await expect(tabs.getByRole('link')).toHaveText(['Сьогодні', 'Мій план']); // progress off: no «Результати» (D137)
   await page.goto('./#/more');
   expect(await page.locator('main a:visible').count() + await page.locator('main details > summary:visible').count()).toBeLessThanOrEqual(8);
-  await expect(page.getByRole('link', { name: /^Їжа/ })).toHaveCount(0); // no food rows — the category itself goes
+  await expect(page.getByRole('link', { name: 'Мої страви', exact: true })).toHaveCount(0); // no food rows (D160)
   await page.goto('./#/more/settings');
   await page.getByRole('link', { name: 'Що показувати', exact: true }).click();
   await expect(page.getByRole('switch')).toHaveCount(8);
