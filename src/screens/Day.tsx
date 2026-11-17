@@ -280,7 +280,6 @@ export function Day() {
         ))}
       </nav>}
         </details>
-      <button type="button" onClick={() => setVoice(true)} disabled={voice} className="mb-3 flex min-h-tap items-center gap-2 text-sm text-accent">{t.voice.open}</button>
       {/* D40: one notice at a time — the code first, then the backup */}
       {isToday && codeDue && (
         <div role="status" className="mb-3 space-y-2 protocol-card rounded-2xl border border-line bg-surface p-3 text-sm">
