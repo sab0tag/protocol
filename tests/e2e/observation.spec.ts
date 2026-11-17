@@ -31,7 +31,7 @@ test('food/water observation periods are shared by the doctor report and week, b
 
   await seed(page, rows);
   if (enabled) {
-    await page.goto('./#/');
+    await page.goto('./#/progress'); // D164: the day's goals live in «Мій прогрес»
     const summary = page.getByRole('region', { name: 'Сьогодні' });
     await expect(summary.getByRole('progressbar')).toHaveCount(3);
     await summary.getByRole('button', { name: 'Налаштувати' }).click();
@@ -71,7 +71,7 @@ test('the day summary adapts when only one metric is being observed (D135)', asy
     ...modules.map((module) => ({ store: 'moduleEvents', value: { id: `metric-init-${module}`, v: 1,
       at: '2026-10-01T00:00:00.000Z', kind: 'module', module, enabled: module === 'meds', source: 'onboarding' } })),
   ]);
-  await page.goto('./#/');
+  await page.goto('./#/progress');
   const summary = page.getByRole('region', { name: 'Сьогодні' });
   await expect(summary.getByRole('progressbar', { name: t.summary.meds, exact: true })).toHaveCount(1);
   await summary.getByRole('button', { name: t.summary.setup }).click();

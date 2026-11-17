@@ -1,5 +1,5 @@
 import Dexie from 'dexie';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ProtocolDB, ensureSeeded } from '../../src/data/db';
 import { appendModuleEvents, initialiseModulePreferences, legacyModuleUsage, setLightDay, setModuleEnabled, setWeightEnabled } from '../../src/data/modulePreferences';
 import { exportAll, importAll, parseExport } from '../../src/data/backup';
@@ -107,6 +107,19 @@ describe('module storage and migration', () => {
     expect(await d.moduleEvents.count()).toBe(before.length + 1);
     expect(modulePreferences(await d.moduleEvents.toArray()).modules.food).toBe(false);
     expect(modulePreferences(await d.moduleEvents.toArray()).overrides).toEqual({}); // no late automatic weight activation
+  });
+
+  it('a choice made on this device wins over the one it replaces, even within the same millisecond (D164)', async () => {
+    const d = fresh();
+    vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(new Date('2026-11-17T08:10:00Z'));
+    try {
+      for (let i = 0; i < 6; i++) { // a random id must never let the earlier tap win
+        await setModuleEnabled(d, 'wellbeing', i % 2 === 0 ? false : true);
+        expect(modulePreferences(await d.moduleEvents.toArray()).modules.wellbeing).toBe(i % 2 !== 0);
+        await setLightDay(d, '2026-11-17', i % 2 === 0);
+        expect(isLightDay(await d.moduleEvents.toArray(), '2026-11-17')).toBe(i % 2 === 0);
+      }
+    } finally { vi.useRealTimers(); }
   });
 
   it('does not treat example records or built-in dishes as personal food use', async () => {

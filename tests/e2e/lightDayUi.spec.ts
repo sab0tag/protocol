@@ -41,17 +41,17 @@ test('light day quiets non-medication tasks, retains help/PRN and voluntary inpu
   await expect(page.getByRole('link', { name: /Помічник — запитати/ })).toHaveCount(0);
   await expect(page.getByRole('navigation', { name: 'Швидко' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Мені погано', exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Сказати голосом', exact: true })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Скажіть або напишіть…', exact: true })).toBeVisible(); // D162: the one field replaces «Сказати голосом»
   await expect(page.getByText('Препарат за потреби', { exact: true })).toBeVisible();
   expect(await rows(page, 'entries')).toEqual(before);
   const on = (await rows(page, 'moduleEvents')).filter((e) => e.kind === 'light-day');
   expect(on).toHaveLength(1); expect(on[0].until - on[0].from).toBe(25 * 3_600_000);
   await page.screenshot({ path: test.info().outputPath('light-day-ui-part8.png'), fullPage: true });
-  await page.getByText('Записати за бажанням', { exact: true }).click();
-  await page.getByRole('button', { name: 'Вода', exact: true }).click();
-  const water = page.getByRole('dialog', { name: 'Вода, мл', exact: true });
-  await water.getByLabel('Вода, мл', { exact: true }).fill('350'); await water.getByRole('button', { name: 'Записати', exact: true }).click();
-  expect((await rows(page, 'entries')).find((e) => e.kind === 'water')?.waterMl).toBe(350);
+  // D164: a light day keeps the quick marks, without «ще ні»; water is still one tap
+  const water = page.getByRole('navigation', { name: 'Швидкі відмітки', exact: true }).getByRole('button', { name: /^Вода:/ });
+  await expect(water).not.toContainText('ще ні');
+  await water.click();
+  await expect.poll(async () => (await rows(page, 'entries')).find((e) => e.kind === 'water')?.waterMl).toBe(250);
   await page.getByRole('button', { name: 'Повернути звичайний день', exact: true }).click();
   await expect(page.locator('[data-testid=meal-tiles] [data-state=planned]')).toHaveCount(1);
   expect((await rows(page, 'entries')).find((e) => e.id === 'planned-lunch')).toEqual(before[0]);
@@ -147,7 +147,7 @@ test('offline light-day changes remain pending until the server acknowledges the
   test.skip(!enabled, 'acceptance build');
   const page = await profile(browser, new Date()); await syncOn(page);
   await page.goto('./#/');
-  await expect(page.getByText('Сервер підтвердив налаштування нагадувань.', { exact: true })).toBeVisible();
+  await expect(page.getByText(/Очікуємо підтвердження сервера/)).toHaveCount(0); // an ordinary day says nothing beside the button (D164)
   await page.context().setOffline(true); await turnOn(page);
   await expect(page.getByText(/Очікуємо підтвердження сервера/)).toBeVisible();
   await page.context().setOffline(false);
@@ -155,6 +155,7 @@ test('offline light-day changes remain pending until the server acknowledges the
     const meta = (await rows(page, 'meta')).find((e) => e.key === 'sync');
     return meta.reminderPolicyState === 'synced' && JSON.parse(meta.reminderPolicyAck).days.some((d: { enabled: boolean }) => d.enabled);
   }).toBe(true);
+  await expect(page.getByText('Сервер підтвердив налаштування нагадувань.', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Повернути звичайний день', exact: true }).click();
   await expect.poll(async () => {
     const meta = (await rows(page, 'meta')).find((e) => e.key === 'sync');

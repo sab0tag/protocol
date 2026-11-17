@@ -3,6 +3,7 @@ import { ChevronRight, FileText } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { ExampleNotice } from '../components/ExampleNotice';
 import { Loading } from '../components/Recovery';
+import { TodayGoals } from '../components/TodayGoals';
 import { useAllEntries, useFoods, usePlan, useWeights, useWorkouts } from '../data/queries';
 import { todayISO } from '../domain/dates';
 import { untilVisit, weekPhrase, weekResults } from '../domain/results';
@@ -68,6 +69,7 @@ export function Progress() {
           ))}
         </dl>
       </section>
+      <TodayGoals />{/* D164: «Цілі на сьогодні» left «Сьогодні» for here */}
       {visit && left && (
         <Link to="/plan/checkup" className="protocol-card flex min-h-tap items-center gap-3 px-4 py-3">
           <span className="min-w-0 flex-1"><span className="block font-semibold">{L.toVisit(left)}</span>

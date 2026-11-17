@@ -26,7 +26,7 @@ test('the assistant: the code answers «що добрати», the model the res
     await r.fulfill({ json: medicine ? { topic: 'medicine', text: 'Пийте як хочете.', items: [] }
       : { topic: 'food', text: 'З того, що є, вийде вечеря: гречка з яйцем.', items: [{ name: 'Яйце варене', grams: 110 }, { name: 'Молоко 2,5 %', grams: 200 }, { name: 'Гречка варена', grams: 150 }] } });
   });
-  await page.goto('./#/');
+  await page.goto('./#/progress'); // D164: the link sits with the day's goals in «Мій прогрес»
   await page.getByRole('link', { name: 'Помічник — запитати, що з’їсти' }).click();
   await expect(page.getByRole('heading', { name: 'Помічник' })).toBeVisible();
   await expect(page.getByText(/Сьогодні: калорій 0 з 2100 ккал/)).toBeVisible(); // the code's numbers

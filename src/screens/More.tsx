@@ -1,4 +1,4 @@
-import { Eye, Info, Activity, BellRing, ChevronRight, Dumbbell, RefreshCw, Salad, Sparkles, UserRound, MessageSquareWarning, Zap, MessageCircle, HandHeart, Database, Settings2, Apple, type LucideIcon } from 'lucide-react';
+import { Eye, ListChecks, Info, Activity, BellRing, ChevronRight, Dumbbell, RefreshCw, Salad, Sparkles, UserRound, MessageSquareWarning, Zap, MessageCircle, HandHeart, Database, Settings2, Apple, type LucideIcon } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { enterDemo, inDemo } from '../data/db';
@@ -23,6 +23,7 @@ const LINKS = {
   data: { Icon: Database, title: t.data.title },
   modules: { Icon: Settings2, title: t.modules.title },
   quickLinks: { Icon: Zap, title: t.quick.title },
+  myDay: { Icon: ListChecks, title: t.myday.title },
   onboarding: { Icon: UserRound, title: t.welcome.again },
 } satisfies Record<MoreRouteId | SettingsRouteId, { Icon: LucideIcon; title: string }>;
 

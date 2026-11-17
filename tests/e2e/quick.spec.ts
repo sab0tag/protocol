@@ -5,10 +5,11 @@ test('records from a link: water with undo, the medicine (or a word why not), «
   const page = await device(browser);
   await page.goto('./#/do/water?ml=500');
   await expect(toast(page)).toContainText('+500 мл води');
-  const water = page.getByRole('region', { name: 'Сьогодні', exact: true }).getByRole('progressbar', { name: 'Вода', exact: true });
-  await expect(water).toHaveAttribute('aria-valuetext', /0,5 \/ 2,5 л/);
+  // D164: the water tile counts glasses of the plan's 2,5 л
+  const water = page.getByRole('navigation', { name: 'Швидкі відмітки', exact: true }).getByRole('button', { name: /^Вода:/ });
+  await expect(water).toHaveAccessibleName('Вода: 2 з 10');
   await toast(page).getByRole('button', { name: 'Скасувати' }).click();
-  await expect(water).toHaveAttribute('aria-valuetext', /0 \/ 2,5 л/);
+  await expect(water).toHaveAccessibleName('Вода: 0 з 10');
 
   await page.goto('./#/do/med');
   await expect(toast(page)).toContainText('Вітамін D'); // marked now, or «час минув — відмітьте на «Дні»», by the clock
