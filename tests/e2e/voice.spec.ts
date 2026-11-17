@@ -38,7 +38,7 @@ const meals = (page: Page) => page.evaluate(async () => {
 test('the voice window: one phrase → a draft with the plan\'s flags, a command on it, one tap writes — twice never doubles (D95)', async ({ browser }) => {
   const page = await device(browser); // the example plan: lactose, glycemia; vitamin D
   await fakeSpeech(page, ['на сніданок з\'їв два яйця, 60 грамів хліба і кава з молоком і вітамін д випив', 'прибери каву']);
-  await page.getByRole('button', { name: 'Сказати голосом' }).click();
+  await page.goto('./#/do/voice'); // D162: the window stays; «Сьогодні» has the one field instead of its button
   await page.getByRole('button', { name: 'Зрозуміло, говорити' }).click(); // once: who recognises the voice
   const sheet = page.getByRole('dialog', { name: /Скажіть, що з’їли/ });
   await expect(sheet.locator('[data-item]')).toHaveCount(3);
@@ -79,7 +79,7 @@ test('a quantity nobody said is asked, not assumed; no network — the same word
 test('a dish said without an amount offers its portions — ½, 1, 1½, 2 (D95)', async ({ browser }) => {
   const page = await device(browser, 'skip');
   await fakeSpeech(page, ['на обід гречка з куркою']);
-  await page.getByRole('button', { name: 'Сказати голосом' }).click();
+  await page.goto('./#/do/voice'); // D162: the window stays; «Сьогодні» has the one field instead of its button
   await page.getByRole('button', { name: 'Зрозуміло, говорити' }).click();
   const pick = page.getByRole('group', { name: /Кількість не названо — оберіть: Гречка з куркою/ });
   await expect(pick.getByRole('button')).toHaveText(['0,5 порції', '1 порція', '1,5 порції', '2 порції']);
@@ -90,7 +90,7 @@ test('a dish said without an amount offers its portions — ½, 1, 1½, 2 (D95)'
 test('a line not found is never dropped silently: «Записати» waits until it is matched or taken out (D97, audit P1)', async ({ browser }) => {
   const page = await device(browser, 'skip');
   await fakeSpeech(page, ['гречка 200 грамів, бабусин пиріжок і склянка води']);
-  await page.getByRole('button', { name: 'Сказати голосом' }).click();
+  await page.goto('./#/do/voice'); // D162: the window stays; «Сьогодні» has the one field instead of its button
   await page.getByRole('button', { name: 'Зрозуміло, говорити' }).click();
   const sheet = page.getByRole('dialog', { name: /Скажіть, що з’їли/ });
   await expect(sheet).toContainText('«бабусин пиріжок» — не знайдено');
@@ -103,7 +103,7 @@ test('a line not found is never dropped silently: «Записати» waits unt
 test('dictation as on an iPhone — no commas, «це все», never a final result: the words land in the field, can be corrected, «Записати» writes (D105)', async ({ browser }) => {
   const page = await device(browser, 'skip');
   await fakeSpeech(page, ["З'їв 250 г вівсянки 2 варених яйця 1 куряче стегно і салат помідор огірок, це все"], undefined, false);
-  await page.getByRole('button', { name: 'Сказати голосом' }).click();
+  await page.goto('./#/do/voice'); // D162: the window stays; «Сьогодні» has the one field instead of its button
   await page.getByRole('button', { name: 'Зрозуміло, говорити' }).click();
   const sheet = page.getByRole('dialog', { name: /Скажіть, що з’їли/ });
   const field = sheet.getByRole('textbox', { name: 'Або напишіть тут' });
@@ -121,7 +121,7 @@ test('dictation as on an iPhone — no commas, «це все», never a final re
 test('commands on the draft: a quantity fixed, a line of what was done with «Скасувати», a part of a dish asked — never a line «не знайдено» (D107)', async ({ browser }) => {
   const page = await device(browser, 'skip');
   await fakeSpeech(page, ['гречка з куркою 2 яйця і кава з молоком це все', 'не 2 а 3 яйця', 'видали каву', 'прибери курку']);
-  await page.getByRole('button', { name: 'Сказати голосом' }).click();
+  await page.goto('./#/do/voice'); // D162: the window stays; «Сьогодні» has the one field instead of its button
   await page.getByRole('button', { name: 'Зрозуміло, говорити' }).click();
   const sheet = page.getByRole('dialog', { name: /Скажіть, що з’їли/ });
   await expect(sheet.locator('[data-item]')).toHaveCount(3);
@@ -143,11 +143,10 @@ test('commands on the draft: a quantity fixed, a line of what was done with «С
 test('a recogniser that glues what was said before to the new words: only the new words reach the field, the command works (D107)', async ({ browser }) => {
   const page = await device(browser, 'skip');
   await fakeSpeech(page, ['гречка з куркою 2 яйця кава з молоком це все', 'прибери курку', 'видали каву'], undefined, true, true);
-  await page.getByRole('button', { name: 'Сказати голосом' }).click();
+  await page.goto('./#/do/voice'); // D162: the window stays; «Сьогодні» has the one field instead of its button
   await page.getByRole('button', { name: 'Зрозуміло, говорити' }).click();
   const sheet = page.getByRole('dialog', { name: /Скажіть, що з’їли/ });
   await expect(sheet.locator('[data-item]')).toHaveCount(3);
-  await expect(page.getByRole('button', { name: 'Сказати голосом', includeHidden: true })).toBeDisabled(); // one window, one listener
   await sheet.getByRole('button', { name: 'Сказати ще' }).click();
   const field = sheet.getByRole('textbox', { name: 'Або напишіть тут' });
   await expect(field).toHaveValue('прибери курку'); // not «…це всеприбери курку»
@@ -162,7 +161,7 @@ test('a recogniser that glues what was said before to the new words: only the ne
 test('amounts nobody said are not shown as if they were; one tap gives all a usual portion; the espresso is written as itself (D109)', async ({ browser }) => {
   const page = await device(browser, 'skip');
   await fakeSpeech(page, ['куряче філе, салат, гречка і еспресо']);
-  await page.getByRole('button', { name: 'Сказати голосом' }).click();
+  await page.goto('./#/do/voice'); // D162: the window stays; «Сьогодні» has the one field instead of its button
   await page.getByRole('button', { name: 'Зрозуміло, говорити' }).click();
   const sheet = page.getByRole('dialog', { name: /Скажіть, що з’їли/ });
   await expect(sheet.locator('[data-item]')).toHaveCount(4);

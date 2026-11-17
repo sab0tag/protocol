@@ -43,7 +43,8 @@ import { presentDay } from '../domain/dayPresentation';
 import { runningLow } from '../domain/stock';
 import { unfinished } from '../domain/conclusion';
 import { useFeatures } from '../app/features';
-import { MealTiles } from '../components/MealTiles';
+import { MealTiles, type TileDraft } from '../components/MealTiles';
+import { OneInput } from '../components/OneInput';
 import { QuickMarks } from '../components/QuickMarks';
 import { blockKeyFor, slotAt, type Slot } from '../domain/mealSlots';
 import { ENTRY_FEATURES, entryVisible } from '../domain/visibility';
@@ -82,6 +83,7 @@ export function Day() {
   const opening = params.get('open'); // D66: `#/do/symptom` lands here
   const mealParam = params.get('meal'); // D159: `#/meal/new` opens the tile of the meal going on now
   const [openTile, setOpenTile] = useState<string | null>(null);
+  const [tileDraft, setTileDraft] = useState<TileDraft | null>(null); // D162: food said in the one field
   const [listenTile, setListenTile] = useState(false); // D164: `#/do/food` — the tile open and the microphone on
   const [openMark, setOpenMark] = useState<'meds' | 'mood' | null>(null); // D164: `#/do/meds`, `#/do/mood`
   useEffect(() => {
@@ -201,7 +203,8 @@ export function Day() {
         wellbeing={wellbeingToday ?? undefined} workoutDone={!!workouts?.some((w) => w.date === date) || entries.some((e) => e.kind === 'workout' && e.status === 'done')}
         onWorkout={() => setSimple({ kind: 'workout' })} onUnwell={() => setSymptom({})} request={openMark} onRequestDone={() => setOpenMark(null)} />}
       {can('food.log') && date <= today && entries && all && foods && recipes && <MealTiles date={date} day={entries} all={all} foods={foods} recipes={recipes} plan={plan}
-        quiet={light || !scoredDay(observation, 'food', date)} open={openTile} onOpen={(key) => { setListenTile(false); setOpenTile(key); }} listen={listenTile} onConfirm={setConfirming} />}
+        quiet={light || !scoredDay(observation, 'food', date)} open={openTile} onOpen={(key) => { setListenTile(false); setOpenTile(key); setTileDraft(null); }} listen={listenTile} onConfirm={setConfirming}
+        draft={tileDraft} onDraftDone={() => setTileDraft(null)} />}
       {can('food.log') && !light && entries && foodState(entries) !== 'none' && ( /* R06: only the person can say all food is written */
         <p className="-mt-2 mb-3 text-right"><button type="button" aria-pressed={foodState(entries) === 'complete'} onClick={() => void markComplete(foodState(entries) !== 'complete')}
           className="min-h-tap px-1 text-sm text-accent underline">{foodState(entries) === 'complete' ? t.summary.undoComplete : t.summary.markComplete}</button></p>)}
@@ -209,7 +212,6 @@ export function Day() {
         className="mb-4 flex min-h-tap w-full items-center gap-3 rounded-2xl border border-line bg-surface px-4 py-3 text-left font-semibold">
         <Frown size={20} className="shrink-0 text-muted" aria-hidden /><span className="flex-1">{t.addKinds.symptom}</span><ChevronRight size={18} className="text-muted" aria-hidden />
       </button>
-      <button type="button" onClick={() => setVoice(true)} disabled={voice} className="mb-3 flex min-h-tap items-center gap-2 text-sm text-accent">{t.voice.open}</button>
       {/* D40: one notice at a time — the code first, then the backup */}
       {isToday && codeDue && (
         <div role="status" className="mb-3 space-y-2 protocol-card rounded-2xl border border-line bg-surface p-3 text-sm">
@@ -355,7 +357,9 @@ export function Day() {
       {symptom && all && <SymptomSheet date={date} {...(symptom.entry ? { entry: symptom.entry } : {})} all={all} {...(foods ? { foods } : {})} onClose={() => setSymptom(null)} />}
       {simple && can(ENTRY_FEATURES[simple.kind]) && <SimpleEntrySheet kind={simple.kind} entry={simple.entry} date={date} onClose={() => setSimple(null)} />}
       {/* ТЗ 17.11, step 3: the one field «Скажіть або напишіть…», pinned above the tabs (protocol-c2's OneInput goes here) */}
-      <div data-slot="one-input" />
+      {foods && recipes && all && <OneInput date={date} plan={plan} foods={foods} recipes={recipes} all={all} medItems={checklist?.items.filter((i) => i.kind === 'med') ?? []} can={can}
+        lightDay={enabled && !context.demo && isToday && !light} /* D162: one field above the tabs */
+        onFood={(draft) => { setOpenTile(blockKeyFor(slotAt(new Date()))); setTileDraft(draft); }} />}
     </section>
   );
 }
