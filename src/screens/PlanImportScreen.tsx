@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ChevronLeft } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router-dom';
+import { t } from '../i18n/uk';
 import { db } from '../data/db';
 import { saveClinicImport } from '../data/carePlans';
 import { activeProfileId } from '../data/profiles';
@@ -69,7 +70,7 @@ export function PlanImportScreen() {
 
   return (
     <section className="space-y-4 pt-4">
-      <Link to="/plan" className="inline-flex min-h-tap items-center gap-1 text-sm text-muted"><ChevronLeft size={18} aria-hidden />План лікаря</Link>
+      <Link to="/plan" className="inline-flex min-h-tap items-center gap-1 text-sm text-muted"><ChevronLeft size={18} aria-hidden />{t.plan.title}</Link>
       <h1 className="text-2xl font-semibold">План від клініки</h1>
       {state === 'saved' || state === 'already' ? (
         <div className="protocol-card space-y-3 p-4" role="status"><p>{state === 'saved' ? 'Збережено на цьому пристрої як чернетку. Нагадування не створено — перевірте план з лікарем.' : 'Цей план уже збережено.'}</p><p className="text-sm text-muted">Наступний крок: перевірте склад і дозування з лікарем, а потім підтвердіть потрібні пункти в плані. Лише після цього вони можуть зʼявитися у щоденних завданнях.</p><Link to="/plan" className="inline-flex min-h-tap items-center rounded-xl bg-accent px-4 font-semibold text-white">Перейти до плану</Link></div>
