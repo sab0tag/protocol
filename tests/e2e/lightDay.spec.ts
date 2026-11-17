@@ -24,7 +24,7 @@ async function profile(browser: Browser) {
 test('dated history and neutral outcomes agree in week, progress, doctor report and print; cancellation restores retained facts', async ({ browser }) => {
   test.skip(!enabled, 'acceptance build');
   const page = await profile(browser);
-  for (const path of ['/week', '/progress']) {
+  for (const path of ['/week']) { // «Результати» keeps one phrase and three numbers (D165); the dated history is on «Тиждень» and in the report
     await page.goto('./#' + path);
     const history = page.getByRole('region', { name: 'Легкі дні', exact: true });
     await expect(history).toContainText('Легких днів: 1 з 7');

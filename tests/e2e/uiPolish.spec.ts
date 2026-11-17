@@ -4,7 +4,7 @@ import { device } from './helpers';
 // UI-POLISH-01: the three tabs and «Ще» (ТЗ 17.11, step 2), checked together — keyboard focus, hit areas, widths and offline.
 const tabs = [
   { path: '/', title: 'Сьогодні', heading: 'Сьогодні' },
-  { path: '/plan', title: 'Мій план', heading: 'Мій план' },
+  { path: '/plan', title: 'Мій план', heading: 'Що сказав лікар' },
   { path: '/progress', title: 'Результати', heading: 'Результати' },
   { path: '/more', title: 'Ще', heading: 'Ще' },
 ];

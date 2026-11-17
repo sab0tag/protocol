@@ -9,6 +9,7 @@ import { FOOD_COMPLETE } from './habits';
 import { scoredDay, type Observation } from './observation';
 import { dayTotals, effectiveTargets } from './nutrition';
 import type { DayEntry, Food, ISODate, Plan, WeightLog, Workout } from './types';
+import { weightQuality } from './weightQuality';
 
 export interface WeekResults {
   from: ISODate; to: ISODate;
@@ -51,7 +52,7 @@ export function weekResults(args: { plan: Plan | undefined; entries: DayEntry[];
       if (dayTotals(day, foods).waterMl >= target) met += 1;
     }
   }
-  const inWeek = (args.weights ?? []).filter((w) => w.date >= from && w.date <= today).sort((a, b) => a.date.localeCompare(b.date));
+  const inWeek = weightQuality(args.weights ?? [], today).accepted.filter((w) => w.date >= from && w.date <= today).sort((a, b) => a.date.localeCompare(b.date));
   const weight = plan?.targets.weightGoalKg != null && inWeek.length >= 2 ? { delta: Math.round((inWeek.at(-1)!.kg - inWeek[0]!.kg) * 10) / 10 } : undefined;
   return { from, to: today, recorded,
     ...(total ? { meds: { done, total } } : {}),

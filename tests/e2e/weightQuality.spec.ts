@@ -8,12 +8,12 @@ test('a decimal/unit outlier stays out of progress and reports; correction retai
     { store: 'weights', value: { date: day(7), kg: 91 } },
     { store: 'weights', value: { date: day(0), kg: 9.1 } },
   ]);
-  await page.goto('./#/progress');
+  await page.goto('./#/weight');
   await expect(page.getByText('Вимірів на перевірці: 1.', { exact: false })).toBeVisible();
   const current = page.locator('dl').getByText('91', { exact: false }); await expect(current).toBeVisible();
   await page.goto('./#/report');
   await expect(page.getByText('Виміри ваги на перевірці: 1. До розрахунків не включені.', { exact: true })).toBeVisible();
-  await page.goto('./#/progress');
+  await page.goto('./#/weight');
   for (const width of [320, 1024]) for (const colorScheme of ['light', 'dark'] as const) {
     await page.setViewportSize({ width, height: 900 }); await page.emulateMedia({ colorScheme });
     await expect(page.getByRole('figure', { name: 'Виміри ваги, кг', exact: true })).toBeVisible();
@@ -40,7 +40,7 @@ test('a decimal/unit outlier stays out of progress and reports; correction retai
 test('a person can explicitly verify a large real change and undo deleting a measurement', async ({ browser }) => {
   const page = await device(browser, 'skip');
   await seed(page, [{ store: 'weights', value: { date: day(7), kg: 100 } }, { store: 'weights', value: { date: day(0), kg: 60 } }]);
-  await page.goto('./#/progress');
+  await page.goto('./#/weight');
   await page.getByRole('button', { name: 'Значення правильне: 60 кг', exact: true }).click();
   await expect(page.getByText('Вимірів на перевірці:', { exact: false })).toHaveCount(0);
   await expect(page.locator('dl')).toContainText('60');

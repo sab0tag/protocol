@@ -39,6 +39,8 @@ describe('the week on «Результати» (D165)', () => {
     const weights = [{ date: day(6), kg: 92.4 }, { date: day(0), kg: 91.8 }];
     expect(weekResults({ plan: plan({ targets: { weightGoalKg: 85 } }), entries: [], workouts: [], foods, weights, today: T }).weight).toEqual({ delta: -0.6 });
     expect(weekResults({ plan: plan(), entries: [], workouts: [], foods, weights, today: T }).weight).toBeUndefined();
+    // a reading still under review (9.1 for 91) stays out, as in the report
+    expect(weekResults({ plan: plan({ targets: { weightGoalKg: 85 } }), entries: [], workouts: [], foods, weights: [...weights, { date: day(0), kg: 9.1 }], today: T }).weight).toEqual({ delta: -0.6 });
   });
 
   it('one phrase: «Ліки — 26 з 28, їжа за планом 5 днів з 7»', () => {
