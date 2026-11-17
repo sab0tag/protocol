@@ -4,6 +4,11 @@
 export const MODULE_IDS = ['meds', 'water', 'food', 'menu', 'assistant', 'wellbeing', 'workout', 'progress'] as const;
 export type ModuleId = (typeof MODULE_IDS)[number];
 export type ModuleFlags = Readonly<Record<ModuleId, boolean>>;
+/** ТЗ «упрощение» 17.11 (D160): the circle itself — food entry with its plan check, and «Результати» — is always on screen
+ *  and has no switch. A choice stored earlier (onboarding, D138 day 8, manual «off») is answered once with an «on» event
+ *  (`ensureCoreModules`), so history, sync, copies and push keep their one format. */
+export const CORE_MODULES = ['food', 'progress'] as const satisfies readonly ModuleId[];
+export const isCoreModule = (module: ModuleId): boolean => CORE_MODULES.some((m) => m === module);
 export type Tier = 'free' | 'plus';
 
 /** Names of server AI operations; a client-side entitlement never authorizes an API request. */

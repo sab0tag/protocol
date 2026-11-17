@@ -6,7 +6,7 @@ import { modulePreferences } from '../domain/modulePreferences';
 import { MODULE_POLICY_ENABLED } from '../domain/rollout';
 import { Loading } from '../components/Recovery';
 import { db } from '../data/db';
-import { ensureProgressOpened } from '../data/moduleStart';
+import { ensureCoreModules, ensureProgressOpened } from '../data/moduleStart';
 
 const FeatureState = createContext<FeatureContext>(LEGACY_FEATURE_CONTEXT);
 
@@ -15,7 +15,10 @@ export function FeaturesProvider({ children }: { children: ReactNode }) {
   const events = useModuleEvents();
   useEffect(() => {
     if (!MODULE_POLICY_ENABLED || inDemo()) return;
-    const refresh = () => { void ensureProgressOpened(db).catch((e) => console.warn('progress opening:', (e as Error).message)); };
+    const refresh = () => {
+      void ensureCoreModules(db).catch((e) => console.warn('core modules:', (e as Error).message));
+      void ensureProgressOpened(db).catch((e) => console.warn('progress opening:', (e as Error).message));
+    };
     refresh();
     const timer = setInterval(refresh, 60_000);
     window.addEventListener('focus', refresh); document.addEventListener('visibilitychange', refresh);

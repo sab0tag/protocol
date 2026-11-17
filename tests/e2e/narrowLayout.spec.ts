@@ -37,15 +37,18 @@ for (const width of [673, 884, 1024]) test(`foldable shell remains usable at ${w
   for (const route of ['/', '/food', '/workout']) {
     await page.goto('./#' + route);
     await page.locator('main h1').first().waitFor();
+    await expect(page.locator('nav[aria-label="Розділи"]')).toHaveCount(route === '/' ? 1 : 0);
     const result = await page.evaluate(() => {
-      const nav = document.querySelector('nav[aria-label="Розділи"]')!.getBoundingClientRect();
+      const nav = document.querySelector('nav[aria-label="Розділи"]')?.getBoundingClientRect(); // D160: on the sections only
       const main = document.querySelector('main')!.getBoundingClientRect();
       return { scroll: document.documentElement.scrollWidth, viewport: document.documentElement.clientWidth,
-        navBottom: nav.bottom, navLeft: nav.left, mainLeft: main.left, mainRight: main.right };
+        nav: !!nav, navBottom: nav?.bottom ?? 0, mainLeft: main.left, mainRight: main.right };
     });
     expect(result.scroll, route).toBeLessThanOrEqual(result.viewport + 1);
     expect(result.mainLeft, route).toBeGreaterThanOrEqual(-1);
     expect(result.mainRight, route).toBeLessThanOrEqual(result.viewport + 1);
+    expect(result.nav, route).toBe(route === '/');
+    if (!result.nav) continue;
     if (width >= 768) expect(result.mainLeft, route).toBeGreaterThanOrEqual(79);
     else expect(result.navBottom, route).toBeGreaterThan(700);
   }
@@ -63,14 +66,14 @@ test('mobile routes have one compact global header without an artificial content
     await page.goto('./#' + route);
     const heading = page.locator('main h1').first();
     await expect(heading).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Відкрити меню' })).toHaveCount(1);
-    await expect(page.getByRole('dialog', { name: 'Меню застосунку' })).toHaveCount(0);
+    await expect(page.locator('.protocol-app-header').getByRole('link', { name: 'Ще', exact: true })).toHaveCount(1);
     const header = await page.locator('.protocol-app-header').boundingBox();
     expect(header!.height).toBeGreaterThanOrEqual(56);
     expect(header!.height).toBeLessThanOrEqual(64);
     const content = await page.locator('main').boundingBox();
     expect(content!.y - header!.y - header!.height).toBeLessThanOrEqual(16);
-    await expect(page.locator('nav.protocol-bottom-nav[aria-label="Розділи"]')).toBeVisible();
+    // ТЗ 17.11: tabs on the three sections only; /food and /sync open over them with «Назад»
+    await expect(page.locator('nav.protocol-bottom-nav[aria-label="Розділи"]')).toHaveCount(['/', '/plan', '/progress'].includes(route) ? 1 : 0);
     const topPadding = await page.locator('main').evaluate((el) => parseFloat(getComputedStyle(el).paddingTop));
     expect(topPadding).toBeLessThan(40);
   }

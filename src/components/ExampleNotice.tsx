@@ -8,12 +8,7 @@ import { saved } from './Toast';
 
 export function ExampleNotice({ plan }: { plan: PlanRow | undefined }) {
   const navigate = useNavigate();
-  if (inDemo()) return ( // D98: the example's own database — leaving it opens the person's own, untouched
-    <div role="status" className="mb-3 space-y-2 rounded-2xl border border-warn/30 bg-warn-bg p-3 text-sm text-warn">
-      <p>{t.example.demoNotice}</p>
-      <button type="button" onClick={() => void leaveDemo()} className="min-h-tap rounded-xl bg-warn px-3 font-medium text-surface print:hidden">{t.example.leave}</button>
-    </div>
-  );
+  if (inDemo()) return null; // D160: the example is said once for the whole app — `ExampleStrip` in the shell
   if (!plan || !hasExample(plan)) return null; // an example put into the own plan by an older version — taken out item by item
   const start = async () => {
     const before = { constraints: plan.constraints, prescriptions: plan.prescriptions, targets: plan.targets, modes: plan.modes };
@@ -28,4 +23,14 @@ export function ExampleNotice({ plan }: { plan: PlanRow | undefined }) {
       <button type="button" onClick={() => void start()} className="min-h-tap rounded-xl bg-warn px-3 font-medium text-surface print:hidden">{t.example.start}</button>
     </div>
   );
+}
+
+/** D98, D160: in the example's own database one thin line on top of every screen — «Приклад · Вийти»; leaving opens the
+ *  person's own data, untouched. Replaces the three-line notice each screen used to carry. */
+export function ExampleStrip() {
+  if (!inDemo()) return null;
+  return <p role="status" title={t.example.demoNotice} className="protocol-example-strip print:hidden">
+    <span className="font-semibold">{t.example.strip}</span><span aria-hidden>·</span><span>{t.example.stripKept}</span><span aria-hidden>·</span>
+    <button type="button" onClick={() => void leaveDemo()} className="font-semibold underline underline-offset-2">{t.example.exit}</button>
+  </p>;
 }

@@ -1,85 +1,66 @@
-import { SceneHeader } from '../components/SceneHeader';
-import { Eye, Info, Activity, BellRing, ChevronRight, Dumbbell, FileText, RefreshCw, Salad, ShoppingCart, Sparkles, UserRound, CalendarRange, MessageSquareWarning, Zap, MessageCircle, HandHeart, Database, Heart, ClipboardPlus, Lightbulb, Settings2, Apple, Scale, type LucideIcon } from 'lucide-react';
+import { Eye, Info, Activity, BellRing, ChevronRight, Dumbbell, RefreshCw, Salad, Sparkles, UserRound, MessageSquareWarning, Zap, MessageCircle, HandHeart, Database, Settings2, Apple, type LucideIcon } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { enterDemo, inDemo } from '../data/db';
 import { t } from '../i18n/uk';
-import { MORE_ROUTE_GROUPS, ROUTES, type MoreGroupId, type MoreRouteId } from '../app/navigation';
+import { MORE_ROUTES, ROUTES, SETTINGS_PATH, type MoreRouteId, type SettingsRouteId } from '../app/navigation';
 import { useFeatures } from '../app/features';
 
 const LINKS = {
-  food: { Icon: Salad, title: t.nutrition.title },
-  profiles: { Icon: UserRound, title: t.profiles.title },
   assistant: { Icon: MessageCircle, title: t.assistant.title },
   menu: { Icon: Sparkles, title: t.menu.quick },
-  shopping: { Icon: ShoppingCart, title: t.shop.title },
+  wellbeing: { Icon: Activity, title: t.well.title },
+  workout: { Icon: Dumbbell, title: t.workout.title },
   dishes: { Icon: Salad, title: t.dishes.title },
   foods: { Icon: Apple, title: t.dishes.foods },
-  wellbeing: { Icon: Activity, title: t.well.title },
-  wellbeingJournal: { Icon: Heart, title: t.well.journal },
-  progressLabs: { Icon: ClipboardPlus, title: t.progress.labs },
-  progressMotivation: { Icon: Heart, title: t.progress.motivationTitle },
-  progressInsights: { Icon: Lightbulb, title: t.progress.insightsTitle },
-  workout: { Icon: Dumbbell, title: t.workout.title },
-  week: { Icon: CalendarRange, title: t.week.title },
-  report: { Icon: FileText, title: t.report.title },
-  reminders: { Icon: BellRing, title: t.remind.title },
-  sync: { Icon: RefreshCw, title: t.sync.title },
-  quickLinks: { Icon: Zap, title: t.quick.title },
-  data: { Icon: Database, title: t.data.title },
+  profiles: { Icon: UserRound, title: t.profiles.title },
   frictions: { Icon: MessageSquareWarning, title: t.friction.title },
   pilot: { Icon: HandHeart, title: t.pilot.title },
-  onboarding: { Icon: UserRound, title: t.welcome.again },
   conciergeLog: { Icon: Sparkles, title: t.conciergeLog.link },
   about: { Icon: Info, title: t.about.link },
+  reminders: { Icon: BellRing, title: t.remind.title },
+  sync: { Icon: RefreshCw, title: t.sync.title },
+  data: { Icon: Database, title: t.data.title },
   modules: { Icon: Settings2, title: t.modules.title },
-  weight: { Icon: Scale, title: t.progress.weight },
-} satisfies Record<MoreRouteId, { Icon: LucideIcon; title: string }>;
+  quickLinks: { Icon: Zap, title: t.quick.title },
+  onboarding: { Icon: UserRound, title: t.welcome.again },
+} satisfies Record<MoreRouteId | SettingsRouteId, { Icon: LucideIcon; title: string }>;
 
-const GROUP_META = {
-  food: { title: t.more.food, hint: t.more.foodHint, Icon: Salad },
-  health: { title: t.more.health, hint: t.more.healthHint, Icon: Activity },
-  settings: { title: t.more.settings, hint: t.more.settingsHint, Icon: Settings2 },
-  app: { title: t.more.app, hint: t.more.appHint, Icon: Info },
-} satisfies Record<MoreGroupId, { title: string; hint: string; Icon: LucideIcon }>;
+export type MoreLink = { to: string; Icon: LucideIcon; title: string; hint: string };
 
-export const MORE_GROUPS = MORE_ROUTE_GROUPS.map(({ id, routes }) => ({
-  id,
-  ...GROUP_META[id],
-  links: routes.map((routeId: MoreRouteId) => ({ routeId, to: ROUTES[routeId].path, ...LINKS[routeId], hint: t.more.links[routeId] })), // D154
-}));
-
-/** D137: a switched-off module's rows leave «Ще»; a group left without rows goes too. Without the rollout flag the
- *  settings and the standalone weight entry stay hidden — the previous build's access is unchanged. */
-export function useMoreGroups() {
+/** D137: a switched-off module's rows leave «Ще». Without the rollout flag «Що показувати» stays hidden — the previous
+ *  build's access is unchanged. */
+export function useMoreLinks(routes: readonly (MoreRouteId | SettingsRouteId)[]): MoreLink[] {
   const { can, enabled } = useFeatures();
-  return MORE_GROUPS.map((g) => ({ ...g, links: g.links.filter(({ routeId }) => can(ROUTES[routeId].feature)
-    && (enabled || (routeId !== 'modules' && routeId !== 'weight'))) })).filter((g) => g.links.length);
+  return routes.filter((id) => can(ROUTES[id].feature) && (enabled || id !== 'modules'))
+    .map((id) => ({ to: ROUTES[id].path, ...LINKS[id], hint: t.more.links[id] })); // D154
 }
 
+/** One list of links: the name, and in a line what is inside (D154). */
+export function LinkList({ links }: { links: MoreLink[] }) {
+  return <ul className="divide-y divide-line overflow-hidden protocol-card rounded-2xl border border-line bg-surface">
+    {links.map(({ to, Icon, title, hint }) => {
+      const id = `more-hint-${to.replace(/\W/g, '')}`;
+      return <li key={to}>
+        <Link to={to} aria-label={title} aria-describedby={id} className="flex min-h-tap items-center gap-3 px-4 py-3">
+          <Icon size={20} className="shrink-0 text-accent" aria-hidden />
+          <span className="min-w-0 flex-1"><span className="block font-medium">{title}</span>
+            <span id={id} className="block text-sm text-muted">{hint}</span></span>
+          <ChevronRight size={18} className="shrink-0 text-muted" aria-hidden />
+        </Link>
+      </li>;
+    })}
+  </ul>;
+}
+
+/** ТЗ 17.11, step 2: «Ще» is one list without categories; settings are its first row. */
 export function More() {
-  const groups = useMoreGroups();
+  const links = useMoreLinks(MORE_ROUTES);
   return (
     <section className="space-y-4 pt-4">
-      <SceneHeader title={t.more.title} description={t.visual.moreHint} />
-      <ul className="grid gap-3 sm:grid-cols-2">
-        {groups.map(({ id, title, hint, Icon }) => (
-          <li key={id}>
-            <Link to={`/more/${id}`} className="flex min-h-[4.5rem] items-center gap-3 protocol-card rounded-2xl border border-line bg-surface px-3 py-3">
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-accent/10 text-accent">
-                <Icon size={22} aria-hidden />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block font-semibold">{title}</span>
-                <span className="block text-sm text-muted">{hint}</span>
-              </span>
-              <ChevronRight size={18} className="shrink-0 text-muted" aria-hidden />
-            </Link>
-          </li>
-        ))}
-      </ul>
+      <h1 className="text-2xl font-semibold tracking-tight">{t.more.title}</h1>
+      <LinkList links={[{ to: SETTINGS_PATH, Icon: Settings2, title: t.more.settings, hint: t.more.settingsHint }, ...links]} />
       {!inDemo() && <ExampleEntry />}
-      <p className="mt-4 text-sm text-muted">{t.plan.disclaimer}</p>
     </section>
   );
 }

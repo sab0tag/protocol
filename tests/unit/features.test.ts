@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ALL_MODULES, can, FEATURES, isEntitled, isFeatureId, isFeatureVisible, isModuleId, LEGACY_FEATURE_CONTEXT,
   MODULE_IDS, type FeatureContext, type FeatureDefinition, type FeatureId, type ModuleFlags } from '../../src/domain/features';
-import { MORE_ROUTE_GROUPS, QUICK_ACTION_FEATURES, ROUTES, TAB_ROUTES } from '../../src/app/navigation';
+import { MORE_ROUTES, parentPath, QUICK_ACTION_FEATURES, ROUTES, SETTINGS_PATH, SETTINGS_ROUTES, TAB_ROUTES, tabForPath } from '../../src/app/navigation';
 
 const off: ModuleFlags = { meds: false, water: false, food: false, menu: false, assistant: false, wellbeing: false, workout: false, progress: false };
 const disabled: FeatureContext = { modules: off, tier: 'free' };
@@ -82,12 +82,26 @@ describe('navigation ownership (D133)', () => {
   });
 
   it('makes tabs and More refer to the actual router instead of separate URL lists', () => {
-    const more = MORE_ROUTE_GROUPS.flatMap((group) => [...group.routes]);
+    const more = [...MORE_ROUTES, ...SETTINGS_ROUTES];
     expect(new Set(more).size).toBe(more.length);
     for (const id of [...TAB_ROUTES, ...more]) {
       expect(ROUTES[id].path).not.toMatch(/[:*]/);
       expect(can(ROUTES[id].feature, LEGACY_FEATURE_CONTEXT)).toBe(true);
     }
+  });
+
+  it('shows three tabs only on their own screens; every other screen has a parent for «Назад» (ТЗ 17.11, step 2)', () => {
+    expect(TAB_ROUTES).toEqual(['day', 'plan', 'progress']);
+    expect(['/', '/plan', '/progress'].map(tabForPath)).toEqual(['day', 'plan', 'progress']);
+    for (const path of ['/more', '/meal/new', '/meal/x', '/plan/prescriptions', '/week', '/report', '/welcome', '/sync']) expect(tabForPath(path), path).toBeNull();
+    expect(parentPath('/plan/constraints')).toBe('/plan');
+    expect(parentPath('/report')).toBe('/progress');
+    expect(parentPath('/progress/labs')).toBe('/progress');
+    expect(parentPath('/sync')).toBe('/more/settings');
+    expect(parentPath('/more/settings')).toBe('/more');
+    expect(parentPath('/dishes')).toBe('/more');
+    expect(parentPath('/meal/new')).toBe('/');
+    expect(parentPath('/more')).toBe('/');
   });
 
   it('keeps the generic quick-action shell available while its actions have separate owners', () => {
@@ -98,3 +112,40 @@ describe('navigation ownership (D133)', () => {
     expect(can(QUICK_ACTION_FEATURES.voice, disabled)).toBe(true);
   });
 });
+
+describe('nothing is lost after the simplification (ТЗ 17.11, «Ничего не потеряно»)', () => {
+  // where each function is used; a screen route, or the screen that holds it
+  const ENTRY: Record<FeatureId, string> = {
+    profiles: '/profiles', day: '/', 'day.checklist': '/my-day', 'day.light': '/', 'meds.log': '/', 'meds.reminders': '/reminders', 'meds.prn': '/',
+    'water.log': '/', 'water.reminders': '/reminders', 'food.log': '/', 'food.photo': '/', 'food.label': '/meal/new', 'food.check': '/', 'food.why': '/',
+    'food.products': '/foods', 'food.favorites': '/', 'food.not-found': '/', 'dishes.list': '/dishes', 'dishes.single': '/dishes', 'dishes.batch': '/dishes',
+    'dishes.export': '/dishes', 'menu.ai': '/menu', 'menu.yesterday': '/', 'menu.shopping': '/shopping', 'menu.evening': '/', 'menu.topup': '/',
+    'assistant.chat': '/assistant', 'assistant.log': '/concierge-log', 'wellbeing.log': '/wellbeing', 'wellbeing.weight': '/weight',
+    'workout.log': '/workout', 'workout.exercises': '/exercises', 'workout.progression': '/workout', 'workout.ai': '/workout',
+    progress: '/progress', 'progress.week': '/week', 'progress.patterns': '/progress/insights', 'progress.labs': '/progress/labs', 'progress.labs-photo': '/progress/labs',
+    plan: '/plan', 'plan.scan': '/plan/scan', 'plan.medbox': '/plan', 'plan.incomplete': '/plan', 'plan.course-end': '/plan', report: '/report',
+    unwell: '/', 'danger.cards': '/', voice: '/', sync: '/sync', backup: '/data', pilot: '/pilot', frictions: '/frictions', about: '/about',
+    'clinic.portal': '/clinic', onboarding: '/welcome', more: '/more', 'modules.settings': '/modules', 'reminders.settings': '/reminders',
+    'quick.links': '/quick', 'quick.action': '/do/water',
+  };
+  // the app's sources as text, through Vite (no Node API: the build type-checks tests without @types/node)
+  const files = import.meta.glob<string>(['../../src/**/*.ts', '../../src/**/*.tsx', '!../../src/app/navigation.ts'], { query: '?raw', import: 'default', eager: true });
+  const code = Object.values(files).join('\n');
+  const matches = (pattern: string, path: string) => new RegExp(`^${pattern.replace(/:[^/]+/g, '[^/]+')}$`).test(path);
+  const listed = new Set<string>(['/more', SETTINGS_PATH, ...TAB_ROUTES.map((id) => ROUTES[id].path), ...[...MORE_ROUTES, ...SETTINGS_ROUTES].map((id) => ROUTES[id].path)]);
+
+  it('every function in the registry has a route, and the route has a way in — a tab, «Ще», «Налаштування» or a link from a screen', () => {
+    const missing: string[] = [];
+    for (const [feature, path] of Object.entries(ENTRY) as [FeatureId, string][]) {
+      const route = Object.values(ROUTES).find((r) => r.path !== '*' && matches(r.path, path));
+      if (!route) { missing.push(`${feature}: no route for ${path}`); continue; }
+      const base = route.path.split('/:')[0]!;
+      // the clinic portal is for staff (not in the patient menu); a way in is still checked: its own address
+      const linked = listed.has(route.path) || feature === 'clinic.portal'
+        || new RegExp(`(to=|to: |navigate\\(|href=|#)\\{?[\`'"]?${base.replace(/[/]/g, '\\/')}(?:[\`'"?/$])`).test(code);
+      if (!linked) missing.push(`${feature}: nothing links to ${route.path}`);
+    }
+    expect(missing).toEqual([]);
+  });
+});
+

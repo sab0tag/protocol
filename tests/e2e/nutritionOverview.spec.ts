@@ -5,12 +5,9 @@ import { t } from '../../src/i18n/uk';
 
 const L = t.nutrition;
 
-test('food menu opens the daily hub and keeps empty data and absent targets explicit', async ({ browser }) => {
+test('the food block on «Сьогодні» opens the daily hub and keeps empty data and absent targets explicit', async ({ browser }) => {
   const page = await device(browser, 'skip');
-  await page.getByRole('button', { name: t.shell.openMenu }).click();
-  const menu = page.getByRole('dialog', { name: t.shell.menu });
-  await menu.locator('summary').filter({ hasText: t.more.food }).click();
-  await menu.getByRole('link', { name: t.nutrition.title, exact: true }).click();
+  await page.getByTestId('meal-tiles').getByRole('link', { name: t.nutrition.title, exact: true }).click();
   await expect(page).toHaveURL(/#\/food$/);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(L.title);
   await expect(page.getByText(L.empty, { exact: true })).toBeVisible();

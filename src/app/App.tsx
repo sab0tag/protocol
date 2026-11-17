@@ -71,7 +71,7 @@ const SCREENS = {
   onboarding: <Onboarding />, progress: <Progress />, progressInsights: <Insights />, progressMotivation: <Motivation />,
   progressLabs: <Labs />, report: <Report />, dishes: <Dishes />, foods: <MyFoods />, data: <Data />,
   more: <More />, moreCategory: <MoreCategory />, about: <About />, conciergeLog: <ConciergeLog />,
-  assistant: <Assistant />, sync: <Sync />, menu: <Menu />, reminders: <Reminders />, shopping: <Shopping />, modules: <Modules />, weight: <Weight />, fallback: <Day />,
+  assistant: <Assistant />, sync: <Sync />, menu: <Menu />, reminders: <Reminders />, shopping: <Shopping />, modules: <Modules />, weight: <Weight />, fallback: <Navigate to="/" replace />,
 } satisfies Record<RouteId, ReactNode>;
 
 function FeatureGate({ feature, children }: { feature: FeatureId; children: ReactNode }) {

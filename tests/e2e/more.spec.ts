@@ -3,13 +3,11 @@ import { device } from './helpers';
 
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGP8z8DAwMDAxMDAwMDAAAANHQEDasKb6QAAAABJRU5ErkJggg==', 'base64');
 
-test('«Мої продукти» is reachable from the «Їжа» category in «Ще»', async ({ browser }) => {
+test('«Мої продукти» is a row of the one «Ще» list; old category links lead to it', async ({ browser }) => {
   const page = await device(browser);
-  await page.goto('./#/more');
-  await expect(page.getByRole('heading', { level: 1, name: 'Додаткові можливості' })).toBeVisible();
-  await page.getByRole('link', { name: /^Їжа Записи, помічник, меню, покупки, страви й продукти/ }).click();
-
-  await expect(page).toHaveURL(/#\/more\/food$/);
+  await page.goto('./#/more/food');
+  await expect(page).toHaveURL(/#\/more$/);
+  await expect(page.getByRole('heading', { level: 1, name: 'Ще' })).toBeVisible();
   await page.getByRole('link', { name: 'Мої продукти' }).click();
   await expect(page).toHaveURL(/#\/foods$/);
   await expect(page.getByRole('heading', { level: 1, name: 'Мої продукти' })).toBeVisible();
@@ -36,11 +34,12 @@ test('every row of «Ще» says in a line what is inside; the link is still nam
   const data = page.getByRole('link', { name: 'Імпорт / експорт', exact: true });
   await expect(data).toHaveAccessibleDescription('Резервна копія у файл і відновлення з неї.');
   await expect(page.getByRole('link', { name: 'Швидкі дії', exact: true })).toHaveAccessibleDescription(/запис одним дотиком/);
-  await page.goto('./#/more/app');
+  await page.goto('./#/more');
   await expect(page.getByRole('link', { name: 'Пілот', exact: true })).toHaveAccessibleDescription(/лише за згодою/);
-  for (const category of ['food', 'health', 'settings', 'app']) {
-    await page.goto(`./#/more/${category}`);
+  for (const path of ['/more', '/more/settings']) {
+    await page.goto(`./#${path}`);
     const rows = page.locator('main ul a');
-    for (let i = 0; i < await rows.count(); i++) expect(await rows.nth(i).getAttribute('aria-describedby'), `${category} row ${i}`).toBeTruthy();
+    await expect(rows.first()).toBeVisible();
+    for (let i = 0; i < await rows.count(); i++) expect(await rows.nth(i).getAttribute('aria-describedby'), `${path} row ${i}`).toBeTruthy();
   }
 });

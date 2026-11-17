@@ -5,9 +5,9 @@ test('Protocol 2.0 Today heading retains accessible date navigation and actionab
   const page = await device(browser);
   const hero = page.locator('header.protocol-day-heading');
   await expect(hero).toBeVisible();
-  await expect(page.locator('.protocol-app-header').getByRole('link', { name: 'На сьогодні', exact: true })).toHaveText('Protocol 2.0');
+  await expect(page.locator('.protocol-app-header').getByRole('link', { name: 'На сьогодні', exact: true })).toHaveText('Протокол');
   await expect(hero.getByRole('heading', { level: 1 })).toHaveText('Сьогодні');
-  await hero.getByText('Обрати день', { exact: true }).click();
+  await hero.locator('button[aria-controls="day-week"]').click(); // D160: a tap on the date opens the week
   const week = hero.getByRole('navigation', { name: 'Тиждень' });
   await expect(week.getByRole('button')).toHaveCount(9);
   await expect(week.locator('button[aria-current="date"]')).toHaveCount(1);

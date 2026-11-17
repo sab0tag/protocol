@@ -65,7 +65,7 @@ export function Nutrition() {
       </ul>
       <p className="tabular text-sm text-muted">{t.summary.carbs}: {round(totals.carbs)} {t.units.g} · {L.fat}: {round(totals.fat)} {t.units.g}</p>
       {targets.carbsG?.min != null && <p className="text-sm text-muted">{t.summary.carbs} · {t.summary.atLeast(targets.carbsG.min)}</p>}
-      {targets.carbsG?.max != null && targets.carbsG.max > 0 && <div className="space-y-2"><p className="text-sm text-muted">{t.summary.carbs} · {t.summary.limit(targets.carbsG.max)} · {t.summary.limitNote}</p><ProgressTrack ratio={totals.carbs / targets.carbsG.max} label={L.carbLimit} valueText={`${round(totals.carbs)} / ${targets.carbsG.max} ${t.units.g}`} tone={totals.carbs > targets.carbsG.max ? 'warn' : 'carbs'} /></div>}
+      {targets.carbsG?.max != null && targets.carbsG.max > 0 && <div className="space-y-2"><p className="text-sm text-muted">{t.summary.carbs} · {t.summary.limit(targets.carbsG.max)}</p><ProgressTrack ratio={totals.carbs / targets.carbsG.max} label={L.carbLimit} valueText={`${round(totals.carbs)} / ${targets.carbsG.max} ${t.units.g}`} tone={totals.carbs > targets.carbsG.max ? 'warn' : 'carbs'} /></div>}
       {mode && <p className="text-sm text-muted">{L.mode}: {mode.mode.title}</p>}
       {targets.fromDiet && Object.keys(targets.fromDiet).length > 0 && <p className="text-xs text-muted">{L.reference}</p>}
     </section>

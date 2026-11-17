@@ -7,7 +7,7 @@ import { Loading } from '../components/Recovery';
 import { db } from '../data/db';
 import { enableAllModules, setModuleEnabled, setWeightEnabled } from '../data/modulePreferences';
 import { useModuleEvents, usePlan } from '../data/queries';
-import { MODULE_IDS, type ModuleId } from '../domain/features';
+import { isCoreModule, MODULE_IDS, type ModuleId } from '../domain/features';
 import { t } from '../i18n/uk';
 import { currentKeys, requestSync } from '../sync/runner';
 import { reconcileReminderPolicy } from '../sync/push';
@@ -45,7 +45,7 @@ export function Modules() {
     {context.demo && <p role="status" className="text-sm text-muted">{L.demo}</p>}
     <fieldset disabled={busy || context.demo} className="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface">
       <legend className="sr-only">{L.title}</legend>
-      {MODULE_IDS.map((module) => <label key={module} className="flex min-h-tap items-center gap-3 p-3">
+      {MODULE_IDS.filter((module) => !isCoreModule(module)).map((module) => <label key={module} className="flex min-h-tap items-center gap-3 p-3">
         <input type="checkbox" role="switch" aria-label={L.names[module]} checked={!!context.demo || context.modules[module]} onChange={(e) => toggle(module, e.target.checked)} className="h-5 w-5 shrink-0 accent-[rgb(var(--accent))]" />
         <span><span className="block font-medium">{L.names[module]}</span><span className="block text-sm text-muted">{L.descriptions[module]}</span></span>
       </label>)}

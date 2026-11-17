@@ -265,7 +265,7 @@ export function Workout() {
       </div>
 
       {/* D76: a long list of sets — the save button floats above the tab bar while scrolling and rests here at the end */}
-      <div className="sticky bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-10 md:bottom-4">
+      <div className="sticky bottom-[calc(var(--tabbar)+.5rem+env(safe-area-inset-bottom))] z-10 md:bottom-4">
         <button type="button" onClick={() => void save()} disabled={!dirty}
           className={`flex min-h-[3.25rem] w-full items-center justify-center gap-2 rounded-2xl px-4 font-semibold shadow-lg ${dirty
             ? 'bg-accent text-surface' : 'border border-accent/40 bg-surface text-accent'}`}>
