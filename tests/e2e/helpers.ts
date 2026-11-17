@@ -1,19 +1,38 @@
-import { expect, test, type Browser, type Page } from '@playwright/test';
+import { expect, test, type Browser, type BrowserContext, type Page } from '@playwright/test';
 import { examplePlan } from '../../src/data/seed.example';
 
 /** A fresh «device»: the app loaded, its service worker settled (unless `sw: false`), then — `example`: the example plan put into the own
  *  database on a clean history (a fixture); `demo`: «Подивитись на прикладі», the example's own database (D98); `skip`: nothing. */
+/** Contexts device() opened, by test. Most tests never close theirs: over a single-worker run ~135 live pages kept
+ *  their timers and sync running in one browser, and late tests timed out on a slow click or load, passing at once on
+ *  a retry (a fresh worker, a fresh browser). A new device() closes whatever earlier tests left open. */
+const opened: { test: string; context: BrowserContext }[] = [];
+async function closeEarlierDevices(): Promise<void> {
+  const current = test.info().testId;
+  for (const entry of opened.splice(0)) {
+    if (entry.test === current) opened.push(entry);
+    else await entry.context.close().catch(() => undefined);
+  }
+}
+
 export async function device(browser: Browser, start: 'example' | 'demo' | 'skip' = 'example', opts: { sw?: boolean } = {}): Promise<Page> {
   // `sw: false` — no service worker. For tests that stub the network: requests the worker sends can pass Playwright's
   // routing (page and context alike) and reach the real e2e server, which has no AI key — an intermittent «ІІ вимкнений».
   const sw = opts.sw ?? true;
+  await closeEarlierDevices();
   const ctx = await browser.newContext(sw ? {} : { serviceWorkers: 'block' });
+  opened.push({ test: test.info().testId, context: ctx });
   const page = await ctx.newPage();
   // The first load on a busy runner occasionally never settles (a stuck navigation or service worker registration) and would
   // burn the whole test timeout; a short per-attempt limit and a fresh load make it a retry instead of a flaky test.
   for (let attempt = 1; ; attempt++) {
     try {
-      await page.goto('./', { timeout: 15_000 });
+      // The app's worker may reload the page as it takes control; that reload is a load, not a failed one — wait for it
+      // instead of starting yet another navigation that the next reload interrupts again.
+      await page.goto('./', { timeout: 15_000 }).catch(async (error: unknown) => {
+        if (!/interrupted by another navigation/.test(String(error))) throw error;
+        await page.waitForLoadState('load', { timeout: 15_000 });
+      });
       if (!sw) break;
       const ready = await page.evaluate(() => Promise.race([
         navigator.serviceWorker.ready.then(() => true),
