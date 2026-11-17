@@ -99,8 +99,7 @@ test('a low saved energy score offers light day with wellbeing enabled after rel
 test('the exact local voice command stays outside the food draft, is idempotent, and never bypasses danger help', async ({ browser }) => {
   test.skip(!enabled, 'acceptance build');
   const page = await profile(browser);
-  await page.goto('./#/modules'); await page.getByRole('switch', { name: 'Запис їжі', exact: true }).click();
-  await page.getByRole('switch', { name: 'Помічник', exact: true }).click();
+  await page.goto('./#/modules'); await page.getByRole('switch', { name: 'Помічник', exact: true }).click(); // food is the core and stays on (D160)
   const before = await rows(page, 'entries'); await page.goto('./#/do/voice');
   const dialog = page.getByRole('dialog'); await dialog.getByRole('button', { name: 'Зрозуміло, говорити' }).click();
   const field = dialog.getByLabel('Або напишіть тут');

@@ -10,13 +10,17 @@ test('foldable viewport transitions keep navigation and content usable', async (
     for (const route of routes) {
       await page.goto('./#' + route);
       await expect(page.locator('main h1').first()).toBeVisible();
+      await expect(page.locator('nav[aria-label="Розділи"]')).toHaveCount(['/', '/plan', '/progress'].includes(route) ? 1 : 0);
       const geometry = await page.evaluate(() => {
-        const nav = document.querySelector('nav[aria-label="Розділи"]')!.getBoundingClientRect();
+        // D160: the tabs are on the three sections only; /food, /workout and «Ще» open over them
+        const nav = document.querySelector('nav[aria-label="Розділи"]')?.getBoundingClientRect();
         const main = document.querySelector('main')!.getBoundingClientRect();
         return { scrollWidth: document.documentElement.scrollWidth, viewport: document.documentElement.clientWidth,
-          navRight: nav.right, navBottom: nav.bottom, mainLeft: main.left, mainTop: main.top };
+          nav: !!nav, navRight: nav?.right ?? 0, navBottom: nav?.bottom ?? 0, mainLeft: main.left, mainTop: main.top };
       });
       expect(geometry.scrollWidth, `${width}px ${route} overflows`).toBeLessThanOrEqual(geometry.viewport + 1);
+      expect(geometry.nav, route).toBe(['/', '/plan', '/progress'].includes(route));
+      if (!geometry.nav) continue;
       if (width < 768) {
         expect(geometry.navBottom).toBeGreaterThan(geometry.mainTop);
       } else {

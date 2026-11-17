@@ -1,6 +1,7 @@
 import { useFeatures } from '../app/features';
 import { entryVisible } from '../domain/visibility';
-import { format } from 'date-fns';
+import { addDays, format, parseISO } from 'date-fns';
+import { uk } from 'date-fns/locale';
 import { saved } from './Toast';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Check, ChevronDown, Pill, UtensilsCrossed } from 'lucide-react';
@@ -65,7 +66,9 @@ function Due({ item, date, onSnoozed, onConfirm, onReschedule }: { item: NowItem
   const [askingSkip, setAskingSkip] = useState(false);
   const detail = item.entry ? item.entry.items?.map((x) => `${x.name} ${amountText(x)}`).join(', ')
     : foodNote(meds ?? []);
-  const when = item.late < 0 ? L.inMin(-item.late, item.time) : item.late > 0 ? L.ago(item.late, item.time) : L.at(item.time);
+  const today = todayISO(), day = date === today ? L.today : date === format(addDays(parseISO(today), -1), 'yyyy-MM-dd') ? L.yesterday
+    : format(parseISO(date), 'd MMMM', { locale: uk });
+  const when = item.late < 0 && item.late >= -60 ? L.inMin(-item.late, item.time) : item.late !== 0 ? L.ago(day, item.time) : L.at(item.time);
   const later = () => saved(snooze(item.key, Date.now() + SNOOZE_MIN * 60_000), t.toast.later(SNOOZE_MIN)).then(onSnoozed);
   const nowHm = () => ({ time: format(new Date(), 'HH:mm') });
   return (
@@ -79,7 +82,7 @@ function Due({ item, date, onSnoozed, onConfirm, onReschedule }: { item: NowItem
       <button type="button" onClick={() => (overdue && !item.entry ? setAskingWhen(true) : item.entry?.items?.length ? onConfirm(item.entry) : void mark(item, date, 'done', nowHm()))}
         className="mt-4 flex min-h-tap w-full items-center justify-center gap-2 rounded-xl bg-accent px-4 py-2 text-lg font-semibold text-on-accent">
         <Check size={22} aria-hidden />{overdue && !item.entry ? 'Відмітити прийом' : item.entry ? L.eaten : L.taken}</button>
-      {overdue && !item.entry && <p className="mt-2 text-sm text-muted">Час за планом минув. Перевірте вказівки лікаря; застосунок не визначає, чи можна приймати пропущену дозу.</p>}
+      {overdue && !item.entry && <MissedHelp />}
       {askingWhen && <TimeChoice title={titleOf(item)} planned={item.time} date={date} meal={false} allowUncertain onPick={(when) => { if ('uncertain' in when) void markMeds(meds ?? [], date, item.time, 'done', when); else void mark(item, date, 'done', when); setAskingWhen(false); }} onClose={() => setAskingWhen(false)} />}
       {askingSkip && <SkipChoice title={titleOf(item)} onClose={() => setAskingSkip(false)} onConfirm={(reason) => void mark(item, date, 'skipped', { time: item.time }, reason)} />}
       <div className="mt-1 flex flex-wrap justify-center gap-x-4">
@@ -135,4 +138,13 @@ const titleOf = (x: NowItem) => x.entry?.title ?? x.meds?.map((m) => m.title).jo
 
 function mark(x: NowItem, date: string, status: 'done' | 'skipped', when: ConfirmedWhen, reason?: string) {
   return x.entry ? markMeal(x.entry, date, status, when, {}, reason) : markMeds(x.meds ?? [], date, x.time, status, when, reason);
+}
+
+/** ТЗ 17.11 (D160): a missed dose's advice is behind «Що робити?» — not a paragraph under every overdue card. */
+function MissedHelp() {
+  const [open, setOpen] = useState(false);
+  return <div className="mt-1 text-center">
+    <button type="button" aria-expanded={open} onClick={() => setOpen((v) => !v)} className="min-h-tap px-2 text-sm text-accent underline">{t.now.whatToDo}</button>
+    {open && <p className="text-left text-sm text-muted">{t.now.missedHelp}</p>}
+  </div>;
 }

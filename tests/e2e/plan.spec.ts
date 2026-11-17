@@ -63,15 +63,11 @@ test('the example comes with two invented weeks: «Прогрес» and the repo
   await expect(page.getByText(/«Здуття» — 4 з 4/)).toBeVisible();
   await page.goto('./#/progress');
   await expect(page.getByText(/Ще немає зважувань/)).toHaveCount(0);
-  await page.getByRole('button', { name: 'Повернутися до своїх даних' }).first().click(); // D98: out of the example's database
+  await page.locator('.protocol-example-strip').getByRole('button', { name: 'Вийти' }).click(); // D98, D160: out of the example's database
   await expect(page).toHaveURL(/#\/welcome$/); // the own one, as it was — not onboarded yet
   await page.getByText('Інші способи почати').click(); await page.getByRole('button', { name: /^Пропустити/ }).click();
   await expect(page).toHaveURL(/#\/$/);
-  if (process.env.VITE_MODULE_POLICY_ENABLED === 'true') {
-    await page.goto('./#/progress'); await expect(page.getByRole('heading', { level: 1 })).toHaveText('Розділ вимкнено');
-    await page.goto('./#/modules'); await page.getByRole('switch', { name: 'Прогрес і тиждень', exact: true }).click();
-    await expect(page.getByRole('switch', { name: 'Прогрес і тиждень', exact: true })).toBeChecked();
-  }
+  // D160: «Результати» is the core — open from the first day, no switch to turn on
   await page.goto('./#/progress');
   if (process.env.VITE_MODULE_POLICY_ENABLED === 'true') {
     await expect(page.getByText(/Ще немає зважувань/)).toHaveCount(0); // independent weight remains off
@@ -99,7 +95,7 @@ test('the example is a database of its own: the own records stay, «Подиви
   // D99: asked first — the own data stays. Entering also reloads; the old page already shows the example banner
   // (the flag is set before the reload), so wait for the reload itself, or the next navigation is lost to it.
   await Promise.all([page.waitForEvent('load'), page.getByRole('button', { name: 'Відкрити приклад' }).click()]);
-  await expect(page.getByText(/Це приклад:/)).toBeVisible();
+  await expect(page.locator('.protocol-example-strip')).toBeVisible();
   // The example's database is seeded before the router mounts; a hash change in those first moments can be lost.
   await expect(async () => {
     await page.goto('./#/plan/prescriptions');
@@ -110,7 +106,7 @@ test('the example is a database of its own: the own records stay, «Подиви
   await page.goto('./#/sync');
   await expect(page.getByText(/синхронізація в ньому вимкнена/)).toBeVisible();
   // leaving deletes the example's database and reloads — wait for that reload, or it lands after the next navigation
-  await Promise.all([page.waitForEvent('load'), page.getByRole('button', { name: 'Повернутися до своїх даних' }).click()]);
+  await Promise.all([page.waitForEvent('load'), page.locator('.protocol-example-strip').getByRole('button', { name: 'Вийти' }).click()]);
   await page.goto('./#/plan/prescriptions');
   await expect(page.getByText('Мій препарат')).toBeVisible(); // the own, untouched
   await expect(page.getByText('Вітамін D')).toHaveCount(0);
@@ -126,9 +122,9 @@ test('the day\'s own records are there after a look at the example — the examp
   await page.getByRole('button', { name: /Подивитись на прикладі/ }).click();
   await expect(page.getByText(/Ваші дані залишаються окремо/)).toBeVisible();
   await page.getByRole('button', { name: 'Відкрити приклад' }).click();
-  await expect(page.getByText(/Ваші власні записи не зникли/)).toBeVisible();
-  await page.getByRole('button', { name: 'Повернутися до своїх даних' }).click();
-  await expect(page.getByText(/Ваші власні записи не зникли/)).toHaveCount(0);
+  await expect(page.locator('.protocol-example-strip')).toContainText('ваші записи на місці'); // D99, said in the one line (D160)
+  await page.locator('.protocol-example-strip').getByRole('button', { name: 'Вийти' }).click();
+  await expect(page.locator('.protocol-example-strip')).toHaveCount(0);
   await page.getByText(/^Виконано та інші відмітки/).click();
   await expect(page.getByText('Сніданок').first()).toBeVisible(); // the morning's record, as it was
 });

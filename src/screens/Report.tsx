@@ -206,7 +206,6 @@ export function Report() {
           className="min-h-tap text-accent underline">{L.visited}</button>
         {plan.lastVisit && <p className="text-sm text-muted">{L.visitedNote(dmy(plan.lastVisit))}</p>}
       </div>
-      <p className="text-sm text-muted">{t.plan.disclaimer}</p>
     </section>
   );
 }

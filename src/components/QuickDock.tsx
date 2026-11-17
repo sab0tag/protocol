@@ -71,7 +71,7 @@ export function QuickDock({ med, meds, water, onMed, onWater, hidden, hideWater 
   if (hideWater && !meds.total) return null;
   return (
     <div role="group" aria-label={L.label}
-      className={`fixed bottom-[calc(8.75rem+env(safe-area-inset-bottom))] right-4 z-20 flex-col gap-3 print:hidden md:bottom-8 md:right-8 ${hidden ? 'hidden' : 'flex'}`}>
+      className={`fixed bottom-[calc(var(--tabbar)+4.5rem+env(safe-area-inset-bottom))] right-4 z-20 flex-col gap-3 print:hidden md:bottom-8 md:right-8 ${hidden ? 'hidden' : 'flex'}`}>
       {meds.total > 0 && (
         <div className="relative">
           {bubble('med')}

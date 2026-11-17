@@ -53,7 +53,11 @@ export function MealTiles(props: MealTilesProps) {
   const blocks = mealBlocks(day, date, open === NEW_SNACK ? atLocal(date, slotTime({ slot: 3, date, now, entries: all })) : undefined);
   return (
     <section aria-labelledby="meal-tiles" className="protocol-card mb-4 p-4 sm:p-5" data-testid="meal-tiles">
-      <h2 id="meal-tiles" className="mb-2 text-xl font-semibold">{L.title}</h2>
+      <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-3">
+        <h2 id="meal-tiles" className="text-xl font-semibold">{L.title}</h2>
+        {/* ТЗ 17.11, step 2: the day's nutrition left «Ще»; it is reached from the food it sums up */}
+        <Link to="/food" className="inline-flex min-h-tap items-center text-sm text-accent underline-offset-4 hover:underline">{t.nutrition.title}</Link>
+      </div>
       <ul className="space-y-2">
         {blocks.map((block) => <li key={block.key}><MealTile {...props} block={block} now={now} /></li>)}
       </ul>

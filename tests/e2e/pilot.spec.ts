@@ -35,7 +35,7 @@ test('without consent, and in the example, nothing goes to /v1/pilot (D120)', as
   await page.goto('./#/more');
   await page.getByRole('button', { name: 'Подивитись на прикладі' }).click();
   await page.getByRole('button', { name: 'Відкрити приклад' }).click();
-  await expect(page.getByText(/Це приклад:/)).toBeVisible();
+  await expect(page.locator('.protocol-example-strip')).toBeVisible();
   await expect(page.getByRole('region', { name: 'Допомогти пілоту' })).toHaveCount(0);
   await page.goto('./#/pilot');
   await expect(page.getByText('У прикладі пілот вимкнено: нічого не надсилається.')).toBeVisible();

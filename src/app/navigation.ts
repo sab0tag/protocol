@@ -53,25 +53,36 @@ export const ROUTES = {
 export type RouteId = keyof typeof ROUTES;
 export type StaticRouteId = { [K in RouteId]: (typeof ROUTES)[K]['path'] extends `${string}:${string}` | '*' ? never : K }[RouteId];
 
-export const TAB_ROUTES = ['day', 'plan', 'progress', 'more'] as const satisfies readonly StaticRouteId[];
+/** ТЗ «упрощение» 17.11, step 2: three tabs; «Ще» is a header button, not a tab. */
+export const TAB_ROUTES = ['day', 'plan', 'progress'] as const satisfies readonly StaticRouteId[];
 export type TabRouteId = (typeof TAB_ROUTES)[number];
 
-/** Existing deep links retain their URLs while secondary modules belong to More. */
-export function primaryRouteForPath(pathname: string): TabRouteId {
-  if (pathname === '/' || pathname === '/my-day' || pathname.startsWith('/do/')) return 'day';
-  if (pathname === '/plan' || pathname.startsWith('/plan/')) return 'plan';
-  if (pathname === '/progress' || pathname.startsWith('/progress/') || pathname === '/week' || pathname === '/report') return 'progress';
-  return 'more';
+/** Only the three section screens carry the tab bar; every other screen opens over them with «Назад» and no tabs,
+ *  so the highlighted tab always is the section on screen. */
+export function tabForPath(pathname: string): TabRouteId | null {
+  return TAB_ROUTES.find((id) => ROUTES[id].path === pathname) ?? null;
 }
 
-export const MORE_ROUTE_GROUPS = [
-  { id: 'food', routes: ['food', 'assistant', 'menu', 'shopping', 'dishes', 'foods'] },
-  { id: 'health', routes: ['wellbeing', 'wellbeingJournal', 'weight', 'progressLabs', 'progressMotivation', 'progressInsights', 'workout', 'week', 'report'] },
-  { id: 'settings', routes: ['profiles', 'modules', 'reminders', 'sync', 'quickLinks', 'data'] },
-  { id: 'app', routes: ['frictions', 'pilot', 'onboarding', 'conciergeLog', 'about'] },
-] as const satisfies readonly { readonly id: string; readonly routes: readonly StaticRouteId[] }[];
-export type MoreGroupId = (typeof MORE_ROUTE_GROUPS)[number]['id'];
-export type MoreRouteId = (typeof MORE_ROUTE_GROUPS)[number]['routes'][number];
+/** «Ще»: one flat list, filtered by modules. Service settings live one level down, in «Налаштування». */
+export const MORE_ROUTES = ['assistant', 'menu', 'wellbeing', 'workout', 'dishes', 'foods', 'profiles', 'frictions', 'pilot', 'conciergeLog', 'about'] as const satisfies readonly StaticRouteId[];
+export type MoreRouteId = (typeof MORE_ROUTES)[number];
+export const SETTINGS_PATH = '/more/settings';
+export const SETTINGS_ROUTES = ['reminders', 'sync', 'data', 'modules', 'quickLinks', 'onboarding'] as const satisfies readonly StaticRouteId[];
+export type SettingsRouteId = (typeof SETTINGS_ROUTES)[number];
+
+const isOneOf = (pathname: string, ids: readonly StaticRouteId[]) => ids.some((id) => ROUTES[id].path === pathname);
+
+/** Where «Назад» leads when a screen was opened directly (a link, a reload) and there is no in-app history. */
+export function parentPath(pathname: string): string {
+  if (pathname.startsWith('/plan/') || pathname === '/clinic/invite') return '/plan';
+  if (pathname.startsWith('/progress/') || ['/week', '/report', '/weight'].includes(pathname)) return '/progress';
+  if (isOneOf(pathname, SETTINGS_ROUTES)) return SETTINGS_PATH;
+  if (pathname === '/wellbeing/journal') return '/wellbeing';
+  if (pathname === '/shopping') return '/menu';
+  if (pathname === '/exercises') return '/workout';
+  if (pathname.startsWith('/more/') || isOneOf(pathname, MORE_ROUTES)) return '/more';
+  return '/';
+}
 
 /** The generic /do/:action shell stays available; each action has its own module boundary. */
 export const QUICK_ACTION_FEATURES = {

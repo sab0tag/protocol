@@ -50,7 +50,7 @@ export async function device(browser: Browser, start: 'example' | 'demo' | 'skip
   await page.waitForTimeout(500);
   if (start === 'demo') { // D98: the example's own database, opened as a person opens it
     await page.getByRole('button', { name: 'Подивитись на прикладі' }).click();
-    await expect(page.getByText(/Це приклад:/)).toBeVisible();
+    await expect(page.locator('.protocol-example-strip')).toBeVisible(); // D160: one thin line for the example
     return page;
   }
   await page.getByText('Інші способи почати').click(); await page.getByRole('button', { name: /^Пропустити/ }).click();

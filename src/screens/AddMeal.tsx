@@ -352,7 +352,7 @@ export function AddMeal() {
           )}
         </div>}
 
-        <div data-testid="meal-save-actions" className={`${items.length ? 'sticky bottom-[calc(4.75rem+env(safe-area-inset-bottom))] md:bottom-4' : ''} z-10 protocol-card rounded-2xl border border-line bg-surface p-3 shadow-lg`}>
+        <div data-testid="meal-save-actions" className={`${items.length ? 'sticky bottom-[calc(var(--tabbar)+.5rem+env(safe-area-inset-bottom))] md:bottom-4' : ''} z-10 protocol-card rounded-2xl border border-line bg-surface p-3 shadow-lg`}>
           <p aria-live="polite" aria-atomic="true" className="mb-2 text-sm text-muted">{items.length ? t.meal.selectedCount(items.length) : t.meal.chooseFirst}</p>
           <div className="flex flex-wrap gap-2">
           {swapped ? (

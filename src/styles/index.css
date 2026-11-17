@@ -112,33 +112,7 @@ input[type="date"]:focus-within, input[type="time"]:focus-within, input[type="da
 
 /* Subtle background tint; Today keeps a plain heading. */
 body { background-image: radial-gradient(ellipse at 10% 0%, rgb(var(--accent) / .035), transparent 45rem); }
-main[data-scene="food"] { --protocol-scene-image: url('../assets/section-food.webp'); }
-main[data-scene="movement"] { --protocol-scene-image: url('../assets/section-movement.webp'); }
-main[data-scene="assistant"] { --protocol-scene-image: url('../assets/section-assistant.webp'); }
-main[data-scene="care"] { --protocol-scene-image: url('../assets/section-care.webp'); }
-main[data-scene="wellness"] { --protocol-scene-image: url('../assets/section-wellness.webp'); }
-main[data-scene="settings"] { --protocol-scene-image: url('../assets/section-settings.webp'); }
-.protocol-scene-header {
-  isolation: isolate;
-  min-height: 7rem;
-  padding: 1rem;
-  overflow: hidden;
-  border: 1px solid rgb(255 255 255 / .12);
-  border-radius: 1.125rem;
-  background-color: #12251e;
-  /* ТЗ P2 / D147: text spans the whole width on a phone — the photo stays visible on the right, never under text at < 4.5:1 */
-  background-image: linear-gradient(90deg, rgb(5 18 14 / .9) 0%, rgb(6 20 15 / .8) 55%, rgb(6 20 15 / .62) 100%), var(--protocol-scene-image);
-  background-position: center, right 42%;
-  background-size: cover;
-  box-shadow: 0 14px 36px -24px rgb(0 0 0 / .42);
-  color: #fff;
-}
-.protocol-scene-header h1 { color: #fff; }
-.protocol-scene-header p,
-.protocol-scene-header .text-muted { color: rgb(255 255 255 / .92); }
-.protocol-scene-header .protocol-eyebrow { color: rgb(255 255 255 / .78); }
-.protocol-scene-header [class~="border-line"] { border-color: rgb(255 255 255 / .32); }
-.protocol-scene-header .bg-surface { color: rgb(var(--ink)); }
+/* ТЗ 17.11, step 2 (D160): no stock photos behind section headings — the heading is text. */
 .protocol-card { border-radius: var(--protocol-radius-card); border-color: rgb(var(--line) / .8); }
 .protocol-card > h2, .protocol-card > div > h2 { letter-spacing: -.02em; }
 .protocol-toggle-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 1rem; padding-block: .65rem; }
@@ -248,21 +222,28 @@ main :where(details[open] > summary)::after { transform: rotate(180deg); }
 }
 
 /* UI-ARCH-01: one responsive shell; screen bodies migrate in their own stages. */
-.protocol-app-header { min-height: 4rem; display: grid; grid-template-columns: 2.75rem minmax(0, 1fr) auto; align-items: center; gap: .25rem; }
-.protocol-header-control { display: inline-flex; align-items: center; justify-content: center; min-width: 2.75rem; min-height: 2.75rem; border-radius: .875rem; }
-.protocol-header-control:hover { background: rgb(var(--surface-secondary)); }
-.protocol-brand { display: inline-flex; align-items: center; justify-content: center; gap: .375rem; min-height: 2.75rem; min-width: 0; font-size: .875rem; font-weight: 650; letter-spacing: -.035em; white-space: nowrap; }
+.protocol-app-header { min-height: 4rem; display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
+.protocol-brand { display: inline-flex; align-items: center; gap: .375rem; min-height: 2.75rem; min-width: 0; padding-right: .5rem; font-size: 1rem; font-weight: 650; letter-spacing: -.02em; white-space: nowrap; }
 .protocol-brand svg { flex-shrink: 0; }
+/* ТЗ 17.11, step 2: «Назад» and «Ще» are words next to the icon, at least 44 px each way */
+.protocol-header-back, .protocol-header-more { display: inline-flex; align-items: center; gap: .25rem; min-height: 2.75rem; min-width: 2.75rem; padding-inline: .5rem; border-radius: 9999px; font-weight: 600; white-space: nowrap; }
+.protocol-header-back { margin-left: -.5rem; color: rgb(var(--ink)); }
+.protocol-header-more { color: rgb(var(--ink)); }
+.protocol-header-more[aria-current="page"] { color: rgb(var(--accent)); }
+.protocol-header-back:hover, .protocol-header-more:hover { background: rgb(var(--surface-secondary)); }
+.protocol-header-status { display: inline-flex; align-items: center; min-height: 2.75rem; min-width: 0; padding-inline: .5rem; font-size: .875rem; color: rgb(var(--warn)); text-decoration: underline; text-underline-offset: 3px; }
 .protocol-bottom-nav a { min-height: 4rem; }
-.protocol-navigation-drawer summary { list-style: none; }
-.protocol-navigation-drawer summary::-webkit-details-marker { display: none; }
-.protocol-navigation-drawer details[open] > summary > svg:last-child { transform: rotate(90deg); }
+/* D160: the example, said once — a thin line above the header, not a notice on every screen */
+.protocol-example-strip { display: flex; align-items: center; justify-content: center; gap: .375rem; margin-inline: -1rem; padding: .125rem 1rem; background: rgb(var(--warn-bg)); color: rgb(var(--warn)); font-size: .875rem; }
+.protocol-example-strip button { min-height: 2.75rem; padding-inline: .5rem; }
+/* the bottom tab bar's height on phones: sticky actions and toasts sit above it, or at the edge where there are no tabs */
+.protocol-app-shell { --tabbar: 0rem; }
+.protocol-app-shell[data-tabs="on"] { --tabbar: 4.25rem; }
 .protocol-skip-link { position: fixed; top: .5rem; left: 1rem; z-index: 60; padding: .75rem 1rem; border-radius: .875rem; background: rgb(var(--surface)); color: rgb(var(--ink)); transform: translateY(-200%); }
 .protocol-skip-link:not(:focus) { clip-path: inset(100%); }
 .protocol-skip-link:focus { transform: none; }
 @media (min-width: 768px) {
   .protocol-app-shell > .protocol-bottom-nav { background: rgb(var(--surface)); }
-  .protocol-brand { justify-content: flex-start; padding-left: .5rem; font-size: 1rem; }
 }
 
 .protocol-navigation-drawer { padding-top: max(1rem, env(safe-area-inset-top, 0px)); padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px)); overscroll-behavior: contain; }

@@ -106,7 +106,7 @@ test('the new «День»: the plan on an empty day, a dose asks when, main num
   await page.reload();
   await expect(page.getByRole('region', { name: 'Сьогодні' }).getByText('Білок')).toBeVisible(); // kept on this device
 
-  await page.getByText('Обрати день', { exact: true }).click();
+  await page.locator('button[aria-controls="day-week"]').click(); // D160: a tap on the date opens the week
   const week = page.getByRole('navigation', { name: 'Тиждень' });
   const weekdays = week.locator('ol > li button span:first-child');
   await expect(weekdays).toHaveCount(7);

@@ -1,33 +1,35 @@
-import { BadgeCheck, Bell, Cloud, CloudAlert, CloudCheck, CloudOff, Menu } from 'lucide-react';
-import { Link } from 'react-router-dom';
-import { useFeatures } from '../app/features';
+import { BadgeCheck, ChevronLeft, MoreHorizontal } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { parentPath, tabForPath } from '../app/navigation';
+import { usePlan } from '../data/queries';
 import { t } from '../i18n/uk';
-import { useSync, type SyncStatus } from '../sync/runner';
+import { useUi } from '../store/ui';
+import { useSync } from '../sync/runner';
 
-const CLOUD: Record<SyncStatus, { Icon: typeof Cloud; tone: string }> = {
-  off: { Icon: CloudOff, tone: 'text-muted' }, idle: { Icon: CloudCheck, tone: 'text-accent' },
-  syncing: { Icon: Cloud, tone: 'text-muted animate-pulse' }, offline: { Icon: CloudOff, tone: 'text-warn' },
-  error: { Icon: CloudAlert, tone: 'text-warn' },
-};
-
-/** Shared navigation chrome. The bell opens real reminder settings; no invented unread badge. */
-export function AppHeader({ menuOpen, onMenu }: { menuOpen: boolean; onMenu: () => void }) {
-  const { can } = useFeatures();
-  const status = useSync(state => state.status);
-  const { Icon, tone } = CLOUD[status];
+/** ТЗ 17.11, step 2: one «Ще» on the right, no menu drawer. A section shows the name; a screen opened over it shows
+ *  «Назад». Sync appears here only when it is broken, in words — otherwise its state is in «Ще → Налаштування». */
+export function AppHeader() {
+  const { pathname, key } = useLocation();
+  const navigate = useNavigate();
+  const plan = usePlan();
+  const onboarded = useUi((s) => s.onboarded);
+  const status = useSync((state) => state.status);
+  // the first «Знайомство» is the only way in: nothing to go back to, and «Ще» would only lead back here
+  const firstRun = pathname === '/welcome' && !!plan && !plan.onboardedAt && !onboarded;
+  const back = () => (key !== 'default' ? navigate(-1) : navigate(parentPath(pathname)));
   return <header className="protocol-app-header print:hidden">
-    <button type="button" onClick={onMenu} aria-label={t.shell.openMenu} aria-expanded={menuOpen}
-      aria-controls={menuOpen ? 'protocol-navigation' : undefined} aria-haspopup="dialog" className="protocol-header-control">
-      <Menu size={22} aria-hidden />
-    </button>
-    <Link to="/" aria-label={t.shell.home} className="protocol-brand">
-      <BadgeCheck size={26} className="text-accent" aria-hidden /><span>{t.shell.brand}</span>
-    </Link>
-    <div className="flex items-center">
-      <Link to="/sync" aria-label={t.day.syncStatus[status]} className={`protocol-header-control ${tone}`}><Icon size={20} aria-hidden /></Link>
-      {can('reminders.settings') && <Link to="/reminders" aria-label={t.shell.reminders} className="protocol-header-control">
-        <Bell size={21} aria-hidden />
-      </Link>}
-    </div>
+    {tabForPath(pathname) || firstRun
+      ? <Link to="/" aria-label={t.shell.home} className="protocol-brand">
+        <BadgeCheck size={26} className="text-accent" aria-hidden /><span>{t.shell.brand}</span>
+      </Link>
+      : <button type="button" onClick={back} className="protocol-header-back">
+        <ChevronLeft size={22} aria-hidden /><span>{t.shell.back}</span>
+      </button>}
+    {!firstRun && <div className="flex min-w-0 items-center justify-end gap-1">
+      {status === 'error' && <Link to="/sync" className="protocol-header-status">{t.day.syncStatus.error}</Link>}
+      <Link to="/more" aria-current={pathname === '/more' ? 'page' : undefined} className="protocol-header-more">
+        <MoreHorizontal size={22} aria-hidden /><span>{t.nav.more}</span>
+      </Link>
+    </div>}
   </header>;
 }

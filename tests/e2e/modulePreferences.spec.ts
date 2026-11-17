@@ -6,12 +6,12 @@ import { t } from '../../src/i18n/uk';
 test('module history survives restart and a backup restored on an already bootstrapped phone (D134)', async ({ browser }) => {
   const page = await device(browser, 'skip');
   const at = new Date().toISOString();
-  await seed(page, [{ store: 'moduleEvents', value: { id: 'own-food-off', v: 1, at, kind: 'module', module: 'food', enabled: false, source: 'manual' } },
+  await seed(page, [{ store: 'moduleEvents', value: { id: 'own-menu-off', v: 1, at, kind: 'module', module: 'menu', enabled: false, source: 'manual' } },
     { store: 'moduleEvents', value: { id: 'own-light', v: 1, at, kind: 'light-day', date: '2026-10-25', enabled: true, source: 'manual' } },
     { store: 'entries', value: { id: 'water', at, kind: 'water', status: 'done', title: 'Вода', waterMl: 250 } }]);
   // Acceptance mode applies the module policy immediately; compatibility mode keeps legacy navigation.
-  await page.goto('./#/more/food');
-  const foodLink = page.getByRole('link', { name: t.nutrition.title, exact: true });
+  await page.goto('./#/more');
+  const foodLink = page.getByRole('link', { name: t.menu.quick, exact: true }); // menu: a convenience that can be off (food is the core, D160)
   if (process.env.VITE_MODULE_POLICY_ENABLED === 'true') {
     await expect(foodLink).toHaveCount(0);
   } else {
@@ -25,7 +25,7 @@ test('module history survives restart and a backup restored on an already bootst
   const bytes = await readFile(path!);
   const backup = JSON.parse(bytes.toString());
   expect(backup.version).toBe(2);
-  expect(backup.moduleEvents).toContainEqual(expect.objectContaining({ id: 'own-food-off', enabled: false }));
+  expect(backup.moduleEvents).toContainEqual(expect.objectContaining({ id: 'own-menu-off', enabled: false }));
 
   const other = await device(browser, 'skip');
   await other.goto('./#/data');
@@ -44,7 +44,7 @@ test('module history survives restart and a backup restored on an already bootst
     });
     db.close(); return value;
   });
-  expect(records.events).toContainEqual(expect.objectContaining({ id: 'own-food-off', enabled: false }));
+  expect(records.events).toContainEqual(expect.objectContaining({ id: 'own-menu-off', enabled: false }));
   expect(records.events).toContainEqual(expect.objectContaining({ id: 'own-light', enabled: true }));
   expect(records.entry.waterMl).toBe(250);
 });

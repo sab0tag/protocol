@@ -1,12 +1,12 @@
 import { expect, test, type Page } from '@playwright/test';
 import { device } from './helpers';
 
-// UI-POLISH-01: the four redesigned tabs, checked together — keyboard focus, hit areas, widths and offline.
+// UI-POLISH-01: the three tabs and «Ще» (ТЗ 17.11, step 2), checked together — keyboard focus, hit areas, widths and offline.
 const tabs = [
   { path: '/', title: 'Сьогодні', heading: 'Сьогодні' },
   { path: '/plan', title: 'Мій план', heading: 'Мій план' },
   { path: '/progress', title: 'Результати', heading: 'Результати' },
-  { path: '/more', title: 'Більше', heading: 'Додаткові можливості' },
+  { path: '/more', title: 'Ще', heading: 'Ще' },
 ];
 const widths = [320, 375, 390, 430, 768, 1024, 1440];
 
@@ -41,7 +41,7 @@ async function smallTargets(page: Page, path: string): Promise<string[]> {
     .map((s) => `${path}: ${s}`);
 }
 
-test('the four tabs keep visible keyboard focus and 44 px hit areas at every approved width', async ({ browser }) => {
+test('the three tabs and «Ще» keep visible keyboard focus and 44 px hit areas at every approved width', async ({ browser }) => {
   test.setTimeout(240_000);
   const page = await device(browser, 'demo'); // a filled synthetic profile, in a database of its own
   const problems: string[] = [];
@@ -64,9 +64,11 @@ test('every tab opens offline after a reload', async ({ browser }) => {
   for (const { path } of tabs) { await page.goto('./#' + path); await expect(page.getByRole('heading', { level: 1 })).toBeVisible(); }
   await page.context().setOffline(true);
   await page.reload();
-  const nav = page.getByRole('navigation', { name: 'Розділи', exact: true });
   for (const { path, title, heading } of tabs) {
-    await nav.getByRole('link', { name: title, exact: true }).click();
+    // «Ще» is in the header; on «Ще» itself the way back to a section is «Назад»
+    if (path === '/more') await page.locator('.protocol-app-header').getByRole('link', { name: title, exact: true }).click();
+    else if (page.url().endsWith('#/more')) await page.goto('./#' + path);
+    else await page.getByRole('navigation', { name: 'Розділи', exact: true }).getByRole('link', { name: title, exact: true }).click();
     await expect(page).toHaveURL(new RegExp(`#${path === '/' ? '/?' : path}$`));
     await expect(page.getByRole('heading', { level: 1 })).toContainText(heading);
   }

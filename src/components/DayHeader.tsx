@@ -1,21 +1,30 @@
-// «День» header (SPEC.md §14.1, D53): the day by name, a week strip — a dot under a day means it has records —
-// Sync status and brand are in AppHeader. A tap on a day opens it; the arrows open the next / previous week
-// on the day next to this one (D99), or on today when it is there.
+// «День» header (SPEC.md §14.1, D53, D160): the day by name, the date and a greeting. Another day — a swipe across the
+// header, or a tap on the date, which opens the week strip (a dot under a day means it has records); the arrows open
+// the next / previous week on the day next to this one (D99), or on today when it is there.
 import { addDays, format, parseISO, startOfISOWeek } from 'date-fns';
 import { uk } from 'date-fns/locale';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react';
-import { type ReactNode } from 'react';
-import { Link } from 'react-router-dom';
+import { useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import { useActiveProfile } from '../app/profiles';
 import { db } from '../data/db';
 import { todayISO, weekStep } from '../domain/dates';
+import { greeting } from '../domain/greeting';
 import { t } from '../i18n/uk';
 
 const L = t.day;
 
-export function DayHeader({ date, setDate, action, remaining }: { date: string; setDate: (d: string) => void; action?: ReactNode; remaining?: number }) {
+export function DayHeader({ date, setDate, action }: { date: string; setDate: (d: string) => void; action?: ReactNode }) {
   const currentProfile = useActiveProfile();
+  const [week, setWeek] = useState(false);
+  const swipe = useRef<{ x: number; y: number } | null>(null);
+  const down = (e: ReactPointerEvent) => { if (e.pointerType !== 'mouse') swipe.current = { x: e.clientX, y: e.clientY }; };
+  const up = (e: ReactPointerEvent) => {
+    const from = swipe.current; swipe.current = null;
+    if (!from) return;
+    const dx = e.clientX - from.x, dy = e.clientY - from.y;
+    if (Math.abs(dx) > 60 && Math.abs(dx) > 2 * Math.abs(dy)) setDate(format(addDays(parseISO(date), dx < 0 ? 1 : -1), 'yyyy-MM-dd'));
+  };
   const today = todayISO();
   const monday = startOfISOWeek(parseISO(date));
   const days = Array.from({ length: 7 }, (_, i) => format(addDays(monday, i), 'yyyy-MM-dd'));
@@ -25,17 +34,18 @@ export function DayHeader({ date, setDate, action, remaining }: { date: string; 
   const d = parseISO(date);
 
   return (
-    <header className="protocol-day-heading mb-4 space-y-3">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <h1 className="text-3xl font-semibold tracking-tight">{isToday ? L.todayTitle : format(d, 'EEEE, d MMMM', { locale: uk })}</h1>
-          {isToday && <p className="mt-1 text-sm text-muted">{format(d, 'EEEE, d MMMM', { locale: uk })}</p>}
-        </div>
-        <Link to="/profiles" aria-label={t.profiles.title} className="flex min-h-tap max-w-[45%] items-center truncate rounded-xl border border-line bg-surface px-3 text-sm text-muted" data-testid="active-profile">{currentProfile.name || t.profiles.title}</Link>
+    <header className="protocol-day-heading mb-4 space-y-3" onPointerDown={down} onPointerUp={up} onPointerCancel={() => { swipe.current = null; }} style={{ touchAction: 'pan-y' }}>
+      <div>
+        <h1 className="text-3xl font-semibold tracking-tight">{isToday ? L.todayTitle : format(d, 'EEEE, d MMMM', { locale: uk })}</h1>
+        <p className="mt-1 flex flex-wrap items-center gap-x-2 text-sm text-muted">
+          {isToday && <span data-testid="active-profile">{greeting(new Date(), currentProfile.name)}</span>}
+          <button type="button" aria-expanded={week} aria-controls="day-week" onClick={() => setWeek((v) => !v)}
+            className="inline-flex min-h-tap items-center gap-1 font-medium text-accent first-letter:uppercase">
+            <CalendarDays size={16} aria-hidden />{isToday ? format(d, 'EEEE, d MMMM', { locale: uk }) : L.week}
+          </button>
+        </p>
       </div>
-      {remaining !== undefined && <p className="inline-flex rounded-full bg-accent/10 px-3 py-1 text-sm font-medium text-accent" data-testid="remaining-actions" title={t.todayView.remainingScope}>{t.todayView.remaining(remaining)}</p>}
-      <details className="rounded-xl border border-line bg-surface px-3">
-        <summary className="flex min-h-tap cursor-pointer items-center gap-2 text-sm font-medium"><CalendarDays size={18} aria-hidden />{t.todayView.chooseDate}</summary>
+      {week && <div id="day-week">
       <nav aria-label={L.week} className="protocol-calendar mb-2 overflow-x-auto flex items-center gap-1 rounded-xl p-1">
         <button type="button" onClick={() => setDate(weekStep(date, -1, today))} aria-label={L.prevWeek}
           className="flex min-h-tap w-11 shrink-0 items-center justify-center text-muted"><ChevronLeft size={18} aria-hidden /></button>
@@ -58,7 +68,7 @@ export function DayHeader({ date, setDate, action, remaining }: { date: string; 
         <button type="button" onClick={() => setDate(weekStep(date, 1, today))} aria-label={L.nextWeek}
           className="flex min-h-tap w-11 shrink-0 items-center justify-center text-muted"><ChevronRight size={18} aria-hidden /></button>
       </nav>
-      </details>
+      </div>}
       {action && <div>{action}</div>}
       {!isToday && (
         <p className="mt-1 text-center"><button type="button" className="min-h-tap px-3 text-accent underline" onClick={() => setDate(today)}>{L.today}</button></p>

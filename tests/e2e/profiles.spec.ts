@@ -1,11 +1,12 @@
 import { expect, test } from '@playwright/test';
 import { device, seed, ymd, kyivOffset } from './helpers';
 
-test('settings menu exposes profiles and code-based sync with a privacy boundary', async ({ browser }) => {
+test('«Ще» exposes profiles, its settings code-based sync, with a privacy boundary', async ({ browser }) => {
   const page = await device(browser);
   await page.goto('./#/more/settings');
-  await expect(page.getByRole('link', { name: 'Сім’я та профілі', exact: true })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Синхронізація', exact: true })).toBeVisible();
+  await page.goto('./#/more');
+  await expect(page.getByRole('link', { name: 'Сім’я та профілі', exact: true })).toBeVisible();
   await page.getByRole('link', { name: 'Сім’я та профілі', exact: true }).click();
   await expect(page.getByRole('link', { name: 'Підключити цей профіль кодом' })).toBeVisible();
   await expect(page.getByText(/не надає іншій людині доступ до цих записів/)).toBeVisible();
@@ -26,7 +27,7 @@ test('family profiles isolate records and drafts; greeting follows the selected 
   await page.getByRole('button', { name: 'Зберегти профіль', exact: true }).click();
   await page.goto('./#/');
   await expect(page.getByTestId('active-profile')).toContainText('Олена');
-  await page.getByTestId('active-profile').click();
+  await page.goto('./#/profiles'); // D160: profiles are in «Ще»
   await page.getByRole('button', { name: 'Додати профіль', exact: true }).click();
   await page.getByLabel('Ім’я', { exact: true }).fill('Данило');
   await page.getByLabel('Ким доводиться').selectOption('child');
@@ -85,14 +86,6 @@ test('family profiles isolate records and drafts; greeting follows the selected 
     await page.screenshot({ path: `test-results/profiles-${width}-${colorScheme}.png`, fullPage: true });
     await page.goto('./#/');
     await expect(page.getByTestId('active-profile')).toContainText('Олена');
-    const wellbeing = page.locator('details').filter({ hasText: 'Ще дії' }).getByText('Самопочуття', { exact: true });
-    // The label may legitimately wrap to two lines at 320px; reject clipping or a third line.
-    await page.getByText('Ще дії').click();
-    const wellbeingBox = await wellbeing.boundingBox();
-    expect(wellbeingBox).not.toBeNull();
-    expect(wellbeingBox!.height).toBeLessThan(40);
-    expect(wellbeingBox!.x).toBeGreaterThanOrEqual(0);
-    expect(wellbeingBox!.x + wellbeingBox!.width).toBeLessThanOrEqual(width + 1);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: `test-results/profile-today-${width}-${colorScheme}.png`, fullPage: true });
     await page.goto('./#/profiles');
@@ -101,11 +94,11 @@ test('family profiles isolate records and drafts; greeting follows the selected 
 });
 
 
-test('Today keeps the active profile visible without a motivational banner', async ({ browser }) => {
+test('Today greets the active person by name without a motivational banner; profiles open from «Ще» (D160)', async ({ browser }) => {
   const page = await device(browser, 'skip');
   await expect(page.getByTestId('active-profile')).toBeVisible();
   await expect(page.getByTestId('daily-phrase')).toHaveCount(0);
-  await page.getByTestId('active-profile').click();
+  await page.goto('./#/more'); await page.getByRole('link', { name: 'Сім’я та профілі', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Сім’я та профілі', exact: true })).toBeVisible();
   await page.context().close();
 });

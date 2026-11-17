@@ -26,7 +26,6 @@ test('the medicines register: Latin typing finds it, no dose filled, one INN twi
   await expect(note).toContainText('Перевірте з лікарем');
   await expect(note).not.toContainText('не приймайте');
   await page.goto('./#/more');
-  await page.getByRole('link', { name: /Про застосунок/ }).click();
   await page.getByRole('link', { name: 'Про застосунок і джерела' }).click();
   await expect(page.getByRole('link', { name: 'CC BY 4.0' })).toBeVisible();
   await expect(page.getByText(/індекс від .*, \d+ препаратів/)).toBeVisible();
