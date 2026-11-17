@@ -127,7 +127,7 @@ test('all routed screens fit the four target widths in light and dark themes', a
         } else {
           await expect(page.locator('.protocol-scene-header')).toHaveCount(0);
         }
-        await page.screenshot({ path: `test-results/mockup-${route.replaceAll('/', '-') || 'today'}-${width}-${colorScheme}.png`, fullPage: true });
+        await page.screenshot({ path: `test-results/mockup-${route.replace(/[^a-z0-9-]+/gi, '-') || 'today'}-${width}-${colorScheme}.png`, fullPage: true });
       }
     }
   }
