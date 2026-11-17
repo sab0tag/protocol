@@ -67,11 +67,7 @@ test('the example comes with two invented weeks: «Прогрес» and the repo
   await expect(page).toHaveURL(/#\/welcome$/); // the own one, as it was — not onboarded yet
   await page.getByText('Інші способи почати').click(); await page.getByRole('button', { name: /^Пропустити/ }).click();
   await expect(page).toHaveURL(/#\/$/);
-  if (process.env.VITE_MODULE_POLICY_ENABLED === 'true') {
-    await page.goto('./#/progress'); await expect(page.getByRole('heading', { level: 1 })).toHaveText('Розділ вимкнено');
-    await page.goto('./#/modules'); await page.getByRole('switch', { name: 'Прогрес і тиждень', exact: true }).click();
-    await expect(page.getByRole('switch', { name: 'Прогрес і тиждень', exact: true })).toBeChecked();
-  }
+  // D160: «Результати» is the core — open from the first day, no switch to turn on
   await page.goto('./#/progress');
   if (process.env.VITE_MODULE_POLICY_ENABLED === 'true') {
     await expect(page.getByText(/Ще немає зважувань/)).toHaveCount(0); // independent weight remains off

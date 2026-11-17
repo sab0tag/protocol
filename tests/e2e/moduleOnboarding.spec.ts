@@ -1,7 +1,9 @@
 import { expect, test, type Browser, type Page } from '@playwright/test';
 import { seed } from './helpers';
 const enabled = process.env.VITE_MODULE_POLICY_ENABLED === 'true';
-const ids = ['meds', 'water', 'food', 'menu', 'assistant', 'wellbeing', 'workout', 'progress'];
+// D160: food and «Результати» are the core — on from the start, no checkbox; these are the ones to choose
+const ids = ['meds', 'water', 'menu', 'assistant', 'wellbeing', 'workout'];
+const tabs = (page: Page) => page.getByRole('navigation', { name: 'Розділи', exact: true }).getByRole('link');
 async function rows(page: Page, store: string) {
   return page.evaluate(async (store) => {
     const req = indexedDB.open('protocol'); await new Promise((r) => { req.onsuccess = r; });
@@ -44,11 +46,11 @@ for (const scenario of ['four medicines and diet', 'diet only', 'water only', 'e
     if (scenario === 'water only') await page.getByLabel('Вода, мл', { exact: true }).fill('2000');
     if (scenario === 'weight goal') await page.getByLabel('Цільова вага, кг', { exact: true }).fill('90');
     await final(page);
-    const expected = scenario.startsWith('four') ? ['meds'] : ['food', ...(scenario === 'water only' ? ['water'] : scenario === 'explicit activity' ? ['workout'] : [])];
+    const expected = scenario.startsWith('four') ? ['meds'] : scenario === 'water only' ? ['water'] : scenario === 'explicit activity' ? ['workout'] : [];
     await page.getByText('Змінити стартові розділи', { exact: true }).click();
-    const checkboxes = page.getByRole('checkbox'); await expect(checkboxes).toHaveCount(9);
+    const checkboxes = page.getByRole('checkbox'); await expect(checkboxes).toHaveCount(7);
     for (let i = 0; i < ids.length; i++) expect(await checkboxes.nth(i).isChecked()).toBe(expected.includes(ids[i]));
-    expect(await checkboxes.nth(8).isChecked()).toBe(scenario === 'weight goal');
+    expect(await checkboxes.nth(6).isChecked()).toBe(scenario === 'weight goal');
     if (scenario.startsWith('four')) {
       await checkboxes.nth(0).click();
       await page.getByRole('dialog').getByRole('button', { name: 'Залишити увімкненим', exact: true }).click();
@@ -59,11 +61,11 @@ for (const scenario of ['four medicines and diet', 'diet only', 'water only', 'e
     await page.getByRole('button', { name: 'Почати', exact: true }).click();
     await expect(page).toHaveURL(/#\/$/);
     const events = await rows(page, 'moduleEvents');
-    expect(events.filter((e) => e.kind === 'module' && e.enabled).map((e) => e.module).sort()).toEqual(expected.sort());
+    expect(events.filter((e) => e.kind === 'module' && e.enabled).map((e) => e.module).sort()).toEqual([...expected, 'food', 'progress'].sort());
     expect(events.filter((e) => e.kind === 'onboarded')).toHaveLength(1);
     expect((await rows(page, 'plan'))[0].onboardedAt).toBe('2026-10-19');
     await expect(page.getByRole('button', { name: 'Мені погано', exact: true })).toBeVisible();
-    await page.goto('./#/modules'); await expect(page.getByRole('switch', { name: 'Прогрес і тиждень', exact: true })).not.toBeChecked();
+    await expect(tabs(page)).toHaveText(['Сьогодні', 'Мій план', 'Результати']); // from the first day (D160)
   });
 }
 
@@ -72,8 +74,8 @@ test('repeat onboarding preserves choices/date and a new target offers only expl
   const page = await fresh(browser); await page.getByText('Інші способи почати').click(); await page.getByRole('button', { name: /^Пропустити/ }).click(); await expect(page).toHaveURL(/#\/$/);
   await page.goto('./#/modules');
   await page.clock.setFixedTime(new Date('2026-10-19T12:01:00+03:00'));
-  await page.getByRole('switch', { name: 'Запис їжі', exact: true }).click();
-  await expect(page.getByRole('switch', { name: 'Запис їжі', exact: true })).not.toBeChecked();
+  await page.getByRole('switch', { name: 'Меню', exact: true }).click();
+  await expect(page.getByRole('switch', { name: 'Меню', exact: true })).toBeChecked();
   const before = await rows(page, 'moduleEvents');
   await page.clock.setFixedTime(new Date('2026-10-22T12:00:00+03:00'));
   await page.goto('./#/welcome'); await manual(page);
@@ -93,48 +95,49 @@ test('repeat onboarding preserves choices/date and a new target offers only expl
   await expect(review).toHaveCount(0);
   await page.goto('./#/modules');
   await expect(page.getByRole('switch', { name: 'Вода', exact: true })).toBeChecked();
-  await expect(page.getByRole('switch', { name: 'Запис їжі', exact: true })).not.toBeChecked();
-  // A later manual plan edit offers again, but declining leaves the history exactly as it was.
+  await expect(page.getByRole('switch', { name: 'Меню', exact: true })).toBeChecked();
+  // A later manual plan edit offers only what is off: a protein target needs food, which is the core and already on (D160).
   await page.goto('./#/plan/goals'); // the plan's sections have their own routes now
   const accepted = await rows(page, 'moduleEvents');
   await page.getByRole('button', { name: 'Редагувати', exact: true }).first().click();
   const targets = page.getByRole('dialog', { name: 'Цілі', exact: true });
   await targets.getByLabel('Білок, г', { exact: true }).fill('90');
   await targets.getByRole('button', { name: 'Зберегти', exact: true }).click();
-  await expect(review.getByRole('checkbox', { name: 'Увімкнути: Запис їжі', exact: true })).not.toBeChecked();
-  await review.getByRole('button', { name: 'Залишити як є', exact: true }).click();
+  await expect(targets).toHaveCount(0);
   await expect(review).toHaveCount(0); expect(await rows(page, 'moduleEvents')).toEqual(accepted);
 });
 
-test('the final collapsed overrides are saved as manual choices, including progress off before day eight', async ({ browser }) => {
+test('the final collapsed overrides are saved as manual choices; the core starts on without a choice (D160)', async ({ browser }) => {
   test.skip(!enabled, 'acceptance build');
   const page = await fresh(browser); await manual(page);
   await page.getByRole('button', { name: 'Далі', exact: true }).click(); await final(page);
   await page.getByText('Змінити стартові розділи', { exact: true }).click();
   await page.getByRole('checkbox', { name: 'Вода', exact: true }).check();
-  await page.getByRole('checkbox', { name: 'Запис їжі', exact: true }).uncheck();
-  await page.getByRole('checkbox', { name: 'Прогрес і тиждень', exact: true }).check();
-  await page.getByRole('checkbox', { name: 'Прогрес і тиждень', exact: true }).uncheck();
+  await expect(page.getByRole('checkbox', { name: 'Запис їжі', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('checkbox', { name: 'Прогрес і тиждень', exact: true })).toHaveCount(0);
   await page.getByRole('checkbox', { name: 'Вага окремо', exact: true }).check();
   await page.screenshot({ path: test.info().outputPath('onboarding-final-part6.png'), fullPage: true });
   await page.getByRole('button', { name: 'Почати', exact: true }).click(); await expect(page).toHaveURL(/#\/$/);
   const events = await rows(page, 'moduleEvents');
-  for (const module of ['water', 'food', 'progress']) expect(events.find((e) => e.kind === 'module' && e.module === module)).toMatchObject({ source: 'manual', enabled: module === 'water' });
+  expect(events.find((e) => e.kind === 'module' && e.module === 'water')).toMatchObject({ source: 'manual', enabled: true });
+  for (const module of ['food', 'progress']) expect(events.find((e) => e.kind === 'module' && e.module === module)).toMatchObject({ source: 'onboarding', enabled: true });
   expect(events.find((e) => e.kind === 'weight')).toMatchObject({ source: 'manual', enabled: true });
   await page.clock.setFixedTime(new Date('2026-11-02T12:00:00+02:00')); await page.reload();
-  await page.goto('./#/modules'); await expect(page.getByRole('switch', { name: 'Прогрес і тиждень', exact: true })).not.toBeChecked();
+  await page.goto('./#/'); await expect(tabs(page)).toHaveText(['Сьогодні', 'Мій план', 'Результати']);
 });
 
-test('late day-eight startup opens once; an earlier manual off survives reload and a second visit', async ({ browser }) => {
+test('«Результати» is there from the first day; an older manual «off» is answered once with «on» (D160 instead of D138 day eight)', async ({ browser }) => {
   test.skip(!enabled, 'acceptance build');
   const page = await fresh(browser); await page.getByText('Інші способи почати').click(); await page.getByRole('button', { name: /^Пропустити/ }).click(); await expect(page).toHaveURL(/#\/$/);
+  await expect(tabs(page)).toHaveText(['Сьогодні', 'Мій план', 'Результати']);
   await page.clock.setFixedTime(new Date('2026-11-02T12:00:00+02:00')); await page.reload();
-  await page.goto('./#/modules'); await expect(page.getByRole('switch', { name: 'Прогрес і тиждень', exact: true })).toBeChecked();
-  await page.reload();
-  expect((await rows(page, 'moduleEvents')).filter((e) => e.source === 'automatic')).toHaveLength(1);
+  await expect(tabs(page)).toHaveText(['Сьогодні', 'Мій план', 'Результати']);
+  expect((await rows(page, 'moduleEvents')).filter((e) => e.source === 'automatic')).toHaveLength(0); // nothing to open on day eight
   const other = await fresh(browser); await other.getByText('Інші способи почати').click(); await other.getByRole('button', { name: /^Пропустити/ }).click(); await expect(other).toHaveURL(/#\/$/);
   await seed(other, [{ store: 'moduleEvents', value: { id: 'manual-early-off', v: 1, kind: 'module', module: 'progress', enabled: false, source: 'manual', at: '2026-10-20T00:00:00.000Z' } }]);
-  await other.clock.setFixedTime(new Date('2026-11-02T12:00:00+02:00')); await other.reload();
-  await other.goto('./#/modules'); await expect(other.getByRole('switch', { name: 'Прогрес і тиждень', exact: true })).not.toBeChecked();
-  expect((await rows(other, 'moduleEvents')).filter((e) => e.source === 'automatic')).toHaveLength(0);
+  await other.reload();
+  await expect(tabs(other)).toHaveText(['Сьогодні', 'Мій план', 'Результати']);
+  await expect.poll(async () => (await rows(other, 'moduleEvents')).filter((e) => e.kind === 'module' && e.module === 'progress' && e.source === 'manual' && e.enabled).length).toBe(1);
+  await other.reload();
+  expect((await rows(other, 'moduleEvents')).filter((e) => e.kind === 'module' && e.module === 'progress' && e.source === 'manual' && e.enabled)).toHaveLength(1); // once
 });

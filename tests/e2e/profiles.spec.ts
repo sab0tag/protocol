@@ -27,7 +27,7 @@ test('family profiles isolate records and drafts; greeting follows the selected 
   await page.getByRole('button', { name: 'Зберегти профіль', exact: true }).click();
   await page.goto('./#/');
   await expect(page.getByTestId('active-profile')).toContainText('Олена');
-  await page.goto('./#/profiles'); // D160: profiles are in «Ще», the greeting names the person
+  await page.goto('./#/profiles'); // D160: profiles are in «Ще»
   await page.getByRole('button', { name: 'Додати профіль', exact: true }).click();
   await page.getByLabel('Ім’я', { exact: true }).fill('Данило');
   await page.getByLabel('Ким доводиться').selectOption('child');

@@ -1,7 +1,8 @@
 import { expect, test, type Page } from '@playwright/test';
 import { device, seed, ymd } from './helpers';
 const enabled = process.env.VITE_MODULE_POLICY_ENABLED === 'true';
-const names = ['Ліки', 'Вода', 'Запис їжі', 'Меню', 'Помічник', 'Самопочуття', 'Тренування', 'Прогрес і тиждень'];
+// D160: food and «Результати» are the core — no switch; these six are the ones a person turns on and off
+const names = ['Ліки', 'Вода', 'Меню', 'Помічник', 'Самопочуття', 'Тренування'];
 const ids = ['meds', 'water', 'food', 'menu', 'assistant', 'wellbeing', 'workout', 'progress'];
 async function minimal(page: Page, on = ['meds']) {
   await seed(page, [
@@ -31,28 +32,26 @@ test('ordinary builds keep legacy UI and do not expose module switches', async (
 test('minimal day hides disabled actions and More stays short; food comes back with its saved records', async ({ browser }) => {
   test.skip(!enabled, 'acceptance build');
   const page = await device(browser); await minimal(page);
-  await expect(page.getByRole('region', { name: 'Їжа', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('region', { name: 'Їжа', exact: true })).toBeVisible(); // D160: food is the core, an old «off» is answered with «on»
   await expect(page.getByRole('button', { name: /Додати 250 мл води/ })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Сказати голосом', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Мені погано', exact: true })).toBeVisible();
-  await expect(page.getByText('Збережена страва', { exact: true })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Як учора', exact: true })).toHaveCount(0); // food/menu off: nothing to copy
+  await expect(page.getByRole('button', { name: 'Як учора', exact: true })).toHaveCount(0); // menu off: no whole-day copy
   await page.screenshot({ path: test.info().outputPath('minimal-day.png'), fullPage: true });
   const tabs = page.getByRole('navigation', { name: 'Розділи' });
-  await expect(tabs.getByRole('link')).toHaveText(['Сьогодні', 'Мій план']); // progress off: no «Результати» (D137)
+  await expect(tabs.getByRole('link')).toHaveText(['Сьогодні', 'Мій план', 'Результати']); // D160: three tabs, «Результати» is the core
   await page.goto('./#/more');
-  expect(await page.locator('main a:visible').count() + await page.locator('main details > summary:visible').count()).toBeLessThanOrEqual(8);
-  await expect(page.getByRole('link', { name: 'Мої страви', exact: true })).toHaveCount(0); // no food rows (D160)
+  // ТЗ 17.11: a newcomer's «Ще» has at most 7 rows, one list
+  expect(await page.locator('main ul a:visible').count()).toBeLessThanOrEqual(7);
+  await expect(page.getByRole('link', { name: 'Меню', exact: true })).toHaveCount(0); // menu off — its row goes
   await page.goto('./#/more/settings');
   await page.getByRole('link', { name: 'Що показувати', exact: true }).click();
-  await expect(page.getByRole('switch')).toHaveCount(8);
+  await expect(page.getByRole('switch')).toHaveCount(6);
   await page.screenshot({ path: test.info().outputPath('module-settings.png'), fullPage: true });
-  await page.getByRole('switch', { name: 'Запис їжі', exact: true }).click();
-  await expect(page.getByRole('switch', { name: 'Запис їжі', exact: true })).toBeChecked();
-  await page.goto('./#/'); await page.getByText(/^Виконано та інші відмітки/).click();
-  await expect(page.getByRole('button', { name: /Збережена страва, Виконано/ })).toBeVisible();
+  await page.getByRole('switch', { name: 'Меню', exact: true }).click();
+  await expect(page.getByRole('switch', { name: 'Меню', exact: true })).toBeChecked();
+  await page.goto('./#/more'); await expect(page.getByRole('link', { name: 'Меню', exact: true })).toBeVisible();
   expect((await rows(page, 'entries')).filter((e) => e.id === 'kept-meal')).toHaveLength(1);
-  await page.reload(); await expect(page.getByRole('region', { name: 'Їжа', exact: true })).toBeVisible();
 });
 
 test('meds off asks first; cancelling writes nothing, and plan/report/incomplete-course warnings remain accessible', async ({ browser }) => {
@@ -81,7 +80,8 @@ test('direct URLs and old quick bookmarks cannot write or silently enable a disa
   test.skip(!enabled, 'acceptance build');
   const page = await device(browser); await minimal(page, []);
   const before = await rows(page, 'entries'), events = await rows(page, 'moduleEvents');
-  for (const path of ['/menu', '/shopping', '/dishes', '/assistant', '/concierge-log', '/wellbeing', '/workout', '/exercises', '/week', '/progress', '/meal/new', '/meal/kept-meal', '/do/water', '/do/med', '/weight']) {
+  // D160: food and «Результати» are the core and always open; the conveniences and the plan's modules stay closed
+  for (const path of ['/menu', '/shopping', '/assistant', '/concierge-log', '/wellbeing', '/workout', '/exercises', '/do/water', '/do/med', '/weight']) {
     await page.goto('./#' + path);
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Розділ вимкнено');
     await expect(page.getByRole('link', { name: 'Що показувати', exact: true })).toBeVisible();
@@ -110,7 +110,6 @@ test('weight works independently and enable-all restores modules without replaci
   const page = await device(browser); await minimal(page);
   await page.goto('./#/modules'); await page.getByRole('checkbox', { name: 'Вага окремо', exact: true }).click();
   await expect(page.getByRole('switch', { name: 'Самопочуття', exact: true })).not.toBeChecked();
-  await expect(page.getByRole('switch', { name: 'Прогрес і тиждень', exact: true })).not.toBeChecked();
   await page.goto('./#/weight'); await page.getByLabel('Вага, кг', { exact: true }).fill('90.5');
   await page.getByRole('button', { name: 'Записати вагу', exact: true }).click();
   await expect.poll(async () => (await rows(page, 'weights')).length).toBe(1);
@@ -122,10 +121,10 @@ test('weight works independently and enable-all restores modules without replaci
 
 test('a module turned off in another open tab unmounts its form before it can save', async ({ browser }) => {
   test.skip(!enabled, 'acceptance build');
-  const page = await device(browser); await minimal(page, ['meds', 'food']);
-  await page.goto('./#/meal/kept-meal'); await expect(page.getByRole('heading', { level: 1 })).not.toHaveText('Розділ вимкнено');
+  const page = await device(browser); await minimal(page, ['meds', 'wellbeing']);
+  await page.goto('./#/wellbeing'); await expect(page.getByRole('heading', { level: 1 })).not.toHaveText('Розділ вимкнено');
   const settings = await page.context().newPage(); await settings.goto('./#/modules');
-  await settings.getByRole('switch', { name: 'Запис їжі', exact: true }).click();
+  await settings.getByRole('switch', { name: 'Самопочуття', exact: true }).click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Розділ вимкнено');
   expect((await rows(page, 'entries')).find((e) => e.id === 'kept-meal').title).toBe('Збережена страва');
 });

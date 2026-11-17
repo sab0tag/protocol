@@ -98,7 +98,8 @@ test('«Ще» respects disabled modules while plan and recovery remain availabl
     id: `shell-off-${module}`, v: 1, kind: 'module', module, enabled: false, source: 'manual', at,
   } })));
   await page.locator('.protocol-app-header').getByRole('link', { name: t.nav.more, exact: true }).click();
-  for (const name of [t.assistant.title, t.menu.quick, t.well.title, t.workout.title, t.dishes.title, t.conciergeLog.link]) {
+  await expect(page.getByRole('link', { name: t.dishes.title, exact: true })).toBeVisible(); // food is the core (D160): its «off» is answered with «on»
+  for (const name of [t.assistant.title, t.menu.quick, t.well.title, t.workout.title, t.conciergeLog.link]) {
     await expect(page.getByRole('link', { name, exact: true })).toHaveCount(0);
   }
   await page.getByRole('link', { name: t.more.settings, exact: true }).click();

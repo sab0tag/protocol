@@ -50,7 +50,7 @@ test('photo review keeps confirmation reachable on small screens and retains che
     await form.getByRole('heading', { level: 2 }).scrollIntoViewIfNeeded();
     const box = await actions.boundingBox();
     expect(box!.y).toBeGreaterThanOrEqual(0);
-    expect(box!.y + box!.height).toBeLessThan(height - (width < 768 ? 60 : 0));
+    expect(box!.y + box!.height).toBeLessThanOrEqual(height); // D160: the photo review opens over «Мій план», without the tab bar
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: `test-results/protocol-v2-import-${width}-${colorScheme}.png`, fullPage: true });
   }
