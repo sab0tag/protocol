@@ -30,7 +30,8 @@ test('results and plan goals are two separate parts with no combined score', asy
   expect(g.y).toBeGreaterThanOrEqual(r.y + r.height);
   for (const width of [320, 768, 1440]) {
     await page.setViewportSize({ width, height: 900 });
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    // The weight chart resizes a frame after the viewport does; wait for the layout to settle
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - innerWidth), { message: `overflow at ${width}px` }).toBeLessThanOrEqual(0);
   }
   await page.context().close();
 });
