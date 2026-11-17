@@ -3,7 +3,7 @@ import { device } from './helpers';
 
 // ТЗ 2.0 (Workout 2.0, аудит P2 «мобильная компоновка»): on a narrow phone no screen scrolls sideways and nothing sticks out
 // past the edge. An element inside a container that scrolls or clips on purpose (a chip row, a wide table) is not counted.
-const routes = ['/', '/food', '/meal/new', '/workout', '/exercises', '/dishes', '/foods', '/menu', '/shopping', '/plan', '/plan/prescriptions',
+const routes = ['/', '/food', '/meal/new?slot=1', '/workout', '/exercises', '/dishes', '/foods', '/menu', '/shopping', '/plan', '/plan/prescriptions',
   '/plan/constraints', '/plan/goals', '/progress', '/progress/labs', '/progress/motivation', '/progress/insights', '/week', '/weight', '/wellbeing',
   '/wellbeing/journal', '/report', '/assistant', '/more', '/reminders', '/sync', '/data', '/profiles', '/my-day', '/modules'];
 

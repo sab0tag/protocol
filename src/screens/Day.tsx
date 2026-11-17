@@ -46,6 +46,8 @@ import { presentDay } from '../domain/dayPresentation';
 import { runningLow } from '../domain/stock';
 import { unfinished } from '../domain/conclusion';
 import { useFeatures } from '../app/features';
+import { MealTiles } from '../components/MealTiles';
+import { slotAt, type Slot } from '../domain/mealSlots';
 import { ENTRY_FEATURES, habitVisible, entryVisible } from '../domain/visibility';
 import type { FeatureId } from '../domain/features';
 
@@ -81,6 +83,11 @@ export function Day() {
     if (linked && /^\d{4}-\d{2}-\d{2}$/.test(linked)) { setDate(linked); setParams({}, { replace: true }); }
   }, [linked, setDate, setParams]);
   const opening = params.get('open'); // D66: `#/do/symptom` lands here
+  const mealParam = params.get('meal'); // D159: `#/meal/new` opens the tile of the meal going on now
+  const [openSlot, setOpenSlot] = useState<Slot | null>(null);
+  useEffect(() => {
+    if (mealParam !== null && /^[0-3]$/.test(mealParam)) { setOpenSlot(Number(mealParam) as Slot); setParams({}, { replace: true }); }
+  }, [mealParam, setParams]);
   useEffect(() => {
     if (opening === 'symptom') { setSymptom({}); setParams({}, { replace: true }); }
     if (opening === 'voice') { setVoice(true); setParams({}, { replace: true }); } // D95: `#/do/voice` — Back Tap straight to the voice
@@ -195,7 +202,7 @@ export function Day() {
   const startAdd = (kind: EntryKind) => {
     setAdding(false);
     if (!can(ENTRY_FEATURES[kind]) || (light && kind === 'workout')) return;
-    if (kind === 'meal') navigate('/meal/new');
+    if (kind === 'meal') setOpenSlot(slotAt(new Date()));
     else if (kind === 'symptom') setSymptom({});
     else setSimple({ kind });
   };
@@ -226,10 +233,9 @@ export function Day() {
         <p className="text-muted">{t.day.returningAfterBreak.message}</p>
       </div>}
 
-      {light && (can('food.log') || can('water.log')) && <details className="mb-4 rounded-2xl border border-line bg-surface p-3">
+      {light && can('water.log') && <details className="mb-4 rounded-2xl border border-line bg-surface p-3">
         <summary className="min-h-tap cursor-pointer font-medium">{t.lightDay.voluntary}</summary>
         <div className="flex flex-wrap gap-2">
-          {can('food.log') && <button type="button" onClick={() => navigate('/meal/new')} className="min-h-tap px-3 text-accent underline">{t.day.recordFood}</button>}
           {can('water.log') && <button type="button" onClick={() => setSimple({ kind: 'water' })} className="min-h-tap px-3 text-accent underline">{t.addKinds.water}</button>}
         </div>
         {(entries ?? []).filter((e) => entryVisible(e, context) && e.status !== 'planned' && ['meal', 'water', 'workout'].includes(e.kind)).map((e) =>
@@ -247,11 +253,12 @@ export function Day() {
         {presentation && (presentation.focus.now || presentation.focus.missed.length > 0) && <h2 className="mb-2 text-lg font-semibold">{t.todayView.attention}</h2>}
         {entries && <NowCard compact entries={entries} plan={plan} date={date} observation={observation} onConfirm={setConfirming} onReschedule={setRescheduling} />}
       </div>
-      <nav ref={tilesRef} aria-label="Швидкі дії" className="mb-4 grid grid-cols-3 gap-2">
-        {can('food.log') && !light && <button type="button" onClick={() => navigate('/meal/new')} className="flex min-h-tap flex-col items-center justify-center gap-1 rounded-xl border border-line bg-surface p-2 text-center text-xs font-medium"><UtensilsCrossed size={20} className="text-accent" aria-hidden />{t.day.recordFood}</button>}
+      <nav ref={tilesRef} aria-label="Швидкі дії" className="mb-4 grid grid-cols-2 gap-2">
         {can('water.log') && !light && <button type="button" onClick={() => { const e = waterRow(); void saved(db.entries.add(e), '+250 мл', () => db.entries.delete(e.id)); }} className="flex min-h-tap flex-col items-center justify-center gap-1 rounded-xl border border-line bg-surface p-2 text-center text-xs font-medium"><Droplet size={20} className="text-accent" aria-hidden />+250 мл</button>}
         <button type="button" onClick={() => setSymptom({})} className="flex min-h-tap flex-col items-center justify-center gap-1 rounded-xl border border-line bg-surface p-2 text-center text-xs font-medium"><Frown size={20} className="text-warn" aria-hidden />{t.addKinds.symptom}</button>
       </nav>
+      {can('food.log') && date <= today && entries && all && foods && recipes && <MealTiles date={date} day={entries} all={all} foods={foods} recipes={recipes} plan={plan}
+        quiet={light || !scoredDay(observation, 'food', date)} open={openSlot} onOpen={setOpenSlot} onConfirm={setConfirming} />}
       {rhythm && <DayRhythm date={date} pendingOnly title={isToday ? t.day.upcoming : t.day.rhythm} rhythm={rhythm} foods={foods} {...(can('menu.yesterday') && can('food.log') ? { onYesterday: () => setYesterday(true) } : {})} addLabel={enabled ? t.modules.addOther : undefined} onEntry={(e) => (e.kind === 'meal' && e.status === 'planned' && e.items?.length ? setConfirming(e) : setRowFor(e))} onDose={setAskMed} onAdd={() => setAdding(true)}
         onAnytime={(i) => (i.kind === 'workout' ? navigate('/workout') : setAskMed(i))} />}
       {totals && <details className="protocol-card mb-4 p-0" open>
@@ -397,7 +404,7 @@ export function Day() {
         return (
           <Sheet title={t.day.yesterdayTitle} onClose={() => setYesterday(false)}>
             {meals.length === 0 && <p className="mb-2 text-muted">{t.day.yesterdayEmpty}</p>}
-            {meals.length === 0 && <SheetButton tone="accent" onClick={() => navigate('/meal/new')}><UtensilsCrossed size={20} />{t.day.firstMeal}</SheetButton>}
+            {meals.length === 0 && <SheetButton tone="accent" onClick={() => { setYesterday(false); setOpenSlot(slotAt(new Date())); }}><UtensilsCrossed size={20} />{t.day.firstMeal}</SheetButton>}
             {meals.map((e) => (
               <SheetButton key={e.id} onClick={() => void copyMeal(e).then(() => setYesterday(false))}>
                 <UtensilsCrossed size={20} className="shrink-0" />

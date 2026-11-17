@@ -60,7 +60,7 @@ test('a list: the repeat merged, «вже є», one made here, a name alone a dr
   await expect(page.getByText('Потрібен склад — без нього страви немає в пошуку їжі')).toBeVisible();
   expect(asked).toHaveLength(1);
   // drafts are not in the meal search
-  await page.goto('./#/meal/new');
+  await page.goto('./#/meal/new?slot=1');
   await page.getByRole('searchbox').fill('Пиріг бабусин');
   await expect(page.getByText('«Пиріг бабусин» — не знайдено — додайте вручну')).toBeVisible();
 });

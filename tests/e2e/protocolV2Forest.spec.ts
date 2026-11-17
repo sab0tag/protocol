@@ -10,7 +10,7 @@ test('Today stays available offline; primary action and honest meters remain usa
     { store: 'entries', value: { id: 'forest-water', at: `${ymd(new Date())}T09:00:00${kyivOffset()}`, kind: 'water', status: 'done', title: t.addKinds.water, waterMl: 3000 } },
     { store: 'entries', value: { id: 'forest-food', at: `${ymd(new Date())}T09:10:00${kyivOffset()}`, kind: 'meal', status: 'done', title: 'Тестовий запис', items: [{ name: 'Власний продукт', grams: 100, manual: { kcal: 900, protein: 0, fat: 0, carbs: 230, calciumMg: 0 } }] } },
   ]);
-  const action = page.getByRole('button', { name: t.day.recordFood, exact: true });
+  const action = page.getByRole('region', { name: t.tiles.title, exact: true });
   await expect(action).toBeVisible();
   const summary = page.getByRole('region', { name: t.summary.title });
   const water = summary.getByRole('progressbar', { name: t.summary.water });
@@ -99,7 +99,7 @@ test('all routed screens fit the four target widths in light and dark themes', a
   test.setTimeout(300_000);
   const page = await device(browser);
   // Action deep links such as /do/water write data on mount; quick.spec covers them separately.
-  const routes = ['', 'meal/new', 'meal/visual-matrix-meal', 'plan', 'plan/prescriptions', 'plan/constraints', 'plan/goals', 'plan/checkup',
+  const routes = ['', 'meal/new?slot=1', 'meal/visual-matrix-meal', 'plan', 'plan/prescriptions', 'plan/constraints', 'plan/goals', 'plan/checkup',
     'plan/scan', 'plan/history', 'welcome', 'progress', 'progress/motivation', 'progress/insights', 'progress/labs', 'report', 'more',
     'more/food', 'more/health', 'more/settings', 'more/app', 'profiles', 'wellbeing', 'wellbeing/journal', 'my-day', 'week', 'assistant',
     'reminders', 'sync', 'dishes', 'shopping', 'workout', 'exercises', 'menu', 'foods', 'data', 'quick', 'about',

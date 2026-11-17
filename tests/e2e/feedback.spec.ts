@@ -59,7 +59,7 @@ test('«Самопочуття» says which part saves when: scores at once, the
 
 test('a patient’s phrase: «чай з цукром, 2 куски хліба» — both found as said; an empty meal shows no zeros (D77, D78)', async ({ browser }) => {
   const page = await device(browser);
-  await page.goto('./#/meal/new');
+  await page.goto('./#/meal/new?slot=1');
   await expect(page.getByText('Цей прийом')).toHaveCount(0);
   await page.getByPlaceholder('Напр.: 2 яйця, кава').fill('чай з цукром, 2 куски хліба');
   const found = page.locator('section, div').filter({ hasText: /^Розпізнано/ }).first();
@@ -105,7 +105,7 @@ test('floating medicine and water actions stay hidden while the quick tiles are 
 
 test('a word alone: the list line says what a tap adds; a cooked food has no «Як приготовано» (D88)', async ({ browser }) => {
   const page = await device(browser, 'skip');
-  await page.goto('./#/meal/new');
+  await page.goto('./#/meal/new?slot=1');
   await page.getByPlaceholder('Напр.: 2 яйця, кава').fill('гречка');
   const first = page.locator('ul button[data-item]').first();
   await expect(first).toContainText('Гречка варена');

@@ -1,7 +1,6 @@
 import { foodPlanStatus } from '../domain/foodPlanStatus';
 import { SceneHeader } from '../components/SceneHeader';
 import { ExampleNotice } from '../components/ExampleNotice';
-import { RecentMeals } from '../components/RecentMeals';
 import { MedFoodPanel } from '../components/MedFoodPanel';
 import { DangerCard } from '../components/DangerCard';
 import { crisisInText, dangerInText } from '../domain/symptoms';
@@ -11,15 +10,14 @@ import { whyFlagged } from '../domain/concierge';
 import { conciergeOutcome } from '../sync/api';
 import { format } from 'date-fns';
 import { AllergenNote } from '../components/AllergenPicker';
-import { FavoritesList, pinMeal } from '../components/Favorites';
+import { pinMeal } from '../components/Favorites';
 import { allergyHits, itemAllergens, planAllergies } from '../domain/allergens';
 import { LabelScan } from '../components/LabelScan';
 import { Loading } from '../components/Recovery';
 import { saved } from '../components/Toast';
-import { useLiveQuery } from 'dexie-react-hooks';
-import { Camera, Check, ChevronDown, Mic, Plus, ScanText, Search, Star, Trash2, Type } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Camera, Check, ChevronDown, Mic, Plus, ScanText, Search, Star, Trash2 } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { db } from '../data/db';
 import { useAllEntries, useDayEntries, useFoods, usePlan, useRecentEntries, useRecipes } from '../data/queries';
 import { frequentItems } from '../domain/habits';
@@ -28,15 +26,15 @@ import { dishItem, foodFromLine, recipeFrom, setPortions, withComponents } from 
 import { atLocal, dateOf, newId, timeOf, todayISO } from '../domain/dates';
 import { dayTotals, effectiveTargets, lineNutrients, mealNutrients, round } from '../domain/nutrition';
 import { hasSwaps, mealVerdict, type ItemCheck } from '../domain/rules';
-import { amountText, needsGrams, approxG, measureWord, readMeal, type Recognized } from '../domain/foodSearch';
-import { fromPhoto } from '../domain/photo';
-import { ApiError, photo as recognizePhoto } from '../sync/api';
+import { approxG, measureWord, readMeal } from '../domain/foodSearch';
+import { RecognizedPanel } from '../components/RecognizedPanel';
+import { PhotoStatus, usePlatePhoto } from '../components/PlatePhoto';
+import { slotTime, type Slot } from '../domain/mealSlots';
 import { count, countOnce } from '../data/tally';
 import { keep, kept } from '../data/kept';
 import { dietCoverage } from '../domain/diets';
 import { evaluate, safeSwaps } from '../domain/evaluate';
 import { currentKeys } from '../sync/runner';
-import { shrink } from '../sync/shrink';
 import type { Cooking, DayEntry, Food, MealItem, Nutrients, Plan } from '../domain/types';
 import { t } from '../i18n/uk';
 import { CrisisCard } from '../components/CrisisCard';
@@ -50,14 +48,15 @@ function defaultMealName(time: string): string {
   return h < 11 ? t.meal.names[0] : h < 16 ? t.meal.names[1] : t.meal.names[2];
 }
 
-/** Add or edit a meal: food base search with grams and cooking, or a free line with hand-entered nutrients.
- *  The dish check against the doctor's plan arrives in M2 — here the meal is written as is. */
+/** The full meal form: editing a record (/meal/:id), or every way in for one meal tile (/meal/new?slot=N — D159: the label,
+ *  a free line, composition). Which meal and when are the tile's — nothing here asks them for a new meal. */
 const DRAFT = 'meal:new';
 interface MealDraft { date: string; time: string; title: string; eaten: boolean; items: MealItem[] }
 
 export function AddMeal() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const slot = Number(useSearchParams()[0].get('slot') ?? 0) as Slot;
   const uiDate = useUi((s) => s.date);
   const foods = useFoods();
   const recipes = useRecipes();
@@ -71,8 +70,8 @@ export function AddMeal() {
   const [draft] = useState(() => (id === undefined ? kept<MealDraft>(DRAFT) : undefined));
   const [date, setDate] = useState(draft?.date ?? uiDate);
   const [time, setTime] = useState(draft?.time ?? (uiDate === todayISO() ? format(new Date(), 'HH:mm') : '13:00'));
-  const [title, setTitle] = useState(() => draft?.title ?? defaultMealName(time));
-  const [eaten, setEaten] = useState(draft?.eaten ?? uiDate <= todayISO());
+  const [title, setTitle] = useState(() => draft?.title ?? (id === undefined ? t.meal.names[slot] ?? defaultMealName(time) : defaultMealName(time)));
+  const [eaten, setEaten] = useState(draft?.eaten ?? true); // D159: a new meal is eaten; planning ahead is the menu's
   const [items, setItems] = useState<MealItem[]>(draft?.items ?? []);
   useEffect(() => { if (id === undefined) keep<MealDraft>(DRAFT, items.length ? { date, time, title, eaten, items } : undefined); }, [id, date, time, title, eaten, items]);
   const suggested = useRef<Suggested[]>([]); // D91: what the concierge offered and was tapped — its outcome is told on save
@@ -80,7 +79,6 @@ export function AddMeal() {
   const concierge = (s: Suggested) => { setItems((xs) => [...xs, s.item]); suggested.current.push(s); };
   const [query, setQuery] = useState('');
   const searchInput = useRef<HTMLInputElement>(null);
-  const [readyOpen, setReadyOpen] = useState(false);
   const [labelOpen, setLabelOpen] = useState(false);
   const [free, setFree] = useState(false);
   const [metaOpen, setMetaOpen] = useState(false);
@@ -107,34 +105,10 @@ export function AddMeal() {
   const crisis = crisisInText(query); // D130
   const danger = crisis || dangerInText(query);
   const list = read?.list ?? [];
-  const [photo, setPhoto] = useState<PhotoState>({ state: 'none' });
+  const { photo, setPhoto, pick: pickPhoto, allow: allowPhoto, fileInput } = usePlatePhoto({ foods, recipes, usual });
   const viaPhoto = useRef<DayEntry['via']>(undefined); // D119: lines from a photo of the plate went into this meal
-  const photoInput = useRef<HTMLInputElement>(null);
-  const syncMeta = useLiveQuery(async () => (await db.meta.get('sync')) ?? null, []);
 
   if (!loaded || !foods) return <Loading />;
-
-  // D32: a photo of the plate → a «Розпізнано» draft to confirm
-  const pickPhoto = () => {
-    if (!syncMeta || !currentKeys()) return setPhoto({ state: 'nosync' });
-    if (!syncMeta.photoConsent) return setPhoto({ state: 'consent' });
-    photoInput.current?.click();
-  };
-  const onPhoto = async (file: File | undefined) => {
-    if (photoInput.current) photoInput.current.value = '';
-    const keys = currentKeys();
-    if (!file || !keys) return;
-    setPhoto({ state: 'busy' });
-    try {
-      const image = await shrink(file);
-      const all = [...foods.values()];
-      const result = await recognizePhoto(keys, image, all.map((f) => f.name), (recipes ?? []).map((r) => r.name));
-      setPhoto({ state: 'done', rows: fromPhoto(result, all, recipes ?? [], dishItem, usual), note: result.note ?? undefined });
-    } catch (e) {
-      const code = e instanceof ApiError ? (e.status === 0 ? 'offline' : e.code) : 'other';
-      setPhoto({ state: 'error', message: (t.meal.photoErrors as Record<string, string>)[code] ?? t.meal.photoErrors.other });
-    }
-  };
 
   const meal = mealNutrients(items, foods);
   const before = others ? dayTotals(others, foods) : undefined;
@@ -158,7 +132,7 @@ export function AddMeal() {
     if (what.length === 0) return;
     const entry: DayEntry = { ...(prior.current?.scheduleChanges?.length ? {
       scheduleChanges: prior.current.scheduleChanges, ...(prior.current.menu ? { menu: prior.current.menu } : {}), ...(prior.current.demo ? { demo: true as const } : {}),
-    } : {}), id: id ?? newId(), at: atLocal(date, time), kind: 'meal', status: eaten ? 'done' : 'planned',
+    } : {}), id: id ?? newId(), at: atLocal(date, id === undefined && !draft ? slotTime({ slot, date, now: new Date(), entries: all ?? [] }) : time), kind: 'meal', status: eaten ? 'done' : 'planned',
       title: title.trim() || defaultMealName(time), items: what, ...(viaPhoto.current ? { via: viaPhoto.current } : {}) };
     if (!await saved(db.entries.put(entry).then(() => true), (entry.status === 'done' ? t.toast.meal : t.toast.planned)(entry.title))) return;
     const keys = currentKeys(); // D91: accepted as offered, the grams corrected, or taken out again
@@ -178,24 +152,7 @@ export function AddMeal() {
       <SceneHeader title={id ? t.meal.editTitle : t.meal.title} description={id ? t.meal.editHint : t.meal.entryHint} />
       <ExampleNotice plan={plan} />
       <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); void save(); }}>
-        <div role="group" aria-label={t.meal.name} className="protocol-card flex flex-wrap gap-2 p-3">
-          {t.meal.names.map((n) => (
-            <button key={n} type="button" onClick={() => setTitle(n)} aria-pressed={title === n}
-              className={`min-h-tap rounded-full border px-3 text-sm font-medium ${title === n ? 'border-accent bg-accent/10 text-accent' : 'border-line text-muted'}`}>{n}</button>
-          ))}
-        </div>
-
         <section aria-label={t.meal.addFood} className="protocol-card p-4 sm:p-5">
-          <div role="group" aria-label={t.meal.entryModes} className="mb-3 grid grid-cols-3 gap-2">
-            <button type="button" onClick={() => { setReadyOpen(false); searchInput.current?.focus(); }} className="protocol-action-secondary min-h-[4.5rem] flex-col px-2 text-sm"><Type size={20} aria-hidden />{t.meal.entryWrite}</button>
-            <button type="button" onClick={pickPhoto} disabled={photo.state === 'busy'} className="protocol-action-secondary min-h-[4.5rem] flex-col px-2 text-sm disabled:opacity-40"><Camera size={20} aria-hidden />{t.meal.photo}</button>
-            <button type="button" aria-expanded={readyOpen} onClick={() => setReadyOpen(v => !v)} className="protocol-action-secondary min-h-[4.5rem] flex-col px-2 text-sm"><Star size={20} aria-hidden />{t.meal.entryReady}</button>
-          </div>
-          {readyOpen && <section aria-label={t.meal.entryReady} className="mb-3 space-y-2">
-            <p className="text-sm text-muted">{t.meal.readyHint}</p>
-            <div className="grid gap-2 sm:grid-cols-2">{(recipes ?? []).filter(r => !r.needsMake && r.items.length).slice(0, 6).map(r => <button type="button" key={r.id} className="protocol-action-secondary justify-start text-left" onClick={() => { setItems(xs => [...xs, dishItem(r)]); setReadyOpen(false); }}>{r.name}</button>)}</div>
-            <Link to="/dishes" className="inline-flex min-h-tap items-center text-sm text-accent underline">{t.meal.allDishes}</Link>
-          </section>}
           <details className="mb-3 rounded-xl border border-line px-3">
             <summary className="min-h-tap cursor-pointer py-3 text-sm text-muted">{t.meal.moreEntryMethods}</summary>
             <div className="flex flex-wrap gap-2 pb-3">
@@ -210,27 +167,18 @@ export function AddMeal() {
               <input ref={searchInput} id="meal-search" type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t.meal.searchHint}
                 className={`${field} min-w-0 pl-10`} autoComplete="off" />
             </div>
-            <input ref={photoInput} type="file" accept="image/*" className="hidden" onChange={(e) => void onPhoto(e.target.files?.[0])} />
+            <button type="button" onClick={pickPhoto} disabled={photo.state === 'busy'} aria-label={t.meal.photo}
+              className="flex min-h-tap min-w-tap shrink-0 items-center justify-center rounded-xl border border-line text-accent disabled:opacity-40"><Camera size={20} aria-hidden /></button>
+            {fileInput}
           </div>
-          {photo.state === 'consent' && (
-            <div className="mt-2 space-y-2 rounded-xl border border-accent/40 p-2 text-sm">
-              <p>{t.meal.photoConsent}</p>
-              <button type="button" onClick={() => { void db.meta.update('sync', { photoConsent: true }); setPhoto({ state: 'none' }); photoInput.current?.click(); }}
-                className="min-h-tap rounded-xl bg-accent px-3 font-medium text-surface">{t.meal.photoAllow}</button>
-            </div>
-          )}
-          {photo.state === 'nosync' && <p className="mt-2 text-sm text-muted">{t.meal.photoNeedsSync}</p>}
+          <PhotoStatus photo={photo} allow={allowPhoto} />
           {!query && <p className="mt-1 flex items-start gap-1 text-xs text-muted"><Mic size={14} className="mt-0.5 shrink-0" aria-hidden />{t.meal.dictate}</p>}
           {danger && (crisis ? <CrisisCard className="mt-2" /> : <DangerCard className="mt-2" />) /* D97: one card for a danger sign, nothing else about those words */}
           {!danger && phrase && <RecognizedPanel key={query} title={t.meal.recognized} rows={phrase}
             onAdd={(picked, missing) => { setItems((xs) => [...xs, ...picked]); setQuery(''); for (const m of missing) void countOnce('nf', m); }}
             notFound={(text) => recipes && <ConciergeNotFound text={text} plan={plan} foods={foods} recipes={recipes} date={date} onAdd={concierge} />} />}
-          {photo.state === 'busy' && <p role="status" className="mt-2 text-sm text-muted">{t.meal.photoBusy}</p>}
-          {photo.state === 'error' && <p role="alert" className="mt-2 text-sm text-warn">{photo.message}</p>}
-          {photo.state === 'done' && (photo.rows.length > 0
-            ? <RecognizedPanel title={t.meal.photoTitle} rows={photo.rows} note={photo.note}
-                onAdd={(picked, missing) => { setItems((xs) => [...xs, ...picked]); setPhoto({ state: 'none' }); if (picked.length) viaPhoto.current = 'photo'; for (const m of missing) void countOnce('nf', m); }} />
-            : <p role="status" className="mt-2 text-sm text-muted">{photo.note ?? t.meal.photoEmpty}</p>)}
+          {photo.state === 'done' && photo.rows.length > 0 && <RecognizedPanel title={t.meal.photoTitle} rows={photo.rows} note={photo.note}
+                onAdd={(picked, missing) => { setItems((xs) => [...xs, ...picked]); setPhoto({ state: 'none' }); if (picked.length) viaPhoto.current = 'photo'; for (const m of missing) void countOnce('nf', m); }} />}
           {!danger && !phrase && list.length > 0 && (
             <ul className="mt-2 divide-y divide-line rounded-xl border border-line">
               {list.map(({ item: dish, recipe: r, food: f }) => r ? (() => {
@@ -263,24 +211,6 @@ export function AddMeal() {
               {/* D110: a dish of one's own — described, it is broken into ingredients */}
               <Link to={`/dishes?describe=${encodeURIComponent(query.trim())}`} className="mt-1 inline-flex min-h-tap items-center text-sm text-accent underline">{t.dishes.breakdown.fromMeal}</Link></>
           )}
-          {!id && !query && !free && photo.state === 'none' && items.length === 0 && all && <RecentMeals entries={all} date={date} initialTitle={title}
-            onAdd={(xs, mealTitle, targetDate) => { setItems((ys) => [...ys, ...xs]); setTitle(mealTitle); setDate(targetDate); setEaten(targetDate <= todayISO()); }} />}
-          {!query && <FavoritesList limit={3} onAdd={(xs) => setItems((ys) => [...ys, ...xs])} />}
-          {!query && all && (() => {
-            const freq = frequentItems(all, todayISO()).filter((f) => !items.some((it) => it.name === f.item.name));
-            return freq.length > 0 && (
-              <details className="mt-3 border-t border-line pt-2">
-                <summary className="min-h-tap cursor-pointer py-2 text-sm font-medium text-muted">{t.meal.frequent}</summary>
-                <div className="flex flex-wrap gap-2">
-                  {freq.map((f) => (
-                    <button key={f.item.name} type="button" onClick={() => setItems((xs) => [...xs, f.item])}
-                      className="min-h-tap rounded-full border border-line px-3 text-sm">
-                      {f.item.name} <span className="text-muted">· {amountText(f.item)}</span></button>
-                  ))}
-                </div>
-              </details>
-            );
-          })()}
           <button type="button" onClick={() => setFree((v) => !v)} aria-expanded={free} className="mt-2 min-h-tap text-accent underline">{t.meal.free}</button>
           {free && <FreeItemForm onAdd={(it) => { setItems((xs) => [...xs, it]); setFree(false); }} />}
           {labelOpen && <LabelScan onAdd={(it) => setItems((xs) => [...xs, it])} />}
@@ -402,32 +332,25 @@ export function AddMeal() {
           )}
         </div>}
 
-        {/* D51: the food comes first; name, time and «з'їдено» are one line to check before saving */}
-        <div className="protocol-card overflow-hidden">
+        {/* D51, D159: an existing record keeps its name and time to correct; a new one takes them from its tile */}
+        {id !== undefined && <div className="protocol-card overflow-hidden">
           <button type="button" onClick={() => setMetaOpen((v) => !v)} aria-expanded={metaOpen} aria-label={t.meal.mealLine}
             className="flex min-h-tap w-full items-center gap-2 px-3 py-2 text-left">
             <span className="flex-1"><span className="font-medium">{title.trim() || defaultMealName(time)}</span>
-              <span className="tabular text-muted"> · {time} · {eaten ? t.meal.eatenShort : t.meal.plannedShort}</span></span>
+              <span className="tabular text-muted"> · {time}{eaten ? '' : ` · ${t.meal.plannedShort}`}</span></span>
             <ChevronDown size={18} className={`shrink-0 text-muted transition-transform ${metaOpen ? 'rotate-180' : ''}`} aria-hidden />
           </button>
           {metaOpen && (
             <div className="border-t border-line p-3">
-
-
-              <label className="mb-2 block"><span className="text-sm text-muted">Дата прийому</span><input type="date" value={date} onChange={(e) => { setDate(e.target.value); setEaten(e.target.value <= todayISO()); }} required className={field} /></label>
               <div className="grid grid-cols-2 gap-3">
                 <label className="block"><span className="text-sm text-muted">{t.meal.name}</span>
                   <input value={title} onChange={(e) => setTitle(e.target.value)} className={field} /></label>
                 <label className="block"><span className="text-sm text-muted">{t.meal.time}</span>
                   <input type="time" value={time} onChange={(e) => setTime(e.target.value)} required className={field} /></label>
               </div>
-              <label className="protocol-toggle-row mt-2 min-h-tap">
-                <input type="checkbox" checked={eaten} onChange={(e) => setEaten(e.target.checked)} className="protocol-switch" />
-                <span>{t.meal.eaten}</span>
-              </label>
             </div>
           )}
-        </div>
+        </div>}
 
         <div data-testid="meal-save-actions" className={`${items.length ? 'sticky bottom-[calc(4.75rem+env(safe-area-inset-bottom))] md:bottom-4' : ''} z-10 protocol-card rounded-2xl border border-line bg-surface p-3 shadow-lg`}>
           <p aria-live="polite" aria-atomic="true" className="mb-2 text-sm text-muted">{items.length ? t.meal.selectedCount(items.length) : t.meal.chooseFirst}</p>
@@ -450,50 +373,6 @@ export function AddMeal() {
   );
 }
 
-type PhotoState = { state: 'none' | 'busy' | 'consent' | 'nosync' } | { state: 'error'; message: string }
-  | { state: 'done'; rows: Recognized[]; note?: string };
-
-/** Lines recognized from a dictated phrase (D30) or a photo (D32), each with a tick; nothing is added until «Додати». */
-function RecognizedPanel({ title, rows: given, note, onAdd, notFound }: {
-  title: string; rows: Recognized[]; note?: string; onAdd: (items: MealItem[], missing: string[]) => void; notFound?: (text: string) => ReactNode;
-}) {
-  const [skip, setSkip] = useState<Set<number>>(new Set());
-  const [chosen, setChosen] = useState<Record<number, MealItem>>({}); // D81: another kind picked in one tap
-  const rows = given.map((r, k) => (chosen[k] ? { ...r, item: chosen[k], others: [r.item!, ...(r.others ?? [])].filter((o) => o.foodId !== chosen[k]!.foodId) } : r));
-  const picked = rows.filter((r, k) => r.item && !skip.has(k)).map((r) => r.item!);
-  return (
-    <div className="mt-2 rounded-xl border border-accent/40 p-2">
-      <p className="mb-1 text-sm font-medium">{title}</p>
-      {note && <p className="mb-1 text-sm text-muted">{note}</p>}
-      <ul className="space-y-1">
-        {rows.map((r, k) => (
-          <li key={k}>
-            {r.item ? (
-              <label data-item={r.item.name} className="flex min-h-tap items-center gap-3">
-                <input type="checkbox" checked={!skip.has(k)} className="h-5 w-5 shrink-0"
-                  onChange={(e) => setSkip((s) => { const n = new Set(s); if (e.target.checked) n.delete(k); else n.add(k); return n; })} />
-                <span className="flex-1">{r.item.name} <span className="text-muted">· {amountText(r.item)}{needsGrams(r.item) ? ` ≈ ${approxG(r.item.grams)} г` : ''}</span>
-                  {(r.unsure || r.estimate) && <span className="block text-xs text-warn">{[r.unsure && t.meal.photoUnsure, r.estimate && t.meal.photoEstimate].filter(Boolean).join(' · ')}</span>}
-                </span>
-              </label>
-            ) : <div className="py-2"><p className="text-sm text-muted">«{r.text}» — {t.meal.notFound}</p>{notFound?.(r.text)}</div>}
-            {r.item && r.others && r.others.length > 0 && (
-              <p className="flex flex-wrap items-center gap-1 pb-1 pl-8 text-sm"><span className="text-muted">{t.meal.orOther}</span>
-                {r.others.map((o) => (
-                  <button key={o.foodId ?? o.name} type="button" onClick={() => setChosen((c) => ({ ...c, [k]: o }))}
-                    className="min-h-[2.25rem] rounded-full border border-line px-2">{o.name}</button>
-                ))}</p>
-            )}
-          </li>
-        ))}
-      </ul>
-      {picked.length > 0 && (
-        <button type="button" onClick={() => onAdd(picked, rows.filter((r) => !r.item).map((r) => r.text))}
-          className="mt-1 min-h-tap w-full rounded-xl bg-accent px-3 font-medium text-surface">{t.meal.addRecognized(picked.length)}</button>
-      )}
-    </div>
-  );
-}
 
 function FreeItemForm({ onAdd }: { onAdd: (item: MealItem) => void }) {
   const [save, setSave] = useState(true);

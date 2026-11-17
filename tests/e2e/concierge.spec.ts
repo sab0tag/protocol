@@ -7,7 +7,7 @@ test('scenario 1 (model stubbed): only names of the base, nothing written withou
   const sent: { body: Record<string, unknown> }[] = [], outcomes: Record<string, unknown>[] = [];
   await page.route('**/concierge/not-found', async (r) => { sent.push({ body: r.request().postDataJSON() }); await r.fulfill({ json: { candidates: ['Вареники з картоплею', 'Млинці'], id: 'c-2026-10-18-abc123' } }); });
   await page.route('**/concierge/outcome', async (r) => { outcomes.push(r.request().postDataJSON()); await r.fulfill({ json: { ok: true } }); });
-  await page.goto('./#/meal/new');
+  await page.goto('./#/meal/new?slot=1');
   await page.getByPlaceholder('Напр.: 2 яйця, кава').fill('бабусин пиріжок');
   await expect(page.getByText('«бабусин пиріжок» — не знайдено — додайте вручну')).toBeVisible();
   await page.getByRole('button', { name: 'Запитати ІІ, на що схоже' }).click();
@@ -34,7 +34,7 @@ test('a danger sign in the words — the 103 card, no model; «Чому?» answe
   const page = await device(browser, 'example', { sw: false }); // the example plan: lactose, glycemia, oxalates
   let asked = false;
   await page.route('**/concierge/**', async (r) => { asked = true; await r.abort(); });
-  await page.goto('./#/meal/new');
+  await page.goto('./#/meal/new?slot=1');
   await page.getByPlaceholder('Напр.: 2 яйця, кава').fill('після горіхів набряк губ');
   await expect(page.getByRole('link', { name: 'Подзвонити 103' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Запитати ІІ, на що схоже' })).toHaveCount(0);
