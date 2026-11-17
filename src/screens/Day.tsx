@@ -1,5 +1,6 @@
 import { differenceInMinutes, format } from 'date-fns';
-import { EntryPreview } from '../components/EntryPreview';
+import { ActionDetail, applyEntryChange } from '../components/ActionDetail';
+import { withStatus } from '../data/entryActions';
 import { RescheduleMeal } from '../components/RescheduleMeal';
 import { pinMeal } from '../components/Favorites';
 import { markMeds, SkipChoice, TimeChoice } from '../components/MarkTime';
@@ -151,19 +152,13 @@ export function Day() {
     context, now: new Date(), observation, light, lastMealBy: targets.lastMealBy }) : undefined;
   const checklist = presentation?.checklist;
 
+  /** UI-ACTION-01: an outcome is written against the record the person saw (a stale sheet writes nothing). */
   const setStatus = async (e: DayEntry, status: DayEntry['status'], skipReason?: string) => {
     setRowFor(null);
     const say = status === 'done' ? t.toast.done : status === 'skipped' ? t.toast.skipped : t.toast.backToPlan;
-    const next = { ...e, status };
-    delete next.adherence;
-    delete next.skipReason;
-    if (status === 'skipped' && skipReason?.trim()) next.skipReason = skipReason.trim();
-    if (e.adherence === 'uncertain') {
-      delete next.markedAt;
-      delete next.timeUnknown;
-    }
-    await saved(db.entries.put(next), say(e.title), () => db.entries.put(e));
+    await applyEntryChange(e, (current) => withStatus(current, status, skipReason), say(e.title));
   };
+  const remove = (e: DayEntry) => applyEntryChange(e, () => null, t.toast.deleted(e.title));
   const waterRow = (): DayEntry => ({ id: newId(), at: atLocal(date, isToday ? format(new Date(), 'HH:mm') : '12:00'), kind: 'water', status: 'done',
     title: t.addKinds.water, waterMl: 250 });
   const meds = checklist?.items.filter((i) => i.kind === 'med') ?? [];
@@ -359,29 +354,28 @@ export function Day() {
           yesterday={all.filter((e) => dateOf(e.at) === prevDay)} onClose={() => setVoice(false)}
           meds={c.items.filter((i) => i.kind === 'med').map((i) => ({ key: i.key, title: i.title, ...(i.prescriptionId ? { prescriptionId: i.prescriptionId } : {}) }))} />); })()}
       {rowFor && entryVisible(rowFor, context) && (
-        <Sheet title={rowFor.title} onClose={() => setRowFor(null)}>
-          <EntryPreview entry={rowFor} foods={foods} {...(all ? { all } : {})} />
-          {rowFor.kind === 'med' && rowFor.adherence === 'uncertain'
+        <ActionDetail entry={rowFor} {...(foods ? { foods } : {})} {...(all ? { all } : {})} onClose={() => setRowFor(null)}>{(row) => <>
+          {row.kind === 'med' && row.adherence === 'uncertain'
             ? <SheetButton tone="accent" onClick={() => {
-              const item = checklist?.items.find((x) => x.kind === 'med' && x.key === rowFor.checkKey);
+              const item = checklist?.items.find((x) => x.kind === 'med' && x.key === row.checkKey);
               if (!item) return;
               setRowFor(null);
               setAskMed(item);
             }}><Check size={20} />{t.rowActions.resolveUncertain}</SheetButton>
-            : rowFor.kind !== 'symptom' && rowFor.status !== 'done' && <SheetButton tone="accent" onClick={() => setStatus(rowFor, 'done')}><Check size={20} />{t.rowActions.done}</SheetButton>}
-          {rowFor.kind !== 'symptom' && rowFor.status !== 'skipped' && <SheetButton onClick={() => {
-            if (rowFor.kind === 'meal' || rowFor.kind === 'med') { setSkippingRow(rowFor); setRowFor(null); }
-            else void setStatus(rowFor, 'skipped');
+            : row.kind !== 'symptom' && row.status !== 'done' && <SheetButton tone="accent" onClick={() => setStatus(row, 'done')}><Check size={20} />{t.rowActions.done}</SheetButton>}
+          {row.kind !== 'symptom' && row.status !== 'skipped' && <SheetButton onClick={() => {
+            if (row.kind === 'meal' || row.kind === 'med') { setSkippingRow(row); setRowFor(null); }
+            else void setStatus(row, 'skipped');
           }}><X size={20} />{t.rowActions.skipped}</SheetButton>}
-          {rowFor.kind !== 'symptom' && (rowFor.status !== 'planned' || rowFor.adherence === 'uncertain') && <SheetButton onClick={() => setStatus(rowFor, 'planned')}><Undo2 size={20} />{t.rowActions.planned}</SheetButton>}
-          {rowFor.kind === 'meal' && rowFor.status === 'planned' && <SheetButton onClick={() => { setRescheduling(rowFor); setRowFor(null); }}>{t.reschedule.action}</SheetButton>}
-          <SheetButton onClick={() => edit(rowFor)}><Pencil size={20} />{t.rowActions.edit}</SheetButton>
-          {rowFor.kind === 'meal' && !!rowFor.items?.length && (
-            <SheetButton onClick={() => { const e = rowFor; setRowFor(null); void pinMeal(e.title, e.items!); }}><Star size={20} />{t.meal.pin}</SheetButton>
+          {row.kind !== 'symptom' && (row.status !== 'planned' || row.adherence === 'uncertain') && <SheetButton onClick={() => setStatus(row, 'planned')}><Undo2 size={20} />{t.rowActions.planned}</SheetButton>}
+          {row.kind === 'meal' && row.status === 'planned' && <SheetButton onClick={() => { setRescheduling(row); setRowFor(null); }}>{t.reschedule.action}</SheetButton>}
+          <SheetButton onClick={() => edit(row)}><Pencil size={20} />{t.rowActions.edit}</SheetButton>
+          {row.kind === 'meal' && !!row.items?.length && (
+            <SheetButton onClick={() => { const e = row; setRowFor(null); void pinMeal(e.title, e.items!); }}><Star size={20} />{t.meal.pin}</SheetButton>
           )}
-          <SheetButton tone="danger" onClick={async () => { const e = rowFor; setRowFor(null); await saved(db.entries.delete(e.id), t.toast.deleted(e.title), () => db.entries.put(e)); }}>
+          <SheetButton tone="danger" onClick={() => { setRowFor(null); void remove(row); }}>
             <Trash2 size={20} />{t.rowActions.delete}</SheetButton>
-        </Sheet>
+        </>}</ActionDetail>
       )}
       {skippingRow && entryVisible(skippingRow, context) && <SkipChoice title={skippingRow.title} onClose={() => setSkippingRow(null)}
         onConfirm={(reason) => { const entry = skippingRow; setSkippingRow(null); void setStatus(entry, 'skipped', reason); }} />}
@@ -389,7 +383,7 @@ export function Day() {
         onReschedule={() => { setRescheduling(confirming); setConfirming(null); }}
         onEdit={() => { const e = confirming; setConfirming(null); edit(e); }}
         onPin={() => { const e = confirming; setConfirming(null); void pinMeal(e.title, e.items!); }}
-        onDelete={() => { const e = confirming; setConfirming(null); void saved(db.entries.delete(e.id), t.toast.deleted(e.title), () => db.entries.put(e)); }} />}
+        onDelete={() => { const e = confirming; setConfirming(null); void remove(e); }} />}
       {rescheduling && can('food.log') && entryVisible(rescheduling, context) && <RescheduleMeal entry={rescheduling} onClose={() => setRescheduling(null)} onMoved={e => setDate(dateOf(e.at))} />}
       {adding && (
         <Sheet title={t.day.addRow} onClose={() => setAdding(false)}>
