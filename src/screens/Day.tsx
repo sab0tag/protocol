@@ -420,6 +420,8 @@ export function Day() {
           date, askMed.time, 'done', when)} />}
       {symptom && all && <SymptomSheet date={date} {...(symptom.entry ? { entry: symptom.entry } : {})} all={all} {...(foods ? { foods } : {})} onClose={() => setSymptom(null)} />}
       {simple && can(ENTRY_FEATURES[simple.kind]) && <SimpleEntrySheet kind={simple.kind} entry={simple.entry} date={date} onClose={() => setSimple(null)} />}
+      {/* ТЗ 17.11, step 3: the one field «Скажіть або напишіть…», pinned above the tabs (protocol-c2's OneInput goes here) */}
+      <div data-slot="one-input" />
     </section>
   );
 }
