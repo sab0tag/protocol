@@ -2,8 +2,6 @@ import { describe, expect, it } from 'vitest';
 import { ALL_MODULES, can, FEATURES, isEntitled, isFeatureId, isFeatureVisible, isModuleId, LEGACY_FEATURE_CONTEXT,
   MODULE_IDS, type FeatureContext, type FeatureDefinition, type FeatureId, type ModuleFlags } from '../../src/domain/features';
 import { MORE_ROUTES, parentPath, QUICK_ACTION_FEATURES, ROUTES, SETTINGS_PATH, SETTINGS_ROUTES, TAB_ROUTES, tabForPath } from '../../src/app/navigation';
-import { readdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
 
 const off: ModuleFlags = { meds: false, water: false, food: false, menu: false, assistant: false, wellbeing: false, workout: false, progress: false };
 const disabled: FeatureContext = { modules: off, tier: 'free' };
@@ -130,9 +128,9 @@ describe('nothing is lost after the simplification (ТЗ 17.11, «Ничего �
     'clinic.portal': '/clinic', onboarding: '/welcome', more: '/more', 'modules.settings': '/modules', 'reminders.settings': '/reminders',
     'quick.links': '/quick', 'quick.action': '/do/water',
   };
-  const source = (dir: string): string => readdirSync(dir, { withFileTypes: true })
-    .map((f) => (f.isDirectory() ? source(join(dir, f.name)) : /\.tsx?$/.test(f.name) && f.name !== 'navigation.ts' ? readFileSync(join(dir, f.name), 'utf8') : '')).join('\n');
-  const code = source(join(__dirname, '../../src'));
+  // the app's sources as text, through Vite (no Node API: the build type-checks tests without @types/node)
+  const files = import.meta.glob<string>(['../../src/**/*.ts', '../../src/**/*.tsx', '!../../src/app/navigation.ts'], { query: '?raw', import: 'default', eager: true });
+  const code = Object.values(files).join('\n');
   const matches = (pattern: string, path: string) => new RegExp(`^${pattern.replace(/:[^/]+/g, '[^/]+')}$`).test(path);
   const listed = new Set<string>(['/more', SETTINGS_PATH, ...TAB_ROUTES.map((id) => ROUTES[id].path), ...[...MORE_ROUTES, ...SETTINGS_ROUTES].map((id) => ROUTES[id].path)]);
 
