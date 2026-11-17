@@ -28,8 +28,10 @@ export function QuickMarks({ date, isToday, light, items, water, entries, wellbe
 }) {
   const { can } = useFeatures();
   const navigate = useNavigate();
-  const [medsSheet, setMedsSheet] = useState<'now' | 'day' | null>(null);
+  // the doses the list opened with stay in it, ticked ones too — a tick never makes a row jump away
+  const [medsSheet, setMedsSheet] = useState<{ mode: 'now' | 'day'; keys: string[] } | null>(null);
   const [moodSheet, setMoodSheet] = useState(false);
+  const [ticked, setTicked] = useState<ReadonlySet<string>>(new Set()); // shown at once, before the record comes back
   const notYet = light ? '' : L.notYet; // D139: a light day keeps the tiles, without «ще ні»
   const hm = () => (isToday ? format(new Date(), 'HH:mm') : '12:00');
 
@@ -37,7 +39,7 @@ export function QuickMarks({ date, isToday, light, items, water, entries, wellbe
   const tapMeds = () => {
     const now = isToday ? dosesNow(items, new Date()) : [];
     if (now.length === 1) { const d = now[0]!; void markMeds([medMark(d)], date, d.time, 'done', { time: hm() }); }
-    else setMedsSheet(now.length > 1 ? 'now' : 'day');
+    else setMedsSheet(now.length > 1 ? { mode: 'now', keys: now.map((d) => d.key) } : { mode: 'day', keys: items.filter((i) => i.kind === 'med').map((d) => d.key) });
   };
   const water$ = glasses(water.ml, water.target);
   const addWater = () => {
@@ -67,15 +69,16 @@ export function QuickMarks({ date, isToday, light, items, water, entries, wellbe
 
   return (
     <>
-      <nav aria-label={L.title} className="mb-3 grid gap-2" style={{ gridTemplateColumns: `repeat(${tiles.length}, minmax(0, 1fr))` }} data-testid="quick-marks">
+      <nav aria-label={L.title} className="-mx-1 mb-3 grid gap-1" style={{ gridTemplateColumns: `repeat(${tiles.length}, minmax(0, 1fr))` }} data-testid="quick-marks">
         {tiles.map((tile) => <MarkTile key={tile.key} tile={tile} onHistory={() => navigate(tile.history)} />)}
       </nav>
-      {medsSheet && <Sheet title={medsSheet === 'now' ? L.medsNow : L.medsDay} onClose={() => setMedsSheet(null)}>
+      {medsSheet && <Sheet title={medsSheet.mode === 'now' ? L.medsNow : L.medsDay} onClose={() => setMedsSheet(null)}>
         <ul className="divide-y divide-line">
-          {(medsSheet === 'now' && isToday ? dosesNow(items, new Date()) : items.filter((i) => i.kind === 'med')).map((d) => {
+          {items.filter((i) => medsSheet.keys.includes(i.key)).map((d) => {
             const open = openDoses([d]).length > 0;
             return <li key={d.key}><label className="flex min-h-tap items-center gap-3 py-2">
-              <input type="checkbox" checked={d.done} disabled={!open} onChange={() => void markMeds([medMark(d)], date, d.time, 'done', { time: hm() })}
+              <input type="checkbox" checked={d.done || ticked.has(d.key)} disabled={!open || ticked.has(d.key)}
+                onChange={() => { setTicked((s) => new Set(s).add(d.key)); void markMeds([medMark(d)], date, d.time, 'done', { time: hm() }); }}
                 className="h-6 w-6 shrink-0 accent-[rgb(var(--accent))]" />
               <span className="min-w-0 flex-1"><span className={`block font-medium ${d.done ? 'line-through' : ''}`}>{d.title}</span>
                 <span className="block text-sm text-muted">{[d.time, d.detail, d.done ? L.doneAt(d.doneAt) : d.skipped ? t.status.skipped : ''].filter(Boolean).join(' · ')}</span></span>
@@ -101,9 +104,9 @@ function MarkTile({ tile, onHistory }: { tile: Tile; onHistory: () => void }) {
       onPointerDown={start} onPointerUp={stop} onPointerLeave={stop} onPointerCancel={stop}
       onContextMenu={(e) => { e.preventDefault(); stop(); onHistory(); }}
       aria-label={`${tile.label}: ${tile.state || L.notYet}`} aria-description={L.hold}
-      className="flex min-h-[4.5rem] min-w-0 flex-col items-center justify-center gap-0.5 rounded-2xl border border-line bg-surface px-1 py-2 text-center">
+      className="flex min-h-[3.75rem] min-w-0 flex-col items-center justify-center gap-0.5 rounded-2xl border border-line bg-surface px-0.5 py-2 text-center">
       <Icon size={20} className="text-accent" aria-hidden />
-      <span className="max-w-full truncate text-sm font-semibold">{tile.label}</span>
+      <span className="max-w-full overflow-hidden whitespace-nowrap text-[13px] font-semibold leading-tight tracking-[-0.035em]">{tile.label}</span>
       <span className="tabular max-w-full truncate text-xs text-muted">{tile.state}</span>
     </button>
   );

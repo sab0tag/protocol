@@ -35,7 +35,7 @@ export function NowCard({ entries, plan, date, observation, onConfirm, onResched
   const focus = dayFocus({ entries: entries.filter((e) => entryVisible(e, context)), plan: plan && !can('meds.log') ? { ...plan, prescriptions: [] } : plan, date, now, observation, snoozed: { ...localSnoozed, ...synced } });
   if (!focus.now && !focus.next && !focus.missed.length) return null;
   return (
-    <div className="mb-3 space-y-3">
+    <div className="mb-2 space-y-2">
       {focus.now && <Due item={focus.now} date={date} onSnoozed={() => setClock(new Date())} onConfirm={onConfirm} onReschedule={onReschedule} />}
       {focus.next && (!compact || !focus.now) && (
         <section aria-label={L.next} className="flex min-h-tap items-center gap-3 protocol-card px-4 py-3">
@@ -76,7 +76,7 @@ function Due({ item, date, onSnoozed, onConfirm, onReschedule }: { item: NowItem
   const act = (f: () => void) => () => { setMenu(false); f(); };
   // ТЗ 17.11, step 3: compact — what to take with the doctor's word in one line, one «Прийнято», the rest behind «⋯»
   return (
-    <section aria-label={L.title} className="protocol-card protocol-now-card border-warn/30 bg-warn-bg/30 px-4 pb-4 pt-2">
+    <section aria-label={L.title} className="protocol-card protocol-now-card border-warn/30 bg-warn-bg/30 px-4 pb-3 pt-1">
       <div className="flex items-center justify-between gap-2">
         <p className="flex min-w-0 items-center gap-2 text-sm">
           <span className={`${label} flex items-center gap-2 text-ink`}><span className="h-2 w-2 rounded-full bg-accent" aria-hidden />{L.title}</span>
@@ -86,7 +86,7 @@ function Due({ item, date, onSnoozed, onConfirm, onReschedule }: { item: NowItem
           onKeyDown={(e) => { if (e.key === 'Escape') setMenu(false); }}
           className="-mr-2 flex min-h-tap min-w-tap items-center justify-center rounded-full text-muted"><MoreHorizontal size={22} aria-hidden /></button>
       </div>
-      <p className="flex items-start gap-2 text-lg font-semibold leading-snug"><Icon size={20} className="mt-1 shrink-0 text-accent" aria-hidden />
+      <p className="flex items-start gap-2 font-semibold leading-snug"><Icon size={18} className="mt-0.5 shrink-0 text-accent" aria-hidden />
         <span className="min-w-0">{titleOf(item)}{detail && <span className="font-normal text-muted"> · <span className="first-letter:uppercase">{detail}</span></span>}</span></p>
       {menu && <div id="now-menu" role="group" aria-label={L.more} className="mt-2 flex flex-wrap gap-2">
         <button type="button" onClick={act(() => void later())} className="min-h-tap rounded-full border-2 border-line bg-surface px-3 text-sm font-semibold">{L.later(SNOOZE_MIN)}</button>
@@ -98,7 +98,7 @@ function Due({ item, date, onSnoozed, onConfirm, onReschedule }: { item: NowItem
       </div>}
       {help && <p className="mt-2 text-sm text-muted">{L.missedHelp}</p>}
       <button type="button" onClick={() => (overdue && !item.entry ? setAskingWhen(true) : item.entry?.items?.length ? onConfirm(item.entry) : void mark(item, date, 'done', nowHm()))}
-        className="mt-3 flex min-h-[3.25rem] w-full items-center justify-center gap-2 rounded-full bg-accent px-4 text-lg font-semibold text-on-accent">
+        className="mt-2 flex min-h-[3.25rem] w-full items-center justify-center gap-2 rounded-full bg-accent px-4 text-lg font-semibold text-on-accent">
         <Check size={22} aria-hidden />{item.entry ? L.eaten : L.taken}</button>
       {askingWhen && <TimeChoice title={titleOf(item)} planned={item.time} date={date} meal={false} allowUncertain onPick={(when) => { if ('uncertain' in when) void markMeds(meds ?? [], date, item.time, 'done', when); else void mark(item, date, 'done', when); setAskingWhen(false); }} onClose={() => setAskingWhen(false)} />}
       {askingSkip && <SkipChoice title={titleOf(item)} onClose={() => setAskingSkip(false)} onConfirm={(reason) => void mark(item, date, 'skipped', { time: item.time }, reason)} />}

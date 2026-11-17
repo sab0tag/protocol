@@ -52,36 +52,33 @@ export function MealTiles(props: MealTilesProps) {
   const [now, setNow] = useState(() => new Date());
   useEffect(() => { const timer = window.setInterval(() => setNow(new Date()), 60_000); return () => clearInterval(timer); }, []);
   const { date, day, all, open } = props;
+  const [asking, setAsking] = useState(false);
   const blocks = mealBlocks(day, date, open === NEW_SNACK ? atLocal(date, slotTime({ slot: 3, date, now, entries: all })) : undefined);
   return (
-    <section aria-labelledby="meal-tiles" className="protocol-card mb-4 p-4 sm:p-5" data-testid="meal-tiles">
-      <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-3">
-        <h2 id="meal-tiles" className="text-xl font-semibold">{L.title}</h2>
+    <section aria-labelledby="meal-tiles" className="protocol-card mb-3 px-4 pb-3 pt-2 sm:p-5" data-testid="meal-tiles">
+      <div className="mb-1 flex flex-wrap items-center gap-x-3">
+        <h2 id="meal-tiles" className="mr-auto text-xl font-semibold">{L.title}</h2>
         {/* ТЗ 17.11, step 2: the day's nutrition left «Ще»; it is reached from the food it sums up */}
         <Link to="/food" className="inline-flex min-h-tap items-center text-sm text-accent underline-offset-4 hover:underline">{t.nutrition.title}</Link>
+        <button type="button" aria-expanded={asking} onClick={() => setAsking((v) => !v)}
+          className="inline-flex min-h-tap items-center gap-1 rounded-full px-2 font-semibold text-accent"><Plus size={18} aria-hidden />{L.addFood}</button>
       </div>
+      {asking && <WhichMeal onPick={(slot) => { setAsking(false); props.onOpen(blockKeyFor(slot)); }} />}
       <ul className="space-y-2">
         {blocks.map((block) => <li key={block.key}><MealTile {...props} block={block} now={now} /></li>)}
       </ul>
-      <AddFood onPick={(slot) => props.onOpen(blockKeyFor(slot))} />
     </section>
   );
 }
 
-/** D161: «Додати їжу» → which meal → its tile opens (a snack — a new one), and the rest is the tile as usual. */
-function AddFood({ onPick }: { onPick: (slot: Slot) => void }) {
-  const [asking, setAsking] = useState(false);
+/** D161: «Додати їжу» → which meal → its tile opens (a snack — a new one), and the rest is the tile as usual. D164: the
+ *  button sits in the block's heading, so the tiles fit the first screen. */
+function WhichMeal({ onPick }: { onPick: (slot: Slot) => void }) {
   return (
-    <div className="mt-3">
-      <button type="button" aria-expanded={asking} onClick={() => setAsking((v) => !v)}
-        className="flex min-h-tap w-full items-center justify-center gap-2 rounded-full border-2 border-dashed border-line px-4 font-semibold text-accent">
-        <Plus size={18} aria-hidden />{L.addFood}
-      </button>
-      {asking && <div role="group" aria-label={L.which} className="mt-2 flex flex-wrap gap-2">
-        <p className="w-full text-sm text-muted">{L.which}</p>
-        {SLOTS.map((slot) => <button key={slot} type="button" onClick={() => { setAsking(false); onPick(slot); }}
-          className="min-h-tap rounded-full border-2 border-line bg-surface px-4 font-semibold">{t.meal.names[slot]}</button>)}
-      </div>}
+    <div role="group" aria-label={L.which} className="mb-2 flex flex-wrap gap-2">
+      <p className="w-full text-sm text-muted">{L.which}</p>
+      {SLOTS.map((slot) => <button key={slot} type="button" onClick={() => onPick(slot)}
+        className="min-h-tap rounded-full border-2 border-line bg-surface px-4 font-semibold">{t.meal.names[slot]}</button>)}
     </div>
   );
 }

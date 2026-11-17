@@ -182,7 +182,7 @@ export function Day() {
 
   if (!observationReady) return <Loading />;
   return (
-    <section className="pt-4">
+    <section className="pt-1">
       <DayHeader date={date} setDate={setDate} action={enabled ? <LightDayControl date={date} /> : undefined} />
       {light && !isToday && <p className="mb-3 text-sm">{t.lightDay.enable}</p>}
       {enabled && isToday && <LightDayNotice date={date} />}
