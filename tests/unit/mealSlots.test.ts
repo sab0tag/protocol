@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { FOOD_COMPLETE } from '../../src/domain/habits';
-import { hitLabel, hitLabels, slotAt, slotMissed, slotTime, tileState, usualForSlot, usualTime, withFoodDose, yesterdaySlot } from '../../src/domain/mealSlots';
+import { blockKeyFor, hitLabel, hitLabels, mealBlocks, NEW_SNACK, slotAt, slotMissed, slotTime, tileState, usualForSlot, usualTime, withFoodDose, yesterdaySlot } from '../../src/domain/mealSlots';
 import type { RuleHit } from '../../src/domain/rules';
 import type { DayEntry, MealItem, Plan } from '../../src/domain/types';
 
@@ -75,5 +75,15 @@ describe('meal tiles (D159)', () => {
     expect(hitLabel(hit('gallbladder', 'Жирне навантажує жовчний'))).toBe('жирне');
     expect(hitLabel(hit('diet', 'ЩД: Смажене — за день 30 з 0 г'))).toBe('смажене');
     expect(hitLabels([hit('sodium', 'a'), hit('sodium', 'b'), { ...hit('lactose', 'Лактоза'), verdict: 'ok' }])).toEqual(['сіль']);
+  });
+
+  it('D161: several snacks are separate blocks, each between the meals around its time; a new one is placed by its time', () => {
+    const day = [meal(D, '08:00', 'Сніданок', [oats]), meal(D, '10:30', 'Перекус', [egg]), meal(D, '15:00', 'Перекус', [coffee]),
+      meal(D, '16:30', 'Перекус', [soup], 'planned'), meal(D, '22:00', 'Перекус', [coffee])];
+    expect(mealBlocks(day, D).map((b) => b.key)).toEqual(['s0', `e:${D}10:30Перекус`, 's1', `e:${D}15:00Перекус`, `e:${D}16:30Перекус`, 's2', `e:${D}22:00Перекус`]);
+    expect(mealBlocks([meal(D, '07:00', 'Перекус', [egg])], D).map((b) => b.key)).toEqual([`e:${D}07:00Перекус`, 's0', 's1', 's2']);
+    expect(mealBlocks([], D).map((b) => b.key)).toEqual(['s0', 's1', 's2']); // no fixed empty «Перекус»
+    expect(mealBlocks([], D, `${D}T12:15:00+02:00`).map((b) => b.key)).toEqual(['s0', NEW_SNACK, 's1', 's2']); // 12:15 — before lunch at 13:00
+    expect([0, 1, 2, 3].map((s) => blockKeyFor(s as 0 | 1 | 2 | 3))).toEqual(['s0', 's1', 's2', NEW_SNACK]);
   });
 });
