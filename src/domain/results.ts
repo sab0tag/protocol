@@ -1,4 +1,4 @@
-// D164: «Результати» as the spec draws it — the week in one phrase («Ліки — 26 з 28, їжа за планом 5 днів з 7»), three
+// D165: «Результати» as the spec draws it — the week in one phrase («Ліки — 26 з 28, їжа за планом 5 днів з 7»), three
 // numbers and the time left to the doctor's visit. Pure: counted from the person's records against their own plan, never a
 // health score. A dose counts only where it was due and observed (a light day or a module off is neither kept nor missed).
 import { addDays, differenceInCalendarDays, format, parseISO } from 'date-fns';

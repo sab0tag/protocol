@@ -1,5 +1,13 @@
 // All interface texts (SPEC.md §12). Ukrainian only in v0.
 export const t = {
+  said: { // D165: «Мій план» as «Що сказав лікар»
+    title: 'Що сказав лікар', newConclusion: 'Новий висновок', who: 'Призначив', noWho: 'Хто призначив — не вказано',
+    meds: 'Ліки', food: 'Їжа', goals: 'Цілі', next: 'Що далі', tests: 'Аналізи', change: 'Змінити',
+    visit: (date: string, left?: string) => `Огляд ${date}${left ? ` · через ${left}` : ''}`, noVisit: 'Дату огляду не внесено',
+    paper: 'Папірець від лікаря', paperHide: 'Сховати папірець',
+    empty: 'Плану ще немає. Сфотографуйте висновок лікаря — призначення з’являться тут простими словами.',
+    noMeds: 'Ліків у плані немає', noFood: 'Обмежень щодо їжі немає',
+  },
   planView: {
     add: 'Додати план', manual: 'Створити самостійно', document: 'Документ', qr: 'QR або посилання від клініки',
     photoHint: 'Сфотографуйте призначення або виберіть зображення з пристрою. Перед розпізнаванням застосунок запитає згоду.',
@@ -751,6 +759,10 @@ export const t = {
   },
   progress: {
     title: 'Результати',
+    // D165: the week in one phrase, three numbers, the time to the visit, «Звіт для лікаря»
+    weekRange: (from: string, to: string) => `Тиждень ${from}–${to}`, of: (a: number, b: number) => `${a} з ${b}`,
+    nMeds: 'Ліки', nFood: 'Їжа за планом', nWater: 'Вода — ціль', nWeight: 'Вага за тиждень', nRecorded: 'Дні із записами',
+    toVisit: (left: string) => `До огляду ${left}`, visitOn: (date: string) => `Огляд ${date}`, more: 'Докладніше', weekLink: 'Тиждень докладно',
     details: 'Розділи прогресу',
     // UI-RESULTS-01: results and goals are two separate parts; no combined score
     recorded: 'Вимірювання і записи', recordedHint: 'Те, що ви виміряли й записали, — без порівняння з цілями.',

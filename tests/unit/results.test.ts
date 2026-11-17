@@ -14,7 +14,7 @@ const fried: MealItem = { foodId: 'egg-boiled', name: 'Яйце смажене',
 const boiled: MealItem = { foodId: 'egg-boiled', name: 'Яйце варене', grams: 100 };
 const gallbladder = { id: 'g', tag: 'gallbladder' as const, title: 'Жовчний', reason: '', source: 'x', active: true };
 
-describe('the week on «Результати» (D164)', () => {
+describe('the week on «Результати» (D165)', () => {
   it('counts due doses of the week, today only those already past', () => {
     const entries = [0, 1, 2, 3, 4, 5, 6].flatMap((n) => [tick(day(n), '08:00'), ...(n > 1 ? [tick(day(n), '20:00')] : [])]);
     // at noon: 6 past days of two doses (one evening missed) and today's 08:00 — today's 20:00 is not due yet

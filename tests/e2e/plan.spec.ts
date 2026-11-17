@@ -17,11 +17,16 @@ test('medicine stock: the count in «План», «вистачить на» the
 test('«План лікаря» overview previews its saved items without opening each section', async ({ browser }) => {
   const page = await device(browser);
   await page.goto('./#/plan');
-  const sections = page.getByRole('navigation', { name: 'Розділи плану' });
-  await expect(sections.getByRole('link', { name: /Призначення/ })).toContainText('Вітамін D');
-  await expect(sections.getByRole('link', { name: /Дієта й обмеження/ })).toContainText('Діють: Оксалатні камені');
-  await expect(sections.getByRole('link', { name: /Цілі й режими/ })).toContainText('2100 ккал');
-  await expect(sections.getByRole('link', { name: /Цілі й режими/ })).toContainText('Підготовка до ОГТТ');
+  // D165: «Що сказав лікар» — each part retold in plain words, a row opens its part to correct it
+  const meds = page.getByRole('region', { name: 'Ліки', exact: true });
+  await expect(meds).toContainText('Вітамін D 2000 МО');
+  await expect(meds).toContainText('о 08:30, під час їжі');
+  const food = page.getByRole('region', { name: 'Їжа', exact: true });
+  await expect(food).toContainText('Оксалатні камені — без шпинату й буряка');
+  await expect(food).toContainText('2100 ккал');
+  await expect(food).toContainText('Підготовка до ОГТТ');
+  await meds.getByRole('link', { name: /Вітамін D 2000 МО/ }).click();
+  await expect(page).toHaveURL(/#\/plan\/prescriptions$/);
 });
 
 test('«Тиждень»: the numbers, what went well, and one goal the person picks — shown on «День» (D72)', async ({ browser }) => {
@@ -77,7 +82,7 @@ test('the example comes with two invented weeks: «Прогрес» and the repo
       req.result.close(); return get.result;
     });
     expect(ownWeights).toBe(0); // the example did not leak into the person's database
-  } else await expect(page.getByText(/Ще немає зважувань/)).toBeVisible();
+  } else { await page.goto('./#/weight'); await expect(page.getByText(/Ще немає зважувань/)).toBeVisible(); } // D165: weight lives on its own screen
   await page.goto('./#/report');
   await expect(page.getByRole('region', { name: 'Головне' })).toHaveCount(0);
 });
@@ -143,9 +148,8 @@ test('the plan history opens separately and explains that sync is required', asy
 test('empty parts say what goes there and how — no bare «Поки нічого», no empty history (аудит P2, D149)', async ({ browser }) => {
   const page = await device(browser, 'skip');
   await page.goto('./#/plan');
-  const sections = page.getByRole('navigation', { name: 'Розділи плану' });
-  await expect(sections).not.toContainText('Поки нічого');
-  await expect(sections.getByRole('link', { name: /Призначення/ })).toContainText('Ще немає — додайте або сфотографуйте висновок');
+  await expect(page.getByText('Плану ще немає. Сфотографуйте висновок лікаря — призначення з’являться тут простими словами.')).toBeVisible();
+  await expect(page.locator('main')).not.toContainText('Поки нічого');
   await page.goto('./#/plan/prescriptions');
   await expect(page.getByText('Призначень ще немає — додайте зі слів лікаря або з фото висновку.')).toBeVisible();
   await page.goto('./#/plan/goals');
@@ -154,7 +158,5 @@ test('empty parts say what goes there and how — no bare «Поки нічог�
   await expect(page.getByText('Історія вимірів')).toHaveCount(0); // nothing to open yet
   await expect(page.getByRole('form', { name: 'Записати вагу' })).toBeVisible();
   await page.goto('./#/progress');
-  const weight = page.getByRole('region', { name: 'Вимірювання і записи' }).getByRole('article').filter({ has: page.getByRole('heading', { name: 'Вага', exact: true }) });
-  await expect(weight).toContainText('Додайте перше вимірювання');
-  await expect(weight).not.toContainText('Немає записів'); // said once, not three times
+  await expect(page.getByTestId('week-phrase')).toHaveText('Цього тижня записів ще немає'); // D165: said once, in words
 });
