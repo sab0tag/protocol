@@ -57,7 +57,7 @@ test('choosing another medicine time preserves input focus and the dynamic form 
   // before the 08:30 dose: still «заплановано» — after its hour the line says «не відмічено» (D142)
   await page.clock.setFixedTime(new Date(`${new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Kyiv' }).format(new Date())}T08:00:00${kyivOffset()}`));
   await page.reload();
-  const opener = page.getByRole('region', { name: t.day.upcoming, exact: true }).getByRole('button', { name: `Вітамін D, ${t.status.planned}`, exact: true });
+  const opener = page.getByRole('region', { name: t.day.rhythm, exact: true }).getByRole('button', { name: `Вітамін D, ${t.status.planned}`, exact: true });
   await opener.click();
   const dialog = page.getByRole('dialog');
   await dialog.getByRole('button', { name: t.mark.other, exact: true }).click();

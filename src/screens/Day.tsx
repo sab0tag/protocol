@@ -185,7 +185,7 @@ export function Day() {
   if (!observationReady) return <Loading />;
   return (
     <section className="pt-1">
-      <DayHeader date={date} setDate={setDate} action={enabled ? <LightDayControl date={date} /> : undefined} />
+      <DayHeader date={date} setDate={setDate} />
       {light && !isToday && <p className="mb-3 text-sm">{t.lightDay.enable}</p>}
       {enabled && isToday && <LightDayNotice date={date} />}
       {returningAfterBreak && <div role="status" aria-label={t.day.returningAfterBreak.title}
@@ -208,10 +208,14 @@ export function Day() {
       {can('food.log') && !light && entries && foodState(entries) !== 'none' && ( /* R06: only the person can say all food is written */
         <p className="-mt-2 mb-3 text-right"><button type="button" aria-pressed={foodState(entries) === 'complete'} onClick={() => void markComplete(foodState(entries) !== 'complete')}
           className="min-h-tap px-1 text-sm text-accent underline">{foodState(entries) === 'complete' ? t.summary.undoComplete : t.summary.markComplete}</button></p>)}
-      <button type="button" onClick={() => setSymptom({})} data-testid="unwell"
-        className="mb-4 flex min-h-tap w-full items-center gap-3 rounded-2xl border border-line bg-surface px-4 py-3 text-left font-semibold">
-        <Frown size={20} className="shrink-0 text-muted" aria-hidden /><span className="flex-1">{t.addKinds.symptom}</span><ChevronRight size={18} className="text-muted" aria-hidden />
-      </button>
+      {/* how the person feels: «Мені погано» and, beside it, the light day (D139) — one line on the first screen */}
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <button type="button" onClick={() => setSymptom({})} data-testid="unwell"
+          className="flex min-h-tap min-w-[11rem] flex-1 items-center gap-3 rounded-2xl border border-line bg-surface px-4 py-3 text-left font-semibold">
+          <Frown size={20} className="shrink-0 text-muted" aria-hidden /><span className="flex-1">{t.addKinds.symptom}</span><ChevronRight size={18} className="text-muted" aria-hidden />
+        </button>
+        {enabled && <LightDayControl date={date} compact />}
+      </div>
       {/* D40: one notice at a time — the code first, then the backup */}
       {isToday && codeDue && (
         <div role="status" className="mb-3 space-y-2 protocol-card rounded-2xl border border-line bg-surface p-3 text-sm">

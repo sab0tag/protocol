@@ -17,6 +17,7 @@ test('uncertainty is separate from unknown time, can be corrected, and a late co
   }]);
 
   const due = page.getByRole('region', { name: 'Зараз' });
+  await due.getByRole('button', { name: 'Інші дії', exact: true }).click(); // D164: behind «⋯»
   await due.getByRole('button', { name: 'Не впевнені, чи прийняли' }).click();
   await expect(toast(page)).toContainText('Вітамін D — не впевнені, чи прийнято');
 

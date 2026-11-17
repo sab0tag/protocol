@@ -147,7 +147,7 @@ test('offline light-day changes remain pending until the server acknowledges the
   test.skip(!enabled, 'acceptance build');
   const page = await profile(browser, new Date()); await syncOn(page);
   await page.goto('./#/');
-  await expect(page.getByText('Сервер підтвердив налаштування нагадувань.', { exact: true })).toBeVisible();
+  await expect(page.getByText(/Очікуємо підтвердження сервера/)).toHaveCount(0); // an ordinary day says nothing beside the button (D164)
   await page.context().setOffline(true); await turnOn(page);
   await expect(page.getByText(/Очікуємо підтвердження сервера/)).toBeVisible();
   await page.context().setOffline(false);
@@ -155,6 +155,7 @@ test('offline light-day changes remain pending until the server acknowledges the
     const meta = (await rows(page, 'meta')).find((e) => e.key === 'sync');
     return meta.reminderPolicyState === 'synced' && JSON.parse(meta.reminderPolicyAck).days.some((d: { enabled: boolean }) => d.enabled);
   }).toBe(true);
+  await expect(page.getByText('Сервер підтвердив налаштування нагадувань.', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Повернути звичайний день', exact: true }).click();
   await expect.poll(async () => {
     const meta = (await rows(page, 'meta')).find((e) => e.key === 'sync');

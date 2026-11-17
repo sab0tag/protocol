@@ -2,27 +2,21 @@ import { expect, test } from '@playwright/test';
 import { t } from '../../src/i18n/uk';
 import { device, kyivOffset, seed, ymd } from './helpers';
 
-test('water shortcut and floating action retain accumulation and undo', async ({ browser }) => {
+test('the water tile counts glasses at 320 px with undo; «Мій прогрес» shows the litres, kept after a reload (D164)', async ({ browser }) => {
   const page = await device(browser, 'skip');
   await page.setViewportSize({ width: 320, height: 568 });
-  const dock = page.getByRole('group', { name: t.dock.label });
-  const water = dock.getByRole('button', { name: /Додати 250 мл води/ });
-  await expect(water).not.toBeVisible();
-  await expect(page.getByRole('navigation', { name: 'Швидкі дії' }).getByRole('button', { name: '+250 мл' })).toBeVisible();
-  await page.getByRole('region', { name: t.summary.title, exact: true }).scrollIntoViewIfNeeded();
-  await expect(water).toBeVisible();
-  await expect(dock.getByText(t.summary.water, { exact: true })).toHaveCount(0);
+  const water = page.getByRole('navigation', { name: 'Швидкі відмітки', exact: true }).getByRole('button', { name: /^Вода:/ });
   await water.click();
-  await expect(page.getByText('0,25 л', { exact: true })).toHaveCount(1);
-  await expect(dock.getByText('250 мл', { exact: true })).toHaveCount(0);
+  await expect(page.getByRole('status').getByRole('button', { name: t.toast.undo, exact: true })).toBeVisible();
   await water.click();
-  await expect(page.getByText('0,5 л', { exact: true })).toHaveCount(1);
-  await expect(dock.getByRole('status')).toContainText('+500 мл');
+  await expect(water).toHaveAccessibleName(/^Вода: 2/);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await dock.getByRole('button', { name: t.toast.undo, exact: true }).click();
-  await expect(page.getByText('0 л', { exact: true })).toHaveCount(1);
+  await page.getByRole('status').getByRole('button', { name: t.toast.undo, exact: true }).click();
+  await expect(water).toHaveAccessibleName(/^Вода: 1/);
   await page.reload();
-  await expect(page.getByText('0 л', { exact: true })).toHaveCount(1);
+  await expect(water).toHaveAccessibleName(/^Вода: 1/);
+  await page.goto('./#/progress');
+  await expect(page.getByRole('region', { name: t.summary.title, exact: true }).getByText(/^0,25/)).toBeVisible();
   await page.context().close();
 });
 
@@ -35,6 +29,7 @@ test('compact tracks keep selected metrics, actual values and distinct gradients
       { name: 'Тестовий продукт', grams: 100, manual: { kcal: 366, protein: 23, fat: 8, carbs: 32, calciumMg: 100 } },
     ] } },
   ]);
+  await page.goto('./#/progress'); // D164: the day's goals live in «Мій прогрес»
   const summary = page.getByRole('region', { name: t.summary.title });
   await summary.getByRole('button', { name: t.summary.setup }).click();
   await summary.getByRole('checkbox', { name: t.summary.meds, exact: true }).uncheck();

@@ -11,6 +11,7 @@ import { t } from '../i18n/uk';
 import { useObservation } from '../app/observation';
 import { WeekCard } from './Motivation';
 import { WeightCard } from './Weight';
+import { TodayGoals } from '../components/TodayGoals';
 import { useFeatures } from '../app/features';
 import { visibleWeek } from '../domain/visibility';
 
@@ -80,6 +81,7 @@ export function Progress() {
       </section>}
       <section aria-labelledby="results-goals" className="space-y-3">
         <div><h2 id="results-goals" className="text-lg font-semibold">{L.goals}</h2><p className="text-sm text-muted">{L.goalsHint}</p></div>
+        <TodayGoals />
         <WeekCard summary={goals} variant="rings" />
         {can('progress.week') && <Link to="/week" className="inline-flex min-h-tap items-center text-sm text-accent underline-offset-4 hover:underline">{L.cardPlanLink}</Link>}
       </section>
