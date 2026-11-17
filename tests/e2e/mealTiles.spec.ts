@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { device, kyivOffset, seed, toast, ymd } from './helpers';
 
-// D159: the day's food as four tiles on «Сьогодні» — written in place, never asked which meal or when.
+// D159: the day's food as tiles on «Сьогодні» (D161: three meals and each snack) — written in place, never asked which meal or when.
 
 async function at(page: Page, time: string): Promise<Date> {
   const now = new Date(); const [h, m] = time.split(':').map(Number); now.setHours(h!, m!, 0, 0);
@@ -90,4 +90,42 @@ test('a line is corrected by a tap: portion and time in one sheet; the full form
   await expect(page).toHaveURL(/#\/meal\/new\?slot=2$/);
   await expect(page.getByRole('button', { name: 'Свого немає в базі? Додати вручну' })).toBeVisible();
   await expect(page.getByText('Уже з’їдено')).toHaveCount(0);
+});
+
+test('D161: a snack is added as a block of its own — two snacks are two blocks between the meals; «Додати їжу → Обід» opens lunch', async ({ browser }) => {
+  const page = await device(browser);
+  const d = ymd(new Date());
+  await seed(page, [{ store: 'entries', value: { id: 'snack-am', at: `${d}T10:30:00${kyivOffset()}`, kind: 'meal', status: 'done', title: 'Перекус',
+    items: [{ foodId: 'egg-boiled', name: 'Яйце варене', grams: 50 }] } }]);
+  await at(page, '15:00');
+  const blocks = page.locator('[data-testid=meal-tiles] [data-slot]');
+  await expect(blocks).toHaveCount(4); // no empty fixed «Перекус»: three meals and the one snack eaten
+  await expect(blocks.nth(1)).toHaveAttribute('data-slot', '3'); // 10:30 — between breakfast and lunch
+  await expect(blocks.nth(1)).toContainText('10:30');
+
+  await page.getByTestId('meal-tiles').getByRole('button', { name: 'Додати їжу', exact: true }).click();
+  await page.getByRole('group', { name: 'Що це за прийом?' }).getByRole('button', { name: 'Перекус', exact: true }).click();
+  const fresh = page.locator('[data-testid=meal-tiles] [data-slot="3"]').filter({ has: page.getByPlaceholder('Додати до перекусу…') });
+  const field = fresh.getByPlaceholder('Додати до перекусу…');
+  await expect(field).toBeFocused();
+  await field.fill('кефір');
+  await fresh.getByRole('list', { name: 'Підказки' }).getByRole('button', { name: /^Кефір 2,5 %/ }).first().click();
+  await expect(toast(page)).toContainText('Додано: Кефір 2,5 %');
+  await expect(blocks).toHaveCount(5);
+  await expect(blocks.nth(3)).toHaveAttribute('data-slot', '3'); // 15:00 — after lunch, before dinner
+  await expect(blocks.nth(3)).toContainText('Кефір 2,5 %');
+  await expect(blocks.nth(1)).not.toContainText('Кефір'); // the morning snack keeps its own record
+  const snacks = await page.evaluate(async () => {
+    const r = indexedDB.open('protocol'); await new Promise((ok) => { r.onsuccess = ok; });
+    const q = r.result.transaction('entries').objectStore('entries').getAll();
+    const rows = await new Promise<{ title: string; items?: { name: string }[] }[]>((ok) => { q.onsuccess = () => ok(q.result); }); r.result.close();
+    return rows.filter((e) => e.title === 'Перекус').map((e) => e.items!.map((i) => i.name).join(', ')).sort();
+  });
+  expect(snacks).toEqual(['Кефір 2,5 %', 'Яйце варене']);
+  await page.getByTestId('meal-tiles').screenshot({ path: 'test-results/mockup-meal-tiles-snacks.png' });
+
+  await page.getByTestId('meal-tiles').getByRole('button', { name: 'Додати їжу', exact: true }).click();
+  await page.getByRole('group', { name: 'Що це за прийом?' }).getByRole('button', { name: 'Обід', exact: true }).click();
+  await expect(tile(page, 'Обід').getByPlaceholder('Додати до обіду…')).toBeFocused();
+  await expect(blocks).toHaveCount(5); // a main meal is not doubled
 });
