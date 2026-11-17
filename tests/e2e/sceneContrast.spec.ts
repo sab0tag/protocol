@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { device } from './helpers';
-// «План» opens with a plain mint heading (UI-PLAN-01) — no photo behind its text, so it is not measured here.
-const routes = ['/progress', '/progress/labs', '/assistant', '/report', '/wellbeing', '/workout', '/menu', '/more', '/food', '/week', '/weight', '/data', '/progress/motivation', '/progress/insights', '/shopping', '/dishes', '/reminders', '/sync', '/profiles'];
+// «План» (UI-PLAN-01) and «Результати» (UI-RESULTS-01) open with a plain mint heading — no photo behind their text, so they are not measured here.
+const routes = ['/progress/labs', '/assistant', '/report', '/wellbeing', '/workout', '/menu', '/more', '/food', '/week', '/weight', '/data', '/progress/motivation', '/progress/insights', '/shopping', '/dishes', '/reminders', '/sync', '/profiles'];
 // ТЗ P2 «контраст поверх фотографий» (D147): white text in a photo header, measured against the photo actually behind it
 // (text made transparent, the 5th percentile of the per-pixel contrast — a few stray highlights do not decide it). WCAG
 // thresholds: 4.5:1, or 3:1 for large text. The text shadow is not counted.

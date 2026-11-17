@@ -158,7 +158,7 @@ test('empty parts say what goes there and how — no bare «Поки нічог�
   await expect(page.getByText('Історія вимірів')).toHaveCount(0); // nothing to open yet
   await expect(page.getByRole('form', { name: 'Записати вагу' })).toBeVisible();
   await page.goto('./#/progress');
-  const weight = page.getByRole('region', { name: 'Огляд прогресу' }).getByRole('article').filter({ has: page.getByRole('heading', { name: 'Вага', exact: true }) });
+  const weight = page.getByRole('region', { name: 'Вимірювання і записи' }).getByRole('article').filter({ has: page.getByRole('heading', { name: 'Вага', exact: true }) });
   await expect(weight).toContainText('Додайте перше вимірювання');
   await expect(weight).not.toContainText('Немає записів'); // said once, not three times
 });
