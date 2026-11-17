@@ -85,6 +85,10 @@ export function Assistant() {
     const items = [...new Map(tops.flatMap((x) => x.items).map((it) => [it.name, it])).values()].slice(0, 3);
     say({ role: 'assistant', text: `${lines.join(' ')} ${L.canAdd}`, items });
   };
+  useEffect(() => { // D162: a question said in the one field on «Сьогодні» — put in the field, sent only by the person
+    const q = params.get('q');
+    if (q) { setParams({}, { replace: true }); fill(q); }
+  }, [params]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { // D116: the evening push opens the assistant on this question
     if (params.get('ask') === 'topup' && plan && foods && totals && entries) { setParams({}, { replace: true }); say({ role: 'user', text: L.chips[0]! }); topupAnswer(); }
   }, [params, plan, foods, totals, entries]); // eslint-disable-line react-hooks/exhaustive-deps
