@@ -101,7 +101,7 @@ test('all routed screens fit the four target widths in light and dark themes', a
   // Action deep links such as /do/water write data on mount; quick.spec covers them separately.
   const routes = ['', 'meal/new?slot=1', 'meal/visual-matrix-meal', 'plan', 'plan/prescriptions', 'plan/constraints', 'plan/goals', 'plan/checkup',
     'plan/scan', 'plan/history', 'welcome', 'progress', 'progress/motivation', 'progress/insights', 'progress/labs', 'report', 'more',
-    'more/food', 'more/health', 'more/settings', 'more/app', 'profiles', 'wellbeing', 'wellbeing/journal', 'my-day', 'week', 'assistant',
+    'more/settings', 'profiles', 'wellbeing', 'wellbeing/journal', 'my-day', 'week', 'assistant',
     'reminders', 'sync', 'dishes', 'shopping', 'workout', 'exercises', 'menu', 'foods', 'data', 'quick', 'about',
     'frictions', 'pilot', 'concierge-log'];
   await seed(page, [{ store: 'entries', value: {
@@ -119,8 +119,12 @@ test('all routed screens fit the four target widths in light and dark themes', a
         // on a heading that can be replaced during asynchronous route hydration.
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${route || 'today'} at ${width}`).toBe(true);
         expect(await page.evaluate(() => getComputedStyle(document.documentElement).colorScheme), `${route || 'today'} ${colorScheme}`).toBe(colorScheme);
-        await expect(page.getByRole('navigation', { name: 'Розділи', exact: true })).toBeVisible();
-        if (route && route !== 'plan' && route !== 'progress') { // «Мій план» and «Результати» have the plain mint heading (UI-PLAN-01, UI-RESULTS-01)
+        // D160: tabs on the three sections; every other screen opens over them with «Назад»
+        const section = route === '' || route === 'plan' || route === 'progress';
+        await expect(page.getByRole('navigation', { name: 'Розділи', exact: true })).toHaveCount(section ? 1 : 0);
+        if (!section) await expect(page.getByRole('button', { name: 'Назад', exact: true })).toBeVisible();
+        // «Мій план», «Результати» (UI-PLAN-01, UI-RESULTS-01) and «Ще» with its settings (D160) have a plain heading
+        if (!section && route !== 'more' && route !== 'more/settings') {
           const sceneHeader = page.locator('.protocol-scene-header').first();
           await expect(sceneHeader, `${route} at ${width}px ${colorScheme}`).toBeVisible();
           expect(await sceneHeader.evaluate((el) => getComputedStyle(el).backgroundImage), `${route} has header artwork`).toContain('url(');

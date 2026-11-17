@@ -211,7 +211,7 @@ export function Assistant() {
 
         </section>
       )}
-      <form className="sticky bottom-[calc(4.5rem+env(safe-area-inset-bottom))] mt-auto flex gap-2 bg-bg py-2 md:bottom-0" onSubmit={(e) => { e.preventDefault(); void ask(text); }}>
+      <form className="sticky bottom-[calc(var(--tabbar)+.25rem+env(safe-area-inset-bottom))] mt-auto flex gap-2 bg-bg py-2 md:bottom-0" onSubmit={(e) => { e.preventDefault(); void ask(text); }}>
         {speechSupported() && (
           <button type="button" onClick={mic} aria-label={listening ? L.stop : L.speak}
             className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full ${listening ? 'animate-pulse bg-warn' : 'bg-accent'} text-surface`}>

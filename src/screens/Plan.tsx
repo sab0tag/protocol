@@ -6,7 +6,7 @@ import { readTimes, timesToSet } from '../domain/conclusion';
 import { Loading } from '../components/Recovery';
 import { saved } from '../components/Toast';
 import { uk } from 'date-fns/locale';
-import { ChevronLeft, Pencil, Plus } from 'lucide-react';
+import { Pencil, Plus } from 'lucide-react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { activeProfileId } from '../data/profiles';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
@@ -97,9 +97,6 @@ export function Plan({ section = 'home' }: { section?: PlanSection }) {
     <section className="space-y-4 pt-4">
       {section === 'home' ? <header className="protocol-plan-heading flex flex-wrap items-center justify-between gap-3"><h1 className="text-3xl font-semibold tracking-tight">{P.title}</h1><button type="button" className="protocol-action" onClick={() => setAddingPlan(true)}><Plus size={18} aria-hidden />{t.planView.add}</button></header> : (
         <header className="protocol-scene-header space-y-2">
-          <Link to="/plan" className="inline-flex min-h-tap items-center gap-1 text-sm text-muted">
-            <ChevronLeft size={18} aria-hidden />{P.title}
-          </Link>
           <h1 className="text-2xl font-semibold">{sectionTitle}</h1>
         </header>
       )}

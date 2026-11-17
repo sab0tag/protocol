@@ -247,21 +247,25 @@ main :where(details[open] > summary)::after { transform: rotate(180deg); }
 }
 
 /* UI-ARCH-01: one responsive shell; screen bodies migrate in their own stages. */
-.protocol-app-header { min-height: 4rem; display: grid; grid-template-columns: 2.75rem minmax(0, 1fr) auto; align-items: center; gap: .25rem; }
-.protocol-header-control { display: inline-flex; align-items: center; justify-content: center; min-width: 2.75rem; min-height: 2.75rem; border-radius: .875rem; }
-.protocol-header-control:hover { background: rgb(var(--surface-secondary)); }
-.protocol-brand { display: inline-flex; align-items: center; justify-content: center; gap: .375rem; min-height: 2.75rem; min-width: 0; font-size: .875rem; font-weight: 650; letter-spacing: -.035em; white-space: nowrap; }
+.protocol-app-header { min-height: 4rem; display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
+.protocol-brand { display: inline-flex; align-items: center; gap: .375rem; min-height: 2.75rem; min-width: 0; padding-right: .5rem; font-size: 1rem; font-weight: 650; letter-spacing: -.02em; white-space: nowrap; }
 .protocol-brand svg { flex-shrink: 0; }
+/* ТЗ 17.11, step 2: «Назад» and «Ще» are words next to the icon, at least 44 px each way */
+.protocol-header-back, .protocol-header-more { display: inline-flex; align-items: center; gap: .25rem; min-height: 2.75rem; min-width: 2.75rem; padding-inline: .5rem; border-radius: 9999px; font-weight: 600; white-space: nowrap; }
+.protocol-header-back { margin-left: -.5rem; color: rgb(var(--ink)); }
+.protocol-header-more { color: rgb(var(--ink)); }
+.protocol-header-more[aria-current="page"] { color: rgb(var(--accent)); }
+.protocol-header-back:hover, .protocol-header-more:hover { background: rgb(var(--surface-secondary)); }
+.protocol-header-status { display: inline-flex; align-items: center; min-height: 2.75rem; min-width: 0; padding-inline: .5rem; font-size: .875rem; color: rgb(var(--warn)); text-decoration: underline; text-underline-offset: 3px; }
 .protocol-bottom-nav a { min-height: 4rem; }
-.protocol-navigation-drawer summary { list-style: none; }
-.protocol-navigation-drawer summary::-webkit-details-marker { display: none; }
-.protocol-navigation-drawer details[open] > summary > svg:last-child { transform: rotate(90deg); }
+/* the bottom tab bar's height on phones: sticky actions and toasts sit above it, or at the edge where there are no tabs */
+.protocol-app-shell { --tabbar: 0rem; }
+.protocol-app-shell[data-tabs="on"] { --tabbar: 4.25rem; }
 .protocol-skip-link { position: fixed; top: .5rem; left: 1rem; z-index: 60; padding: .75rem 1rem; border-radius: .875rem; background: rgb(var(--surface)); color: rgb(var(--ink)); transform: translateY(-200%); }
 .protocol-skip-link:not(:focus) { clip-path: inset(100%); }
 .protocol-skip-link:focus { transform: none; }
 @media (min-width: 768px) {
   .protocol-app-shell > .protocol-bottom-nav { background: rgb(var(--surface)); }
-  .protocol-brand { justify-content: flex-start; padding-left: .5rem; font-size: 1rem; }
 }
 
 .protocol-navigation-drawer { padding-top: max(1rem, env(safe-area-inset-top, 0px)); padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px)); overscroll-behavior: contain; }

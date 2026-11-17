@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ALL_MODULES, can, FEATURES, isEntitled, isFeatureId, isFeatureVisible, isModuleId, LEGACY_FEATURE_CONTEXT,
   MODULE_IDS, type FeatureContext, type FeatureDefinition, type FeatureId, type ModuleFlags } from '../../src/domain/features';
-import { MORE_ROUTE_GROUPS, QUICK_ACTION_FEATURES, ROUTES, TAB_ROUTES } from '../../src/app/navigation';
+import { MORE_ROUTES, parentPath, QUICK_ACTION_FEATURES, ROUTES, SETTINGS_ROUTES, TAB_ROUTES, tabForPath } from '../../src/app/navigation';
 
 const off: ModuleFlags = { meds: false, water: false, food: false, menu: false, assistant: false, wellbeing: false, workout: false, progress: false };
 const disabled: FeatureContext = { modules: off, tier: 'free' };
@@ -82,12 +82,26 @@ describe('navigation ownership (D133)', () => {
   });
 
   it('makes tabs and More refer to the actual router instead of separate URL lists', () => {
-    const more = MORE_ROUTE_GROUPS.flatMap((group) => [...group.routes]);
+    const more = [...MORE_ROUTES, ...SETTINGS_ROUTES];
     expect(new Set(more).size).toBe(more.length);
     for (const id of [...TAB_ROUTES, ...more]) {
       expect(ROUTES[id].path).not.toMatch(/[:*]/);
       expect(can(ROUTES[id].feature, LEGACY_FEATURE_CONTEXT)).toBe(true);
     }
+  });
+
+  it('shows three tabs only on their own screens; every other screen has a parent for «Назад» (ТЗ 17.11, step 2)', () => {
+    expect(TAB_ROUTES).toEqual(['day', 'plan', 'progress']);
+    expect(['/', '/plan', '/progress'].map(tabForPath)).toEqual(['day', 'plan', 'progress']);
+    for (const path of ['/more', '/meal/new', '/meal/x', '/plan/prescriptions', '/week', '/report', '/welcome', '/sync']) expect(tabForPath(path), path).toBeNull();
+    expect(parentPath('/plan/constraints')).toBe('/plan');
+    expect(parentPath('/report')).toBe('/progress');
+    expect(parentPath('/progress/labs')).toBe('/progress');
+    expect(parentPath('/sync')).toBe('/more/settings');
+    expect(parentPath('/more/settings')).toBe('/more');
+    expect(parentPath('/dishes')).toBe('/more');
+    expect(parentPath('/meal/new')).toBe('/');
+    expect(parentPath('/more')).toBe('/');
   });
 
   it('keeps the generic quick-action shell available while its actions have separate owners', () => {

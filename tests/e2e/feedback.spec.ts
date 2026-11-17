@@ -74,11 +74,12 @@ test('a patient’s phrase: «чай з цукром, 2 куски хліба» 
   await expect(page.locator('section[aria-live]', { hasText: 'Перевірка за планом лікаря' })).toContainText('Доданий цукор');
 });
 
-test('«Ще» shows four categories; the exercise library is inside «Тренування»; reminders without sync offer to turn it on (D78)', async ({ browser }) => {
+test('«Ще» is one list led by «Налаштування»; the exercise library is inside «Тренування»; reminders without sync offer to turn it on (D78, D160)', async ({ browser }) => {
   const page = await device(browser);
   await page.goto('./#/more');
-  for (const category of [/^Їжа /, /^Здоров’я і рух /, /^Налаштування /, /^Про застосунок /]) {
-    await expect(page.getByRole('link', { name: category })).toBeVisible();
+  await expect(page.locator('main ul a').first()).toHaveAccessibleName('Налаштування');
+  for (const name of ['Тренування', 'Мої страви', 'Сім’я та профілі', 'Пілот']) {
+    await expect(page.getByRole('link', { name, exact: true })).toBeVisible();
   }
   await expect(page.getByRole('link', { name: 'Вправи з гирею' })).toHaveCount(0);
   await page.goto('./#/workout');

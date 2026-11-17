@@ -13,8 +13,8 @@ test('leaving during Retry-After cancels the queued redemption without consuming
   await page.getByRole('button', { name: 'Переглянути план', exact: true }).click();
   await page.getByRole('button', { name: 'Повторити', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Завантажуємо…', exact: true })).toBeDisabled();
-  await page.getByRole('main').getByRole('link', { name: 'Мій план', exact: true }).click();
-  await expect(page).toHaveURL(/#\/plan$/);
+  await page.getByRole('button', { name: 'Назад', exact: true }).click();
+  await expect(page).not.toHaveURL(/#\/plan\/import/);
   await expect(page.getByRole('heading', { name: 'План від клініки', exact: true })).toHaveCount(0);
   await page.waitForTimeout(5500); // Observe the entire queued retry window after unmount.
 

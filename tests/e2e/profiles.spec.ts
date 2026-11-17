@@ -1,11 +1,12 @@
 import { expect, test } from '@playwright/test';
 import { device, seed, ymd, kyivOffset } from './helpers';
 
-test('settings menu exposes profiles and code-based sync with a privacy boundary', async ({ browser }) => {
+test('«Ще» exposes profiles, its settings code-based sync, with a privacy boundary', async ({ browser }) => {
   const page = await device(browser);
   await page.goto('./#/more/settings');
-  await expect(page.getByRole('link', { name: 'Сім’я та профілі', exact: true })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Синхронізація', exact: true })).toBeVisible();
+  await page.goto('./#/more');
+  await expect(page.getByRole('link', { name: 'Сім’я та профілі', exact: true })).toBeVisible();
   await page.getByRole('link', { name: 'Сім’я та профілі', exact: true }).click();
   await expect(page.getByRole('link', { name: 'Підключити цей профіль кодом' })).toBeVisible();
   await expect(page.getByText(/не надає іншій людині доступ до цих записів/)).toBeVisible();

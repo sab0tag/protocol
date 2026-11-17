@@ -293,7 +293,7 @@ export function Day() {
       {!codeDue && !syncedRecently && !(plan && hasExample(plan)) && exportDue(plan?.lastExportAt, firstEntry?.at.slice(0, 10), todayISO()) && (
         <div role="status" className="mb-3 flex items-center gap-2 rounded-2xl border border-warn/30 bg-warn-bg p-3 text-sm text-warn">
           <span className="flex-1">{plan?.lastExportAt ? t.backup.remind : t.backup.remindFirst}</span>
-          <button type="button" onClick={() => navigate('/more')} className="min-h-tap rounded-xl bg-warn px-3 font-medium text-surface">{t.backup.remindAction}</button>
+          <button type="button" onClick={() => navigate('/data')} className="min-h-tap rounded-xl bg-warn px-3 font-medium text-surface">{t.backup.remindAction}</button>
         </div>
       )}
 

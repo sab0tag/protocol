@@ -134,5 +134,5 @@ test('demo shows all modules with read-only switches', async ({ browser }) => {
   test.skip(!enabled, 'acceptance build');
   const page = await device(browser, 'demo'); await page.goto('./#/modules');
   for (const name of names) { const toggle = page.getByRole('switch', { name, exact: true }); await expect(toggle).toBeChecked(); await expect(toggle).toBeDisabled(); }
-  await page.goto('./#/more/food'); await expect(page.getByRole('link', { name: 'Мої страви', exact: true })).toBeVisible();
+  await page.goto('./#/more'); await expect(page.getByRole('link', { name: 'Мої страви', exact: true })).toBeVisible();
 });

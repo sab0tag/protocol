@@ -20,11 +20,11 @@ test('prescription sheet wraps Tab in both directions and restores focus on Esca
   const last = dialog.getByRole('button', { name: 'Видалити', exact: true });
   await last.focus(); await page.keyboard.press('Tab'); await expect(close).toBeFocused();
   await page.keyboard.press('Shift+Tab'); await expect(last).toBeFocused();
-  await page.locator('a[href="#/"]').first().evaluate(element => (element as HTMLElement).focus());
+  await page.locator('a[href="#/more"]').first().evaluate(element => (element as HTMLElement).focus());
   expect(await dialog.evaluate(element => element.contains(document.activeElement))).toBe(true);
-  expect(await page.locator('nav').first().evaluate(element => !!element.closest('[inert]'))).toBe(true);
+  expect(await page.locator('.protocol-app-header').evaluate(element => !!element.closest('[inert]'))).toBe(true);
   await page.keyboard.press('Escape'); await expect(dialog).toHaveCount(0); await expect(opener).toBeFocused();
-  expect(await page.locator('nav').first().evaluate(element => !!element.closest('[inert]'))).toBe(false);
+  expect(await page.locator('.protocol-app-header').evaluate(element => !!element.closest('[inert]'))).toBe(false);
   await opener.click();
   await expect(dialog).toBeVisible();
   await page.screenshot({ path: `test-results/sheet-focus-${width}.png` });

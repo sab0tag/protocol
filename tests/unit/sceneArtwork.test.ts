@@ -14,8 +14,6 @@ describe('route-specific section artwork', () => {
     ['/progress', 'wellness'],
     ['/wellbeing/journal', 'wellness'],
     ['/profiles', 'settings'],
-    ['/more/food', 'food'],
-    ['/more/health', 'wellness'],
   ] as const)('selects %s artwork', (path, scene) => {
     expect(sceneArtworkForPath(path)).toBe(scene);
   });
