@@ -229,8 +229,9 @@ function TileBody({ slot, name, date, lines, planned, checks, all, day, foods, r
         </div>
       ))}
 
-      <TileField autoStart={listen} input={input} listened={listened} name={name} query={query} setQuery={setQuery} onPhoto={pick} photoBusy={photo.state === 'busy'}
-        onEnter={() => { const first = suggestions[0]; if (first) pickOne(first.item); }} />
+      {/* D167: a draft from the one field is edited there («прибери …»); meanwhile the tile has no field of its own — one microphone */}
+      {!draft && <TileField autoStart={listen} input={input} listened={listened} name={name} query={query} setQuery={setQuery} onPhoto={pick} photoBusy={photo.state === 'busy'}
+        onEnter={() => { const first = suggestions[0]; if (first) pickOne(first.item); }} />}
       {fileInput}
       {danger && (crisis ? <CrisisCard className="mt-2" /> : <DangerCard className="mt-2" />) /* D97, D130: the card and nothing else about those words */}
 

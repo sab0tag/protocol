@@ -363,7 +363,7 @@ export function Day() {
       {/* ТЗ 17.11, step 3: the one field «Скажіть або напишіть…», pinned above the tabs (protocol-c2's OneInput goes here) */}
       {foods && recipes && all && <OneInput date={date} plan={plan} foods={foods} recipes={recipes} all={all} medItems={checklist?.items.filter((i) => i.kind === 'med') ?? []} can={can}
         lightDay={enabled && !context.demo && isToday && !light} /* D162: one field above the tabs */
-        hidden={openTile != null} /* D167: one field and one microphone on the screen */
+        hidden={openTile != null && !tileDraft} /* D167: one field and one microphone; the field stays while its draft is in the tile */
         onFood={(draft) => { setOpenTile(blockKeyFor(slotAt(new Date()))); setTileDraft(draft); }} />}
     </section>
   );
