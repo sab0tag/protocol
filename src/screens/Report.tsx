@@ -87,7 +87,7 @@ export function Report() {
               {x.unmatched > 0 && <span className="block text-sm text-muted">{t.prn.reportUnmatched(x.unmatched)}</span>}</p>
           ))}
           {r.meds && <p>{L.meds(r.meds.taken, r.meds.due)}
-            {r.meds.list.length > 1 && <span className="mt-1 block space-y-0.5 text-sm text-muted">{r.meds.list.map((m) => <span key={m.title} className="block">{L.medLine(m)}</span>)}</span>}
+            {r.meds.list.length > 0 && <span className="mt-1 block space-y-0.5 text-sm text-muted">{r.meds.list.map((m) => <span key={m.title} className="block">{L.medLine(m)}</span>)}</span>}
             {r.meds.missed.length > 0 && <span className="block text-sm text-muted">{r.meds.missed.map((m) => L.missed(m.title, m.count)).join(' · ')}</span>}</p>}
           {!!r.skipDetails?.length && <section aria-label="Підтверджені пропуски" className="space-y-1 border-t border-line pt-2">
             <h3 className="font-medium">Підтверджені пропуски</h3>

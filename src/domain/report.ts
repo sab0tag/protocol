@@ -241,7 +241,7 @@ export function reportText(r: Report, dm: (d: ISODate) => string): string {
     r.meds?.noData ? t.report.noData(r.meds.noData) : '',
     r.meds ? t.report.medsScope : '',
     r.skipDetails?.length ? `Підтверджені пропуски (запланований час):\n${r.skipDetails.map((x) => `• ${dm(x.date)} ${x.plannedTime} · ${x.kind === 'med' ? 'Ліки' : 'Їжа'} · ${x.title}${x.reason ? ` — причина: ${x.reason}` : ''}`).join('\n')}` : '',
-    r.meds && r.meds.list.length > 1 ? r.meds.list.map((m) => `• ${t.report.medLine(m)}`).join('\n') : '',
+    r.meds && r.meds.list.length > 0 ? r.meds.list.map((m) => `• ${t.report.medLine(m)}`).join('\n') : '', // D171: one medicine is named too
     ...r.prn.map((x) => `${t.prn.report(x.title, x.total, x.days)}${x.over.length ? ` — ${t.prn.over(prnLimitText(x.limit!), x.over.map((d) => d.slice(8, 10) + '.' + d.slice(5, 7)).join(', '))}` : ''}${x.unmatched ? ` — ${t.prn.reportUnmatched(x.unmatched)}` : ''}`), // D118, R01
     r.deviations ? (r.deviations.meals ? `${t.report.deviations(r.deviations.meals, r.deviations.of)}: ${r.deviations.by.map((b) => `${b.title} — ${b.count}`).join('; ')}`
       : t.report.noDeviations(r.deviations.of)) : '',

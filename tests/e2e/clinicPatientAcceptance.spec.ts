@@ -60,7 +60,7 @@ test.describe('clinic → doctor → QR → patient acceptance', () => {
     await patient.goto(`./#/plan/import?code=${code}`);
     await patient.getByRole('button', { name: 'Переглянути план', exact: true }).click();
     await expect(patient.getByText(/Видано клінікою: Лікар A1, Клініка A1/)).toBeVisible();
-    await patient.getByRole('button', { name: 'Зберегти обране', exact: true }).click();
+    await patient.getByRole('button', { name: 'Не зараз', exact: true }) /* D171: kept as a draft, nothing on */.click();
     await expect(patient.getByRole('link', { name: 'Перейти до плану' })).toBeVisible();
     expect(await localCarePlans(patient)).toBe(1);
     await doctor.getByRole('button', { name: 'Оновити статус', exact: true }).click();
@@ -86,7 +86,7 @@ test.describe('clinic → doctor → QR → patient acceptance', () => {
 
     // Seeing the contents must not be mistaken for an explicit patient acceptance. By design (clinic-secure-delivery.md,
     // steps 5 and 7) the preview is the single-use redemption: the server marks the code received and erases the payload,
-    // while acceptance exists only on the patient's device, after «Зберегти обране». There is no server «accepted» state.
+    // while acceptance exists only on the patient's device, after «Не зараз». There is no server «accepted» state.
     expect(await localCarePlans(patient)).toBe(0);
     const before = await request.get(`${API}/v1/clinic/plans/${deliveryId}`, { headers: auth(doctorToken) });
     expect(before.status()).toBe(200);
@@ -111,7 +111,7 @@ test.describe('clinic → doctor → QR → patient acceptance', () => {
     await patient.goto(`./#/plan/import?code=${code}`);
     await patient.getByRole('button', { name: 'Переглянути план', exact: true }).click();
     await expect(patient.getByRole('alert')).toBeVisible();
-    await expect(patient.getByRole('button', { name: 'Зберегти обране', exact: true })).toHaveCount(0);
+    await expect(patient.getByRole('button', { name: 'Не зараз', exact: true }) /* D171: kept as a draft, nothing on */).toHaveCount(0);
     expect(await localCarePlans(patient)).toBe(0);
     expect((await redeem(request, code).then(r => r.json())).error).toBe('revoked');
     await context.close(); await patient.context().close();
@@ -163,7 +163,7 @@ test.describe('clinic → doctor → QR → patient acceptance', () => {
     const patient = await patientDevice(browser);
     await patient.goto(`./#/plan/import?code=${code}`);
     await patient.getByRole('button', { name: 'Переглянути план', exact: true }).click();
-    await patient.getByRole('button', { name: 'Зберегти обране', exact: true }).click();
+    await patient.getByRole('button', { name: 'Не зараз', exact: true }) /* D171: kept as a draft, nothing on */.click();
     await patient.getByRole('link', { name: 'Перейти до плану' }).click();
     await patient.getByText('Інші способи почати').click();
     await patient.getByRole('button', { name: /Пропустити/ }).click();
