@@ -34,7 +34,7 @@ export function DayHeader({ date, setDate, action }: { date: string; setDate: (d
   const d = parseISO(date);
 
   return (
-    <header className="protocol-day-heading mb-2 space-y-2" onPointerDown={down} onPointerUp={up} onPointerCancel={() => { swipe.current = null; }} style={{ touchAction: 'pan-y' }}>
+    <header className="protocol-day-heading mb-1 space-y-2" onPointerDown={down} onPointerUp={up} onPointerCancel={() => { swipe.current = null; }} style={{ touchAction: 'pan-y' }}>
       <div className="flex flex-wrap items-center justify-between gap-x-2">
       <div className="min-w-0">
         {/* ТЗ 17.11, step 3: date and greeting in one line; the section's name stays for screen readers */}

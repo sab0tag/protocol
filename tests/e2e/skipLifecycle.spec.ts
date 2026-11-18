@@ -69,8 +69,8 @@ for (const kind of ['med', 'meal'] as const) {
     await page.goto('./#/');
     // A new skip without a reason must not inherit the previous reason.
     if (kind === 'med') {
-      await page.getByRole('region', { name: 'Зараз', exact: true }).getByRole('button', { name: 'Інші дії', exact: true }).click(); // D164
-      await page.getByRole('region', { name: 'Зараз', exact: true }).getByRole('button', { name: 'Пропустити', exact: true }).click();
+      await page.locator('.protocol-now-card').getByRole('button', { name: 'Інші дії', exact: true }).click(); // D164; D167: past an hour it reads «Не відмічено з …»
+      await page.locator('.protocol-now-card').getByRole('button', { name: 'Пропустити', exact: true }).click();
       dialog = page.getByRole('dialog', { name: 'Пропустити: Тестовий запис' });
     } else dialog = await openSkip();
     await expect(dialog.getByPlaceholder('Що завадило?')).toHaveValue('');

@@ -1,6 +1,6 @@
 import { BadgeCheck, ChevronLeft, MoreHorizontal } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { parentPath, tabForPath } from '../app/navigation';
+import { isClinicPath, parentPath, tabForPath } from '../app/navigation';
 import { usePlan } from '../data/queries';
 import { t } from '../i18n/uk';
 import { useUi } from '../store/ui';
@@ -17,6 +17,7 @@ export function AppHeader() {
   // the first «Знайомство» is the only way in: nothing to go back to, and «Ще» would only lead back here
   const firstRun = pathname === '/welcome' && !!plan && !plan.onboardedAt && !onboarded;
   const back = () => (key !== 'default' ? navigate(-1) : navigate(parentPath(pathname)));
+  const clinic = isClinicPath(pathname); // D168: staff screens are not the patient's — no «Ще», their own name
   return <header className="protocol-app-header print:hidden">
     {tabForPath(pathname) || firstRun
       ? <Link to="/" aria-label={t.shell.home} className="protocol-brand">
@@ -25,7 +26,8 @@ export function AppHeader() {
       : <button type="button" onClick={back} className="protocol-header-back">
         <ChevronLeft size={22} aria-hidden /><span>{t.shell.back}</span>
       </button>}
-    {!firstRun && <div className="flex min-w-0 items-center justify-end gap-1">
+    {clinic && <span className="min-w-0 flex-1 truncate text-center font-semibold">{t.shell.clinic}</span>}
+    {!firstRun && !clinic && <div className="flex min-w-0 items-center justify-end gap-1">
       {status === 'error' && <Link to="/sync" className="protocol-header-status">{t.day.syncStatus.error}</Link>}
       <Link to="/more" aria-current={pathname === '/more' ? 'page' : undefined} className="protocol-header-more">
         <MoreHorizontal size={22} aria-hidden /><span>{t.nav.more}</span>
