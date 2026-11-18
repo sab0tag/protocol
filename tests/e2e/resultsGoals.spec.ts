@@ -15,7 +15,7 @@ test('the week in one phrase and three numbers; «Звіт для лікаря»
   const numbers = week.locator('dl > div');
   await expect(numbers).toHaveCount(3);
   await expect(numbers.first()).toContainText(/Ліки\s*\d+ з \d+/);
-  await expect(page.getByRole('progressbar')).toHaveCount(0); // no score, no rings
+  await expect(week.getByRole('progressbar')).toHaveCount(0); // no score, no rings in the week (today's goals below keep their bars, D164)
   const report = page.getByRole('link', { name: 'Звіт для лікаря' });
   await expect(report).toHaveClass(/protocol-action/);
   const more = page.getByRole('navigation', { name: 'Докладніше' });
