@@ -70,7 +70,7 @@ export const t = {
     enable: (name: string) => `Увімкнути: ${name}`, apply: 'Застосувати вибір', decline: 'Залишити як є', error: 'Не вдалося зберегти. Спробуйте ще раз.',
   },
   nav: { day: 'Сьогодні', food: 'Їжа', plan: 'Мій план', progress: 'Результати', more: 'Ще' },
-  shell: { brand: 'Протокол', home: 'На сьогодні', back: 'Назад', skip: 'До основного вмісту' },
+  shell: { brand: 'Протокол', home: 'На сьогодні', back: 'Назад', skip: 'До основного вмісту', clinic: 'Кабінет клініки' /* D168 */ },
   modules: {
     title: 'Що показувати', intro: 'Залиште те, чим зараз користуєтеся. Решту можна повернути будь-коли.',
     kept: 'Вимкнення зберігає записи, копії та історію. Після увімкнення записи знову будуть видимі.',
@@ -228,6 +228,7 @@ export const t = {
   more: {
     title: 'Ще',
     settings: 'Налаштування', settingsHint: 'Нагадування, синхронізація, копія, розділи.',
+    clinic: 'Для лікарів і клінік', // D168: the staff's way in, below the list — not one of the person's sections
     // D154 (аудит P3): every link says in a line what is inside — a service section is not a riddle
     links: {
       profiles: 'Окремі дані для кожного члена родини.', assistant: 'Що добрати, що приготувати з того, що є.',
@@ -747,6 +748,7 @@ export const t = {
     noNumbers: 'Підходи без цифр — записано лише, що тренування було.',
   },
   welcome: {
+    clinic: 'Я лікар або працюю в клініці', // D168: a doctor does not go through the patient's first steps
     title: 'Знайомство',
     step: (n: number) => `Крок ${n} з 3`,
     s1: 'Про себе', s2: 'Що сказав лікар', s3: 'Цілі',

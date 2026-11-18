@@ -74,7 +74,9 @@ const isOneOf = (pathname: string, ids: readonly StaticRouteId[]) => ids.some((i
 
 /** Where «Назад» leads when a screen was opened directly (a link, a reload) and there is no in-app history. */
 export function parentPath(pathname: string): string {
-  if (pathname.startsWith('/plan/') || pathname === '/clinic/invite') return '/plan';
+  if (pathname === '/clinic/invite') return '/clinic'; // D168: the staff's screens — «Кабінет клініки», then «Ще»
+  if (pathname === '/clinic') return '/more';
+  if (pathname.startsWith('/plan/')) return '/plan';
   if (pathname.startsWith('/progress/') || ['/week', '/report', '/weight'].includes(pathname)) return '/progress';
   if (isOneOf(pathname, SETTINGS_ROUTES)) return SETTINGS_PATH;
   if (pathname === '/wellbeing/journal') return '/wellbeing';
@@ -83,6 +85,9 @@ export function parentPath(pathname: string): string {
   if (pathname.startsWith('/more/') || isOneOf(pathname, MORE_ROUTES)) return '/more';
   return '/';
 }
+
+/** D168: the clinic's own screens (staff) — no patient tabs, no «Ще», «Кабінет клініки» in the header. */
+export const isClinicPath = (pathname: string) => pathname === '/clinic' || pathname.startsWith('/clinic/');
 
 /** The generic /do/:action shell stays available; each action has its own module boundary. */
 export const QUICK_ACTION_FEATURES = {
