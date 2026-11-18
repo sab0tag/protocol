@@ -24,10 +24,5 @@ export function medsState(items: readonly CheckItem[]): { done: number; total: n
   return { done: meds.filter((i) => i.done).length, total: meds.length };
 }
 
-/** Glasses of water recorded and, with a target, the glasses it means («4 з 8»). */
-export function glasses(ml: number, targetMl?: number): { done: number; target?: number } {
-  return { done: Math.round(ml / GLASS_ML), ...(targetMl && targetMl > 0 ? { target: Math.ceil(targetMl / GLASS_ML) } : {}) };
-}
-
 /** The wellbeing scale in words, worst first (1…5) — no emoji. */
 export const MOOD_WORDS = ['Дуже погано', 'Погано', 'Так собі', 'Добре', 'Чудово'] as const;

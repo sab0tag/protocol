@@ -33,14 +33,14 @@ test('the first screen at 390 × 844 holds «Зараз» with one button and th
   const now = page.getByRole('region', { name: 'Зараз', exact: true });
   await expect(now).toContainText('Метформін');
   await expect(now).toContainText(/під час їжі/i);
-  await expect(now.getByRole('button')).toHaveCount(2); // «Прийнято» and «⋯» — the rest is behind «⋯»
+  await expect(now.getByRole('button')).toHaveCount(2); // «Відмітити» and «⋯» — the rest is behind «⋯»
   await now.getByRole('button', { name: 'Інші дії', exact: true }).click();
   await expect(now.getByRole('button', { name: /^Нагадати за/ })).toBeVisible();
   await now.getByRole('button', { name: 'Інші дії', exact: true }).click();
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({ path: 'test-results/mockup-today-step3-390.png' });
   const fold = 844 - 72 - 64; // above the tab bar and the one field pinned over it
-  for (const [name, el] of [['Зараз', now.getByRole('button', { name: /Прийнято/ })], ['marks', marks(page)], ['food', page.getByTestId('meal-tiles').locator('[data-slot]').first()],
+  for (const [name, el] of [['Зараз', now.getByRole('button', { name: /Відмітити/ })], ['marks', marks(page)], ['food', page.getByTestId('meal-tiles').locator('[data-slot]').first()],
     ['Мені погано', page.getByTestId('unwell')]] as const) {
     const box = await el.boundingBox();
     expect(box, name).not.toBeNull();
@@ -64,11 +64,11 @@ test('two doses due at once: «Ліки» opens a list with ticks; a tick marks 
   expect((await rows(page, 'entries')).filter((e) => e.kind === 'med' && e.status === 'done')).toHaveLength(1);
 
   const water = marks(page).getByRole('button', { name: /^Вода:/ });
-  await expect(water).toHaveAccessibleName('Вода: 0 з 8');
+  await expect(water).toHaveAccessibleName('Вода: 0 з 2,0 л');
   await water.click();
-  await expect(water).toHaveAccessibleName('Вода: 1 з 8');
+  await expect(water).toHaveAccessibleName('Вода: 0,25 з 2,0 л');
   await toast(page).getByRole('button', { name: 'Скасувати' }).click();
-  await expect(water).toHaveAccessibleName('Вода: 0 з 8');
+  await expect(water).toHaveAccessibleName('Вода: 0 з 2,0 л');
   expect((await rows(page, 'entries')).filter((e) => e.kind === 'water')).toHaveLength(0); // the undo removes the record entirely
 });
 

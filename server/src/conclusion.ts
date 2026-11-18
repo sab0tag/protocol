@@ -10,7 +10,7 @@ import { structured, type Effort, type Usage } from './claude.ts';
 const TAGS = ['oxalate', 'gallbladder', 'lactose', 'glycemic', 'iron', 'sodium', 'allergy', 'custom'] as const;
 const ALLERGENS = ['gluten', 'milk', 'egg', 'fish', 'crustaceans', 'molluscs', 'peanut', 'nuts', 'soy', 'sesame', 'celery',
   'mustard', 'sulphites', 'lupin'] as const;
-const TARGETS = ['kcal', 'proteinG', 'carbsMaxG', 'fatG', 'waterMl', 'lastMealBy', 'weightGoalKg', 'maxWeightLossKgPerWeek'] as const;
+const TARGETS = ['kcal', 'proteinG', 'carbsMaxG', 'fatG', 'waterMl', 'waterMaxMl', 'lastMealBy', 'weightGoalKg', 'maxWeightLossKgPerWeek'] as const;
 type Where = { page: number; box: number[]; sure: 'yes' | 'check' };
 
 /** What the app receives (the client's `ConclusionResult`, src/domain/conclusion.ts). */
@@ -42,8 +42,8 @@ const Line = z.object({
   food: z.enum(['with', 'empty', 'unsaid']).describe('with — під час чи після їжі; empty — натщесерце чи до їжі; unsaid — не сказано'),
   tag: z.enum([...TAGS, 'none']).describe('Для limit: oxalate — оксалатні камені/сечокам’яна; gallbladder — жовчний міхур, сладж; lactose — непереносимість лактози; glycemic — обмеження вуглеводів, глікемія; iron — високий феритин/залізо; sodium — обмеження солі; allergy — алергія на продукт; custom — інше обмеження в їжі. Інакше none'),
   allergens: z.array(z.enum(ALLERGENS)).describe('Для limit з allergy — алергени; інакше порожньо'),
-  target: z.enum([...TARGETS, 'none']).describe('Для target — що це за ціль; інакше none'),
-  value: z.string().describe('Для target — число як написано (для lastMealBy HH:MM; «2 л» → «2000» для waterMl); інакше порожньо'),
+  target: z.enum([...TARGETS, 'none']).describe('Для target — що це за ціль; waterMl — пити НЕ МЕНШЕ («пити 2 л води на день»); waterMaxMl — обмеження рідини, пити НЕ БІЛЬШЕ («обмеження рідини до 1,5 л», «рідина до 1 л на добу»); інакше none'),
+  value: z.string().describe('Для target — число як написано (для lastMealBy HH:MM; «2 л» → «2000» для waterMl, «до 1,5 л» → «1500» для waterMaxMl); інакше порожньо'),
   date: z.string().describe('Для visit — дата YYYY-MM-DD, лише якщо написана; інакше порожньо'),
   page: z.number().describe('Номер сторінки, з 1'),
   box: z.array(z.number()).describe('Де на сторінці цей рядок: [x, y, ширина, висота], частки від 0 до 1 від лівого верхнього кута'),

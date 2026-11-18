@@ -4,6 +4,7 @@ import { useAllEntries, useFoods, usePlan, useWorkouts } from '../data/queries';
 import { habits, weekSummary, type Habit } from '../domain/habits';
 import { todayISO } from '../domain/dates';
 import { t } from '../i18n/uk';
+import { litres } from '../domain/fluid';
 import { Link } from 'react-router-dom';
 import { ProgressTrack } from '../components/ProgressTrack';
 import { SceneHeader } from '../components/SceneHeader';
@@ -63,6 +64,7 @@ export function WeekCard({ summary }: { summary: ReturnType<typeof weekSummary> 
   if (summary.carbsOk !== undefined) tiles.push([L.weekCarbs, L.ofDays(summary.carbsOk, summary.knownDays?.carbs ?? summary.days)]);
   if (summary.proteinOk !== undefined) tiles.push([L.weekProtein, L.ofDays(summary.proteinOk, summary.knownDays?.protein ?? summary.days)]);
   if (summary.waterOk !== undefined) tiles.push([L.weekWater, L.ofDays(summary.waterOk, summary.knownDays?.water ?? summary.days)]);
+  if (summary.waterAvgMl !== undefined) tiles.push([t.water.tile, t.water.weekAvg(litres(summary.waterAvgMl))]); // D169
   if (summary.showWorkouts !== false) tiles.push([summary.lightDayWorkouts ? t.lightDay.scoredWorkouts : L.weekWorkouts, String(summary.workouts)]);
   if (summary.checklistPct !== undefined) tiles.push([L.weekChecklist, `${summary.checklistPct} %`]);
   return (

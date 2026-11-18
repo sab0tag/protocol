@@ -108,7 +108,7 @@ export function Assistant() {
   return (
     <section className="flex min-h-[calc(100dvh-5.5rem)] flex-col gap-3 pt-4">
       <SceneHeader title={L.title} description={L.hint}>
-        {msgs.length > 0 && <button type="button" onClick={() => clearTalk()} className="min-h-tap rounded-xl border border-white/25 px-3 text-sm text-white">{L.newTalk}</button> /* D130 */}
+        {msgs.length > 0 && <button type="button" onClick={() => clearTalk()} className="min-h-tap rounded-xl border border-accent px-3 text-sm font-medium text-accent">{L.newTalk}</button> /* D130 */}
       </SceneHeader>
       <ExampleNotice plan={plan} />
       <p className="protocol-card rounded-2xl border border-line bg-surface p-3 text-sm">{facts.length ? `${L.today} ${facts.join(' · ')}` : L.noTargetsShort}</p>

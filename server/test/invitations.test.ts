@@ -45,6 +45,7 @@ describe('72-hour invitations and explicit legacy linking', () => {
     const before = r.db.prepare('SELECT * FROM plan_delivery').all();
     const created = await r.invites.invite(r.admin, r.input), secret = r.code(), recipient = r.login('doctor');
     expect(created.expiresAt).toBe(r.now() + INVITATION_MS);
+    expect(r.mail.at(-1)!.link).toBe(`https://app.test/#/clinic/invite?code=${secret}`); // D168: straight to the invitation screen
     expect(JSON.stringify(r.db.prepare('SELECT * FROM staff_invitations').all())).not.toContain(secret);
     expect(JSON.stringify(created)).not.toContain(secret); expect(JSON.stringify(r.db.prepare('SELECT * FROM clinic_audit').all())).not.toContain(secret);
     expect(r.sessions.contexts(recipient.session.accountId)).toHaveLength(0);

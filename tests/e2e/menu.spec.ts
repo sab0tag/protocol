@@ -14,6 +14,7 @@ test('a 2-day menu (model stubbed): checked by the plan, a line added to one mea
     ] } });
   });
   await page.goto('./#/menu');
+  await page.getByRole('button', { name: 'Завтра', exact: true }).click(); // D167: the runs are about tomorrow
   await page.getByRole('button', { name: '2', exact: true }).click();
   await page.getByRole('button', { name: 'Скласти меню' }).click();
   await page.getByRole('button', { name: 'Дозволити й скласти' }).click(); // consent and compose in one tap
@@ -30,6 +31,7 @@ test('a 2-day menu (model stubbed): checked by the plan, a line added to one mea
   await expect(page.getByText('Сніданок')).toHaveCount(0);
 
   await page.goto('./#/menu');
+  await page.getByRole('button', { name: 'Завтра', exact: true }).click(); // D167: the runs are about tomorrow
   await page.getByRole('button', { name: '2', exact: true }).click();
   await page.getByRole('button', { name: 'Скласти меню' }).click();
   await expect(page.getByText('Разом за день')).toHaveCount(2);
@@ -69,6 +71,7 @@ test('a menu made but not accepted comes back after the page reloads (a locked p
   await page.route('**/menu', (r) => r.fulfill({ json: { tips: [], meals: [
     { title: 'Сніданок', time: '08:00', items: [{ name: 'Яйце варене', grams: 100, count: 2 }] }] } }));
   await page.goto('./#/menu');
+  await page.getByRole('button', { name: 'Завтра', exact: true }).click(); // D167: the runs are about tomorrow
   await page.getByLabel('Побажання (необов’язково)').fill('легка вечеря');
   await page.getByRole('button', { name: 'Скласти меню' }).click();
   await page.getByRole('button', { name: 'Дозволити й скласти' }).click();

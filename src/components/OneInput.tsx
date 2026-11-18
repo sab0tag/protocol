@@ -3,6 +3,8 @@
 // marked only after «Так». Danger and crisis words show their card and nothing else. A question is answered here, the way
 // «Помічник» answers it (D166); the talk goes to «Ще → Помічник», not into a feed here. After an action the card goes — its
 // result is in the day's list.
+import { dayFluid, waterState, withWater } from '../domain/fluid';
+import { waterAdded } from './QuickMarks';
 import { format } from 'date-fns';
 import { Camera, Mic, Send, Square, X } from 'lucide-react';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -58,9 +60,11 @@ export function dueMeds(items: CheckItem[], plan: Plan | undefined): { open: Due
 /** Food said here lands in the tile of the meal going on now, opened with a draft (spec: «попадает в плитку текущего приёма»). */
 export type OnFood = (draft: TileDraft) => void;
 
-export function OneInput({ date, plan, foods, recipes, all, medItems, can, lightDay, onFood }: {
+export function OneInput({ date, plan, foods, recipes, all, medItems, can, lightDay, onFood, hidden = false }: {
   date: string; plan: Plan | undefined; foods: Map<string, Food>; recipes: Recipe[]; all: DayEntry[]; medItems: CheckItem[];
   can: (feature: FeatureId) => boolean; lightDay: boolean; onFood: OnFood;
+  /** D167: hidden (kept mounted) while a meal tile is open — the tile has its own field and microphone */
+  hidden?: boolean;
 }) {
   const [text, setText] = useState('');
   const [card, setCard] = useState<Reading | null>(null);
@@ -117,7 +121,7 @@ export function OneInput({ date, plan, foods, recipes, all, medItems, can, light
     if (r.kind === 'water') {
       if (!can('water.log')) { setCard(r); return; }
       const e: DayEntry = { id: newId(), at: atLocal(date, format(new Date(), 'HH:mm')), kind: 'water', status: 'done', title: t.addKinds.water, waterMl: r.ml };
-      void act(() => saved(db.entries.add(e), L.water(r.ml), () => db.entries.delete(e.id)));
+      void act(() => saved(db.entries.add(e), waterAdded(r.ml, waterState(withWater(dayFluid(all, foods, date), r.ml), plan?.targets), L.water(r.ml)), () => db.entries.delete(e.id))); // D169: «до межі лишилось…»
       return;
     }
     if (r.kind === 'food' || r.kind === 'edit') { toTile(r.draft); return; }
@@ -144,7 +148,7 @@ export function OneInput({ date, plan, foods, recipes, all, medItems, can, light
     const water = draft.waterMl - (food?.waterMl ?? 0);
     if (water > 0 && can('water.log')) {
       const e: DayEntry = { id: newId(), at: atLocal(date, format(new Date(), 'HH:mm')), kind: 'water', status: 'done', title: t.addKinds.water, waterMl: water };
-      void act(() => saved(db.entries.add(e), L.water(water), () => db.entries.delete(e.id)));
+      void act(() => saved(db.entries.add(e), waterAdded(water, waterState(withWater(dayFluid(all, foods, date), water), plan?.targets), L.water(water)), () => db.entries.delete(e.id)));
     }
     setFood(draft); setCard(null);
     onFood({ rows: [...draft.items.map((x) => ({ text: x.said, item: x.item, ...(x.others ? { others: x.others } : {}) })), ...draft.notFound.map((x) => ({ text: x }))],
@@ -152,7 +156,7 @@ export function OneInput({ date, plan, foods, recipes, all, medItems, can, light
   };
 
   return (
-    <section aria-label={L.field} className="sticky bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-10 mb-4 space-y-2 md:bottom-4" data-testid="one-input">
+    <section aria-label={L.field} hidden={hidden} className="sticky bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-10 mb-4 space-y-2 md:bottom-4" data-testid="one-input">
       {card && <Card card={card} meal={meal} can={can} lightDay={lightDay} onClose={() => { setCard(null); setFood(null); }}
         onMeds={(m) => void markYes(m)} onWhich={(m) => setCard({ kind: 'meds', meds: [m] })}
         onLightDay={() => void act(() => applyLightDay(true, 'voice'))} onFood={toTile} />}

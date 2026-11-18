@@ -78,7 +78,7 @@ export const t = {
     enable: (name: string) => `Увімкнути: ${name}`, apply: 'Застосувати вибір', decline: 'Залишити як є', error: 'Не вдалося зберегти. Спробуйте ще раз.',
   },
   nav: { day: 'Сьогодні', food: 'Їжа', plan: 'Мій план', progress: 'Результати', more: 'Ще' },
-  shell: { brand: 'Протокол', home: 'На сьогодні', back: 'Назад', skip: 'До основного вмісту' },
+  shell: { brand: 'Протокол', home: 'На сьогодні', back: 'Назад', skip: 'До основного вмісту', clinic: 'Кабінет клініки' /* D168 */ },
   modules: {
     title: 'Що показувати', intro: 'Залиште те, чим зараз користуєтеся. Решту можна повернути будь-коли.',
     kept: 'Вимкнення зберігає записи, копії та історію. Після увімкнення записи знову будуть видимі.',
@@ -236,6 +236,7 @@ export const t = {
   more: {
     title: 'Ще',
     settings: 'Налаштування', settingsHint: 'Нагадування, синхронізація, копія, розділи.',
+    clinic: 'Для лікарів і клінік', // D168: the staff's way in, below the list — not one of the person's sections
     // D154 (аудит P3): every link says in a line what is inside — a service section is not a riddle
     links: {
       profiles: 'Окремі дані для кожного члена родини.', assistant: 'Що добрати, що приготувати з того, що є.',
@@ -390,6 +391,28 @@ export const t = {
     emptyHint: 'Запишіть текстом, додайте фото або виберіть готове. Не потрібно відновлювати весь день одразу.',
     details: 'Склад і дії', edit: 'Переглянути й змінити', restrictions: 'Ваші обмеження', openPlan: 'Відкрити план',
     noRestrictions: 'Активних обмежень не внесено. Перевірку відповідності плану ще не налаштовано.',
+  },
+  water: { // D169: litres; the doctor's norm and the doctor's limit told apart
+    tile: 'Вода', tileLimit: 'Рідина', title: 'Вода сьогодні', titleLimit: 'Рідина сьогодні',
+    of: (a: string, b: string) => `${a} з ${b} л`, met: (n: string) => `${n} л ✓`, over: (n: string) => `+${n} л понад`, today: (n: string) => `${n} л`,
+    normMet: (n: string) => `${n} л — норму виконано`, normOver: (n: string) => `+${n} л понад`,
+    todayLong: (n: string) => `${n} л сьогодні`,
+    limitLine: (total: string, max: string) => `${total} л · межа ${max} л`,
+    left: (ml: number) => `До межі лишилось ${ml} мл`, overLimit: (ml: number) => `понад межу лікаря на ${ml} мл`,
+    overLimitReport: 'Це буде у звіті для лікаря.',
+    fluid: (total: string, max: string, parts: string) => `рідина ${total} л з ${max}${parts ? ` (${parts})` : ''}`,
+    parts: (water: string, drinks: string[]) => [Number(water.replace(',', '.')) > 0 ? `вода ${water}` : '', drinks.join(', ')].filter(Boolean).join(' + '),
+    drinksLine: (drinks: string[], n: string) => `Напої: ${drinks.join(', ')} — ${n} л`,
+    guide: 'Лікар не задав норму води. Орієнтир для напоїв (EFSA):', guideNote: 'Орієнтир, не призначення лікаря.',
+    guideSet: (n: string, who: string) => `${n} л — ${who}`, guideWomen: 'жінкам', guideMen: 'чоловікам', guideSaved: (n: string) => `Орієнтир ${n} л на день`,
+    guideIsSet: 'Це ваш орієнтир, не призначення лікаря.',
+    draft: 'Чернетка — ще не перевірено лікарем.',
+    records: 'Записи води', none: 'Води сьогодні ще не записано.', remove: (ml: number, hm: string) => `Прибрати ${ml} мл о ${hm}`, removed: 'Запис води прибрано', removeShort: 'Прибрати',
+    week: 'Тиждень', isDrink: 'Це напій (рахується у воді й рідині за день)',
+    weekAvg: (n: string) => `у середньому ${n} л на день`,
+    report: (avg: string, days: number) => `Вода й напої: у середньому ${avg} л на день (${days} дн. із записами)`,
+    reportLimit: (max: string, over: number, of: number) => over ? `Межа лікаря ${max} л: перевищено ${over} з ${of} дн.` : `Межа лікаря ${max} л: не перевищено (${of} дн.)`,
+    reportOverDay: (day: string, ml: number) => `${day} — на ${ml} мл`,
   },
   marks: { // D164: quick marks on «Сьогодні»
     title: 'Швидкі відмітки', meds: 'Ліки', water: 'Вода', mood: 'Самопочуття', workout: 'Тренування',
@@ -755,6 +778,7 @@ export const t = {
     noNumbers: 'Підходи без цифр — записано лише, що тренування було.',
   },
   welcome: {
+    clinic: 'Я лікар або працюю в клініці', // D168: a doctor does not go through the patient's first steps
     title: 'Знайомство',
     step: (n: number) => `Крок ${n} з 3`,
     s1: 'Про себе', s2: 'Що сказав лікар', s3: 'Цілі',
@@ -956,6 +980,8 @@ export const t = {
     add: 'Додати', addTo: (meal: string) => `Додати в «${meal}»`, emptyMeal: 'Порожньо — додайте щось або залиште: порожній прийом не запишеться.', // D54
     title: 'Меню на завтра',
     titleFor: (when: string) => `Меню на ${when}`, today: 'сьогодні', tomorrow: 'завтра', // D74: by the chosen date
+    chipToday: 'Сьогодні', chipTomorrow: 'Завтра', chipOther: 'Інший день', otherDate: 'Інша дата', // D167
+    leftToday: (meals: string) => `Лише те, що лишилося на сьогодні: ${meals}.`,
     quick: 'Меню',
     date: 'На який день',
     wish: 'Побажання (необов’язково)',
@@ -1044,7 +1070,7 @@ export const t = {
   now: { // D50
     more: 'Інші дії', whatToDo: 'Що робити?', missedHelp: 'Час за планом минув. Перевірте вказівки лікаря: застосунок не визначає, чи можна приймати пропущену дозу.', // D160
     title: 'Зараз', next: 'Далі', missed: 'Не відмічено', meds: 'Ліки',
-    taken: 'Прийнято', eaten: 'Підтвердити', later: (m: number) => `Нагадати за ${m} хв`, skip: 'Пропустити',
+    taken: 'Відмітити', missedSince: (time: string) => `Не відмічено з ${time}`, eaten: 'Підтвердити', later: (m: number) => `Нагадати за ${m} хв`, skip: 'Пропустити',
     mark: 'Відмітити', skipped: 'Пропущено', // D52
     missedCount: (n: number) => `Не відмічено · ${n}`,
     inMin: (m: number, time: string) => `через ${m} хв · о ${time}`,
@@ -1213,7 +1239,7 @@ export const t = {
     allergyTitle: (names: string) => `Алергія: ${names}`,
     target: {
       kcal: 'Калорії, ккал', proteinG: 'Білок, г', carbsMin: 'Вуглеводи, не менше г', carbsMax: 'Вуглеводи, до г',
-      fatG: 'Жири, г', calciumMg: 'Кальцій, мг', waterMl: 'Вода, мл', lastMealBy: 'Останній прийом їжі до',
+      fatG: 'Жири, г', calciumMg: 'Кальцій, мг', waterMl: 'Вода — не менше, мл', waterMaxMl: 'Рідина — не більше, мл', lastMealBy: 'Останній прийом їжі до', // D169
       weightGoalKg: 'Цільова вага, кг', maxWeightLossKgPerWeek: 'Не швидше ніж, кг на тиждень',
     },
     modeTargets: 'Що змінюється в ці дні (порожнє — як у цілях)',

@@ -43,7 +43,7 @@ for (const scenario of ['four medicines and diet', 'diet only', 'water only', 'e
     }
     if (scenario === 'explicit activity') await page.getByLabel(/Призначена фізична активність/).selectOption('walking');
     await page.getByRole('button', { name: 'Далі', exact: true }).click();
-    if (scenario === 'water only') await page.getByLabel('Вода, мл', { exact: true }).fill('2000');
+    if (scenario === 'water only') await page.getByLabel('Вода — не менше, мл', { exact: true }) /* D169 */.fill('2000');
     if (scenario === 'weight goal') await page.getByLabel('Цільова вага, кг', { exact: true }).fill('90');
     await final(page);
     const expected = scenario.startsWith('four') ? ['meds'] : scenario === 'water only' ? ['water'] : scenario === 'explicit activity' ? ['workout'] : [];
@@ -80,7 +80,7 @@ test('repeat onboarding preserves choices/date and a new target offers only expl
   await page.clock.setFixedTime(new Date('2026-10-22T12:00:00+03:00'));
   await page.goto('./#/welcome'); await manual(page);
   await page.getByRole('button', { name: 'Далі', exact: true }).click();
-  await page.getByLabel('Вода, мл', { exact: true }).fill('2000');
+  await page.getByLabel('Вода — не менше, мл', { exact: true }) /* D169 */.fill('2000');
   await page.getByRole('button', { name: 'Далі', exact: true }).click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('З чого почнемо');
   await expect(page.getByRole('checkbox')).toHaveCount(0);

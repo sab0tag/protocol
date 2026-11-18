@@ -103,8 +103,9 @@ export function reminders(args: { entries: DayEntry[]; plan: Plan | undefined; s
   const drunk = entries.filter((e) => e.kind === 'water' && e.status === 'done' && dateOf(e.at) === today).reduce((ml, e) => ml + (e.waterMl ?? 0), 0);
   const target = plan?.targets.waterMl;
   const behind = (h: number) => !target || drunk < (target * (h - PACE_FROM)) / (WATER_TO - PACE_FROM) - GLASS_ML;
+  const limited = (plan?.targets.waterMaxMl ?? 0) > 0; // D169: under the doctor's fluid limit nobody is reminded to drink
   for (const d of dates) {
-    if (settings.waterEveryH && d <= format(addDays(now, 7), 'yyyy-MM-dd')) {
+    if (settings.waterEveryH && !limited && d <= format(addDays(now, 7), 'yyyy-MM-dd')) {
       for (let h = WATER_FROM; h <= WATER_TO; h += settings.waterEveryH) {
         if (d === today && settings.waterIfBehind !== false && !behind(h)) continue;
         const time = `${String(h).padStart(2, '0')}:00`;

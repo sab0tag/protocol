@@ -115,8 +115,11 @@ function MealTile({ block, now, date, day, all, foods, recipes, plan, quiet, ope
   const summary = state === 'recorded' ? names(items)
     : state === 'planned' ? L.planned(names(planned.flatMap((e) => e.items ?? []))) : '';
   const headerId = `tile-${block.key.replace(/\W/g, '-')}`;
+  // D167: an opened tile comes up to the top of the screen, so its field and all its suggestions are in view
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => { if (expanded) box.current?.scrollIntoView?.({ block: 'start', behavior: 'smooth' }); }, [expanded]);
   return (
-    <div className={`rounded-2xl border ${expanded ? 'border-accent/40 bg-surface' : state === 'missed' || dose ? 'border-line border-dashed bg-surface' : 'border-line bg-surface'}`}
+    <div ref={box} className={`scroll-mt-3 rounded-2xl border ${expanded ? 'border-accent/40 bg-surface' : state === 'missed' || dose ? 'border-line border-dashed bg-surface' : 'border-line bg-surface'}`}
       data-slot={slot} data-state={state}>
       <button type="button" id={headerId} aria-expanded={expanded} onClick={() => onOpen(expanded ? null : block.key)}
         className="flex min-h-tap w-full items-center gap-2 px-3 py-2 text-left">
@@ -226,8 +229,9 @@ function TileBody({ slot, name, date, lines, planned, checks, all, day, foods, r
         </div>
       ))}
 
-      <TileField autoStart={listen} input={input} listened={listened} name={name} query={query} setQuery={setQuery} onPhoto={pick} photoBusy={photo.state === 'busy'}
-        onEnter={() => { const first = suggestions[0]; if (first) pickOne(first.item); }} />
+      {/* D167: a draft from the one field is edited there («прибери …»); meanwhile the tile has no field of its own — one microphone */}
+      {!draft && <TileField autoStart={listen} input={input} listened={listened} name={name} query={query} setQuery={setQuery} onPhoto={pick} photoBusy={photo.state === 'busy'}
+        onEnter={() => { const first = suggestions[0]; if (first) pickOne(first.item); }} />}
       {fileInput}
       {danger && (crisis ? <CrisisCard className="mt-2" /> : <DangerCard className="mt-2" />) /* D97, D130: the card and nothing else about those words */}
 
