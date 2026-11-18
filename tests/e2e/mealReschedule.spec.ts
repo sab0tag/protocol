@@ -24,7 +24,7 @@ async function setup(page: Page) {
 
 test('an overdue meal moves to a future day in place; cancel, undo, offline reload and later editing retain the record', async ({ browser }) => {
   const page = await device(browser, 'skip'); await setup(page);
-  const now = page.getByRole('region', { name: 'Зараз', exact: true });
+  const now = page.locator('.protocol-now-card') /* D167: «Зараз», or «Не відмічено з …» past an hour */;
   const open = async () => {
     await now.getByRole('button', { name: 'Інші дії', exact: true }).click(); // D164: behind «⋯»
     await now.getByRole('button', { name: 'Перенести', exact: true }).click();
@@ -74,8 +74,8 @@ test('an overdue meal moves to a future day in place; cancel, undo, offline relo
 
 test('the move dialog rejects an elapsed time without changing the meal and fits a 320px screen', async ({ browser }) => {
   const page = await device(browser, 'skip'); await setup(page); await page.setViewportSize({ width: 320, height: 800 });
-  await page.getByRole('region', { name: 'Зараз', exact: true }).getByRole('button', { name: 'Інші дії', exact: true }).click();
-  await page.getByRole('region', { name: 'Зараз', exact: true }).getByRole('button', { name: 'Перенести', exact: true }).click();
+  await page.locator('.protocol-now-card') /* D167: «Зараз», or «Не відмічено з …» past an hour */.getByRole('button', { name: 'Інші дії', exact: true }).click();
+  await page.locator('.protocol-now-card') /* D167: «Зараз», or «Не відмічено з …» past an hour */.getByRole('button', { name: 'Перенести', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Перенести: Тестовий обід', exact: true });
   await dialog.getByLabel('Нова дата', { exact: true }).fill(date);
   await dialog.getByLabel('Новий час', { exact: true }).fill('11:00');

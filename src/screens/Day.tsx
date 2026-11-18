@@ -184,7 +184,7 @@ export function Day() {
 
   if (!observationReady) return <Loading />;
   return (
-    <section className="pt-1">
+    <section>
       <DayHeader date={date} setDate={setDate} />
       {light && !isToday && <p className="mb-3 text-sm">{t.lightDay.enable}</p>}
       {enabled && isToday && <LightDayNotice date={date} />}
@@ -211,7 +211,7 @@ export function Day() {
       {/* how the person feels: «Мені погано» and, beside it, the light day (D139) — one line on the first screen */}
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <button type="button" onClick={() => setSymptom({})} data-testid="unwell"
-          className="flex min-h-tap min-w-[11rem] flex-1 items-center gap-3 rounded-2xl border border-line bg-surface px-4 py-3 text-left font-semibold">
+          className="flex min-h-tap min-w-[11rem] flex-1 items-center gap-3 rounded-2xl border border-line bg-surface px-4 py-2 text-left font-semibold">
           <Frown size={20} className="shrink-0 text-muted" aria-hidden /><span className="flex-1">{t.addKinds.symptom}</span><ChevronRight size={18} className="text-muted" aria-hidden />
         </button>
         {enabled && <LightDayControl date={date} compact />}
@@ -363,6 +363,7 @@ export function Day() {
       {/* ТЗ 17.11, step 3: the one field «Скажіть або напишіть…», pinned above the tabs (protocol-c2's OneInput goes here) */}
       {foods && recipes && all && <OneInput date={date} plan={plan} foods={foods} recipes={recipes} all={all} medItems={checklist?.items.filter((i) => i.kind === 'med') ?? []} can={can}
         lightDay={enabled && !context.demo && isToday && !light} /* D162: one field above the tabs */
+        hidden={openTile != null && !tileDraft} /* D167: one field and one microphone; the field stays while its draft is in the tile */
         onFood={(draft) => { setOpenTile(blockKeyFor(slotAt(new Date()))); setTileDraft(draft); }} />}
     </section>
   );

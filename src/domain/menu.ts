@@ -1,7 +1,10 @@
 // «Меню на завтра» (SPEC.md D33): what goes to the model and what comes back. Pure. The model only proposes
 // names and grams; amounts, nutrients and the dish check come from the app's own base and rules.
+import { addDays, format } from 'date-fns';
 import { applySwaps, checkMeal, type RuleHit } from './rules';
-import { byAt } from './dates';
+import { byAt, dateOf } from './dates';
+import { FOOD_COMPLETE } from './habits';
+import { SLOT_END, slotAt, slotEntries, type Slot } from './mealSlots';
 import { itemFor } from './foodSearch';
 import { activeMode, effectiveTargets, mealNutrients, normalize, ZERO, add } from './nutrition';
 import { setPortions, sumGrams } from './recipes';
@@ -143,6 +146,31 @@ export function asResult(meals: { title: string; time: string; items: MealItem[]
   return { tips, meals: meals.map((m) => ({ title: m.title, time: m.time,
     items: m.items.map((it) => ({ name: it.name, grams: it.grams, count: pieces(it), line: it })) })) };
 }
+
+/** D167: the main meals still ahead today — nothing recorded in them and their window not over (a «Меню» meal already
+ *  planned there counts as ahead: a new menu replaces it). A day said to be fully recorded has none. */
+export function mealsLeftToday(entries: DayEntry[], now: Date): Slot[] {
+  const today = isoDay(now);
+  if (entries.some((e) => e.checkKey === FOOD_COMPLETE && e.status === 'done' && dateOf(e.at) === today)) return [];
+  return ([0, 1, 2] as const).filter((slot) => !slotEntries(entries, today, slot).done.length && now.getHours() < SLOT_END[slot]);
+}
+
+/** D167: «Меню» opens on today while meals are left and it is before 18:00, otherwise on tomorrow. */
+export const MENU_TODAY_UNTIL = 18;
+export function menuStartDate(entries: DayEntry[], now: Date): ISODate {
+  return now.getHours() < MENU_TODAY_UNTIL && mealsLeftToday(entries, now).length ? isoDay(now) : isoDay(addDays(now, 1));
+}
+
+/** D167: a menu for today keeps only the meals still ahead — the main meals in `left`, snacks later than now. */
+export function onlyLeft(result: MenuResult, left: Slot[], now: Date): MenuResult {
+  const hm = format(now, 'HH:mm');
+  return { ...result, meals: result.meals.filter((m) => {
+    const slot = slotAt(new Date(`2000-01-01T${m.time}:00`));
+    return slot === 3 || /перекус/iu.test(m.title) ? m.time > hm : left.includes(slot);
+  }) };
+}
+
+const isoDay = (d: Date) => format(d, 'yyyy-MM-dd');
 
 /** «Як учора»: the meals of the day before as a draft for `date` (no model, no cost). */
 export function likeYesterday(entries: DayEntry[], date: ISODate): MenuResult | null {

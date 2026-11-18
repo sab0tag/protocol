@@ -53,9 +53,11 @@ export function dueMeds(items: CheckItem[], plan: Plan | undefined): { open: Due
 /** Food said here lands in the tile of the meal going on now, opened with a draft (spec: «попадает в плитку текущего приёма»). */
 export type OnFood = (draft: TileDraft) => void;
 
-export function OneInput({ date, plan, foods, recipes, all, medItems, can, lightDay, onFood }: {
+export function OneInput({ date, plan, foods, recipes, all, medItems, can, lightDay, onFood, hidden = false }: {
   date: string; plan: Plan | undefined; foods: Map<string, Food>; recipes: Recipe[]; all: DayEntry[]; medItems: CheckItem[];
   can: (feature: FeatureId) => boolean; lightDay: boolean; onFood: OnFood;
+  /** D167: hidden (kept mounted) while a meal tile is open — the tile has its own field and microphone */
+  hidden?: boolean;
 }) {
   const navigate = useNavigate();
   const [text, setText] = useState('');
@@ -122,7 +124,7 @@ export function OneInput({ date, plan, foods, recipes, all, medItems, can, light
   };
 
   return (
-    <section aria-label={L.field} className="sticky bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-10 mb-4 space-y-2 md:bottom-4" data-testid="one-input">
+    <section aria-label={L.field} hidden={hidden} className="sticky bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-10 mb-4 space-y-2 md:bottom-4" data-testid="one-input">
       {card && <Card card={card} meal={meal} can={can} lightDay={lightDay} onClose={() => { setCard(null); setFood(null); }}
         onMeds={(m) => void markYes(m)} onWhich={(m) => setCard({ kind: 'meds', meds: [m] })}
         onLightDay={() => void act(() => applyLightDay(true, 'voice'))} onFood={toTile}
