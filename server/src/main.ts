@@ -24,6 +24,7 @@ import { Store } from './store.ts';
 import { identityConfig } from './identity/config.ts';
 import { Oidc } from './identity/oidc.ts';
 import { demoGuard } from './demo/guard.ts';
+import { sonioxKeys, speechConfig } from './speech.ts';
 import { Sessions } from './identity/sessions.ts';
 
 const env = process.env;
@@ -60,7 +61,13 @@ const invitations = (() => {
   try { return identity ? new StaffInvitations(store.database, clinic, identity.cfg.appOrigin, invitationMailer(env)) : undefined; }
   catch { console.error('staff invitation configuration refused'); process.exit(1); }
 })();
+// D172: Soniox temporary keys — on only with SONIOX_API_KEY and SPEECH_ENGINE other than browser; a bad setting stops the start
+const speech = (() => {
+  try { const config = speechConfig(env); return config ? { config, keys: sonioxKeys(env.SONIOX_API_KEY!) } : undefined; }
+  catch (e) { console.error(`speech configuration refused: ${(e as Error).message}`); process.exit(1); }
+})();
 const app = createApp({
+  ...(speech ? { speech } : {}),
   ...(demo ? { demo } : {}),
   invitations,
   store,
@@ -101,6 +108,8 @@ const app = createApp({
     ...(env.AI_DAY_USD ? { aiDayUsdMicro: Number(env.AI_DAY_USD) * 1_000_000 } : {}),
     ...(env.AI_MONTH_USD ? { aiMonthUsdMicro: Number(env.AI_MONTH_USD) * 1_000_000 } : {}),
     ...(env.PILOT_JOINS_PER_IP_PER_DAY ? { pilotJoinsPerIpPerDay: Number(env.PILOT_JOINS_PER_IP_PER_DAY) } : {}), // e2e only
+    ...(env.SPEECH_PER_DAY ? { speechPerDay: Number(env.SPEECH_PER_DAY) } : {}), // D172
+    ...(env.SPEECH_ALL_PER_DAY ? { speechAllPerDay: Number(env.SPEECH_ALL_PER_DAY) } : {}),
   },
 });
 
