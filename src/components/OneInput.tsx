@@ -9,7 +9,8 @@ import { format } from 'date-fns';
 import { Camera, Mic, Send, Square, X } from 'lucide-react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { fieldAnswers } from '../app/fieldAnswers';
 import { answer, assistantConsented, eveningSnack, giveAssistantConsent, keepTalk, talkOf, type Answer } from '../app/assistantAnswer';
 import { applyLightDay } from '../app/lightDay';
 import { db } from '../data/db';
@@ -66,6 +67,8 @@ export function OneInput({ date, plan, foods, recipes, all, medItems, can, light
   /** D167: hidden (kept mounted) while a meal tile is open — the tile has its own field and microphone */
   hidden?: boolean;
 }) {
+  const navigate = useNavigate();
+  const [answers] = useState(() => fieldAnswers()); // D166: answers in the field, behind a flag
   const [text, setText] = useState('');
   const [card, setCard] = useState<Reading | null>(null);
   const [food, setFood] = useState<VoiceDraft | null>(null); // the food card stays for edits («прибери курку») until written
@@ -125,7 +128,7 @@ export function OneInput({ date, plan, foods, recipes, all, medItems, can, light
       return;
     }
     if (r.kind === 'food' || r.kind === 'edit') { toTile(r.draft); return; }
-    if (r.kind === 'question') { void askNow(r.text); return; }
+    if (r.kind === 'question' && answers) { void askNow(r.text); return; }
     closeTalk(); setCard(r);
   };
   const submit = () => { if (text.trim()) read(text); };
@@ -159,14 +162,15 @@ export function OneInput({ date, plan, foods, recipes, all, medItems, can, light
     <section aria-label={L.field} hidden={hidden} className="sticky bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-10 mb-4 space-y-2 md:bottom-4" data-testid="one-input">
       {card && <Card card={card} meal={meal} can={can} lightDay={lightDay} onClose={() => { setCard(null); setFood(null); }}
         onMeds={(m) => void markYes(m)} onWhich={(m) => setCard({ kind: 'meds', meds: [m] })}
-        onLightDay={() => void act(() => applyLightDay(true, 'voice'))} onFood={toTile} />}
+        onLightDay={() => void act(() => applyLightDay(true, 'voice'))} onFood={toTile}
+        onAsk={(q) => navigate(`/assistant?q=${encodeURIComponent(q)}`)} />}
       {talk && <AnswerCard talk={talk} foods={foods} onClose={closeTalk} onEvening={(it) => void toEvening(it)}
         onConsent={() => { giveAssistantConsent(); void askNow(talk.q, true); }} />}
       <PhotoStatus photo={photo} allow={allow} />
       {photo.state === 'done' && photo.rows.length > 0 && !card && (() => {
         const draft: VoiceDraft = { items: photo.rows.flatMap((r) => (r.item ? [{ item: r.item, said: r.text, sure: true }] : [])), notFound: photo.rows.filter((r) => !r.item).map((r) => r.text), meds: [], waterMl: 0 };
         return <Card card={{ kind: 'food', draft }} meal={meal} can={can} lightDay={lightDay} onClose={() => setPhoto({ state: 'none' })}
-          onMeds={() => undefined} onWhich={() => undefined} onLightDay={() => undefined}
+          onMeds={() => undefined} onWhich={() => undefined} onLightDay={() => undefined} onAsk={() => undefined}
           onFood={() => { setPhoto({ state: 'none' }); onFood({ rows: photo.rows, via: 'photo' }); }} />;
       })()}
       <form className="flex items-center gap-2 rounded-full border border-line bg-surface p-1.5 pl-4 shadow-sm" onSubmit={(e) => { e.preventDefault(); submit(); }}>
@@ -221,9 +225,9 @@ function AnswerCard({ talk, foods, onClose, onConsent, onEvening }: {
   );
 }
 
-function Card({ card, meal, can, lightDay, onClose, onMeds, onWhich, onLightDay, onFood }: {
+function Card({ card, meal, can, lightDay, onClose, onMeds, onWhich, onLightDay, onFood, onAsk }: {
   card: Reading; meal: string; can: (f: FeatureId) => boolean; lightDay: boolean; onClose: () => void; onMeds: (m: DueMed[]) => void; onWhich: (m: DueMed) => void;
-  onLightDay: () => void; onFood: (d: VoiceDraft) => void;
+  onLightDay: () => void; onFood: (d: VoiceDraft) => void; onAsk: (q: string) => void;
 }) {
   const shell = (children: React.ReactNode, label: string) => (
     <div role="group" aria-label={label} className="protocol-card relative space-y-2 p-3 pr-11">
@@ -250,6 +254,8 @@ function Card({ card, meal, can, lightDay, onClose, onMeds, onWhich, onLightDay,
     case 'light-day': return lightDay
       ? shell(<><p className="font-semibold">{L.lightDay}</p><button type="button" onClick={onLightDay} className={`${button} bg-accent text-on-accent`}>{L.lightDayYes}</button></>, L.lightDay)
       : null;
+    // D162 (the D166 flag off): the question goes to «Помічник», put in its field, sent only by the person
+    case 'question': return shell(<><p>{L.question}</p><button type="button" onClick={() => onAsk(card.text)} className={`${button} border-2 border-line`}>{L.ask}</button></>, L.question);
     case 'assistant-off': return shell(<><p>{L.assistantOff}</p><Link to="/modules" className="inline-flex min-h-tap items-center text-accent underline">{L.modules}</Link></>, L.assistantOff);
     case 'no-card': return shell(<p>{L.noCard}</p>, L.noCard);
     case 'food': case 'edit': {

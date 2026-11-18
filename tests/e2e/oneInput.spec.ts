@@ -75,6 +75,20 @@ test('a question with the assistant off never leaves the phone', async ({ browse
   expect(calls).toEqual([]);
 });
 
+test('the D166 flag off (production): a question is handed to «Помічник» unsent, as in D162; nothing goes to the server', async ({ browser }) => {
+  const page = await device(browser, 'example', { sw: false });
+  const calls: string[] = [];
+  page.on('request', (r) => { if (/concierge/.test(r.url())) calls.push(r.url()); });
+  await page.goto('./?answers=off#/');
+  await say(page, 'що приготувати на вечерю?');
+  await expect(page.getByRole('group', { name: 'Відповідь Помічника' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Запитати Помічника', exact: true }).click();
+  await expect(page).toHaveURL(/#\/assistant$/);
+  await expect(page.getByRole('textbox').first()).toHaveValue('що приготувати на вечерю?');
+  expect(calls).toEqual([]);
+  await page.context().close();
+});
+
 test('a question is answered in the field (D166): consent once, suggestions checked by the plan, one to the evening; the talk is on «Помічник»; a «call now» is the 103 card', async ({ browser }) => {
   const page = await device(browser, 'example', { sw: false }); // the example plan: lactose in the limits
   let calls = 0;
@@ -84,7 +98,7 @@ test('a question is answered in the field (D166): consent once, suggestions chec
     await r.fulfill({ json: /погано/iu.test(b.text) ? { topic: 'symptoms', text: 'Якщо біль сильна — негайно телефонуйте 103.', items: [] }
       : { topic: 'food', text: 'З того, що є, вийде вечеря: гречка з яйцем.', items: [{ name: 'Яйце варене', grams: 110 }, { name: 'Молоко 2,5 %', grams: 200 }, { name: 'Гречка варена', grams: 150 }] } });
   });
-  await page.goto('./#/');
+  await page.goto('./?answers=on#/'); // D166 is behind a flag, off in production; one device turns it on
   const answer = page.getByRole('group', { name: 'Відповідь Помічника' });
 
   await say(page, 'що добрати до вечора?'); // the code answers — no model

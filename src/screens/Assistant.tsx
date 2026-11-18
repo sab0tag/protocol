@@ -60,6 +60,10 @@ export function Assistant() {
   const day = plan && foods && recipes && all ? { plan, foods, recipes, all, date } : undefined;
   /** Scenario 3 asked in words — the code's numbers and three things that pass the plan; no model. */
   const topupAnswer = () => { if (day) reply(topupReply(day)); };
+  useEffect(() => { // D162: a question from the one field (the D166 flag off) — put in the field, sent only by the person
+    const q = params.get('q');
+    if (q) { setParams({}, { replace: true }); fill(q); }
+  }, [params]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { // D116: the evening push opens the assistant on this question
     if (params.get('ask') === 'topup' && plan && foods && totals && entries) { setParams({}, { replace: true }); say({ role: 'user', text: L.chips[0]! }); topupAnswer(); }
   }, [params, plan, foods, totals, entries]); // eslint-disable-line react-hooks/exhaustive-deps
