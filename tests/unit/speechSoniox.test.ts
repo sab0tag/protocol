@@ -15,24 +15,25 @@ class FakeSocket {
   say(tokens: { text: string; is_final?: boolean }[], finished = false) { this.onmessage?.({ data: JSON.stringify({ tokens, ...(finished ? { finished: true } : {}) }) }); }
 }
 
-function rig(over: Partial<{ key: () => Promise<{ key: string; model: string; maxSeconds: number }>; mic: () => Promise<MediaStream> }> = {}) {
+function rig(over: Partial<{ key: () => Promise<{ key: string; model: string; maxSeconds: number }>; mic: () => Promise<MediaStream>; d95: boolean; fallback: () => () => void }> = {}) {
   const sockets: FakeSocket[] = [];
   let hidden: (() => void) | null = null;
   const track = { stop: vi.fn() };
-  const audio = { stop: vi.fn() };
+  const audio = { stop: vi.fn(), made: vi.fn() };
   let chunk: ((b: ArrayBuffer) => void) | null = null;
+  const hiddenAt = vi.fn();
   const env: SonioxEnv = {
     socket: (url, protocols) => { const s = new FakeSocket(url, protocols); sockets.push(s); return s as never; },
     microphone: over.mic ?? (async () => ({ getTracks: () => [track] }) as unknown as MediaStream),
-    pcm: (_s, onChunk) => { chunk = onChunk; return { sampleRate: 48000, stop: audio.stop }; },
-    onHidden: (f) => { hidden = f; return () => { hidden = null; }; },
+    audio: () => { audio.made(); return { sampleRate: 48000, attach: (_s: MediaStream, onChunk: (b: ArrayBuffer) => void) => { chunk = onChunk; }, stop: audio.stop }; },
+    onHidden: (f) => { hiddenAt(); hidden = f; return () => { hidden = null; }; },
   };
   const on = { interim: vi.fn(), final: vi.fn(), error: vi.fn(), end: vi.fn(), left: vi.fn() };
-  const fallback = vi.fn(() => () => undefined);
+  const fallback = vi.fn((on: unknown, _b: string[]) => (over.fallback ? (over.fallback as (o: unknown) => () => void)(on) : () => undefined));
   const outcome = vi.fn();
-  const key = over.key ?? vi.fn(async () => ({ key: 'snx_temp_x', model: 'stt-rt-v6', maxSeconds: 60 }));
-  const stop = listenSoniox(on, [], { key, fallback, outcome, env });
-  return { sockets, on, fallback, outcome, stop, track, audio, key, hide: () => hidden?.(), sound: () => chunk?.(new ArrayBuffer(8)) };
+  const key = vi.fn(over.key ?? (async () => ({ key: 'snx_temp_x', model: 'stt-rt-v6', maxSeconds: 60 })));
+  const stop = listenSoniox(on, [], { key, fallback, fallbackAllowed: () => over.d95 ?? true, outcome, env });
+  return { sockets, on, fallback, outcome, stop, track, audio, key, hiddenAt, hide: () => hidden?.(), sound: () => chunk?.(new ArrayBuffer(8)) };
 }
 const tick = async (ms = 0) => { await vi.advanceTimersByTimeAsync(ms); };
 
@@ -58,6 +59,24 @@ describe('the connection', () => {
     expect(r.on.error).toHaveBeenCalledWith('not-allowed');
     expect(r.key).not.toHaveBeenCalled();
     expect(r.on.end).toHaveBeenCalled();
+  });
+});
+
+describe('in the tap itself (iPhone)', () => {
+  it('the audio context and the watch for the app hidden are made synchronously, before the microphone and the key', () => {
+    let release!: () => void;
+    const r = rig({ key: () => new Promise((ok) => { release = () => ok({ key: 'snx_temp_x', model: 'stt-rt-v6', maxSeconds: 60 }); }) });
+    expect(r.audio.made).toHaveBeenCalledTimes(1); // no await has happened yet
+    expect(r.hiddenAt).toHaveBeenCalledTimes(1);
+    expect(r.key).not.toHaveBeenCalled();
+    void release;
+  });
+  it('hidden while the key is still coming — the microphone is released, nothing is opened', async () => {
+    let release!: () => void;
+    const r = rig({ key: () => new Promise((ok) => { release = () => ok({ key: 'snx_temp_x', model: 'stt-rt-v6', maxSeconds: 60 }); }) });
+    await tick(); r.hide(); release(); await tick();
+    expect(r.sockets).toHaveLength(0);
+    expect(r.track.stop).toHaveBeenCalled();
   });
 });
 
@@ -122,6 +141,19 @@ describe('the stops — the stream is ended and the socket closed', () => {
 });
 
 describe('failures', () => {
+  it('without the D95 consent the phone’s engine is never tried: «напишіть текстом», the sound goes nowhere', async () => {
+    const r = rig({ key: async () => { throw new Error('speech_off'); }, d95: false }); await tick();
+    expect(r.fallback).not.toHaveBeenCalled();
+    expect(r.on.error).toHaveBeenCalledWith('other');
+    expect(r.on.end).toHaveBeenCalled();
+  });
+  it('the phone’s engine refusing to start after the waits — the same «напишіть текстом»', async () => {
+    const r = rig({ key: async () => { throw new Error('speech_off'); },
+      fallback: (on?: unknown) => { const h = on as { error: (e: string) => void; end: () => void }; h.error('not-allowed'); h.end(); return () => undefined; } });
+    await tick();
+    expect(r.on.error).toHaveBeenCalledWith('other');
+  });
+
   it('no key (503, 429, offline) — once to the browser’s engine, nothing opened', async () => {
     const r = rig({ key: async () => { throw new Error('speech_off'); } }); await tick();
     expect(r.sockets).toHaveLength(0);

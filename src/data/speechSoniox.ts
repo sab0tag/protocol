@@ -20,11 +20,13 @@ export interface ListenHandlers { interim: (text: string) => void; final: (text:
 
 type Socket = Pick<WebSocket, 'send' | 'close' | 'readyState'> & { onopen: ((e: unknown) => void) | null; onmessage: ((e: { data: unknown }) => void) | null;
   onerror: ((e: unknown) => void) | null; onclose: ((e: unknown) => void) | null };
+/** The audio graph, made synchronously in the tap (iPhone keeps a context made later suspended — no sound reaches Soniox). */
+export interface Audio { sampleRate: number; attach: (stream: MediaStream, onChunk: (b: ArrayBuffer) => void) => void; stop: () => void }
 export interface SonioxEnv {
   socket: (url: string, protocols: string[]) => Socket;
   microphone: () => Promise<MediaStream>;
-  /** raw PCM chunks of the microphone, 16-bit little-endian mono; returns the sample rate and a stop() */
-  pcm: (stream: MediaStream, onChunk: (b: ArrayBuffer) => void) => { sampleRate: number; stop: () => void };
+  /** created and resumed right away, before any await; `attach` feeds raw 16-bit little-endian mono PCM */
+  audio: () => Audio;
   onHidden: (f: () => void) => () => void;
 }
 
@@ -32,18 +34,26 @@ export interface SonioxEnv {
 export const browserEnv = (): SonioxEnv => ({
   socket: (url, protocols) => new WebSocket(url, protocols) as unknown as Socket,
   microphone: () => navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true } }),
-  pcm: (stream, onChunk) => {
+  audio: () => {
     const W = globalThis as unknown as { AudioContext?: typeof AudioContext; webkitAudioContext?: typeof AudioContext };
     const ctx = new (W.AudioContext ?? W.webkitAudioContext!)();
-    const src = ctx.createMediaStreamSource(stream);
-    const proc = ctx.createScriptProcessor(4096, 1, 1);
-    proc.onaudioprocess = (e) => {
-      const f = e.inputBuffer.getChannelData(0), out = new Int16Array(f.length);
-      for (let i = 0; i < f.length; i++) { const v = Math.max(-1, Math.min(1, f[i]!)); out[i] = v < 0 ? v * 0x8000 : v * 0x7fff; }
-      onChunk(out.buffer);
+    void ctx.resume().catch(() => undefined); // in the tap itself — iPhone allows it only here
+    let src: MediaStreamAudioSourceNode | null = null, proc: ScriptProcessorNode | null = null;
+    return {
+      sampleRate: ctx.sampleRate,
+      attach: (stream, onChunk) => {
+        src = ctx.createMediaStreamSource(stream);
+        proc = ctx.createScriptProcessor(4096, 1, 1);
+        proc.onaudioprocess = (e) => {
+          const f = e.inputBuffer.getChannelData(0), out = new Int16Array(f.length);
+          for (let i = 0; i < f.length; i++) { const v = Math.max(-1, Math.min(1, f[i]!)); out[i] = v < 0 ? v * 0x8000 : v * 0x7fff; }
+          onChunk(out.buffer);
+        };
+        src.connect(proc); proc.connect(ctx.destination); // a script processor runs only when connected; it writes nothing out
+        if (ctx.state !== 'running') void ctx.resume().catch(() => undefined);
+      },
+      stop: () => { if (proc) proc.onaudioprocess = null; try { src?.disconnect(); proc?.disconnect(); } catch { /* gone */ } void ctx.close().catch(() => undefined); },
     };
-    src.connect(proc); proc.connect(ctx.destination); // a script processor runs only when connected; it writes nothing out
-    return { sampleRate: ctx.sampleRate, stop: () => { proc.onaudioprocess = null; try { src.disconnect(); proc.disconnect(); } catch { /* gone */ } void ctx.close().catch(() => undefined); } };
   },
   onHidden: (f) => {
     const h = () => { if (document.visibilityState === 'hidden') f(); };
@@ -54,8 +64,10 @@ export const browserEnv = (): SonioxEnv => ({
 
 export interface SonioxDeps {
   key: () => Promise<{ key: string; model: string; maxSeconds: number }>;
-  /** the browser's engine — tried once when Soniox fails before any word was heard */
+  /** the browser's engine — tried once when Soniox fails before any word was heard, and only with its own consent (D95):
+   *  without it the sound goes nowhere else, the person is asked to type */
   fallback: (on: ListenHandlers, before: string[]) => () => void;
+  fallbackAllowed: () => boolean;
   /** a failure of Soniox (for «three in a row — an hour on the phone's engine») or a success */
   outcome?: (ok: boolean) => void;
   env?: SonioxEnv;
@@ -63,7 +75,10 @@ export interface SonioxDeps {
 
 export function listenSoniox(on: ListenHandlers, before: string[], deps: SonioxDeps): () => void {
   const env = deps.env ?? browserEnv();
-  let ws: Socket | null = null, mic: MediaStream | null = null, audio: { stop: () => void } | null = null;
+  let ws: Socket | null = null, mic: MediaStream | null = null;
+  // In the tap, before any await: the audio context (resumed) and the watch for the app being hidden.
+  let audio: Audio | null = null;
+  try { audio = env.audio(); } catch { audio = null; }
   let unhide: () => void = () => undefined;
   let finals = '', partial = '', closing = false, ended = false, heardAny = false, fellBack = false, stopFallback: (() => void) | null = null;
   const timers: ReturnType<typeof setTimeout>[] = [];
@@ -91,9 +106,13 @@ export function listenSoniox(on: ListenHandlers, before: string[], deps: SonioxD
   const fallBack = (err: SpeechError) => {
     deps.outcome?.(false);
     if (heardAny || fellBack) { finish(err); return; } // the words heard stay — they go to the field, nothing is written
+    if (!deps.fallbackAllowed()) { finish('other'); return; } // no D95 consent: the sound goes nowhere else — «напишіть текстом»
     fellBack = true; ended = true; release();
     try { ws?.close(); } catch { /* closed */ }
-    stopFallback = deps.fallback(on, before);
+    // After the waits the phone may refuse to start its own engine (iPhone wants the tap itself): then the same «напишіть текстом»
+    let said = false;
+    stopFallback = deps.fallback({ ...on, interim: (t) => { said = true; on.interim(t); },
+      error: (e) => on.error(!said && (e === 'not-allowed' || e === 'no-support' || e === 'other') ? 'other' : e) }, before);
   };
   const wordsChanged = () => {
     heardAny = true;
@@ -102,15 +121,16 @@ export function listenSoniox(on: ListenHandlers, before: string[], deps: SonioxD
     clearTimeout(silence); silence = setTimeout(stop, SILENCE_MS);
   };
 
+  unhide = env.onHidden(stop);
   void (async () => {
-    try { mic = await env.microphone(); } catch { on.error('not-allowed'); ended = true; on.end(); return; }
+    try { mic = await env.microphone(); } catch { release(); on.error('not-allowed'); ended = true; on.end(); return; }
     if (ended || closing) { release(); return; }
     let k: Awaited<ReturnType<SonioxDeps['key']>>;
     try { k = await deps.key(); } catch { fallBack('network'); return; }
     if (ended || closing) { release(); return; }
-    audio = env.pcm(mic, (b) => { if (closing || ended) return; if (ws?.readyState === 1) ws.send(b); else if (queue.length < 200) queue.push(b); });
-    const sampleRate = (audio as { sampleRate?: number }).sampleRate ?? 48_000;
-    unhide = env.onHidden(stop);
+    if (!audio) { fallBack('other'); return; }
+    audio.attach(mic, (b) => { if (closing || ended) return; if (ws?.readyState === 1) ws.send(b); else if (queue.length < 200) queue.push(b); });
+    const sampleRate = audio.sampleRate;
     timers.push(setTimeout(() => { if (!heardAny) finish('no-speech'); }, NO_SPEECH_MS));
     timers.push(setTimeout(() => on.left?.(Math.round((MAX_MS - WARN_MS) / 1000)), WARN_MS));
     timers.push(setTimeout(stop, Math.min(MAX_MS, k.maxSeconds * 1000)));

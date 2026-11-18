@@ -5,6 +5,7 @@ import { endsWithStop, withoutStop } from '../domain/foodSearch';
 import { newWords } from '../domain/voice';
 import { speechState, speechKey } from '../sync/api';
 import { listenSoniox, type ListenHandlers } from './speechSoniox';
+import { profileKey } from './profiles';
 
 // D173: which engine. The new consent for Soniox (PR 3) and the person's choice live on this device; whether the server gives
 // a key is asked once a session (and again after an hour); three Soniox failures in a row — an hour on the phone's engine.
@@ -47,7 +48,7 @@ export type { ListenHandlers };
 export function listen(on: ListenHandlers, before: string[] = []): () => void {
   // D173: Soniox when the person agreed to it, did not choose the phone's engine, and the server gives this device a key now
   if (sonioxReady()) return listenSoniox(on, before, { key: async () => speechKey((await import('../sync/runner')).currentKeys() ?? null),
-    fallback: browserListen, outcome: (ok) => { failures = ok ? 0 : failures + 1; if (failures >= 3) { failures = 0; save(COOL, String(Date.now() + 3_600_000)); } } });
+    fallback: browserListen, fallbackAllowed: () => read(profileKey('protocol.voice.ok')) === '1' /* D95 */, outcome: (ok) => { failures = ok ? 0 : failures + 1; if (failures >= 3) { failures = 0; save(COOL, String(Date.now() + 3_600_000)); } } });
   if (server === null) void refreshSpeech();
   return browserListen(on, before);
 }
