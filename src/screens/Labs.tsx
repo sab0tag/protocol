@@ -84,7 +84,7 @@ export function Labs() {
       <header className="protocol-scene-header flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-2xl font-semibold">{L.labs}</h1>
         <button ref={add} type="button" disabled={open} onClick={e => start(e.currentTarget)} aria-expanded={open} aria-controls="lab-editor"
-          className="flex min-h-tap items-center gap-1 rounded-xl border border-white/30 bg-black/20 px-3 text-white disabled:opacity-60"><Plus size={18} aria-hidden />{L.addLab}</button>
+          className="flex min-h-tap items-center gap-1 rounded-xl border border-accent px-3 font-medium text-accent disabled:opacity-60"><Plus size={18} aria-hidden />{L.addLab}</button>
       </header>
       <ExampleNotice plan={plan} />
       <LabsScan known={rows} />

@@ -74,14 +74,17 @@ function Due({ item, date, onSnoozed, onConfirm, onReschedule }: { item: NowItem
   const [menu, setMenu] = useState(false);
   const [help, setHelp] = useState(false);
   const act = (f: () => void) => () => { setMenu(false); f(); };
-  // ТЗ 17.11, step 3: compact — what to take with the doctor's word in one line, one «Прийнято», the rest behind «⋯»
+  // ТЗ 17.11, step 3: compact — what to take with the doctor's word in one line, one action, the rest behind «⋯».
+  // Queue 18.11 (D167): the button says what it does («Відмітити»), and a dose more than an hour past its time is not «now» —
+  // it reads «Не відмічено з 08:30».
+  const missed = overdue && date === today ? L.missedSince(item.time) : undefined;
   return (
-    <section aria-label={L.title} className="protocol-card protocol-now-card border-warn/30 bg-warn-bg/30 px-4 pb-3 pt-1">
+    <section aria-label={missed ?? L.title} className="protocol-card protocol-now-card border-warn/30 bg-warn-bg/30 px-4 pb-3 pt-1">
       <div className="flex items-center justify-between gap-2">
-        <p className="flex min-w-0 items-center gap-2 text-sm">
+        {missed ? <p className={`${label} min-w-0 truncate text-ink`}>{missed}</p> : <p className="flex min-w-0 items-center gap-2 text-sm">
           <span className={`${label} flex items-center gap-2 text-ink`}><span className="h-2 w-2 rounded-full bg-accent" aria-hidden />{L.title}</span>
           <span className="tabular truncate text-muted">{when}</span>
-        </p>
+        </p>}
         <button type="button" aria-label={L.more} aria-expanded={menu} aria-controls="now-menu" onClick={() => setMenu((v) => !v)}
           onKeyDown={(e) => { if (e.key === 'Escape') setMenu(false); }}
           className="-mr-2 flex min-h-tap min-w-tap items-center justify-center rounded-full text-muted"><MoreHorizontal size={22} aria-hidden /></button>
@@ -98,7 +101,7 @@ function Due({ item, date, onSnoozed, onConfirm, onReschedule }: { item: NowItem
       </div>}
       {help && <p className="mt-2 text-sm text-muted">{L.missedHelp}</p>}
       <button type="button" onClick={() => (overdue && !item.entry ? setAskingWhen(true) : item.entry?.items?.length ? onConfirm(item.entry) : void mark(item, date, 'done', nowHm()))}
-        className="mt-2 flex min-h-[3.25rem] w-full items-center justify-center gap-2 rounded-full bg-accent px-4 text-lg font-semibold text-on-accent">
+        className="mt-1 flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-accent px-4 text-lg font-semibold text-on-accent">
         <Check size={22} aria-hidden />{item.entry ? L.eaten : L.taken}</button>
       {askingWhen && <TimeChoice title={titleOf(item)} planned={item.time} date={date} meal={false} allowUncertain onPick={(when) => { if ('uncertain' in when) void markMeds(meds ?? [], date, item.time, 'done', when); else void mark(item, date, 'done', when); setAskingWhen(false); }} onClose={() => setAskingWhen(false)} />}
       {askingSkip && <SkipChoice title={titleOf(item)} onClose={() => setAskingSkip(false)} onConfirm={(reason) => void mark(item, date, 'skipped', { time: item.time }, reason)} />}

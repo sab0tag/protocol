@@ -83,7 +83,7 @@ export function QuickMarks({ date, isToday, light, items, water, entries, wellbe
                 onChange={() => { setTicked((s) => new Set(s).add(d.key)); void markMeds([medMark(d)], date, d.time, 'done', { time: hm() }); }}
                 className="h-6 w-6 shrink-0 accent-[rgb(var(--accent))]" />
               <span className="min-w-0 flex-1"><span className={`block font-medium ${d.done ? 'line-through' : ''}`}>{d.title}</span>
-                <span className="block text-sm text-muted">{[d.time, d.detail, d.done ? L.doneAt(d.doneAt) : d.skipped ? t.status.skipped : ''].filter(Boolean).join(' · ')}</span></span>
+                <span className="block text-sm text-muted">{[d.detail || d.time /* a dose's detail starts with its time */, d.done ? L.doneAt(d.doneAt) : d.skipped ? t.status.skipped : ''].filter(Boolean).join(' · ')}</span></span>
             </label></li>;
           })}
         </ul>
