@@ -69,6 +69,10 @@ export interface Targets {
   fatG?: number;
   calciumMg?: number;
   waterMl?: number;
+  /** D169: the doctor's fluid limit — «не більше» (heart, kidneys); every drink and the liquid of soups count toward it */
+  waterMaxMl?: number;
+  /** D169: `waterMl` set by the person from a reference (EFSA), not by the doctor — shown as «орієнтир» */
+  waterFrom?: 'efsa';
   lastMealBy?: string; // "20:00"
   weightGoalKg?: number;
   maxWeightLossKgPerWeek?: number;

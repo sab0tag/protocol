@@ -9,7 +9,7 @@ export const hasActivity = (p: Prescription) => p.kind === 'lifestyle' && ACTIVI
 const positive = (n: unknown) => typeof n === 'number' && Number.isFinite(n) && n > 0;
 export function starterModules(plan: Plan): { modules: ModuleFlags; weight: boolean } {
   const meds = plan.prescriptions.some((p) => p.kind === 'medication' || p.kind === 'supplement');
-  return { modules: { meds, water: positive(plan.targets.waterMl), food: !meds, menu: false, assistant: false, wellbeing: false,
+  return { modules: { meds, water: positive(plan.targets.waterMl) || positive(plan.targets.waterMaxMl) /* D169: a limit is counted too */, food: !meds, menu: false, assistant: false, wellbeing: false,
     workout: plan.prescriptions.some(hasActivity), progress: false }, weight: positive(plan.targets.weightGoalKg) };
 }
 

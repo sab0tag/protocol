@@ -2,6 +2,8 @@
 // decides (readOneInput); a card shows what will happen, and only water is written at once (with «Скасувати»). A medicine is
 // marked only after «Так». Danger and crisis words show their card and nothing else. After an action the card goes — its
 // result is in the day's list; the talk is not kept here.
+import { dayFluid, waterState, withWater } from '../domain/fluid';
+import { waterAdded } from './QuickMarks';
 import { format } from 'date-fns';
 import { Camera, Mic, Send, Square, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -88,7 +90,7 @@ export function OneInput({ date, plan, foods, recipes, all, medItems, can, light
     if (r.kind === 'water') {
       if (!can('water.log')) { setCard(r); return; }
       const e: DayEntry = { id: newId(), at: atLocal(date, format(new Date(), 'HH:mm')), kind: 'water', status: 'done', title: t.addKinds.water, waterMl: r.ml };
-      void act(() => saved(db.entries.add(e), L.water(r.ml), () => db.entries.delete(e.id)));
+      void act(() => saved(db.entries.add(e), waterAdded(r.ml, waterState(withWater(dayFluid(all, foods, date), r.ml), plan?.targets), L.water(r.ml)), () => db.entries.delete(e.id))); // D169: «до межі лишилось…»
       return;
     }
     if (r.kind === 'food' || r.kind === 'edit') { toTile(r.draft); return; }
@@ -114,7 +116,7 @@ export function OneInput({ date, plan, foods, recipes, all, medItems, can, light
     const water = draft.waterMl - (food?.waterMl ?? 0);
     if (water > 0 && can('water.log')) {
       const e: DayEntry = { id: newId(), at: atLocal(date, format(new Date(), 'HH:mm')), kind: 'water', status: 'done', title: t.addKinds.water, waterMl: water };
-      void act(() => saved(db.entries.add(e), L.water(water), () => db.entries.delete(e.id)));
+      void act(() => saved(db.entries.add(e), waterAdded(water, waterState(withWater(dayFluid(all, foods, date), water), plan?.targets), L.water(water)), () => db.entries.delete(e.id)));
     }
     setFood(draft); setCard(null);
     onFood({ rows: [...draft.items.map((x) => ({ text: x.said, item: x.item, ...(x.others ? { others: x.others } : {}) })), ...draft.notFound.map((x) => ({ text: x }))],

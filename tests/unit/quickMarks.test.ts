@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dosesNow, glasses, medsState, MOOD_WORDS, openDoses } from '../../src/domain/quickMarks';
+import { dosesNow, medsState, MOOD_WORDS, openDoses } from '../../src/domain/quickMarks';
 import type { CheckItem } from '../../src/domain/checklist';
 
 const dose = (key: string, time: string, extra: Partial<CheckItem> = {}): CheckItem =>
@@ -18,11 +18,9 @@ describe('quick marks on «Сьогодні» (D164)', () => {
     expect(openDoses(items).map((d) => d.key)).toEqual(['a', 'b', 'f']);
   });
 
-  it('states are words or numbers: «2 з 5» doses, «4 з 8» glasses', () => {
+  it('states are words or numbers: «2 з 5» doses (water is in litres, D169 — fluid.test)', () => {
     expect(medsState([dose('a', '08:00', { done: true }), dose('b', '08:00', { done: true }), dose('c', '13:00'), dose('d', '20:00'), dose('e', '22:00')]))
       .toEqual({ done: 2, total: 5 });
-    expect(glasses(1000, 2000)).toEqual({ done: 4, target: 8 });
-    expect(glasses(500)).toEqual({ done: 2 });
     expect(MOOD_WORDS).toEqual(['Дуже погано', 'Погано', 'Так собі', 'Добре', 'Чудово']);
   });
 });

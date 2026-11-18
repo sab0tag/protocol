@@ -14,6 +14,7 @@ import { observedCoincidences, pace, weeklyWeights, wellbeingCoincidences } from
 import type { DailyLimit, DayEntry, Food, ISODate, LabResult, Plan, WeightLog, Wellbeing, Workout } from './types';
 import { neutralDay, observedPlannedEntry, observedToday, trackingInfo, type Observation, type TrackingInfo, type TrackingKey } from './observation';
 import { lightDayHistory, type LightDayHistory } from './lightDay';
+import { dayFluid, litres } from './fluid';
 
 export interface Report {
   from: ISODate;
@@ -57,6 +58,8 @@ export interface Report {
   unscoredMedMarks?: number;
   lightDays?: LightDayHistory;
   lightDayWorkouts?: number;
+  /** D169: water and drinks in litres over the days they were written; under the doctor's limit, the days over it */
+  water?: { days: number; avgMl: number; maxMl?: number; over: { date: ISODate; overMl: number }[] };
 }
 
 export function buildReport(args: {
@@ -155,6 +158,7 @@ export function buildReport(args: {
     // D81: weekly averages over the period — the same count as «Прогрес», not first-to-last weighing
     ...(pace(weeklyWeights(w), Infinity) !== undefined ? { weightPace: pace(weeklyWeights(w), Infinity)! } : {}),
     ...(plan?.targets.maxWeightLossKgPerWeek != null ? { maxLossPerWeek: plan.targets.maxWeightLossKgPerWeek } : {}),
+    ...waterReport(entries, foods, plan, from, to, observation),
     habits: (['protein', 'carbs', 'water', 'meds', 'plan'] as HabitKey[]).flatMap((key) => { const h = hab.get(key); return h ? [{ key, ...h }] : []; }),
     ...(menuMeals.length ? { menu: { done: menuMeals.filter((e) => e.status === 'done').length,
       skipped: menuMeals.filter((e) => e.status === 'skipped').length, open: menuMeals.filter((e) => e.status === 'planned').length } } : {}),
@@ -205,6 +209,26 @@ export const unscoredMedText = (n: number) => {
 const signedKg = (n: number) => `${n > 0 ? '+' : n < 0 ? '−' : ''}${dec(Math.abs(n))}`;
 
 /** The report as plain text for «Поділитися» (and for a doctor without the app). */
+/** D169: the days with any water or drink written — the average of those days, and the days over the doctor's limit. */
+function waterReport(entries: DayEntry[], foods: Map<string, Food>, plan: Plan | undefined, from: ISODate, to: ISODate, observation?: Observation): Pick<Report, 'water'> {
+  const maxMl = plan?.targets.waterMaxMl;
+  const totals: { date: ISODate; ml: number }[] = [];
+  for (let d = from; d <= to; d = format(addDays(parseISO(d), 1), 'yyyy-MM-dd')) {
+    if (observation && neutralDay(observation, 'water', d)) continue;
+    const ml = dayFluid(entries, foods, d).totalMl;
+    if (ml > 0) totals.push({ date: d, ml });
+  }
+  if (!totals.length) return {};
+  return { water: { days: totals.length, avgMl: Math.round(totals.reduce((a, x) => a + x.ml, 0) / totals.length / 10) * 10,
+    ...(maxMl ? { maxMl } : {}), over: maxMl ? totals.filter((x) => x.ml > maxMl).map((x) => ({ date: x.date, overMl: x.ml - maxMl })) : [] } };
+}
+
+/** D169: the water lines of the report, in litres. */
+export function waterLines(w: NonNullable<Report['water']>, dm: (d: ISODate) => string): string[] {
+  const W = t.water;
+  return [W.report(litres(w.avgMl), w.days), ...(w.maxMl ? [`${W.reportLimit(litres(w.maxMl), w.over.length, w.days)}${w.over.length ? `: ${w.over.map((x) => W.reportOverDay(dm(x.date), x.overMl)).join('; ')}` : ''}`] : [])];
+}
+
 export function reportText(r: Report, dm: (d: ISODate) => string): string {
   const lines = [
     `Звіт за ${dm(r.from)} — ${dm(r.to)} (${r.days} дн.)`,
@@ -228,6 +252,7 @@ export function reportText(r: Report, dm: (d: ISODate) => string): string {
     r.weightPending ? t.weightQuality.reportPending(r.weightPending) : '',
     r.weightStart != null ? `Вага: ${dec(r.weightStart)} → ${dec(r.weightNow!)} кг` : '',
     r.weightPace != null ? `Темп за період, за тижневими середніми: ${signedKg(r.weightPace)} кг на тиждень${r.maxLossPerWeek != null ? ` (межа — не швидше ${dec(r.maxLossPerWeek)})` : ''}` : '',
+    ...(r.water ? waterLines(r.water, dm) : []),
     r.habits.length ? `Дні з записами, коли виконано:\n${r.habits.map((h) => `• ${HABIT[h.key]}: ${h.met} з ${h.of}`).join('\n')}` : '',
     r.menu ? `Меню з застосунку: з’їдено ${r.menu.done}, пропущено ${r.menu.skipped}, не відмічено ${r.menu.open}` : '',
     r.observed?.workout === false ? '' : `${r.lightDayWorkouts ? t.lightDay.scoredWorkouts : 'Тренувань'}: ${r.workouts}`,

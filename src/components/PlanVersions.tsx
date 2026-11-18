@@ -63,7 +63,7 @@ export function PlanVersions({ current }: { current: PlanRow }) {
             <p className="font-semibold">{v.source}{v.at ? ` · ${L.saved(format(v.at, 'dd.MM HH:mm'))}` : ''}</p>
             <p className="tabular">{[tg.kcal && `${tg.kcal} ккал`, tg.proteinG && `білок ${tg.proteinG} г`,
               tg.carbsG?.max != null && `вуглеводи до ${tg.carbsG.max} г`, tg.carbsG?.min != null && `вуглеводи від ${tg.carbsG.min} г`,
-              tg.waterMl && `вода ${tg.waterMl} мл`, tg.lastMealBy && `останній прийом до ${tg.lastMealBy}`].filter(Boolean).join(' · ') || L.noTargets}</p>
+              tg.waterMl && `вода ${tg.waterMl} мл`, tg.waterMaxMl && `рідина до ${tg.waterMaxMl} мл`, tg.lastMealBy && `останній прийом до ${tg.lastMealBy}`].filter(Boolean).join(' · ') || L.noTargets}</p>
             <p className="text-muted">{L.counts((p.constraints ?? []).length, (p.prescriptions ?? []).length, (p.modes ?? []).length)}</p>
             {(p.constraints ?? []).length > 0 && <p className="text-muted">{(p.constraints ?? []).map((c) => c.title).join(', ')}</p>}
             <button type="button" onClick={() => void restore(v)} className="min-h-tap rounded-xl bg-accent px-3 font-medium text-surface">{L.restore}</button>

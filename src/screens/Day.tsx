@@ -21,6 +21,7 @@ import { exportDue } from '../data/backup';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { atLocal, dateOf, newId, timeOf, todayISO } from '../domain/dates';
 import { activeMode, dayTotals, effectiveTargets } from '../domain/nutrition';
+import { dayFluid } from '../domain/fluid';
 import type { DayEntry, EntryKind } from '../domain/types';
 import { t } from '../i18n/uk';
 import { useUi } from '../store/ui';
@@ -199,7 +200,8 @@ export function Day() {
       <div data-testid="focused-day-now">
         {entries && <NowCard compact entries={entries} plan={plan} date={date} observation={observation} onConfirm={setConfirming} onReschedule={setRescheduling} />}
       </div>
-      {checklist && entries && <QuickMarks date={date} isToday={isToday} light={light} items={checklist.items} water={checklist.water} entries={entries}
+      {checklist && entries && <QuickMarks date={date} isToday={isToday} light={light} items={checklist.items} entries={entries}
+        fluid={dayFluid(entries, foods ?? new Map(), date)} targets={{ ...targets, ...(plan?.targets.waterMaxMl ? { waterMaxMl: plan.targets.waterMaxMl } : {}), ...(plan?.targets.waterFrom ? { waterFrom: plan.targets.waterFrom } : {}) }} /* D169 */
         wellbeing={wellbeingToday ?? undefined} workoutDone={!!workouts?.some((w) => w.date === date) || entries.some((e) => e.kind === 'workout' && e.status === 'done')}
         onWorkout={() => setSimple({ kind: 'workout' })} onUnwell={() => setSymptom({})} request={openMark} onRequestDone={() => setOpenMark(null)} />}
       {can('food.log') && date <= today && entries && all && foods && recipes && <MealTiles date={date} day={entries} all={all} foods={foods} recipes={recipes} plan={plan}

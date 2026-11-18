@@ -2,19 +2,19 @@ import { expect, test } from '@playwright/test';
 import { t } from '../../src/i18n/uk';
 import { device, kyivOffset, seed, ymd } from './helpers';
 
-test('the water tile counts glasses at 320 px with undo; «Мій прогрес» shows the litres, kept after a reload (D164)', async ({ browser }) => {
+test('the water tile counts litres (D169) at 320 px with undo; «Мій прогрес» shows the litres, kept after a reload (D164)', async ({ browser }) => {
   const page = await device(browser, 'skip');
   await page.setViewportSize({ width: 320, height: 568 });
   const water = page.getByRole('navigation', { name: 'Швидкі відмітки', exact: true }).getByRole('button', { name: /^Вода:/ });
   await water.click();
   await expect(page.getByRole('status').getByRole('button', { name: t.toast.undo, exact: true })).toBeVisible();
   await water.click();
-  await expect(water).toHaveAccessibleName(/^Вода: 2/);
+  await expect(water).toHaveAccessibleName(/^Вода: 0,5 л/);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.getByRole('status').getByRole('button', { name: t.toast.undo, exact: true }).click();
-  await expect(water).toHaveAccessibleName(/^Вода: 1/);
+  await expect(water).toHaveAccessibleName(/^Вода: 0,25 л/);
   await page.reload();
-  await expect(water).toHaveAccessibleName(/^Вода: 1/);
+  await expect(water).toHaveAccessibleName(/^Вода: 0,25 л/);
   await page.goto('./#/progress');
   await expect(page.getByRole('region', { name: t.summary.title, exact: true }).getByText(/^0,25/)).toBeVisible();
   await page.context().close();

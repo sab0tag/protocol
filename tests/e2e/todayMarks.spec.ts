@@ -64,11 +64,11 @@ test('two doses due at once: «Ліки» opens a list with ticks; a tick marks 
   expect((await rows(page, 'entries')).filter((e) => e.kind === 'med' && e.status === 'done')).toHaveLength(1);
 
   const water = marks(page).getByRole('button', { name: /^Вода:/ });
-  await expect(water).toHaveAccessibleName('Вода: 0 з 8');
+  await expect(water).toHaveAccessibleName('Вода: 0 з 2,0 л');
   await water.click();
-  await expect(water).toHaveAccessibleName('Вода: 1 з 8');
+  await expect(water).toHaveAccessibleName('Вода: 0,25 з 2,0 л');
   await toast(page).getByRole('button', { name: 'Скасувати' }).click();
-  await expect(water).toHaveAccessibleName('Вода: 0 з 8');
+  await expect(water).toHaveAccessibleName('Вода: 0 з 2,0 л');
   expect((await rows(page, 'entries')).filter((e) => e.kind === 'water')).toHaveLength(0); // the undo removes the record entirely
 });
 

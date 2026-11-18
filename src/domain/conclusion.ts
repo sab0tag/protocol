@@ -11,7 +11,7 @@ import { fold, searchMeds, type MedIndex } from './meds';
 import { ALLERGENS, type Allergen, type Constraint, type ConstraintTag, type Plan, type Prescription, type Targets } from './types';
 
 export interface Where { page: number; box: number[]; sure: 'yes' | 'check' }
-export type TargetKey = 'kcal' | 'proteinG' | 'carbsMaxG' | 'fatG' | 'waterMl' | 'lastMealBy' | 'weightGoalKg' | 'maxWeightLossKgPerWeek';
+export type TargetKey = 'kcal' | 'proteinG' | 'carbsMaxG' | 'fatG' | 'waterMl' | 'waterMaxMl' | 'lastMealBy' | 'weightGoalKg' | 'maxWeightLossKgPerWeek';
 
 export interface ConclusionResult {
   readable: boolean;
@@ -80,7 +80,7 @@ function fromOf(w: { page: number; box: number[] }, pages: number): From | undef
 }
 
 /** «2 л» → 2000 мл, «19.00» → «19:00», «1 800» → 1800: the doctor's figure as the target holds it. */
-function targetValue(key: TargetKey, raw: string): [Exclude<keyof Targets, 'fromDiet'>, Targets[Exclude<keyof Targets, 'fromDiet'>]] | undefined {
+function targetValue(key: TargetKey, raw: string): [Exclude<keyof Targets, 'fromDiet' | 'waterFrom'>, Targets[Exclude<keyof Targets, 'fromDiet' | 'waterFrom'>]] | undefined {
   const s = raw.trim();
   if (key === 'lastMealBy') {
     const m = /^(\d{1,2})[:.](\d{2})$/.exec(s);
@@ -90,9 +90,9 @@ function targetValue(key: TargetKey, raw: string): [Exclude<keyof Targets, 'from
   const n = Number(s.replace(/\s/g, '').replace(',', '.').replace(/[^\d.]+$/u, ''));
   if (!Number.isFinite(n)) return undefined;
   const range: Record<Exclude<TargetKey, 'lastMealBy' | 'carbsMaxG'>, [number, number]> = {
-    kcal: [800, 5000], proteinG: [20, 300], fatG: [20, 250], waterMl: [500, 5000], weightGoalKg: [30, 250], maxWeightLossKgPerWeek: [0.1, 2] };
+    kcal: [800, 5000], proteinG: [20, 300], fatG: [20, 250], waterMl: [500, 5000], waterMaxMl: [500, 3000] /* D169: a fluid limit */, weightGoalKg: [30, 250], maxWeightLossKgPerWeek: [0.1, 2] };
   if (key === 'carbsMaxG') { const v = within(n, 20, 600); return v != null ? ['carbsG', { max: v }] : undefined; }
-  const v = within(key === 'waterMl' && (/л$/u.test(s) || n < 10) ? n * 1000 : n, ...range[key]);
+  const v = within((key === 'waterMl' || key === 'waterMaxMl') && (/л$/u.test(s) || n < 10) ? n * 1000 : n, ...range[key]);
   return v != null ? [key, v] : undefined;
 }
 
