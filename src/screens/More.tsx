@@ -62,6 +62,8 @@ export function More() {
       <h1 className="text-2xl font-semibold tracking-tight">{t.more.title}</h1>
       <LinkList links={[{ to: SETTINGS_PATH, Icon: Settings2, title: t.more.settings, hint: t.more.settingsHint }, ...links]} />
       {!inDemo() && <ExampleEntry />}
+      {/* D168: the staff's way in — quiet, under the list, not one of the person's sections */}
+      <p className="pt-2 text-center"><Link to="/clinic" className="inline-flex min-h-tap items-center px-2 text-sm text-muted underline underline-offset-4">{t.more.clinic}</Link></p>
     </section>
   );
 }

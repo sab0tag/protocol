@@ -7,7 +7,7 @@ import { StartModules } from '../components/StartModules';
 import { finishModuleOnboarding } from '../data/moduleStart';
 import { ACTIVITY_KINDS, hasActivity, newModuleProfile } from '../domain/moduleStart';
 import type { ModuleFlags } from '../domain/features';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { db, enterDemo, type PlanRow } from '../data/db';
 import { PlanScan } from '../components/PlanScan';
 import { DietPicker } from '../components/DietPicker';
@@ -152,6 +152,8 @@ function Steps({ plan, start, onScanned }: { plan: PlanRow; start: number; onSca
       </details>
       {error && <p role="alert">{error}</p>}
       <p className="text-sm text-muted">{P.disclaimer}</p>
+      {/* D168: a doctor does not go through the patient's first steps */}
+      <p className="text-center"><Link to="/clinic" className="inline-flex min-h-tap items-center px-2 text-sm text-muted underline underline-offset-4">{t.welcome.clinic}</Link></p>
     </section>
   );
 

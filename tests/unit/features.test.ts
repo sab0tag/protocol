@@ -102,6 +102,8 @@ describe('navigation ownership (D133)', () => {
     expect(parentPath('/dishes')).toBe('/more');
     expect(parentPath('/meal/new')).toBe('/');
     expect(parentPath('/more')).toBe('/');
+    expect(parentPath('/clinic/invite')).toBe('/clinic'); // D168
+    expect(parentPath('/clinic')).toBe('/more');
   });
 
   it('keeps the generic quick-action shell available while its actions have separate owners', () => {
@@ -140,8 +142,8 @@ describe('nothing is lost after the simplification (ТЗ 17.11, «Ничего �
       const route = Object.values(ROUTES).find((r) => r.path !== '*' && matches(r.path, path));
       if (!route) { missing.push(`${feature}: no route for ${path}`); continue; }
       const base = route.path.split('/:')[0]!;
-      // the clinic portal is for staff (not in the patient menu); a way in is still checked: its own address
-      const linked = listed.has(route.path) || feature === 'clinic.portal'
+      // D168: the clinic portal has its own way in again — the quiet line under «Ще» and the link on «Знайомство»
+      const linked = listed.has(route.path)
         || new RegExp(`(to=|to: |navigate\\(|href=|#)\\{?[\`'"]?${base.replace(/[/]/g, '\\/')}(?:[\`'"?/$])`).test(code);
       if (!linked) missing.push(`${feature}: nothing links to ${route.path}`);
     }
