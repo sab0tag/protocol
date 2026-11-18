@@ -4,8 +4,10 @@ import { device, ymd } from './helpers';
 test('the menu says which day, and without sync offers to turn it on and comes back with the wish (D74)', async ({ browser }) => {
   const page = await device(browser);
   await page.goto('./#/menu');
+  await page.getByRole('button', { name: 'Завтра', exact: true }).click(); // D167: chips instead of a calendar
   await expect(page.getByRole('heading', { name: 'Меню на завтра', level: 1 })).toBeVisible();
-  await page.getByLabel('На який день').fill(ymd(new Date()));
+  await page.getByRole('button', { name: 'Інший день', exact: true }).click();
+  await page.getByLabel('Інша дата').fill(ymd(new Date()));
   await expect(page.getByRole('heading', { name: 'Меню на сьогодні', level: 1 })).toBeVisible();
   await page.getByLabel('Побажання (необов’язково)').fill('вечеря легка');
   await expect(page.getByRole('button', { name: 'Як учора' })).toBeVisible(); // works without the server

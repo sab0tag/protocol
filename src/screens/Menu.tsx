@@ -15,7 +15,7 @@ import { useAllEntries, useFoods, usePlan, useRecipes } from '../data/queries';
 import { atLocal, dateOf, newId, todayISO } from '../domain/dates';
 import { amountText, needsGrams } from '../domain/foodSearch';
 import { frequentItems } from '../domain/habits';
-import { acceptPlan, asResult, draftFrom, draftTotals, likeYesterday, menuRequest, nextAlternative, replaceableMenuMeal, type MenuDraft, type MenuResult } from '../domain/menu';
+import { acceptPlan, asResult, draftFrom, draftTotals, likeYesterday, mealsLeftToday, menuRequest, menuStartDate, nextAlternative, onlyLeft, replaceableMenuMeal, type MenuDraft, type MenuResult } from '../domain/menu';
 import { effectiveTargets, lineNutrients, round } from '../domain/nutrition';
 import { dishItem } from '../domain/recipes';
 import type { MealItem } from '../domain/types';
@@ -51,7 +51,11 @@ export function Menu() {
     const k = kept<Kept>('menu'), asked = params.get('date');
     return k && k.drafts.length && k.drafts[0]!.date >= todayISO() && (!asked || asked === k.date) ? k : undefined;
   });
-  const [date, setDate] = useState(() => { const d = params.get('date'); return back?.date ?? (d && d >= todayISO() ? d : tomorrow()); });
+  // D167: before 18:00 with meals still ahead — today, only those meals; later — tomorrow (was always tomorrow, D33)
+  const [picked, setPicked] = useState<string | null>(() => { const d = params.get('date'); return back?.date ?? (d && d >= todayISO() ? d : null); });
+  const [otherDay, setOtherDay] = useState(false);
+  const date = picked ?? menuStartDate(all ?? [], new Date());
+  const setDate = (d: string) => { setPicked(d); setDrafts([]); };
   const [days, setDays] = useState(back?.days ?? 1);
   const [wish, setWish] = useState(() => params.get('wish') ?? back?.wish ?? ''); // D74: kept across enabling sync
   const [busy, setBusy] = useState('');
@@ -62,6 +66,10 @@ export function Menu() {
   const [adding, setAdding] = useState<string | null>(null); // D54: "day:meal" with the picker open
 
   if (!plan || !foods || !recipes || !all || meta === undefined) return <Loading />;
+  const today = todayISO();
+  const left = mealsLeftToday(all, new Date()); // D167: the meals still ahead today
+  const chip = (on: boolean) => `min-h-tap rounded-full border-2 px-3 font-semibold ${on ? 'border-accent bg-accent/10 text-accent' : 'border-line'}`;
+  const isOther = otherDay || (date !== today && date !== tomorrow());
   const keys = currentKeys();
   const recentFor = (d: string) => all.filter((e) => dateOf(e.at) < d && dateOf(e.at) >= plus(d, -7));
   const build = (result: MenuResult, d: string, scale = true, keepEmpty = false) =>
@@ -74,7 +82,7 @@ export function Menu() {
   const make = async (consented = !!meta?.menuConsent) => {
     if (!keys) return;
     if (!consented) { setConsent(true); return; }
-    setError(''); setDrafts([]);
+    setError(''); setDrafts([]); setPicked(date); // the day stays put while the menu is made
     const out: MenuDraft[] = [];
     try {
       const usual = frequentItems(all, todayISO(), 30, 20).map((f) => f.item.name);
@@ -85,7 +93,7 @@ export function Menu() {
         const avoid = [...new Set(out.flatMap((x) => x.meals.flatMap((m) => m.items.map((it) => it.name))))];
         const result = await askMenu(keys, { date: d, targets, rules, wish, usual, avoid,
           foods: [...foods.values()].map((f) => f.name), dishes: recipes.map((r) => r.name) });
-        const draft = build(result, d);
+        const draft = build(d === today ? onlyLeft(result, left, new Date()) : result, d);
         if (draft.meals.length) out.push(draft);
         setDrafts([...out]);
       }
@@ -96,8 +104,9 @@ export function Menu() {
   const yesterday = () => {
     setError('');
     const r = likeYesterday(all, date);
-    if (!r) { setError(L.noYesterday); return; }
-    setDrafts([build(r, date, false)]);
+    const meals = r && date === today ? onlyLeft(r, left, new Date()) : r;
+    if (!meals?.meals.length) { setError(L.noYesterday); return; }
+    setDrafts([build(meals, date, false)]);
   };
 
   /** An edit, then the app's check again (swaps and warnings), without rescaling the portions; an emptied meal stays (D54). */
@@ -140,17 +149,26 @@ export function Menu() {
 
   return (
     <section className="space-y-4 pt-6">
-      <SceneHeader title={L.titleFor(date === todayISO() ? L.today : date === tomorrow() ? L.tomorrow
+      <SceneHeader title={L.titleFor(date === today ? L.today : date === tomorrow() ? L.tomorrow
           : format(parseISO(date), 'd MMMM', { locale: uk }))} description={L.hint}>
-        <Link to={`/shopping?from=${date}&to=${last}`} className="inline-flex min-h-tap items-center gap-2 rounded-xl border border-white/25 px-3 text-white">
+        <Link to={`/shopping?from=${date}&to=${last}`} className="inline-flex min-h-tap items-center gap-2 rounded-xl border border-accent px-3 font-medium text-accent">
           <ShoppingCart size={18} aria-hidden />{t.shop.title}</Link>
       </SceneHeader>
       <ExampleNotice plan={plan} />
 
       <div className="space-y-3 protocol-card rounded-2xl border border-line bg-surface p-3">
         <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
-          <label className="block min-w-0"><span className="text-sm text-muted">{L.date}</span>
-            <input type="date" value={date} min={todayISO()} onChange={(e) => { setDate(e.target.value); setDrafts([]); }} className={field} /></label>
+          {/* D167: three chips instead of a calendar; a date field only for «Інший день» */}
+          <div className="min-w-0"><span className="text-sm text-muted">{L.date}</span>
+            <div className="mt-1 flex flex-wrap gap-1.5" role="group" aria-label={L.date}>
+              {left.length > 0 && <button type="button" aria-pressed={date === today && !isOther} onClick={() => { setOtherDay(false); setDate(today); }} className={chip(date === today && !isOther)}>{L.chipToday}</button>}
+              <button type="button" aria-pressed={date === tomorrow() && !isOther} onClick={() => { setOtherDay(false); setDate(tomorrow()); }} className={chip(date === tomorrow() && !isOther)}>{L.chipTomorrow}</button>
+              <button type="button" aria-pressed={isOther} onClick={() => setOtherDay(true)} className={chip(isOther)}>{L.chipOther}</button>
+            </div>
+            {isOther && <label className="mt-2 block"><span className="sr-only">{L.otherDate}</span>
+              <input type="date" value={date} min={today} onChange={(e) => e.target.value && setDate(e.target.value)} className={field} /></label>}
+            {date === today && left.length > 0 && <p className="mt-2 text-sm text-muted">{L.leftToday(left.map((s) => t.meal.names[s]!.toLowerCase()).join(', '))}</p>}
+          </div>
           <div><span className="text-sm text-muted">{L.days}</span>
             <div className="mt-1 flex gap-1" role="group" aria-label={L.days}>
               {[1, 2, 3].map((n) => (
