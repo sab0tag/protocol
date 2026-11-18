@@ -14,21 +14,24 @@ import { Store } from '../src/store.ts';
 
 describe('the locks', () => {
   it('DEMO=1 only on a demo host, signing in only through the demo provider', () => {
-    expect(demoGuard({ DEMO: '1', APP_ORIGIN: 'https://demo.example.org', OIDC_ISSUER: 'https://idp.demo.example.org/' })).toEqual({ demo: true });
+    expect(demoGuard({ DEMO: '1', APP_ORIGIN: 'https://protocol-demo.example.org', OIDC_ISSUER: 'https://idp-protocol-demo.example.org/' })).toEqual({ demo: true });
     expect(() => demoGuard({ DEMO: '1', APP_ORIGIN: 'https://protocol.beyondthesignal.to' })).toThrow(DemoGuardError);
-    expect(() => demoGuard({ DEMO: '1', APP_ORIGIN: 'https://demo.example.org', OIDC_ISSUER: 'https://accounts.google.com/' })).toThrow(DemoGuardError);
+    expect(() => demoGuard({ DEMO: '1', APP_ORIGIN: 'https://protocol-demo.example.org', OIDC_ISSUER: 'https://accounts.google.com/' })).toThrow(DemoGuardError);
     expect(() => demoGuard({ DEMO: 'yes' })).toThrow(DemoGuardError);
+    // «demo.<domain>» is Харчоблок's demo on the shared box — not ours
+    expect(() => demoGuard({ DEMO: '1', APP_ORIGIN: 'https://demo.example.org' })).toThrow(DemoGuardError);
   });
   it('without DEMO=1 the demo provider is refused; production is untouched', () => {
-    expect(() => demoGuard({ OIDC_ISSUER: 'https://idp.demo.example.org/' })).toThrow(DemoGuardError);
+    expect(() => demoGuard({ OIDC_ISSUER: 'https://idp-protocol-demo.example.org/' })).toThrow(DemoGuardError);
     expect(demoGuard({ APP_ORIGIN: 'https://protocol.beyondthesignal.to', OIDC_ISSUER: 'https://login.example.com/' })).toEqual({ demo: false });
     expect(demoGuard({})).toEqual({ demo: false });
   });
   it('the mock provider does not start outside the stand', () => {
-    const ok = { DEMO: '1', DEMO_IDP_ORIGIN: 'https://idp.demo.example.org', DEMO_IDP_CLIENT_ID: 'demo-client', DEMO_IDP_CLIENT_SECRET: 'x'.repeat(32), DEMO_IDP_REDIRECT: 'https://api.demo.example.org/v1/auth/callback' };
-    expect(idpConfig(ok).origin).toBe('https://idp.demo.example.org');
+    const ok = { DEMO: '1', DEMO_IDP_ORIGIN: 'https://idp-protocol-demo.example.org', DEMO_IDP_CLIENT_ID: 'demo-client', DEMO_IDP_CLIENT_SECRET: 'x'.repeat(32), DEMO_IDP_REDIRECT: 'https://api-protocol-demo.example.org/v1/auth/callback' };
+    expect(idpConfig(ok).origin).toBe('https://idp-protocol-demo.example.org');
     expect(() => idpConfig({ ...ok, DEMO: undefined })).toThrow(DemoGuardError);
     expect(() => idpConfig({ ...ok, DEMO_IDP_ORIGIN: 'https://idp.example.org' })).toThrow(DemoGuardError);
+    expect(() => idpConfig({ ...ok, DEMO_IDP_ORIGIN: 'https://protocol-demo.example.org' })).toThrow(DemoGuardError);
     expect(() => idpConfig({ ...ok, DEMO_IDP_CLIENT_SECRET: 'short' })).toThrow(DemoGuardError);
   });
 });
@@ -69,7 +72,7 @@ describe('the mock provider', async () => {
 describe('seed and reset', () => {
   it('«Демо-клініка» with three staff linked to the provider; a reset starts from scratch, old records gone', () => {
     const DB_PATH = `${mkdtempSync(`${tmpdir()}/demo-`)}/demo.db`;
-    const env = { DEMO: '1', DB_PATH, OIDC_ISSUER: 'https://idp.demo.example.org/' };
+    const env = { DEMO: '1', DB_PATH, OIDC_ISSUER: 'https://idp-protocol-demo.example.org/' };
     expect(() => demoReset({ ...env, DEMO: undefined })).toThrow(DemoGuardError);
     const first = demoReset(env);
     expect(first.staff.map((s) => s.subject)).toEqual(DEMO_STAFF.map((s) => s.subject));

@@ -6,4 +6,4 @@ cd "$(dirname "$0")"
 docker compose stop api
 docker compose run --rm --no-deps api node --disable-warning=ExperimentalWarning src/demo/seed.ts
 docker compose start api
-echo "reset done: sign in at https://$(grep '^DEMO_DOMAIN=' .env | cut -d= -f2)/#/clinic"
+echo "reset done: sign in at https://protocol-demo.$(grep '^DEMO_ROOT=' .env | cut -d= -f2)/#/clinic"

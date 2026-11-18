@@ -1,0 +1,15 @@
+# The demo stand's three sites, to add to the box's one Caddy (/opt/harch/deploy/Caddyfile), next to api.{$DOMAIN} → protocol-api.
+# Then: docker exec harch-caddy-1 caddy validate --config /etc/caddy/Caddyfile && docker exec harch-caddy-1 caddy reload --config /etc/caddy/Caddyfile
+# (validate first; reload, never restart — the same Caddy serves Харчоблок and the Протокол API).
+
+protocol-demo.{$DOMAIN} {
+	reverse_proxy protocol-demo-web:80
+}
+
+api-protocol-demo.{$DOMAIN} {
+	reverse_proxy protocol-demo-api:8080
+}
+
+idp-protocol-demo.{$DOMAIN} {
+	reverse_proxy protocol-demo-idp:8090
+}
