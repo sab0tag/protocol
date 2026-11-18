@@ -286,6 +286,11 @@ export class Store {
       .run(day, Math.round(usdMicro));
   }
   daySpend(day: string): number { return Number((this.db.prepare('SELECT usd_micro FROM spend_day WHERE day = ?').get(day) as { usd_micro: number } | undefined)?.usd_micro ?? 0); }
+  /** D172: what one kind (voice) cost the whole server this month — for its own ceiling */
+  kindMonthSpend(kind: string, month: string): number {
+    return Number((this.db.prepare('SELECT COALESCE(SUM(usd_micro), 0) AS n FROM usage WHERE month = ? AND kind = ?').get(month, kind) as { n: number }).n);
+  }
+
   monthSpend(month: string): number {
     return Number((this.db.prepare('SELECT COALESCE(SUM(usd_micro), 0) AS n FROM usage WHERE month = ?').get(month) as { n: number }).n);
   }

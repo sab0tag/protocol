@@ -22,6 +22,7 @@ import type { Sender } from './push.ts';
 import { RecordWriteError, type Store } from './store.ts';
 import { parseReminderPolicy } from './reminderPolicy.ts';
 import { BudgetGuard } from './ai/budgets.ts';
+import { SPEECH_KEY_USD_MICRO, SPEECH_MAX_SECONDS, SpeechUpstream, speechId, type SpeechConfig, type SpeechKeys } from './speech.ts';
 import { RedeemFailure, type PlanDelivery, type RedeemError } from './clinic/delivery.ts';
 import { DatabaseBusy, isBusy } from './db/tx.ts';
 import { mountClinic } from './clinic/routes.ts';
@@ -48,9 +49,11 @@ export interface Limits {
   pilotJoinsPerIpPerDay: number; // D119
   aiDayUsdMicro?: number; // cost control: committed + reserved spend of the server per UTC day
   aiMonthUsdMicro?: number; // the same per UTC month
+  speechPerDay?: number; // D172: temporary Soniox keys a day, one vault or device (default 60)
+  speechAllPerDay?: number; // D172: the same, the whole server (default 2000)
 }
 
-export const DEFAULT_LIMITS: Limits = { vaultsPerIpPerDay: 5, vaultBytes: 50_000_000, photosPerVaultPerDay: 30, photosPerDay: 150, menusPerVaultPerDay: 15, workoutsPerVaultPerDay: 10, conciergePerVaultPerDay: 60, aiPerDay: 800, deviceTokensPerIpPerDay: 5, devicePhotosPerDay: 10, dishesPerDay: 20, listDishesPerDay: 50, pilotJoinsPerIpPerDay: 10, aiDayUsdMicro: 25_000_000, aiMonthUsdMicro: 400_000_000 };
+export const DEFAULT_LIMITS: Limits = { vaultsPerIpPerDay: 5, vaultBytes: 50_000_000, photosPerVaultPerDay: 30, photosPerDay: 150, menusPerVaultPerDay: 15, workoutsPerVaultPerDay: 10, conciergePerVaultPerDay: 60, aiPerDay: 800, deviceTokensPerIpPerDay: 5, devicePhotosPerDay: 10, dishesPerDay: 20, listDishesPerDay: 50, pilotJoinsPerIpPerDay: 10, aiDayUsdMicro: 25_000_000, aiMonthUsdMicro: 400_000_000, speechPerDay: 60, speechAllPerDay: 2000 };
 
 export interface Deps {
   store: Store;
@@ -72,6 +75,8 @@ export interface Deps {
   backupAgeH?: () => number | null;
   /** the demo stand (DEMO=1): /health says so, the app shows «Демо · дані вигадані» */
   demo?: boolean;
+  /** D172: Soniox temporary keys for the phone; absent — no SONIOX_API_KEY, voice stays on the phone's own engine */
+  speech?: { config: SpeechConfig; keys: SpeechKeys };
   backups?: { list: () => string[]; records: (name: string, vault: string) => { k: string; v: string | null; seq: number }[] | null };
   origins: string[];
   invitations?: StaffInvitations;
@@ -120,16 +125,17 @@ export function createApp(deps: Deps) {
   // Cost control (spec §5): reserve the worst case before the provider is called; settle with the real cost afterwards.
   const guard = new BudgetGuard([], { perOperationCap: 1_000_000 });
   for (const k of deps.disabledAi ?? []) guard.disableFeature(k);
-  const UPPER: Record<string, number> = { photo: 300_000, label: 200_000, labs: 300_000, conclusion: 400_000, medbox: 200_000 };
+  const UPPER: Record<string, number> = { speech: SPEECH_KEY_USD_MICRO, photo: 300_000, label: 200_000, labs: 300_000, conclusion: 400_000, medbox: 200_000 };
   type Hold = { ok: true; commit: (usd: number) => void; release: () => void } | { ok: false; status: 429 | 503; error: 'budget' | 'ai_off' };
-  const reserve = (kind: string): Hold => {
+  const reserve = (kind: string, extra: { scope: string; limit: number; spent: number }[] = []): Hold => {
     const at = now();
     const day = `day:${at.toISOString().slice(0, 10)}`;
     const month = `month:${at.toISOString().slice(0, 7)}`;
     guard.ensureScope(day, limits.aiDayUsdMicro ?? Infinity, store.daySpend(day.slice(4)));
     guard.ensureScope(month, limits.aiMonthUsdMicro ?? Infinity, store.monthSpend(month.slice(6)));
+    for (const x of extra) guard.ensureScope(x.scope, x.limit, x.spent);
     const id = randomBytes(12).toString('hex');
-    const r = guard.reserve(id, kind, UPPER[kind] ?? 100_000, [day, month]);
+    const r = guard.reserve(id, kind, UPPER[kind] ?? 100_000, [day, month, ...extra.map((x) => x.scope)]);
     if (!r.ok) return r.reason === 'feature_disabled' ? { ok: false, status: 503, error: 'ai_off' } : { ok: false, status: 429, error: 'budget' };
     if (r.warnings.length) console.warn('AI budget at 80%:', r.warnings.join(', '));
     return { ok: true, commit: (usd) => guard.commit(id, usd), release: () => guard.release(id) };
@@ -586,6 +592,48 @@ export function createApp(deps: Deps) {
   });
 
   /** This month's AI use of the vault: calls and an estimate in dollars (D36). */
+  // D172 (Soniox, PR 1): a temporary key for one recording; the sound goes from the phone to Soniox, never through us.
+  // Order: the engine (browser — off; soniox-test — only the listed vaults and devices), Soniox's own state (a refused key
+  // turns voice off for an hour), the day's limits, the AI budget plus voice's own monthly ceiling. The log keeps the fact only.
+  let speechDownUntil = 0;
+  function speechOn(who?: string): boolean {
+    const s = deps.speech;
+    if (!s || s.config.engine === 'browser' || now().getTime() < speechDownUntil) return false;
+    return who === undefined || s.config.engine === 'soniox' || s.config.testIds.has(speechId(who));
+  }
+  const speechLog = (who: string, outcome: string) => console.log(JSON.stringify({ speech: outcome, who: speechId(who), at: now().toISOString() }));
+  const speechKey = async (c: Context, who: string) => {
+    const s = deps.speech;
+    if (!s || s.config.engine === 'browser' || now().getTime() < speechDownUntil) { speechLog(who, 'off'); return c.json({ error: 'speech_off' }, 503); }
+    if (s.config.engine === 'soniox-test' && !s.config.testIds.has(speechId(who))) { speechLog(who, 'not_test'); return c.json({ error: 'speech_not_test' }, 403); }
+    const at = now();
+    if (!store.take(`speech:${who}`, limits.speechPerDay ?? 60, at) || !store.take('speech:all', limits.speechAllPerDay ?? 2000, at)) { speechLog(who, 'limit'); return c.json({ error: 'too_many' }, 429); }
+    const month = at.toISOString().slice(0, 7);
+    const hold = reserve('speech', [{ scope: `speech-month:${month}`, limit: s.config.monthUsdMicro, spent: store.kindMonthSpend('speech', month) }]);
+    if (!hold.ok) { speechLog(who, 'budget'); return c.json({ error: hold.error === 'ai_off' ? 'speech_off' : 'budget' }, hold.status); }
+    try {
+      const k = await s.keys.issue(s.config.ttlS);
+      store.addUsage(who, 'speech', SPEECH_KEY_USD_MICRO, now());
+      store.addDaySpend(now().toISOString().slice(0, 10), SPEECH_KEY_USD_MICRO);
+      hold.commit(SPEECH_KEY_USD_MICRO);
+      speechLog(who, 'issued');
+      return c.json({ key: k.key, expiresAt: k.expiresAt, model: s.config.model, maxSeconds: SPEECH_MAX_SECONDS }, 200, { 'Cache-Control': 'no-store' });
+    } catch (e) {
+      hold.release();
+      const status = e instanceof SpeechUpstream ? e.status : 0;
+      if (status === 401 || status === 402) { speechDownUntil = now().getTime() + 3_600_000; console.error(`speech: Soniox refused the server key (${status}) — voice off for an hour`); }
+      speechLog(who, `soniox_${status}`);
+      return c.json({ error: 'speech_off' }, 503);
+    }
+  };
+  /** Whether this vault or device gets a key now, and its speechId (shown in settings so the owner can add a test device). */
+  const speechState = (c: Context, who: string) => c.json({ available: speechOn(who), id: speechId(who), engine: deps.speech?.config.engine ?? 'browser' }, 200, { 'Cache-Control': 'no-store' });
+  const speechAuthed = (c: Context) => (token(c) ? authed(c) : c.json({ error: 'unauthorized' }, 401)); // the spec: no token — 401
+  app.post('/v1/vaults/:id/speech/key', async (c) => { const id = speechAuthed(c); return typeof id !== 'string' ? id : speechKey(c, id); });
+  app.post('/v1/device/speech/key', async (c) => { const who = device(c); return typeof who !== 'string' ? who : speechKey(c, who); });
+  app.get('/v1/vaults/:id/speech', (c) => { const id = speechAuthed(c); return typeof id !== 'string' ? id : speechState(c, id); });
+  app.get('/v1/device/speech', (c) => { const who = device(c); return typeof who !== 'string' ? who : speechState(c, who); });
+
   app.get('/v1/vaults/:id/usage', (c) => {
     const id = authed(c);
     if (typeof id !== 'string') return id;
@@ -599,7 +647,7 @@ export function createApp(deps: Deps) {
   // container's healthcheck asks whether the server lives, not whether the model answers
   app.get('/health', (c) => c.json({ ok: !(ai.lastError > ai.lastOk), photo: !!recognize, menu: !!menu, workout: !!deps.workout, labs: !!deps.labs, conclusion: !!deps.conclusion, dish: !!deps.dish, dishes: !!deps.dishes, chat: !!deps.chat, medbox: !!deps.medbox, concierge: !!deps.notFound, label: !!deps.label, push: !!deps.push,
     ai: { lastOk: ai.lastOk || null, lastError: ai.lastError || null, failing: ai.lastError > ai.lastOk },
-    backupAgeH: deps.backupAgeH?.() ?? null, ...(deps.demo ? { demo: true } : {}) }));
+    backupAgeH: deps.backupAgeH?.() ?? null, speech: speechOn(), ...(deps.demo ? { demo: true } : {}) }));
 
   const token = (c: Context) => c.req.header('Authorization')?.match(/^Bearer ([A-Za-z0-9_-]{40,64})$/)?.[1];
   // D94: the address the proxy (Caddy) saw — the last one in the chain; a client can prepend any value but not this one
