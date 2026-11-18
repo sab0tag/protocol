@@ -91,6 +91,15 @@ describe('clinic plan import', () => {
       expect(it.content.type === 'prescription' && it.content.value.since).toBeFalsy();
     }
   });
+  it('a restriction becomes a restriction of the plan: «стіл №5» its diet, other words the doctor\'s own (D171)', () => {
+    const pv = previewClinicPlan({ ...plan(), restrictions: ['Стіл №5', 'Без смаженого'] })!;
+    const d = confirmImport(pv, ['rest:0', 'rest:1'], 'p1')!;
+    const limits = d.items.map((i) => i.content.type === 'constraint' ? i.content.value : null);
+    expect(limits[0]).toMatchObject({ tag: 'diet', reason: 'Стіл №5', source: 'Лікар, Клініка', active: true });
+    expect(limits[0]!.diet).toBeTruthy();
+    expect(limits[1]).toMatchObject({ tag: 'custom', title: 'Без смаженого', source: 'Лікар, Клініка', active: true });
+  });
+
   it('stores locally once; a second import of the same plan changes nothing', async () => {
     const { db, personId } = make();
     const d = confirmImport(previewClinicPlan(plan())!, ['med:0', 'rest:0'], personId)!;

@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { db } from '../data/db';
-import { saveClinicImport } from '../data/carePlans';
+import { activateClinicPlan, saveClinicImport } from '../data/carePlans';
+import { finishModuleOnboarding } from '../data/moduleStart';
+import { useUi } from '../store/ui';
 import { activeProfileId } from '../data/profiles';
 import { confirmImport, previewClinicRedemption, type ImportPreview } from '../domain/planImport';
 import { ApiError, redeemClinicPlan } from '../sync/api';
@@ -17,13 +19,24 @@ const MESSAGE: Record<string, string> = {
   database_busy: 'Сервіс тимчасово зайнятий. Спробуйте ще раз',
 };
 
-/** The code is read from the QR link once and removed from the address bar; the plan is only a preview until confirmed. */
+/** A new link opened in the same tab is a new import: its own code, no error left from the one before (D171). */
 export function PlanImportScreen() {
+  const [params] = useSearchParams();
+  const last = useRef<string | null>(null);
+  const fresh = params.get('code');
+  if (fresh) last.current = fresh; // the screen takes the code out of the address once read — the key stays
+  return <PlanImport key={last.current ?? ''} />;
+}
+
+/** The code is read from the QR link once and removed from the address bar; the plan is only a preview until confirmed. */
+function PlanImport() {
   const [params, setParams] = useSearchParams();
   const [code] = useState(() => params.get('code') ?? '');
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [ticked, setTicked] = useState<Set<string>>(new Set());
-  const [state, setState] = useState<'idle' | 'loading' | 'saved' | 'already'>('idle');
+  const navigate = useNavigate();
+  const [state, setState] = useState<'idle' | 'loading' | 'saved' | 'already' | 'busy'>('idle');
+  const [verified, setVerified] = useState(false); // D171: «звірив(ла)» before anything becomes the plan (D157)
   const [error, setError] = useState('');
   // A busy server changed nothing: the code stays in this page's memory only (not the URL, not storage) for a retry.
   const [retryAt, setRetryAt] = useState<number | null>(null);
@@ -59,18 +72,36 @@ export function PlanImportScreen() {
       setError(MESSAGE[e instanceof ApiError ? e.code : ''] ?? 'Не вдалося отримати план.'); setState('idle');
     }
   }
-  async function save() {
+  /** «Не зараз»: the plan waits as a draft in «Мій план»; nothing is switched on and the current plan is unchanged. */
+  async function later() {
     if (!preview) return;
     const draft = confirmImport(preview, [...ticked], activeProfileId);
     if (!draft) return;
     setState(await saveClinicImport(db, activeProfileId, draft) === 'saved' ? 'saved' : 'already');
   }
+  /** D171: checked against the paper — the plan is the person's now: medicines and limits in the plan, the modules by it on a
+   *  new phone, no patient «Знайомство» to walk through; then the person's own times (D157: nothing is read from free text). */
+  async function accept() {
+    if (!preview || !verified) return;
+    const draft = confirmImport(preview, [...ticked], activeProfileId);
+    if (!draft) return;
+    setState('busy');
+    try {
+      await saveClinicImport(db, activeProfileId, draft);
+      const r = await activateClinicPlan(db, activeProfileId, draft.plan.id);
+      if (r !== 'activated' && r !== 'already_active') { setError('Не вдалося додати план. Спробуйте ще раз.'); setState('idle'); return; }
+      await finishModuleOnboarding(db, {}); // a fresh profile starts its modules from this plan; an existing one keeps its own
+      useUi.getState().setOnboarded();
+      navigate('/plan/prescriptions', { replace: true });
+    } catch { setError('Не вдалося додати план. Спробуйте ще раз.'); setState('idle'); }
+  }
+  const clinic = preview?.snapshot?.issuer.organizationName ?? preview?.plan.clinician.organizationName;
 
   return (
     <section className="space-y-4 pt-4">
-      <h1 className="text-2xl font-semibold">План від клініки</h1>
+      <h1 className="text-2xl font-semibold">{clinic ? `«${clinic}» надіслала вам план` : 'Клініка надіслала вам план'}</h1>
       {state === 'saved' || state === 'already' ? (
-        <div className="protocol-card space-y-3 p-4" role="status"><p>{state === 'saved' ? 'Збережено на цьому пристрої як чернетку. Нагадування не створено — перевірте план з лікарем.' : 'Цей план уже збережено.'}</p><p className="text-sm text-muted">Наступний крок: перевірте склад і дозування з лікарем, а потім підтвердіть потрібні пункти в плані. Лише після цього вони можуть зʼявитися у щоденних завданнях.</p><Link to="/plan" className="inline-flex min-h-tap items-center rounded-xl bg-accent px-4 font-semibold text-white">Перейти до плану</Link></div>
+        <div className="protocol-card space-y-3 p-4" role="status"><p>{state === 'saved' ? 'Нічого не ввімкнено: план чекає чернеткою в «Мій план». Додасте, коли звірите з призначенням лікаря.' : 'Цей план уже збережено.'}</p><Link to="/plan" className="inline-flex min-h-tap items-center rounded-xl bg-accent px-4 font-semibold text-on-accent">Перейти до плану</Link></div>
       ) : !preview ? (
         <div className="space-y-3">
           <p className="text-sm text-muted">Клініка передає план одноразовим кодом. Ви побачите його і самі оберете, що зберегти. Код спрацьовує лише один раз.</p>
@@ -100,7 +131,16 @@ export function PlanImportScreen() {
               </li>
             ))}
           </ul>
-          <button className="min-h-tap rounded-xl bg-accent px-4 text-white disabled:opacity-50" disabled={!ticked.size} onClick={save}>Зберегти обране</button>
+          <label className="flex min-h-tap items-start gap-3 rounded-xl border border-line p-3">
+            <input type="checkbox" className="mt-1 h-5 w-5" checked={verified} onChange={(e) => setVerified(e.target.checked)} />
+            <span>Я звірив(ла) кожен пункт із призначенням лікаря</span>
+          </label>
+          <p className="text-sm text-muted">Обрані ліки й обмеження стануть вашим планом. Час прийому ви вкажете самі.</p>
+          {error && <p role="alert" className="text-sm">{error}</p>}
+          <div className="flex flex-wrap gap-2">
+            <button className="min-h-tap rounded-xl bg-accent px-4 font-semibold text-on-accent disabled:opacity-50" disabled={!ticked.size || !verified || state === 'busy'} onClick={() => void accept()}>Додати до мого плану</button>
+            <button className="min-h-tap rounded-xl border border-line px-4 disabled:opacity-50" disabled={!ticked.size || state === 'busy'} onClick={() => void later()}>Не зараз</button>
+          </div>
         </div>
       )}
     </section>

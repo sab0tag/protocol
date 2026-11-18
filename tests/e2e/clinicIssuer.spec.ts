@@ -46,8 +46,8 @@ for (const width of [320, 390]) test(`real clinic issue → QR screen → patien
     await expect(patient.getByText('Автор у джерелі: Заявлений лікар, Заявлена клініка. Це імʼя не підтверджене сервером.', { exact: true })).toBeVisible();
     expect(patient.url()).not.toContain(issued.code);
     expect(await patient.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    await patient.getByRole('button', { name: 'Зберегти обране', exact: true }).click();
-    await expect(patient.getByRole('status').filter({ hasText: 'Збережено на цьому пристрої як чернетку.' })).toBeVisible();
+    await patient.getByRole('button', { name: 'Не зараз', exact: true }) /* D171: kept as a draft, nothing on */.click();
+    await expect(patient.getByRole('status').filter({ hasText: 'Нічого не ввімкнено: план чекає чернеткою' })).toBeVisible();
     await expect(patient.getByRole('link', { name: 'Перейти до плану' })).toBeVisible();
     const local = await patient.evaluate(async () => {
       const open = indexedDB.open('protocol'); await new Promise<void>(resolve => { open.onsuccess = () => resolve(); });
