@@ -1,36 +1,29 @@
 import { expect, test } from '@playwright/test';
 import { device } from './helpers';
 
-// UI-RESULTS-01: «Результати» keeps what was measured and recorded apart from how the records kept the plan's goals,
-// with no combined score, and the doctor's report still leaves the device only after its own explicit consent (D158).
+// D165 (ТЗ «спрощення» 17.11, step 4): «Результати» is the week in one phrase, three numbers and the doctor's report as the
+// main action — counted from the records against the plan, never a combined health score; the report still leaves the
+// device only after its own explicit consent (D158). Patterns, motivation and the rest are links.
 
-test('results and plan goals are two separate parts with no combined score', async ({ browser }) => {
+test('the week in one phrase and three numbers; «Звіт для лікаря» is the main action; the rest are links', async ({ browser }) => {
   const page = await device(browser, 'demo'); // weights, wellbeing, workouts and a plan, in a database of its own
   await page.goto('./#/progress');
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Результати');
-  await expect(page.locator('.protocol-scene-header')).toHaveCount(0); // the plain mint heading, no photo
-
-  const recorded = page.getByRole('region', { name: 'Вимірювання і записи' });
-  const goals = page.getByRole('region', { name: 'Цілі плану' });
-  // Recorded values are not measured against a goal: no goal rings among them
-  await expect(recorded.getByRole('article')).toHaveCount(3);
-  await expect(recorded.getByRole('progressbar')).toHaveCount(0);
-  await expect(recorded).toContainText('без порівняння з цілями');
-  // Goals hold only what is counted against the plan; the records themselves are not repeated there
-  await expect(goals.getByRole('progressbar', { name: 'План дня' })).toBeVisible();
-  await expect(goals.getByRole('article')).toHaveCount(0);
-  await expect(goals.locator('li.protocol-week-metric').filter({ hasText: 'Тренувань' })).toHaveCount(0);
-  await expect(goals).toContainText('Це не оцінка здоров’я');
-  // One place for the plan's daily percentage, not two
-  await expect(page.getByRole('progressbar', { name: 'План дня' })).toHaveCount(1);
-  await expect(page.getByRole('heading', { name: 'План', exact: true })).toHaveCount(0);
-
-  // Recorded first, goals after it, the sections' links last
-  const r = (await recorded.boundingBox())!, g = (await goals.boundingBox())!;
-  expect(g.y).toBeGreaterThanOrEqual(r.y + r.height);
+  await expect(page.locator('.protocol-scene-header')).toHaveCount(0);
+  const week = page.getByRole('region', { name: /^Тиждень \d\d\.\d\d–\d\d\.\d\d$/ });
+  await expect(week.getByTestId('week-phrase')).toHaveText(/^Ліки — \d+ з \d+, їжа за планом \d+ (день|дні|днів) з 7$/);
+  const numbers = week.locator('dl > div');
+  await expect(numbers).toHaveCount(3);
+  await expect(numbers.first()).toContainText(/Ліки\s*\d+ з \d+/);
+  await expect(week.getByRole('progressbar')).toHaveCount(0); // no score, no rings in the week (today's goals below keep their bars, D164)
+  const report = page.getByRole('link', { name: 'Звіт для лікаря' });
+  await expect(report).toHaveClass(/protocol-action/);
+  const more = page.getByRole('navigation', { name: 'Докладніше' });
+  for (const [name, url] of [['Тиждень докладно', /#\/week$/], ['Інсайти', /#\/progress\/insights$/], ['Мотивація', /#\/progress\/motivation$/]] as const) {
+    await more.getByRole('link', { name }).click(); await expect(page).toHaveURL(url); await page.goBack();
+  }
   for (const width of [320, 768, 1440]) {
     await page.setViewportSize({ width, height: 900 });
-    // The weight chart resizes a frame after the viewport does; wait for the layout to settle
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - innerWidth), { message: `overflow at ${width}px` }).toBeLessThanOrEqual(0);
   }
   await page.context().close();
@@ -39,7 +32,6 @@ test('results and plan goals are two separate parts with no combined score', asy
 test('the report opened from «Результати» is not shared until consent is given', async ({ browser }) => {
   const page = await device(browser, 'demo');
   await page.goto('./#/progress');
-  await expect(page.getByText('Передати його лікарю можна лише після вашої згоди.')).toBeVisible();
   await page.getByRole('link', { name: 'Звіт для лікаря' }).click();
   await expect(page).toHaveURL(/#\/report$/);
   await page.evaluate(() => { document.body.dataset.shareCalls = '0'; Object.defineProperty(navigator, 'share', { configurable: true,

@@ -1,5 +1,4 @@
-import { PlanContext } from '../components/PlanContext';
-import { PlanOverview } from '../components/PlanOverview';
+import { DoctorSaid } from '../components/DoctorSaid';
 import { format, parseISO } from 'date-fns';
 import { ExampleNotice } from '../components/ExampleNotice';
 import { readTimes, timesToSet } from '../domain/conclusion';
@@ -80,14 +79,8 @@ export function Plan({ section = 'home' }: { section?: PlanSection }) {
   if (!plan) return <Loading />;
   const tg = plan.targets;
   const prescriptions = plan.prescriptions.filter((p) => p.kind !== 'test');
-  const activeConstraints = plan.constraints.filter((constraint) => constraint.active);
   const goalsPreview = [targetSummary(tg), plan.modes.length ? `${P.summaryModes} ${plan.modes.map((mode) => mode.title).join(' · ')}` : '']
     .filter(Boolean).join(' · ');
-  const checkupTests = plan.prescriptions.filter((p) => p.kind === 'test').map((p) => p.title);
-  const checkupPreview = plan.nextCheckup
-    ? `${dmy(plan.nextCheckup.date)}${plan.nextCheckup.tests.length ? ` · ${plan.nextCheckup.tests.join(' · ')}` : ''}`
-    : checkupTests.join(' · ');
-  const namePreview = (names: string[]) => names.slice(0, 2).join(' · ') + (names.length > 2 ? ` · +${names.length - 2}` : '');
   const sectionTitle = section === 'prescriptions' ? P.prescriptions
     : section === 'constraints' ? P.constraints
       : section === 'goals' ? P.targets
@@ -95,18 +88,16 @@ export function Plan({ section = 'home' }: { section?: PlanSection }) {
 
   return (
     <section className="space-y-4 pt-4">
-      {section === 'home' ? <header className="protocol-plan-heading flex flex-wrap items-center justify-between gap-3"><h1 className="text-3xl font-semibold tracking-tight">{P.title}</h1><button type="button" className="protocol-action" onClick={() => setAddingPlan(true)}><Plus size={18} aria-hidden />{t.planView.add}</button></header> : (
+      {section === 'home' ? <header className="protocol-plan-heading flex flex-wrap items-center justify-between gap-3"><h1 className="text-3xl font-semibold tracking-tight">{t.said.title}</h1><button type="button" className="protocol-action" onClick={() => setAddingPlan(true)}><Plus size={18} aria-hidden />{t.said.newConclusion}</button></header> : (
         <header className="protocol-scene-header space-y-2">
           <h1 className="text-2xl font-semibold">{sectionTitle}</h1>
         </header>
       )}
       <ExampleNotice plan={plan} />
-      {section === 'home' && <PlanContext plan={plan} />}
-      {section === 'home' && (!clinicDrafts || clinicDrafts.length > 0) && <section className="protocol-card space-y-3 p-4" aria-label="Чернетки від клінік">
+      {section === 'home' && <DoctorSaid plan={plan} pieces={pieces} goals={goalsPreview} />}
+      {section === 'home' && !!clinicDrafts?.length && <section className="protocol-card space-y-3 p-4" aria-label="Чернетки від клінік">
         <h2 className="text-lg font-semibold">Отримані плани від клінік</h2>
         <p className="text-sm text-muted">Ці призначення збережено окремо від поточного плану. Вони не створюють щоденних завдань або нагадувань, поки ви не перевірите їх із лікарем.</p>
-        {clinicDrafts === undefined && <p role="status" className="text-sm text-muted">Завантажуємо чернетки…</p>}
-        {clinicDrafts?.length === 0 && <p className="text-sm text-muted">Поки немає отриманих планів.</p>}
         {clinicDrafts?.map(({ plan: draft, items }) => <article key={draft.id} className="rounded-xl border border-line p-3">
           <h3 className="font-semibold break-words">{draft.title}</h3>
           <p className="text-sm text-muted break-words">{draft.clinicianRef} · {items.length} пунктів · Чернетка</p>
@@ -126,17 +117,6 @@ export function Plan({ section = 'home' }: { section?: PlanSection }) {
           }} />
         </article>)}
       </section>}
-      {section === 'home' && <PlanOverview
-        prescriptions={prescriptions.length}
-        constraints={plan.constraints.length}
-        goals={Object.entries(tg).filter(([key, value]) => key !== 'fromDiet' && value != null).length + plan.modes.length}
-        checkups={(plan.nextCheckup ? 1 : 0) + plan.prescriptions.filter((p) => p.kind === 'test').length}
-        prescriptionsPreview={namePreview(prescriptions.map((p) => p.title))}
-        constraintsPreview={activeConstraints.length ? `${P.summaryActive} ${namePreview(activeConstraints.map((constraint) => constraint.title))}`
-          : plan.constraints.length ? P.noActiveConstraints : ''}
-        goalsPreview={goalsPreview}
-        checkupPreview={checkupPreview}
-      />}
       {addingPlan && <Sheet title={t.planView.add} onClose={() => setAddingPlan(false)}>
         <nav aria-label={t.planView.add} className="space-y-3">
           <Link to="/plan/scan" onClick={() => setAddingPlan(false)} className="protocol-action flex">{t.conclusion.button}</Link>

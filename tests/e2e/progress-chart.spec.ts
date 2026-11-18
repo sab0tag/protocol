@@ -2,7 +2,7 @@ import { addDays } from 'date-fns';
 import { expect, test } from '@playwright/test';
 import { device, ymd } from './helpers';
 
-test('progress summary uses honest weekly rings and weight history remains a line chart', async ({ browser }) => {
+test('weight history remains a line chart on its own screen', async ({ browser }) => {
   const page = await device(browser, 'demo');
   const weights = [-28, -21, -14, -7].map((days, index) => ({ date: ymd(addDays(new Date(), days)), kg: 100 - index * 2 }));
   // Demo mode has its own database. Replace its weight fixture, leaving its real coverage records intact.
@@ -21,35 +21,13 @@ test('progress summary uses honest weekly rings and weight history remains a lin
   await page.reload();
   await page.goto('./#/progress');
 
-  await expect(page.getByRole('heading', { name: /Останні 7 днів/ })).toBeVisible();
-  // In acceptance mode, incomplete food records cannot prove a carbohydrate limit was met.
-  // The metric must stay unknown rather than presenting an invented 0/6 failure rate.
-  if (process.env.VITE_MODULE_POLICY_ENABLED === 'true') {
-    await expect(page.getByRole('progressbar', { name: 'Вуглеводи в межах' })).toHaveCount(0);
-  } else {
-    await expect(page.getByRole('progressbar', { name: 'Вуглеводи в межах' })).toHaveAttribute('aria-valuetext', '0 з 6 дн.');
-  }
-  await expect(page.getByRole('progressbar', { name: 'Білок ≥ 90 % цілі' })).toHaveAttribute('aria-valuenow', '100');
-  await expect(page.getByRole('progressbar', { name: 'Вода — норма' })).toHaveAttribute('aria-valuetext', '4 з 6 дн.');
-  await expect(page.getByRole('progressbar', { name: 'План дня' })).toHaveAttribute('aria-valuetext', '64 %');
-  await expect(page.getByRole('progressbar', { name: 'Тренувань' })).toHaveCount(0);
-  const weeklyMetric = page.locator('.protocol-week-metric').first();
-  await expect(weeklyMetric).toHaveCSS('padding', '8px');
-  await expect(weeklyMetric.getByRole('progressbar')).toHaveCSS('width', '56px');
-  await expect(weeklyMetric.getByRole('progressbar')).toHaveCSS('height', '56px');
+  await page.goto('./#/weight'); // D165: «Результати» is a phrase and three numbers; the weight chart lives on its own screen
   await expect(page.getByRole('figure', { name: 'Виміри ваги, кг', exact: true })).toBeVisible();
   await page.getByText('Тижневі середні та темп', { exact: true }).click();
   const chart = page.getByRole('img', { name: /Середня вага за тижнями/ });
   await expect(chart).toBeVisible();
   await expect(chart.locator('.recharts-line-curve')).toHaveCount(1);
   await expect(chart.locator('.recharts-bar')).toHaveCount(0);
-  const weightSection = page.locator('section.protocol-card').filter({ has: page.getByRole('heading', { name: 'Вага', exact: true }) });
-  const progressNav = page.getByRole('navigation', { name: 'Розділи прогресу' });
-  const weightBox = await weightSection.boundingBox();
-  const navBox = await progressNav.boundingBox();
-  expect(weightBox).not.toBeNull();
-  expect(navBox).not.toBeNull();
-  expect(navBox!.y).toBeGreaterThanOrEqual(weightBox!.y + weightBox!.height);
 
   await page.getByText('Таблицею', { exact: true }).click();
   for (const weight of weights) await expect(page.getByRole('cell', { name: `${weight.kg} кг`, exact: true })).toBeVisible();
@@ -66,25 +44,12 @@ test('progress summary uses honest weekly rings and weight history remains a lin
   await page.context().close();
 });
 
-test('every overview card is a real number, its period and the way to its records — no «деталі нижче» (ТЗ Progress 2.0, D146)', async ({ browser }) => {
-  const page = await device(browser, 'demo'); // weights, wellbeing, workouts and a plan, in a database of its own
+test('each part of «Результати» opens its own records (D146, D165)', async ({ browser }) => {
+  const page = await device(browser, 'demo');
   await page.goto('./#/progress');
-  const overview = page.getByRole('region', { name: 'Вимірювання і записи' });
-  const card = (title: string) => overview.getByRole('article').filter({ has: page.getByRole('heading', { name: title, exact: true }) });
-  await expect(overview.getByRole('article')).toHaveCount(3);
-  await expect(overview).not.toContainText('Ваші записи');
-  await expect(overview).not.toContainText('Деталі — у підсумку нижче');
-  await expect(card('Вага')).toContainText(/Останнє вимірювання \d\d\.\d\d/);
-  await expect(card('Вага')).toContainText(/Від \d\d\.\d\d: [+−]?[\d,]+ кг/);
-  for (const title of ['Самопочуття', 'Активність']) await expect(card(title)).toContainText(/За 7 днів: \d\d\.\d\d–\d\d\.\d\d/);
-  await expect(card('Самопочуття')).toContainText(/[0-7] з 7 дн\./);
-  await card('Самопочуття').getByRole('link', { name: 'Щоденник →' }).click();
-  await expect(page).toHaveURL(/#\/wellbeing\/journal$/);
-  await page.goBack();
-  await card('Вага').getByRole('link', { name: 'Вимірювання →' }).click();
-  await expect(page).toHaveURL(/#\/weight$/);
-  await page.goBack();
-  await page.getByRole('region', { name: 'Цілі плану' }).getByRole('link', { name: 'Тиждень по днях →' }).click();
-  await expect(page).toHaveURL(/#\/week$/);
+  const more = page.getByRole('navigation', { name: 'Докладніше' });
+  for (const [name, url] of [['Самопочуття', /#\/wellbeing\/journal$/], ['Вага', /#\/weight$/], ['Тиждень докладно', /#\/week$/], ['Аналізи', /#\/progress\/labs$/]] as const) {
+    await more.getByRole('link', { name, exact: true }).click(); await expect(page).toHaveURL(url); await page.goBack();
+  }
   await page.context().close();
 });
