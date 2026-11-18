@@ -64,7 +64,7 @@ test('danger and crisis words: their card, and nothing goes to the server', asyn
   expect((await rows(page)).length).toBe(0);
 });
 
-test('a question with the assistant off never leaves the phone; with it on, it is handed to «Помічник» unsent', async ({ browser }) => {
+test('a question with the assistant off never leaves the phone', async ({ browser }) => {
   test.skip(process.env.VITE_MODULE_POLICY_ENABLED !== 'true', 'modules switch only in the acceptance build');
   const page = await device(browser);
   const calls = apiCalls(page);
@@ -73,10 +73,44 @@ test('a question with the assistant off never leaves the phone; with it on, it i
   await expect(page.getByText(/Помічник вимкнений/)).toBeVisible();
   await page.waitForTimeout(500);
   expect(calls).toEqual([]);
-  await seed(page, [{ store: 'moduleEvents', value: { id: 'e2e-assistant-on', v: 1, at: new Date(Date.now() + 1000).toISOString(), kind: 'module', module: 'assistant', enabled: true, source: 'manual' } }]);
-  await say(page, 'можна мені банан?');
-  await page.getByRole('button', { name: 'Запитати Помічника' }).click();
+});
+
+test('a question is answered in the field (D166): consent once, suggestions checked by the plan, one to the evening; the talk is on «Помічник»; a «call now» is the 103 card', async ({ browser }) => {
+  const page = await device(browser, 'example', { sw: false }); // the example plan: lactose in the limits
+  let calls = 0;
+  await page.route('**/concierge/chat', async (r) => {
+    calls++;
+    const b = r.request().postDataJSON() as { text: string };
+    await r.fulfill({ json: /погано/iu.test(b.text) ? { topic: 'symptoms', text: 'Якщо біль сильна — негайно телефонуйте 103.', items: [] }
+      : { topic: 'food', text: 'З того, що є, вийде вечеря: гречка з яйцем.', items: [{ name: 'Яйце варене', grams: 110 }, { name: 'Молоко 2,5 %', grams: 200 }, { name: 'Гречка варена', grams: 150 }] } });
+  });
+  await page.goto('./#/');
+  const answer = page.getByRole('group', { name: 'Відповідь Помічника' });
+
+  await say(page, 'що добрати до вечора?'); // the code answers — no model
+  await expect(answer).toContainText('Сьогодні ще нічого не записано');
+  expect(calls).toBe(0);
+
+  await say(page, 'у мене вдома лише яйця і гречка — що приготувати?');
+  await answer.getByRole('button', { name: 'Дозволити й запитати' }).click(); // once
+  await expect(answer).toContainText('З того, що є, вийде вечеря');
+  await expect(answer.locator('[data-suggestion]')).toHaveCount(2);
+  await expect(answer.locator('[data-suggestion="Молоко 2,5 %"]')).toHaveCount(0); // lactose in the plan — never offered
+  await answer.locator('[data-suggestion="Яйце варене"]').getByRole('button', { name: 'У план на вечір' }).click();
+  await expect(toast(page)).toContainText('Яйце варене — у плані на вечір');
+  await expect(answer).toHaveCount(0); // the card goes; the snack is in the day's list
+  expect((await rows(page)).filter((e) => e.status === 'planned' && e.items?.[0]?.name === 'Яйце варене')).toHaveLength(1);
+
+  const before = calls;
+  await say(page, 'що робити, якщо щось погано після обіду?');
+  await expect(page.getByRole('link', { name: /103/ })).toBeVisible(); // the model said to call now — never softened
+  expect(calls).toBe(before + 1);
+  await expect(page.getByText('Якщо біль сильна')).toHaveCount(0);
+
+  await say(page, 'що з’їсти на сніданок, якщо вдома лише гречка?');
+  await expect(answer).toContainText('З того, що є'); // no second consent
+  await answer.getByRole('link', { name: 'Уся розмова — у «Помічнику»' }).click();
   await expect(page).toHaveURL(/#\/assistant/);
-  await expect(page.locator('main input').first()).toHaveValue('можна мені банан?');
-  expect(calls.filter((u) => /chat|concierge/.test(u))).toEqual([]);
+  await expect(page.getByText('що з’їсти на сніданок, якщо вдома лише гречка?')).toBeVisible(); // the talk after the 103 card
+  await expect(page.getByText('що робити, якщо щось погано після обіду?')).toHaveCount(0); // D130: never kept
 });

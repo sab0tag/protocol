@@ -1,14 +1,19 @@
 // D162: «Скажіть або напишіть…» at the bottom of «Сьогодні» — one line instead of four ways in. What a phrase is, the code
 // decides (readOneInput); a card shows what will happen, and only water is written at once (with «Скасувати»). A medicine is
-// marked only after «Так». Danger and crisis words show their card and nothing else. After an action the card goes — its
-// result is in the day's list; the talk is not kept here.
+// marked only after «Так». Danger and crisis words show their card and nothing else. A question is answered here, the way
+// «Помічник» answers it (D166); the talk goes to «Ще → Помічник», not into a feed here. After an action the card goes — its
+// result is in the day's list.
 import { format } from 'date-fns';
 import { Camera, Mic, Send, Square, X } from 'lucide-react';
+import { useLiveQuery } from 'dexie-react-hooks';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
+import { answer, assistantConsented, eveningSnack, giveAssistantConsent, keepTalk, talkOf, type Answer } from '../app/assistantAnswer';
 import { applyLightDay } from '../app/lightDay';
 import { db } from '../data/db';
 import { listen, speechSupported, type SpeechError } from '../data/speech';
+import { count } from '../data/tally';
+import { brings } from '../domain/assistant';
 import type { CheckItem } from '../domain/checklist';
 import { atLocal, newId } from '../domain/dates';
 import type { FeatureId } from '../domain/features';
@@ -17,7 +22,7 @@ import { frequentItems } from '../domain/habits';
 import { slotAt } from '../domain/mealSlots';
 import { readOneInput, type DueMed, type OneInput as Reading } from '../domain/oneInput';
 import { dishItem } from '../domain/recipes';
-import type { DayEntry, Food, Plan, Recipe } from '../domain/types';
+import type { DayEntry, Food, MealItem, Plan, Recipe } from '../domain/types';
 import type { VoiceDraft } from '../domain/voice';
 import type { TileDraft } from './MealTiles';
 import { t } from '../i18n/uk';
@@ -57,13 +62,15 @@ export function OneInput({ date, plan, foods, recipes, all, medItems, can, light
   date: string; plan: Plan | undefined; foods: Map<string, Food>; recipes: Recipe[]; all: DayEntry[]; medItems: CheckItem[];
   can: (feature: FeatureId) => boolean; lightDay: boolean; onFood: OnFood;
 }) {
-  const navigate = useNavigate();
   const [text, setText] = useState('');
   const [card, setCard] = useState<Reading | null>(null);
   const [food, setFood] = useState<VoiceDraft | null>(null); // the food card stays for edits («прибери курку») until written
   const [busy, setBusy] = useState(false);
   const [ask, setAsk] = useState(false);
   const [error, setError] = useState<SpeechError | null>(null);
+  const [talk, setTalk] = useState<{ q: string; a?: Answer } | null>(null); // a question and its answer, while it is on screen
+  const asked = useRef(0); // D130: an answer to a question closed or replaced since does not land
+  const meta = useLiveQuery(async () => (await db.meta.get('sync')) ?? null, []);
   const undo = useRef<(() => Promise<void>) | null>(null);
   const listened = useRef(false); // the words came by voice (D119)
   const stop = useRef<() => void>(() => undefined);
@@ -75,6 +82,28 @@ export function OneInput({ date, plan, foods, recipes, all, medItems, can, light
   const meal = t.meal.names[slot]!;
 
   const act = async (work: () => Promise<unknown>) => { undo.current = await snapshot(date, work); setCard(null); setFood(null); setText(''); };
+  const closeTalk = () => { asked.current += 1; setTalk(null); };
+  const day = plan ? { plan, foods, recipes, all, date } : undefined;
+  const askNow = async (q: string, consent = assistantConsented(!!meta?.conciergeConsent)) => {
+    if (!day) return;
+    const n = ++asked.current;
+    setText(''); setCard(null); setFood(null); setTalk({ q });
+    const before = talkOf(date);
+    const a = await answer(q, day, { consent, log: !!meta?.conciergeLog, history: before });
+    if (n !== asked.current) return;
+    setTalk({ q, a });
+    // the day's talk on «Помічник»: a card clears it (D130 — those words are never kept or sent again)
+    if ('card' in a) keepTalk(date, [{ id: newId(), role: 'assistant', text: '', card: a.card }]);
+    else if (!('consent' in a)) keepTalk(date, [...before, { id: newId(), role: 'user', text: q }, { id: newId(), role: 'assistant', ...a }]);
+  };
+  const toEvening = async (it: MealItem) => { // a planned snack for the evening — never what was eaten (boundary 5)
+    if (!day) return;
+    const e = eveningSnack(it, day);
+    if (!e) { toast(t.assistant.changed(it.name)); return; }
+    closeTalk();
+    await saved(db.entries.add(e), t.topup.planned(it.name), () => db.entries.delete(e.id));
+    void count('topup_taken'); // D119
+  };
   const read = (said: string) => {
     const r = readOneInput(said, { foods: [...foods.values()], recipes, dishItem, prefer: usual, prescriptions: plan?.prescriptions ?? [], yesterday: [],
       meds: can('meds.log') ? open : [], taken, now: format(new Date(), 'HH:mm'), assistant: can('assistant.chat'), ...(food ? { card: food } : {}) });
@@ -92,7 +121,8 @@ export function OneInput({ date, plan, foods, recipes, all, medItems, can, light
       return;
     }
     if (r.kind === 'food' || r.kind === 'edit') { toTile(r.draft); return; }
-    setCard(r);
+    if (r.kind === 'question') { void askNow(r.text); return; }
+    closeTalk(); setCard(r);
   };
   const submit = () => { if (text.trim()) read(text); };
   const listenNow = () => {
@@ -125,13 +155,14 @@ export function OneInput({ date, plan, foods, recipes, all, medItems, can, light
     <section aria-label={L.field} className="sticky bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-10 mb-4 space-y-2 md:bottom-4" data-testid="one-input">
       {card && <Card card={card} meal={meal} can={can} lightDay={lightDay} onClose={() => { setCard(null); setFood(null); }}
         onMeds={(m) => void markYes(m)} onWhich={(m) => setCard({ kind: 'meds', meds: [m] })}
-        onLightDay={() => void act(() => applyLightDay(true, 'voice'))} onFood={toTile}
-        onAsk={(q) => navigate(`/assistant?q=${encodeURIComponent(q)}`)} />}
+        onLightDay={() => void act(() => applyLightDay(true, 'voice'))} onFood={toTile} />}
+      {talk && <AnswerCard talk={talk} foods={foods} onClose={closeTalk} onEvening={(it) => void toEvening(it)}
+        onConsent={() => { giveAssistantConsent(); void askNow(talk.q, true); }} />}
       <PhotoStatus photo={photo} allow={allow} />
       {photo.state === 'done' && photo.rows.length > 0 && !card && (() => {
         const draft: VoiceDraft = { items: photo.rows.flatMap((r) => (r.item ? [{ item: r.item, said: r.text, sure: true }] : [])), notFound: photo.rows.filter((r) => !r.item).map((r) => r.text), meds: [], waterMl: 0 };
         return <Card card={{ kind: 'food', draft }} meal={meal} can={can} lightDay={lightDay} onClose={() => setPhoto({ state: 'none' })}
-          onMeds={() => undefined} onWhich={() => undefined} onLightDay={() => undefined} onAsk={() => undefined}
+          onMeds={() => undefined} onWhich={() => undefined} onLightDay={() => undefined}
           onFood={() => { setPhoto({ state: 'none' }); onFood({ rows: photo.rows, via: 'photo' }); }} />;
       })()}
       <form className="flex items-center gap-2 rounded-full border border-line bg-surface p-1.5 pl-4 shadow-sm" onSubmit={(e) => { e.preventDefault(); submit(); }}>
@@ -155,9 +186,40 @@ export function OneInput({ date, plan, foods, recipes, all, medItems, can, light
   );
 }
 
-function Card({ card, meal, can, lightDay, onClose, onMeds, onWhich, onLightDay, onFood, onAsk }: {
+/** D166: the assistant's answer, here. A question waits for its answer; the consent is asked once; the suggestions passed the
+ *  plan and go to the evening only by a tap. The whole talk is on «Помічник». */
+function AnswerCard({ talk, foods, onClose, onConsent, onEvening }: {
+  talk: { q: string; a?: Answer }; foods: Map<string, Food>; onClose: () => void; onConsent: () => void; onEvening: (it: MealItem) => void;
+}) {
+  const A = t.assistant, a = talk.a;
+  if (a && 'card' in a) return a.card === 'crisis' ? <CrisisCard className="" /> : <DangerCard className="" />;
+  return (
+    <div role="group" aria-label={L.answer} className="protocol-card relative max-h-[50dvh] space-y-2 overflow-y-auto p-3 pr-11" aria-live="polite">
+      <button type="button" onClick={onClose} aria-label={L.close} className="absolute right-1 top-1 flex h-11 w-11 items-center justify-center text-muted"><X size={18} aria-hidden /></button>
+      <p className="text-sm text-muted">«{talk.q}»</p>
+      {!a && <p role="status" className="text-sm text-muted">{A.thinking}</p>}
+      {a && 'consent' in a && <><p className="text-sm">{A.consent}</p>
+        <button type="button" onClick={onConsent} className="min-h-tap rounded-full bg-accent px-4 font-semibold text-on-accent">{A.allow}</button></>}
+      {a && 'text' in a && <>
+        {a.text && <p className={a.error ? 'text-warn' : ''}>{a.text}</p>}
+        {a.notOffered?.map((x) => <p key={x.name} className="text-xs text-muted">{A.notOffered(x.name, x.reason, x.instead)}</p>) /* D132 */}
+        {a.items && a.items.length > 0 && <ul className="space-y-2">
+          {a.items.map((it) => { const b = brings(it, foods); return (
+            <li key={it.name} data-suggestion={it.name} className="rounded-xl bg-bg p-2">
+              <p className="font-medium">{it.name} <span className="font-normal text-muted">· {amountText(it)} {A.portionGuess}</span></p>
+              <p className="text-xs text-muted">{A.brings(b.kcal, b.protein)}</p>
+              <button type="button" onClick={() => onEvening(it)} className="mt-1 min-h-[2.25rem] rounded-full border border-accent px-3 text-xs text-accent">{A.toEvening}</button>
+            </li>); })}
+        </ul>}
+      </>}
+      <Link to="/assistant" className="inline-flex min-h-tap items-center text-sm text-accent underline">{L.wholeTalk}</Link>
+    </div>
+  );
+}
+
+function Card({ card, meal, can, lightDay, onClose, onMeds, onWhich, onLightDay, onFood }: {
   card: Reading; meal: string; can: (f: FeatureId) => boolean; lightDay: boolean; onClose: () => void; onMeds: (m: DueMed[]) => void; onWhich: (m: DueMed) => void;
-  onLightDay: () => void; onFood: (d: VoiceDraft) => void; onAsk: (q: string) => void;
+  onLightDay: () => void; onFood: (d: VoiceDraft) => void;
 }) {
   const shell = (children: React.ReactNode, label: string) => (
     <div role="group" aria-label={label} className="protocol-card relative space-y-2 p-3 pr-11">
@@ -184,7 +246,6 @@ function Card({ card, meal, can, lightDay, onClose, onMeds, onWhich, onLightDay,
     case 'light-day': return lightDay
       ? shell(<><p className="font-semibold">{L.lightDay}</p><button type="button" onClick={onLightDay} className={`${button} bg-accent text-on-accent`}>{L.lightDayYes}</button></>, L.lightDay)
       : null;
-    case 'question': return shell(<><p>{L.question}</p><button type="button" onClick={() => onAsk(card.text)} className={`${button} border-2 border-line`}>{L.ask}</button></>, L.question);
     case 'assistant-off': return shell(<><p>{L.assistantOff}</p><Link to="/modules" className="inline-flex min-h-tap items-center text-accent underline">{L.modules}</Link></>, L.assistantOff);
     case 'no-card': return shell(<p>{L.noCard}</p>, L.noCard);
     case 'food': case 'edit': {
