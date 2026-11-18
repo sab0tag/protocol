@@ -13,6 +13,8 @@ export interface IdentityConfig {
   appOrigin: string;
   /** The `amr` value that proves a completed MFA challenge (Auth0: `mfa`). */
   mfaAmr: string;
+  /** DEMO=1: the demo stand — the only place a self-declared mock identity provider is accepted */
+  demo?: boolean;
 }
 
 export class IdentityConfigError extends Error {}
@@ -38,5 +40,5 @@ export function identityConfig(env: Record<string, string | undefined>): Identit
   if (app.pathname !== '/' || app.search) throw new IdentityConfigError('APP_ORIGIN must be an origin, without a path');
   const clientId = env.OIDC_CLIENT_ID ?? '', clientSecret = env.OIDC_CLIENT_SECRET ?? '';
   if (!clientId || !clientSecret) throw new IdentityConfigError('OIDC_CLIENT_ID and OIDC_CLIENT_SECRET are required when CLINIC_IDENTITY_V2=on');
-  return { issuer, clientId, clientSecret, redirectUri, appOrigin: app.origin, mfaAmr: env.OIDC_MFA_AMR || 'mfa' };
+  return { issuer, clientId, clientSecret, redirectUri, appOrigin: app.origin, mfaAmr: env.OIDC_MFA_AMR || 'mfa', ...(env.DEMO === '1' ? { demo: true } : {}) };
 }

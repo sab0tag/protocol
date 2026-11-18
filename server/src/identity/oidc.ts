@@ -2,6 +2,7 @@ import { address } from './address.ts';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import * as client from 'openid-client';
 import type { IdentityConfig } from './config.ts';
+import { DEMO_MARKER } from '../demo/guard.ts';
 
 /** The identity provider could not be reached or described itself unusably. Nothing was changed; retry later. */
 export class IdpUnavailable extends Error {}
@@ -38,7 +39,11 @@ export class Oidc {
       const local = ['localhost', '127.0.0.1', '[::1]'].includes(this.cfg.issuer.hostname);
       this.discovered = client.discovery(this.cfg.issuer, this.cfg.clientId, undefined, client.ClientSecretPost(this.cfg.clientSecret),
         local ? { execute: [client.allowInsecureRequests] } : undefined)
-        .catch((e) => { this.discovered = null; throw new IdpUnavailable((e as Error).message); });
+        .catch((e) => { this.discovered = null; throw new IdpUnavailable((e as Error).message); })
+        .then((config) => { // the demo stand's mock says so about itself; outside DEMO=1 nobody signs in through it
+          if (config.serverMetadata()[DEMO_MARKER] === true && !this.cfg.demo) { this.discovered = null; throw new IdpRejected('a demo identity provider outside the demo stand'); }
+          return config;
+        });
     }
     return this.discovered;
   }

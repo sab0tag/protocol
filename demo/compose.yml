@@ -1,0 +1,74 @@
+# Demo stand of «Протокол» (ТЗ «демо клиники и тренировки», step 1) — a separate VPS, never the production box.
+# DEMO=1 is set here and only here: the API refuses it on a non-demo host, and the mock identity provider refuses to start
+# without it. Mailpit catches every e-mail; it relays nothing and its UI listens on the VPS's 127.0.0.1 only (ssh tunnel).
+# First run: sh demo/setup.sh demo.<domain>   then: docker compose -f demo/compose.yml up -d --build   then: npm run demo:reset
+name: protocol-demo
+services:
+  api:
+    build: ../server
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DEMO: "1"
+      CLINIC_IDENTITY_V2: "on"
+      DB_PATH: /data/protocol.db
+      BACKUP_DIR: /data/backups
+      PORT: "8080"
+      APP_ORIGIN: https://${DEMO_DOMAIN}
+      ALLOWED_ORIGINS: https://${DEMO_DOMAIN}
+      OIDC_ISSUER: https://idp.${DEMO_DOMAIN}/
+      OIDC_REDIRECT_URI: https://api.${DEMO_DOMAIN}/v1/auth/callback
+      OIDC_CLIENT_ID: protocol-demo
+      STAFF_SMTP_HOST: mailpit
+      STAFF_SMTP_PORT: "1025"
+      STAFF_SMTP_TLS_MODE: starttls
+      STAFF_SMTP_FROM: no-reply@demo.invalid
+      STAFF_SMTP_USER: demo
+      NODE_EXTRA_CA_CERTS: /certs/ca.crt
+    volumes:
+      - data:/data
+      - ./.secrets/ca.crt:/certs/ca.crt:ro
+    depends_on: [idp, mailpit]
+
+  idp:
+    build: ../server
+    restart: unless-stopped
+    command: ["node", "--disable-warning=ExperimentalWarning", "src/demo/idp.ts"]
+    env_file: .env
+    environment:
+      DEMO: "1"
+      PORT: "8090"
+      DEMO_IDP_ORIGIN: https://idp.${DEMO_DOMAIN}
+      DEMO_IDP_CLIENT_ID: protocol-demo
+      DEMO_IDP_REDIRECT: https://api.${DEMO_DOMAIN}/v1/auth/callback
+
+  mailpit:
+    image: axllent/mailpit:v1.21
+    restart: unless-stopped
+    environment:
+      MP_SMTP_TLS_CERT: /certs/mailpit.crt
+      MP_SMTP_TLS_KEY: /certs/mailpit.key
+      MP_SMTP_REQUIRE_STARTTLS: "true"
+      MP_SMTP_AUTH_FILE: /certs/smtp-auth
+      MP_MAX_MESSAGES: "500"
+    volumes: # file by file: .secrets/ itself stays 700 on the VPS
+      - ./.secrets/mailpit.crt:/certs/mailpit.crt:ro
+      - ./.secrets/mailpit.key:/certs/mailpit.key:ro
+      - ./.secrets/smtp-auth:/certs/smtp-auth:ro
+    ports:
+      - "127.0.0.1:8025:8025" # the mailbox UI: only through `ssh -L 8025:127.0.0.1:8025 <vps>`
+
+  web:
+    build:
+      context: ..
+      dockerfile: demo/web.Dockerfile
+      args: { DEMO_DOMAIN: "${DEMO_DOMAIN}" }
+    restart: unless-stopped
+    environment: { DEMO_DOMAIN: "${DEMO_DOMAIN}", ACME_EMAIL: "${ACME_EMAIL}" }
+    ports: ["80:80", "443:443"]
+    volumes: [caddy:/data]
+    depends_on: [api, idp]
+
+volumes:
+  data:
+  caddy:

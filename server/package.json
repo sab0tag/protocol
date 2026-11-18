@@ -12,7 +12,9 @@
     "ai:smoke:openrouter": "node src/ai/smokeOpenRouter.ts",
     "stats:ops": "node --disable-warning=ExperimentalWarning src/statsCli.ts ops",
     "stats:pilot": "node --disable-warning=ExperimentalWarning src/statsCli.ts pilot",
-    "db:migrate": "node --disable-warning=ExperimentalWarning src/db/migrateCli.ts"
+    "db:migrate": "node --disable-warning=ExperimentalWarning src/db/migrateCli.ts",
+    "demo:reset": "node --disable-warning=ExperimentalWarning src/demo/seed.ts",
+    "demo:idp": "node --disable-warning=ExperimentalWarning src/demo/idp.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.131.0",
