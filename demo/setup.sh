@@ -1,9 +1,10 @@
 #!/bin/sh
-# First setup of the demo stand on its own VPS: secrets and the mail trap's certificates, once. Usage: sh demo/setup.sh demo.<domain> [acme e-mail]
+# First setup of the demo stand: secrets and the mail trap's certificates, once. Usage: sh demo/setup.sh <domain>
+# (the stand lives at protocol-demo.<domain>, api-protocol-demo.<domain>, idp-protocol-demo.<domain>)
 # Writes demo/.env and demo/.secrets/ (both ignored by git). Prints no secret.
 set -eu
-DOMAIN="${1:?usage: sh demo/setup.sh demo.<domain> [acme e-mail]}"
-case "$DOMAIN" in demo.*) ;; *) echo "the demo stand lives on demo.<domain> only" >&2; exit 1 ;; esac
+DOMAIN="${1:?usage: sh demo/setup.sh <domain>}"
+case "$DOMAIN" in *.*) ;; *) echo "a domain, like beyondthesignal.to" >&2; exit 1 ;; esac
 cd "$(dirname "$0")"
 mkdir -p .secrets && chmod 700 .secrets
 if [ ! -f .secrets/ca.crt ]; then
@@ -17,8 +18,7 @@ if [ ! -f .env ]; then
   SMTP_PASS=$(openssl rand -hex 24); CLIENT_SECRET=$(openssl rand -hex 32)
   printf 'demo:%s\n' "$SMTP_PASS" > .secrets/smtp-auth
   cat > .env <<ENV
-DEMO_DOMAIN=$DOMAIN
-ACME_EMAIL=${2:-}
+DEMO_ROOT=$DOMAIN
 STAFF_SMTP_PASSWORD=$SMTP_PASS
 OIDC_CLIENT_SECRET=$CLIENT_SECRET
 DEMO_IDP_CLIENT_SECRET=$CLIENT_SECRET
@@ -29,4 +29,4 @@ ENV
 fi
 # readable inside the containers (they run as other users); on the VPS .secrets/ (700) keeps them from other accounts
 chmod 644 .secrets/ca.crt .secrets/mailpit.crt .secrets/mailpit.key .secrets/smtp-auth; chmod 600 .secrets/ca.key
-echo "demo stand configured for $DOMAIN — DNS: $DOMAIN, api.$DOMAIN, idp.$DOMAIN → this VPS"
+echo "demo stand configured — DNS: protocol-demo.$DOMAIN, api-protocol-demo.$DOMAIN, idp-protocol-demo.$DOMAIN → this box; Caddy sites: demo/Caddyfile.shared"

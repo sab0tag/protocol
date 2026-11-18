@@ -1,11 +1,11 @@
 // Demo stand only: a mock OpenID Connect provider for the staff of «Демо-клініка» (ТЗ «демо клиники», step 1). It signs the
 // seeded staff in with a second step (a fixed demo code), so `amr` carries the MFA that D152 requires. It is not a real
-// identity provider and refuses to start anywhere but the demo stand (DEMO=1 and an idp.demo.<domain> origin); its discovery
+// identity provider and refuses to start anywhere but the demo stand (DEMO=1 and an idp-protocol-demo.<domain> origin); its discovery
 // says what it is (DEMO_MARKER), so an API outside the stand refuses to sign anyone in through it.
-//   DEMO=1 DEMO_IDP_ORIGIN=https://idp.demo.example DEMO_IDP_CLIENT_ID=… DEMO_IDP_CLIENT_SECRET=… DEMO_IDP_REDIRECT=https://api.demo.example/v1/auth/callback node src/demo/idp.ts
+//   DEMO=1 DEMO_IDP_ORIGIN=https://idp-protocol-demo.example DEMO_IDP_CLIENT_ID=… DEMO_IDP_CLIENT_SECRET=… DEMO_IDP_REDIRECT=https://api-protocol-demo.example/v1/auth/callback node src/demo/idp.ts
 import { createHash, generateKeyPairSync, randomUUID, sign, timingSafeEqual } from 'node:crypto';
 import { createServer, type IncomingMessage, type RequestListener } from 'node:http';
-import { DEMO_MARKER, DemoGuardError, isDemoHost } from './guard.ts';
+import { DEMO_MARKER, DemoGuardError, isDemoIdpHost } from './guard.ts';
 
 /** The seeded staff (seed.ts links these subjects to the clinic's accounts). */
 export const DEMO_STAFF = [
@@ -22,7 +22,7 @@ export function idpConfig(env: Record<string, string | undefined>): IdpConfig {
   if (env.DEMO !== '1') throw new DemoGuardError('the demo identity provider runs only with DEMO=1');
   let origin: URL;
   try { origin = new URL(env.DEMO_IDP_ORIGIN ?? ''); } catch { throw new DemoGuardError('DEMO_IDP_ORIGIN is not a URL'); }
-  if (!isDemoHost(origin.hostname)) throw new DemoGuardError('the demo identity provider runs only on idp.demo.<domain>');
+  if (!isDemoIdpHost(origin.hostname) && !['localhost', '127.0.0.1'].includes(origin.hostname)) throw new DemoGuardError('the demo identity provider runs only on idp-protocol-demo.<domain>');
   const clientId = env.DEMO_IDP_CLIENT_ID ?? '', clientSecret = env.DEMO_IDP_CLIENT_SECRET ?? '';
   if (clientId.length < 8 || clientSecret.length < 24) throw new DemoGuardError('DEMO_IDP_CLIENT_ID and a DEMO_IDP_CLIENT_SECRET of 24+ characters are required');
   const redirects = (env.DEMO_IDP_REDIRECT ?? '').split(',').map((x) => x.trim()).filter(Boolean);
