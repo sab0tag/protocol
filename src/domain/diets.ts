@@ -112,3 +112,6 @@ export function ownTargets(was: Targets, now: Targets): Targets {
   const { fromDiet: _f, ...rest } = now;
   return Object.keys(keep).length ? { ...rest, fromDiet: keep } : rest;
 }
+
+/** D171: the diet of «стіл №N» said with its number — for a clinic's restriction line; nothing guessed from other words. */
+export const tableDiet = (said: string) => findDiets(said).find((d) => d.byTable)?.diet;
