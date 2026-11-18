@@ -135,7 +135,7 @@ describe('the key', () => {
 describe('the Soniox call', () => {
   it('asks for a websocket-only temporary key with the main key in the header, and never echoes an error body', async () => {
     const fetchImpl = vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
-      expect(JSON.parse(String(init!.body))).toEqual({ usage_type: 'transcribe_websocket', expires_in_seconds: 90 });
+      expect(JSON.parse(String(init!.body))).toEqual({ usage_type: 'transcribe_websocket', expires_in_seconds: 90, single_use: true, max_session_duration_seconds: 60 });
       expect((init!.headers as Record<string, string>).Authorization).toBe(`Bearer ${MAIN}`);
       return new Response(JSON.stringify({ api_key: TEMP, expires_at: '2026-11-18T12:00:00Z' }), { status: 201 });
     });

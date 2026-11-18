@@ -42,7 +42,9 @@ export function speechConfig(env: Record<string, string | undefined>): SpeechCon
 
 export interface SpeechKeys { issue: (ttlS: number) => Promise<{ key: string; expiresAt: string }> }
 
-/** Soniox REST «temporary API key» (checked 18.11 against the live API): usage `transcribe_websocket`, 201 {api_key, expires_at}. */
+/** Soniox REST «temporary API key» (checked 18.11 against the live API): usage `transcribe_websocket`, 201 {api_key, expires_at}.
+ *  One use only, and Soniox itself ends the stream at 60 s (`max_session_duration_seconds`) — the money guard does not rest on the
+ *  phone alone. The phone passes the key as the WebSocket subprotocol (`['soniox-api-key', key]`), never in a message. */
 export function sonioxKeys(apiKey: string, fetchImpl: typeof fetch = fetch): SpeechKeys {
   return {
     issue: async (ttlS) => {
@@ -50,7 +52,8 @@ export function sonioxKeys(apiKey: string, fetchImpl: typeof fetch = fetch): Spe
       try {
         res = await fetchImpl('https://api.soniox.com/v1/auth/temporary-api-key', { method: 'POST',
           headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ usage_type: 'transcribe_websocket', expires_in_seconds: ttlS }), signal: AbortSignal.timeout(8_000) });
+          body: JSON.stringify({ usage_type: 'transcribe_websocket', expires_in_seconds: ttlS, single_use: true, max_session_duration_seconds: SPEECH_MAX_SECONDS }),
+          signal: AbortSignal.timeout(8_000) });
       } catch { throw new SpeechUpstream(0); }
       if (!res.ok) throw new SpeechUpstream(res.status);
       const d = await res.json().catch(() => null) as { api_key?: unknown; expires_at?: unknown } | null;
