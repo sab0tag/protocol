@@ -23,9 +23,14 @@ import { tick, vapidKeys, webPushSender } from './push.ts';
 import { Store } from './store.ts';
 import { identityConfig } from './identity/config.ts';
 import { Oidc } from './identity/oidc.ts';
+import { demoGuard } from './demo/guard.ts';
 import { Sessions } from './identity/sessions.ts';
 
 const env = process.env;
+// The demo stand's locks (demo/README.md): DEMO=1 only on a demo host; the demo identity provider only with DEMO=1.
+const demo = (() => {
+  try { return demoGuard(env).demo; } catch (e) { console.error(`demo configuration refused: ${(e as Error).message}`); process.exit(1); }
+})();
 // Migrations run here, before anything is served (ACCESS-00-M). A database this build cannot bring to its latest
 // schema — newer, altered history, unrecognized, a failed step — stops the process: nothing serves a half-updated schema.
 const store = (() => {
@@ -56,6 +61,7 @@ const invitations = (() => {
   catch { console.error('staff invitation configuration refused'); process.exit(1); }
 })();
 const app = createApp({
+  ...(demo ? { demo } : {}),
   invitations,
   store,
   clinic,

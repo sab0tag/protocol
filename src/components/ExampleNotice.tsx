@@ -25,6 +25,12 @@ export function ExampleNotice({ plan }: { plan: PlanRow | undefined }) {
   );
 }
 
+/** ТЗ «демо клиники», step 1: the demo stand's build (VITE_DEMO_STAND=1) says so on every screen, patient's and clinic's. */
+export function DemoStandStrip() {
+  if (import.meta.env.VITE_DEMO_STAND !== '1') return null;
+  return <p role="status" className="protocol-example-strip print:hidden" data-testid="demo-stand"><span className="font-semibold">{t.example.demoStand}</span></p>;
+}
+
 /** D98, D160: in the example's own database one thin line on top of every screen — «Приклад · Вийти»; leaving opens the
  *  person's own data, untouched. Replaces the three-line notice each screen used to carry. */
 export function ExampleStrip() {

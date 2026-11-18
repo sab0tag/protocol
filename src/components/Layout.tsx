@@ -6,7 +6,7 @@ import { Toaster } from './Toast';
 import { ROUTES, TAB_ROUTES, tabForPath, type TabRouteId } from '../app/navigation';
 import { useFeatures } from '../app/features';
 import { AppHeader } from './AppHeader';
-import { ExampleStrip } from './ExampleNotice';
+import { DemoStandStrip, ExampleStrip } from './ExampleNotice';
 
 const TABS = {
   day: { label: t.nav.day, Icon: Home },
@@ -42,6 +42,7 @@ export function Layout({ children }: { children: ReactNode }) {
       </nav>}
       <Toaster />
       <div className={`protocol-app-content mx-auto min-w-0 w-full max-w-2xl px-4 pt-safe md:pb-10 ${active ? 'pb-28' : 'pb-10'} lg:max-w-4xl lg:px-8 print:max-w-none print:pb-0`}>
+        <DemoStandStrip />
         <ExampleStrip />
         <AppHeader />
         <main id="protocol-content" tabIndex={-1}>{children}</main>

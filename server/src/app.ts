@@ -70,6 +70,8 @@ export interface Deps {
   planDelivery?: PlanDelivery; // clinic plans handed over by one-time code
   push?: { publicKey: string; send: Sender };
   backupAgeH?: () => number | null;
+  /** the demo stand (DEMO=1): /health says so, the app shows «Демо · дані вигадані» */
+  demo?: boolean;
   backups?: { list: () => string[]; records: (name: string, vault: string) => { k: string; v: string | null; seq: number }[] | null };
   origins: string[];
   invitations?: StaffInvitations;
@@ -597,7 +599,7 @@ export function createApp(deps: Deps) {
   // container's healthcheck asks whether the server lives, not whether the model answers
   app.get('/health', (c) => c.json({ ok: !(ai.lastError > ai.lastOk), photo: !!recognize, menu: !!menu, workout: !!deps.workout, labs: !!deps.labs, conclusion: !!deps.conclusion, dish: !!deps.dish, dishes: !!deps.dishes, chat: !!deps.chat, medbox: !!deps.medbox, concierge: !!deps.notFound, label: !!deps.label, push: !!deps.push,
     ai: { lastOk: ai.lastOk || null, lastError: ai.lastError || null, failing: ai.lastError > ai.lastOk },
-    backupAgeH: deps.backupAgeH?.() ?? null }));
+    backupAgeH: deps.backupAgeH?.() ?? null, ...(deps.demo ? { demo: true } : {}) }));
 
   const token = (c: Context) => c.req.header('Authorization')?.match(/^Bearer ([A-Za-z0-9_-]{40,64})$/)?.[1];
   // D94: the address the proxy (Caddy) saw — the last one in the chain; a client can prepend any value but not this one

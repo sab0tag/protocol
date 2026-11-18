@@ -1,0 +1,83 @@
+# Demo stand of «Протокол» (ТЗ «демо клиники и тренировки», step 1). Owner 18.11: on the shared box next to protocol-api, under
+# protocol-demo / api-protocol-demo / idp-protocol-demo .<domain>, behind the box's one Caddy (/opt/harch, network harch_edge;
+# its three sites are in demo/Caddyfile.shared). DEMO=1 is set here and only here: the API refuses it on a non-demo host, and
+# the mock identity provider refuses to start without it. Its own project, volume and .env; nothing of protocol-api's is
+# mounted. Mailpit catches every e-mail, relays nothing; its UI is on the box's 127.0.0.1 only (ssh tunnel). Memory is capped.
+# First run: sh demo/setup.sh <domain>   then: docker compose -f demo/compose.yml up -d --build   then: npm run demo:reset
+name: protocol-demo
+services:
+  api:
+    build: ../server
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DEMO: "1"
+      CLINIC_IDENTITY_V2: "on"
+      DB_PATH: /data/protocol.db
+      BACKUP_DIR: /data/backups
+      PORT: "8080"
+      APP_ORIGIN: https://protocol-demo.${DEMO_ROOT}
+      ALLOWED_ORIGINS: https://protocol-demo.${DEMO_ROOT}
+      OIDC_ISSUER: https://idp-protocol-demo.${DEMO_ROOT}/
+      OIDC_REDIRECT_URI: https://api-protocol-demo.${DEMO_ROOT}/v1/auth/callback
+      OIDC_CLIENT_ID: protocol-demo
+      STAFF_SMTP_HOST: mailpit
+      STAFF_SMTP_PORT: "1025"
+      STAFF_SMTP_TLS_MODE: starttls
+      STAFF_SMTP_FROM: no-reply@demo.invalid
+      STAFF_SMTP_USER: demo
+      NODE_EXTRA_CA_CERTS: /certs/ca.crt
+    volumes:
+      - data:/data
+      - ./.secrets/ca.crt:/certs/ca.crt:ro
+    depends_on: [idp, mailpit]
+    mem_limit: 384m
+    networks: { default: {}, edge: { aliases: [protocol-demo-api] } }
+
+  idp:
+    build: ../server
+    restart: unless-stopped
+    command: ["node", "--disable-warning=ExperimentalWarning", "src/demo/idp.ts"]
+    env_file: .env
+    environment:
+      DEMO: "1"
+      PORT: "8090"
+      DEMO_IDP_ORIGIN: https://idp-protocol-demo.${DEMO_ROOT}
+      DEMO_IDP_CLIENT_ID: protocol-demo
+      DEMO_IDP_REDIRECT: https://api-protocol-demo.${DEMO_ROOT}/v1/auth/callback
+    mem_limit: 192m
+    networks: { default: {}, edge: { aliases: [protocol-demo-idp] } }
+
+  mailpit:
+    image: axllent/mailpit:v1.21
+    restart: unless-stopped
+    environment:
+      MP_SMTP_TLS_CERT: /certs/mailpit.crt
+      MP_SMTP_TLS_KEY: /certs/mailpit.key
+      MP_SMTP_REQUIRE_STARTTLS: "true"
+      MP_SMTP_AUTH_FILE: /certs/smtp-auth
+      MP_MAX_MESSAGES: "500"
+    volumes: # file by file: .secrets/ itself stays 700 on the VPS
+      - ./.secrets/mailpit.crt:/certs/mailpit.crt:ro
+      - ./.secrets/mailpit.key:/certs/mailpit.key:ro
+      - ./.secrets/smtp-auth:/certs/smtp-auth:ro
+    ports:
+      - "127.0.0.1:8025:8025" # the mailbox UI: only through `ssh -L 8025:127.0.0.1:8025 <box>`
+    mem_limit: 128m
+
+  web: # the app built for the stand, served inside; the box's Caddy fronts it with TLS
+    build:
+      context: ..
+      dockerfile: demo/web.Dockerfile
+      args: { DEMO_ROOT: "${DEMO_ROOT}" }
+    restart: unless-stopped
+    mem_limit: 64m
+    networks: { edge: { aliases: [protocol-demo-web] } }
+
+volumes:
+  data:
+
+networks:
+  edge:
+    external: true
+    name: harch_edge
