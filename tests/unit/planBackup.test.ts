@@ -39,7 +39,8 @@ describe('source-plan backup compatibility', () => {
     const clinic = restored.find(row => row.plan.source.kind === 'clinic')!;
     expect(clinic.plan.status).toBe('draft');
     expect(clinic.items.every(item => item.provenance.verification === 'pending')).toBe(true);
-    expect(clinic.items.every(item => item.content.type === 'prescription' && !item.content.value.schedule && !item.content.value.since)).toBe(true);
+    // D171: restrictions are the plan's constraints; prescriptions still come with no schedule or start date (D157)
+    expect(clinic.items.every(item => item.content.type === 'constraint' || (item.content.type === 'prescription' && !item.content.value.schedule && !item.content.value.since))).toBe(true);
     expect(await b.db.entries.count()).toBe(0);
     expect((await exportAll(b.db)).sourcePlans!.plans.find(p => p.source.kind === 'clinic')!.source).toEqual(draft.plan.source);
     await importAll(file, b.db); expect(await b.db.carePlans.count()).toBe(2);

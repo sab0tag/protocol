@@ -15,7 +15,7 @@ test('leaving during Retry-After cancels the queued redemption without consuming
   await expect(page.getByRole('button', { name: 'Завантажуємо…', exact: true })).toBeDisabled();
   await page.getByRole('button', { name: 'Назад', exact: true }).click();
   await expect(page).not.toHaveURL(/#\/plan\/import/);
-  await expect(page.getByRole('heading', { name: 'План від клініки', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: /надіслала вам план$/ }) /* D171 */).toHaveCount(0);
   await page.waitForTimeout(5500); // Observe the entire queued retry window after unmount.
 
   expect(calls).toEqual([code]);
