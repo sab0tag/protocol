@@ -1,4 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks';
+import { DRINK_TAG } from '../domain/fluid';
 import { ScanText } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { db } from '../data/db';
@@ -27,6 +28,7 @@ export function LabelScan({ onAdd }: { onAdd?: (item: MealItem) => void }) {
   const [n, setN] = useState<Record<Num, string>>({ kcal: '', protein: '', fat: '', carbs: '', calciumMg: '' });
   const [grams, setGrams] = useState('100');
   const [note, setNote] = useState('');
+  const [drink, setDrink] = useState(false); // D169: «Це напій» — counted in the day's fluid
 
   const pick = () => {
     setError('');
@@ -52,7 +54,7 @@ export function LabelScan({ onAdd }: { onAdd?: (item: MealItem) => void }) {
   };
   const num = (v: string) => Math.max(0, Number(v.replace(',', '.')) || 0);
   const save = async (addToMeal: boolean) => {
-    const food: Food = { id: `u-${newId()}`, name: name.trim(), custom: true, tags: [],
+    const food: Food = { id: `u-${newId()}`, name: name.trim(), custom: true, tags: drink ? [DRINK_TAG] : [],
       per100g: { kcal: num(n.kcal), protein: num(n.protein), fat: num(n.fat), carbs: num(n.carbs), ...(n.calciumMg ? { calciumMg: num(n.calciumMg) } : {}) },
       allergens }; // D58: an empty list here means «checked — none», unlike an own food never checked
     await saved(db.foods.put(food), t.toast.food(food.name));
@@ -89,6 +91,8 @@ export function LabelScan({ onAdd }: { onAdd?: (item: MealItem) => void }) {
             ))}
           </div>
           <AllergenPicker value={allergens} onChange={setAllergens} />
+          <label className="flex min-h-tap items-center gap-3"><input type="checkbox" checked={drink} onChange={(e) => setDrink(e.target.checked)} className="h-6 w-6 accent-[rgb(var(--accent))]" />
+            <span>{t.water.isDrink}</span></label>
           {onAdd && (
             <label className="block w-40"><span className="text-sm text-muted">{L.eaten}</span>
               <input inputMode="decimal" value={grams} onChange={(e) => setGrams(e.target.value)} className={field} /></label>

@@ -240,7 +240,7 @@ function targetSummary(tg: Partial<Targets>): string {
   const parts = [
     tg.kcal != null && `${tg.kcal} ккал${ref('kcal')}`, tg.proteinG != null && `білок ${tg.proteinG} г${ref('proteinG')}`,
     tg.carbsG?.min != null && `вуглеводи не менше ${tg.carbsG.min} г`, tg.carbsG?.max != null && `вуглеводи до ${tg.carbsG.max} г${ref('carbsG')}`,
-    tg.fatG != null && `жири ${tg.fatG} г${ref('fatG')}`, tg.calciumMg != null && `кальцій ${tg.calciumMg} мг`, tg.waterMl != null && `вода ${tg.waterMl} мл`,
+    tg.fatG != null && `жири ${tg.fatG} г${ref('fatG')}`, tg.calciumMg != null && `кальцій ${tg.calciumMg} мг`, tg.waterMl != null && `вода ${tg.waterMl} мл${tg.waterFrom ? ' (орієнтир)' : ''}`, tg.waterMaxMl != null && `рідина до ${tg.waterMaxMl} мл`,
     tg.lastMealBy && `їжа до ${tg.lastMealBy}`, tg.weightGoalKg != null && `вага ${tg.weightGoalKg} кг`,
     tg.maxWeightLossKgPerWeek != null && `не швидше ${tg.maxWeightLossKgPerWeek} кг/тиждень`,
   ];
@@ -460,8 +460,9 @@ function ConstraintForm({ plan, item, onClose }: { plan: PlanRow; item?: Constra
 
 export function TargetFields({ value, onChange }: { value: Partial<Targets>; onChange: (v: Partial<Targets>) => void }) {
   const T = P.target;
-  const n = (key: 'kcal' | 'proteinG' | 'fatG' | 'calciumMg' | 'waterMl' | 'weightGoalKg' | 'maxWeightLossKgPerWeek') => (
-    <Field label={T[key]}><input inputMode="decimal" value={str(value[key])} onChange={(e) => onChange({ ...value, [key]: num(e.target.value) })} className={field} /></Field>
+  const n = (key: 'kcal' | 'proteinG' | 'fatG' | 'calciumMg' | 'waterMl' | 'waterMaxMl' | 'weightGoalKg' | 'maxWeightLossKgPerWeek') => (
+    <Field label={T[key]}><input inputMode="decimal" value={str(value[key])} className={field}
+      onChange={(e) => { const next = { ...value, [key]: num(e.target.value) }; if (key === 'waterMl') delete next.waterFrom; onChange(next); /* D169: typed in — no longer the reference */ }} /></Field>
   );
   const carbs = (k: 'min' | 'max') => (e: React.ChangeEvent<HTMLInputElement>) => {
     const next = { ...value.carbsG, [k]: num(e.target.value) };
@@ -472,7 +473,7 @@ export function TargetFields({ value, onChange }: { value: Partial<Targets>; onC
       {n('kcal')}{n('proteinG')}
       <Field label={T.carbsMin}><input inputMode="decimal" value={str(value.carbsG?.min)} onChange={carbs('min')} className={field} /></Field>
       <Field label={T.carbsMax}><input inputMode="decimal" value={str(value.carbsG?.max)} onChange={carbs('max')} className={field} /></Field>
-      {n('fatG')}{n('calciumMg')}{n('waterMl')}
+      {n('fatG')}{n('calciumMg')}{n('waterMl')}{n('waterMaxMl')}
       <Field label={T.lastMealBy}><input type="time" value={value.lastMealBy ?? ''} onChange={(e) => onChange({ ...value, lastMealBy: e.target.value || undefined })} className={field} /></Field>
       {n('weightGoalKg')}{n('maxWeightLossKgPerWeek')}
     </div>

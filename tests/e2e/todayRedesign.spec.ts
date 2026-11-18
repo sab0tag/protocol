@@ -9,7 +9,7 @@ test('Today separates actions, quantities and history across all approved widths
   await page.getByRole('navigation', { name: 'Швидкі відмітки', exact: true }).getByRole('button', { name: /^Вода:/ }).click();
   await expect(page.locator('.protocol-day-hero')).toHaveCount(0);
   await expect(page.getByTestId('daily-phrase')).toHaveCount(0);
-  await expect(page.getByRole('navigation', { name: 'Швидкі відмітки', exact: true }).getByRole('button', { name: /^Вода:/ })).toHaveAccessibleName(/^Вода: 1 з \d+$/);
+  await expect(page.getByRole('navigation', { name: 'Швидкі відмітки', exact: true }).getByRole('button', { name: /^Вода:/ })).toHaveAccessibleName(/^Вода: 0,25 з [\d,]+ л$/);
   await expect(page.getByText('Цілі на сьогодні')).toHaveCount(0);
   await expect(page.getByText(/^Виконано та інші відмітки/)).toHaveCount(0);
   for (const colorScheme of ['light', 'dark'] as const) for (const width of [320, 375, 390, 430, 768, 1024, 1440]) {

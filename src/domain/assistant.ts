@@ -22,7 +22,8 @@ export function dayContext(plan: Plan, targets: Targets, totals: DayTotals, now:
   return {
     now, targets: t,
     day: { kcal: r(totals.kcal), proteinG: r(totals.protein), fatG: r(totals.fat), carbsG: r(totals.carbs), calciumMg: r(totals.calciumMg), waterMl: r(totals.waterMl) },
-    rules: plan.constraints.filter((c) => c.active).map((c) => [c.title, c.reason].filter(Boolean).join(': ')),
+    rules: [...plan.constraints.filter((c) => c.active).map((c) => [c.title, c.reason].filter(Boolean).join(': ')),
+      ...(targets.waterMaxMl ? [`Обмеження рідини лікарем: не більше ${targets.waterMaxMl} мл на день, разом з напоями і супом`] : [])], // D169
     usual: usual.slice(0, 15),
   };
 }

@@ -9,7 +9,7 @@ import { useState } from 'react';
 import { db } from '../data/db';
 import { useAllEntries, useAllWellbeing, useFoods, useLabs, usePlan, useWeights, useWorkouts } from '../data/queries';
 import { dateOf, todayISO } from '../domain/dates';
-import { buildReport, habitLabel, prnLimitText, reportText, trackingLines, unscoredMedText } from '../domain/report';
+import { buildReport, habitLabel, prnLimitText, reportText, trackingLines, unscoredMedText, waterLines } from '../domain/report';
 import { labNumber } from '../domain/labs';
 import { useObservation } from '../app/observation';
 import { count } from '../data/tally';
@@ -23,6 +23,7 @@ const L = t.report;
 const field = 'mt-1 block min-h-tap w-full rounded-xl border border-line bg-bg px-3';
 const num = (n: number) => n.toLocaleString('uk-UA', { maximumFractionDigits: 1 });
 const dmy = (d: string) => format(parseISO(d), 'd MMMM yyyy', { locale: uk });
+const dmShort = (d: string) => format(parseISO(d), 'dd.MM');
 
 /** «Звіт для лікаря» (SPEC.md §5.8): from the last visit to today by default; prints on one page. */
 export function Report() {
@@ -131,7 +132,7 @@ export function Report() {
       )}
 
       {!!r.weightPending && <p className="rounded-xl border border-warn/30 bg-warn-bg p-3 text-sm text-warn">{t.weightQuality.reportPending(r.weightPending)}</p>}
-      {(r.weightPace != null || r.habits.length > 0 || r.menu) && (
+      {(r.weightPace != null || r.habits.length > 0 || r.menu || r.water) && (
         <section className="protocol-card rounded-2xl border border-line bg-surface p-3">
           <h2 className="mb-2 font-semibold">{L.howPlan}</h2>
           {r.weightPace != null && (
@@ -149,6 +150,7 @@ export function Report() {
             </table>
           )}
           {r.menu && <p className="mt-2 text-sm">{L.menu(r.menu.done, r.menu.skipped, r.menu.open)}</p>}
+          {r.water && <div className="mt-2 space-y-1 text-sm" data-testid="report-water">{waterLines(r.water, dmShort).map((line) => <p key={line}>{line}</p>)}</div> /* D169 */}
         </section>
       )}
 

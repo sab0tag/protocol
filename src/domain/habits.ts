@@ -4,6 +4,7 @@ import { addDays, format, parseISO } from 'date-fns';
 import { buildChecklist } from './checklist';
 import { byAt, dateOf, timeOf } from './dates';
 import { dayTotals, effectiveTargets } from './nutrition';
+import { dayFluid } from './fluid';
 import type { DayEntry, Food, ISODate, MealItem, Plan, Workout } from './types';
 import { coverage, neutralDay, observedToday, scoredDay, trackingInfo, type Observation } from './observation';
 import { lightDayHistory, type LightDayHistory } from './lightDay';
@@ -54,6 +55,8 @@ export const copyTime = (e: DayEntry) => timeOf(e.at);
 export interface WeekSummary {
   from: ISODate; to: ISODate; days: number; // days with anything written
   carbsOk?: number; proteinOk?: number; waterOk?: number;
+  /** D169: water and drinks, average litres a day over the days they were written */
+  waterAvgMl?: number;
   workouts: number;
   checklistPct?: number;
   knownDays?: Partial<Record<'carbs' | 'protein' | 'water', number>>;
@@ -72,11 +75,14 @@ export function weekSummary(args: { plan: Plan | undefined; entries: DayEntry[];
   let days = 0, carbsOk = 0, proteinOk = 0, waterOk = 0, done = 0, total = 0;
   let hasCarbs = false, hasProtein = false, hasWater = false;
   const knownDays = { carbs: 0, protein: 0, water: 0 };
+  const drunk: number[] = [];
   for (let i = 0; i < 7; i++) {
     const d = format(addDays(parseISO(from), i), 'yyyy-MM-dd');
     const day = entries.filter((e) => dateOf(e.at) === d);
     if (!day.length && !(observation && workouts.some((w) => w.date === d))) continue;
     days += 1;
+    const fluid = dayFluid(day, foods).totalMl;
+    if (fluid > 0 && !(observation && neutralDay(observation, 'water', d))) drunk.push(fluid);
     const tg = effectiveTargets(plan, d);
     const f = dayFlags(plan, day, d, workouts, foods, observation);
     if (observation ? f.carbs !== undefined : tg.carbsG?.max != null || tg.carbsG?.min != null) { hasCarbs = true; knownDays.carbs++; if (f.carbs) carbsOk += 1; }
@@ -90,6 +96,7 @@ export function weekSummary(args: { plan: Plan | undefined; entries: DayEntry[];
     ...(observation && !observation.demo ? { lightDays: lightDayHistory(observation.events, from, today, observation.now),
       lightDayWorkouts: workouts.filter((w) => w.date >= from && w.date <= today && neutralDay(observation, 'workout', w.date)).length } : {}),
     ...(hasCarbs ? { carbsOk } : {}), ...(hasProtein ? { proteinOk } : {}), ...(hasWater ? { waterOk } : {}),
+    ...(drunk.length ? { waterAvgMl: Math.round(drunk.reduce((a, x) => a + x, 0) / drunk.length / 10) * 10 } : {}),
     ...(total ? { checklistPct: Math.round((done / total) * 100) } : {}),
     ...(observation ? { knownDays, showWorkouts: workouts.some((w) => w.date >= from && w.date <= today)
       || trackingInfo(observation, from, today, ['workout']).intervals.length > 0 } : {}),
@@ -168,7 +175,8 @@ export function dayFlags(plan: Plan | undefined, day: DayEntry[], d: ISODate, wo
     if (over) f.carbs = false; else if (food === 'complete') f.carbs = reached; else if (tg.carbsG.max == null && reached) f.carbs = true;
   }
   const closed = !observation || d < observedToday(observation);
-  if (tg.waterMl && scoredDay(observation, 'water', d) && (tot.waterMl >= tg.waterMl || closed)) f.water = tot.waterMl >= tg.waterMl;
+  const fluid = dayFluid(day, foods).totalMl; // D169: drinks and soups count toward the norm too
+  if (tg.waterMl && scoredDay(observation, 'water', d) && (fluid >= tg.waterMl || closed)) f.water = fluid >= tg.waterMl;
   const meds = c.items.filter((x) => x.kind === 'med');
   if (hasMeds && (!observation || (meds.length > 0 && scoredDay(observation, 'meds', d) && (meds.every((x) => x.done) || closed)))) f.meds = meds.every((x) => x.done);
   if (c.total && (closed || c.done / c.total >= 0.8)) f.plan = c.done / c.total >= 0.8;

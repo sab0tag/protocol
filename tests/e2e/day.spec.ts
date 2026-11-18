@@ -23,13 +23,13 @@ test('«Зараз»: «Нагадати за 15 хв» hides it for 15 min; wat
   await expect(toast(page)).toContainText('Нагадаю через 15 хв');
   if (/Обід/.test(first)) await expect(card.getByText('Обід')).toHaveCount(0);
   await page.reload();
-  // D164: water is a quick mark on «Сьогодні» (the floating dock is gone), counted in glasses, with «Скасувати»
+  // D164: water is a quick mark on «Сьогодні» (the floating dock is gone), counted in litres (D169), with «Скасувати»
   const water = page.getByRole('navigation', { name: 'Швидкі відмітки', exact: true }).getByRole('button', { name: /^Вода:/ });
   await water.click();
   await expect(toast(page)).toContainText('+250 мл');
-  await expect(water).toHaveAccessibleName(/^Вода: 1 з \d+$/);
+  await expect(water).toHaveAccessibleName(/^Вода: 0,25 з [\d,]+ л$/);
   await toast(page).getByRole('button', { name: 'Скасувати' }).click();
-  await expect(water).toHaveAccessibleName(/^Вода: 0 з \d+$/);
+  await expect(water).toHaveAccessibleName(/^Вода: 0 з [\d,]+ л$/);
 
   await page.goto('./#/workout');
   await page.getByRole('button', { name: 'Записати тренування' }).click();
@@ -57,9 +57,9 @@ test('«Не відмічено» is folded and asks when — or «не пам�
   const water = page.getByRole('navigation', { name: 'Швидкі відмітки', exact: true }).getByRole('button', { name: /^Вода:/ }); // D164
   await water.click();
   await water.click();
-  await expect(water).toHaveAccessibleName(/^Вода: 2 з \d+$/);
+  await expect(water).toHaveAccessibleName(/^Вода: 0,5 з [\d,]+ л$/);
   await toast(page).getByRole('button', { name: 'Скасувати' }).click();
-  await expect(water).toHaveAccessibleName(/^Вода: 1 з \d+$/); // the undo takes back the last glass
+  await expect(water).toHaveAccessibleName(/^Вода: 0,25 з [\d,]+ л$/); // the undo takes back the last glass
 });
 
 const kyivDay = () => new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Kyiv' }).format(new Date());

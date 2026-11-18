@@ -117,7 +117,7 @@ export async function initialiseModulePreferences(target: ProtocolDB, at = new D
     };
     const prescribed: Partial<Record<ModuleId, boolean>> = {
       meds: (plan?.prescriptions ?? []).some((p) => p.kind === 'medication' || p.kind === 'supplement'),
-      water: (plan?.targets?.waterMl ?? 0) > 0,
+      water: (plan?.targets?.waterMl ?? 0) > 0 || (plan?.targets?.waterMaxMl ?? 0) > 0, // D169
     };
     const reason = (id: ModuleId): MigrationReason => used[id] ? 'records' : prescribed[id] ? 'plan' : 'compatibility';
     const migration = `migration:v1:${newId()}`; // independent devices must not collide when a backup or first sync joins their histories
