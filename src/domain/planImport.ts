@@ -1,7 +1,6 @@
 /** PR-13: a plan handed over by a clinic. It is shown as a preview first; only items the person ticks are stored, as a
  *  draft with `pending` verification. Nothing is activated and no reminder or obligation is created by importing. */
 import type { CarePlan, CarePlanItem } from './carePlans';
-import { findDiets } from './diets';
 import { parseClinicSnapshot, type ClinicSnapshot } from './clinicSnapshot';
 
 export interface ClinicPlanV1 {
@@ -78,7 +77,10 @@ export function previewClinicRedemption(raw: unknown): ImportPreview | null {
 }
 
 /** Builds the draft to store. `accepted` are the preview keys the person ticked; unknown keys are ignored, none = nothing to import. */
-export function confirmImport(preview: ImportPreview, accepted: readonly string[], personId: string): { plan: CarePlan; items: CarePlanItem[] } | null {
+/** `table` finds the diet of «стіл №N» said with its number (the app passes the diets' table; this module stays free of it so
+ *  it runs outside the app's bundler too); without it a restriction is the doctor's own words. */
+export type TableDiet = (said: string) => { code: string; name: string } | undefined;
+export function confirmImport(preview: ImportPreview, accepted: readonly string[], personId: string, table?: TableDiet): { plan: CarePlan; items: CarePlanItem[] } | null {
   const chosen = preview.items.filter((i) => accepted.includes(i.key));
   if (!chosen.length) return null;
   const p = preview.plan, planId = preview.snapshot ? JSON.stringify(['clinic-snapshot', preview.snapshot.snapshotId]) : JSON.stringify(['clinic-plan', p.planId]);
@@ -90,7 +92,7 @@ export function confirmImport(preview: ImportPreview, accepted: readonly string[
     id: JSON.stringify([planId, i.key]), personId, planId, kind: i.kind, provenance: { verification: 'pending', text: i.detail ? `${i.title}: ${i.detail}` : i.title },
     // D171: a restriction of the clinic is a restriction of the plan — «стіл №5» said with its number is that table's diet (as the
     // paper reader does, D90), anything else the doctor's own words; never guessed from free text beyond the table's number
-    content: i.kind === 'nutrition' ? { type: 'constraint', value: restriction(JSON.stringify([planId, i.key]), i.title, source) } : { type: 'prescription', value: {
+    content: i.kind === 'nutrition' ? { type: 'constraint', value: restriction(JSON.stringify([planId, i.key]), i.title, source, table) } : { type: 'prescription', value: {
       id: JSON.stringify([planId, i.key]), source,
       kind: i.kind === 'medication' ? 'medication' : i.kind === 'follow_up' ? 'test' : 'lifestyle', title: i.title,
       ...(i.detail ? { notes: i.detail } : {}) } },
@@ -98,8 +100,8 @@ export function confirmImport(preview: ImportPreview, accepted: readonly string[
   return { plan, items };
 }
 
-function restriction(id: string, said: string, source: string): import('./types').Constraint {
-  const table = findDiets(said).find((d) => d.byTable)?.diet;
+function restriction(id: string, said: string, source: string, find?: TableDiet): import('./types').Constraint {
+  const table = find?.(said);
   return table ? { id, tag: 'diet', diet: table.code, title: `${table.code} — ${table.name}`, reason: said, source, active: true }
     : { id, tag: 'custom', title: said, reason: '', source, active: true };
 }

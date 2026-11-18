@@ -6,6 +6,7 @@ import { finishModuleOnboarding } from '../data/moduleStart';
 import { useUi } from '../store/ui';
 import { activeProfileId } from '../data/profiles';
 import { confirmImport, previewClinicRedemption, type ImportPreview } from '../domain/planImport';
+import { tableDiet } from '../domain/diets';
 import { ApiError, redeemClinicPlan } from '../sync/api';
 
 const MESSAGE: Record<string, string> = {
@@ -75,7 +76,7 @@ function PlanImport() {
   /** «Не зараз»: the plan waits as a draft in «Мій план»; nothing is switched on and the current plan is unchanged. */
   async function later() {
     if (!preview) return;
-    const draft = confirmImport(preview, [...ticked], activeProfileId);
+    const draft = confirmImport(preview, [...ticked], activeProfileId, tableDiet);
     if (!draft) return;
     setState(await saveClinicImport(db, activeProfileId, draft) === 'saved' ? 'saved' : 'already');
   }
@@ -83,7 +84,7 @@ function PlanImport() {
    *  new phone, no patient «Знайомство» to walk through; then the person's own times (D157: nothing is read from free text). */
   async function accept() {
     if (!preview || !verified) return;
-    const draft = confirmImport(preview, [...ticked], activeProfileId);
+    const draft = confirmImport(preview, [...ticked], activeProfileId, tableDiet);
     if (!draft) return;
     setState('busy');
     try {
