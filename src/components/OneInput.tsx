@@ -3,6 +3,7 @@
 // marked only after «Так». Danger and crisis words show their card and nothing else. A question is answered here, the way
 // «Помічник» answers it (D166); the talk goes to «Ще → Помічник», not into a feed here. After an action the card goes — its
 // result is in the day's list.
+import { injured } from '../domain/rehabSafety';
 import { dayFluid, waterState, withWater } from '../domain/fluid';
 import { waterAdded } from './QuickMarks';
 import { format } from 'date-fns';
@@ -114,7 +115,7 @@ export function OneInput({ date, plan, foods, recipes, all, medItems, can, light
   };
   const read = (said: string) => {
     const r = readOneInput(said, { foods: [...foods.values()], recipes, dishItem, prefer: usual, prescriptions: plan?.prescriptions ?? [], yesterday: [],
-      meds: can('meds.log') ? open : [], taken, now: format(new Date(), 'HH:mm'), assistant: can('assistant.chat'), ...(food ? { card: food } : {}) });
+      meds: can('meds.log') ? open : [], taken, now: format(new Date(), 'HH:mm'), assistant: can('assistant.chat'), ...(food ? { card: food } : {}), injured: injured(plan, date) });
     if (r.kind === 'empty') return;
     if (r.kind === 'undo') {
       const back = undo.current;

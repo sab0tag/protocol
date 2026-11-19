@@ -4,6 +4,7 @@
 // «чи можна метформін?» must not become a tick) → commands: a light day, an edit of the last card, a medicine of today's
 // plan (only after «Так»), water → food (readMeal, through the voice reading) → nothing. Pure: the corpus
 // tests/fixtures/one-input.yaml runs through this function.
+import { redFlagInText } from './rehabSafety';
 import { spokenForm } from './spokenForm';
 import { withoutStop } from './foodSearch';
 import { fold } from './meds';
@@ -25,6 +26,8 @@ export interface OneInputContext extends Omit<VoiceContext, 'meds'> {
   assistant: boolean;
   /** the draft of the card still on screen, for «прибери курку», «не два, а три яйця» */
   card?: VoiceDraft;
+  /** D181: the plan has an injury (a rehab complex or a limit for training) — its red flags bring the 103 card too */
+  injured?: boolean;
 }
 
 export type OneInput =
@@ -119,6 +122,7 @@ export function readOneInput(text: string, ctx: OneInputContext): OneInput {
   if (!withoutStop(raw)) return { kind: 'empty' };
   if (crisisInText(raw)) return { kind: 'crisis' }; // D130: first, and the model is never called
   if (dangerInText(raw)) return { kind: 'danger' }; // D97
+  if (ctx.injured && redFlagInText(raw)) return { kind: 'danger' }; // D181: a red flag with a cast or after an operation
   if (isQuestion(raw)) return ctx.assistant ? { kind: 'question', text: raw } : { kind: 'assistant-off', text: raw };
   if (lightDayCommand(raw)) return { kind: 'light-day' }; // D139
   return readSaid(spokenForm(raw), ctx);

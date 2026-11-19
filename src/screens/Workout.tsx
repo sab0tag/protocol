@@ -14,6 +14,7 @@ import { blankExercise, EQUIPMENT, pressHint, programmeWeek, startingSet, workou
 import { EXERCISES, exerciseOf, type Exercise } from '../data/exercises';
 import { adviceFor, lastNumbers, motivation } from '../domain/progression';
 import { allowedExercises, breaks, restrictionText } from '../domain/trainingRules';
+import { exerciseLike } from '../domain/exerciseSearch';
 import { hasRehab } from '../domain/rehab';
 import { RehabSession } from './RehabSession';
 import { ExerciseCard, LevelBadge } from '../components/ExerciseCard';
@@ -50,17 +51,18 @@ function KettlebellWorkout() {
   const week = programmeWeek(first && first <= date ? first : undefined, date);
 
   useEffect(() => {
-    if (!workouts) return;
+    if (!workouts || plan === undefined) return; // D181: the plan's limits shape the starting set
     setActiveExercise(0);
     setAiAdvice(''); // a new day — the last day's advice is not about it
     const last = workouts.filter((w) => w.date < date).at(-1);
     const start = startingSet(last, last && first ? programmeWeek(first, last.date) : week, week); // D60
-    const base = existing ?? { id: newId(), date, durationMin: 30, equipment: EQUIPMENT, exercises: start.map(blankExercise) };
+    // D181: the starting set is a choice too — what the doctor's limit forbids is not put in
+    const base = existing ?? { id: newId(), date, durationMin: 30, equipment: EQUIPMENT, exercises: start.filter((e) => !breaks(e, allowedExercises(EXERCISES, plan, date).limits)).map(blankExercise) };
     base0.current = JSON.stringify(base);
     const k = kept<{ draft: W; advice: string }>(`workout:${date}`); // D87: sets typed before a locked phone reloaded the page
     setDraft(k?.draft ?? base);
     if (k?.advice) setAiAdvice(k.advice);
-  }, [date, workouts === undefined]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [date, workouts === undefined, plan === undefined]); // eslint-disable-line react-hooks/exhaustive-deps
   const [card, setCard] = useState<Exercise | null>(null);
   const [picking, setPicking] = useState<{ replace?: number } | null>(null); // D60: the library inline — to add, or to replace exercise #
   const [aiAdvice, setAiAdvice] = useState(''); // D63
@@ -198,6 +200,11 @@ function KettlebellWorkout() {
                 className="flex min-h-tap min-w-tap items-center justify-center text-muted"><X size={18} aria-hidden /></button>
             </div>
             <p className="mb-2 text-sm text-muted">{ex.target}</p>
+            {(() => { // D181: the person wrote down what a limit forbids — kept, with a quiet line, not a ban and not an alarm
+              const like = lib ?? exerciseLike(EXERCISES, ex.name);
+              const broken = like ? breaks(like, allowed.limits) : null;
+              return broken && <p className="mb-2 text-sm text-muted" data-testid="limit-line">{t.training.inPlan(restrictionText(broken))}</p>;
+            })()}
             {lib && !existing && (() => { // D61: the last numbers and what they suggest — the person decides
               const { last, advice: raw } = adviceFor(lib, workouts, date);
               // D178: never suggest what the doctor's limit forbids — a harder exercise it rules out, a heavier bell past «до N кг»

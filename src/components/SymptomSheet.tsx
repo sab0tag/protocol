@@ -17,6 +17,9 @@ import { t } from '../i18n/uk';
 import { Sheet } from './Sheet';
 import { saved } from './Toast';
 import { TextSafety } from './TextSafety';
+import { RedFlags } from './RedFlags';
+import { injured } from '../domain/rehabSafety';
+import { usePlan } from '../data/queries';
 import { LightDayControl } from './LightDayControl';
 import { dangerInText, crisisInText } from '../domain/symptoms';
 
@@ -25,6 +28,7 @@ const chip = (on: boolean, danger = false) =>
   `min-h-tap rounded-full border px-3 text-sm ${on ? (danger ? 'border-warn bg-warn-bg font-medium text-warn' : 'border-accent bg-accent/10 font-medium text-accent') : 'border-line'}`;
 
 export function SymptomSheet({ date, entry, all, foods, onClose }: { date: string; entry?: DayEntry; all: DayEntry[]; foods?: Map<string, Food>; onClose: () => void }) {
+  const hurt = injured(usePlan(), date); // D181: with a cast or after an operation its red flags are danger signs too
   const { can, enabled } = useFeatures();
   const [stored, setStored] = useState(false), [saving, setSaving] = useState(false);
   const [picked, setPicked] = useState<string[]>(entry?.symptoms ?? []);
@@ -69,7 +73,8 @@ export function SymptomSheet({ date, entry, all, foods, onClose }: { date: strin
       <div className="flex flex-wrap gap-2" role="group" aria-label={L.danger}>
         {DANGER.map((s) => <button key={s} type="button" aria-pressed={picked.includes(s)} onClick={() => toggle(s)} className={chip(picked.includes(s), true)}>{s}</button>)}
       </div>
-      {danger ? <DangerCard /> : <TextSafety text={[own, ...picked].join(' ')} />}
+      {danger ? <DangerCard /> : <TextSafety text={[own, ...picked].join(' ')} injured={hurt} />}
+      {hurt && <RedFlags />}
 
       <div className="mt-3 grid grid-cols-[8rem_1fr] items-end gap-3">
         <label className="block"><span className="text-sm text-muted">{L.when}</span>

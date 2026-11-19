@@ -3,6 +3,7 @@
 // the code alone; the rest → the model with the day's numbers and the plan's rules, its foods turned into lines of the base and
 // checked against the plan (what fails is neither shown nor named); a medicine, a symptom, the plan → the app's own words; a model
 // saying «call now» → the 103 card. Nothing is written for the person: a suggestion goes to the evening as a planned snack.
+import { rehabAnswer } from '../domain/rehabSafety';
 import { format } from 'date-fns';
 import { inDemo } from '../data/db';
 import { keep, kept } from '../data/kept';
@@ -59,8 +60,9 @@ export function topupReply(d: Day): Reply {
 
 /** One question, answered. `history` is the talk before it (only its words after the last card go, D130). */
 export async function answer(words: string, d: Day, o: { consent: boolean; log: boolean; history: Msg[] }): Promise<Answer> {
-  const route = routeQuestion(words, d.plan); // D130: by this question alone, not by the talk before it
+  const route = routeQuestion(words, d.plan, d.date); // D130: by this question alone, not by the talk before it
   if (route === 'crisis' || route === 'danger') return { card: route };
+  if (route === 'rehab') return { text: rehabAnswer(words, d.plan, d.date)! }; // D181: the plan's own words, never the model
   if (route === 'topup') return topupReply(d);
   if (inDemo()) return { text: L.demo }; // D98
   if (!o.consent) return { consent: true };
