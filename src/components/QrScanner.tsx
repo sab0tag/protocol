@@ -4,7 +4,7 @@
 // with this view only), nothing is sent or kept. A QR that is not a clinic's plan link is said so and ignored.
 import jsQR from 'jsqr';
 import { useEffect, useRef, useState } from 'react';
-import { codeFromScan } from '../domain/clinicCode';
+import { scanTarget, type ScanTarget } from '../domain/clinicCode';
 
 type Problem = 'denied' | 'no-camera' | 'not-plan';
 const SAY: Record<Problem, string> = {
@@ -13,7 +13,7 @@ const SAY: Record<Problem, string> = {
   'not-plan': 'Це не QR плану від клініки. Наведіть камеру на QR з кабінету лікаря.',
 };
 
-export function QrScanner({ onCode, onClose }: { onCode: (code: string) => void; onClose: () => void }) {
+export function QrScanner({ onCode, onClose }: { onCode: (target: ScanTarget) => void; onClose: () => void }) {
   const video = useRef<HTMLVideoElement>(null);
   const [problem, setProblem] = useState<Problem | null>(null);
   const [ready, setReady] = useState(false);
@@ -39,9 +39,9 @@ export function QrScanner({ onCode, onClose }: { onCode: (code: string) => void;
         ctx.drawImage(v, 0, 0, canvas.width, canvas.height);
         const found = jsQR(ctx.getImageData(0, 0, canvas.width, canvas.height).data, canvas.width, canvas.height, { inversionAttempts: 'dontInvert' });
         if (!found) return;
-        const code = codeFromScan(found.data);
-        if (!code) { setProblem('not-plan'); return; }
-        stop(); onCode(code);
+        const target = scanTarget(found.data, `${location.origin}${location.pathname}`); // D180: with the link's own address
+        if (!target) { setProblem('not-plan'); return; }
+        stop(); onCode(target);
       }, 200);
     })();
     return () => { stop(); document.removeEventListener('visibilitychange', hidden); };
