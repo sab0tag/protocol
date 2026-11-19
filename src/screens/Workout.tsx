@@ -13,6 +13,7 @@ import type { Workout as W, WorkoutExercise } from '../domain/types';
 import { blankExercise, EQUIPMENT, pressHint, programmeWeek, startingSet, workoutDay } from '../domain/workouts';
 import { EXERCISES, exerciseOf, type Exercise } from '../data/exercises';
 import { adviceFor, lastNumbers, motivation } from '../domain/progression';
+import { allowedExercises, breaks, restrictionText } from '../domain/trainingRules';
 import { ExerciseCard, LevelBadge } from '../components/ExerciseCard';
 import { ExerciseLibrary } from '../components/ExerciseLibrary';
 import { ExampleNotice } from '../components/ExampleNotice';
@@ -66,6 +67,9 @@ export function Workout() {
   if (!workouts || !draft) return <Loading />;
   const activeIndex = Math.min(activeExercise, Math.max(0, draft.exercises.length - 1));
   const schedule = workoutDay(plan, workouts.filter((w) => w.date !== date), date);
+  // D178: the doctor's limits that hold on this day filter every list of exercises here
+  const allowed = allowedExercises(EXERCISES, plan, date);
+  const limitsNote = { hidden: allowed.hidden, texts: allowed.limits.map(restrictionText) };
   const add = (e: Exercise) => { setDraft({ ...draft, exercises: [...draft.exercises, blankExercise(e)] }); setPicking(null); };
   const replace = (i: number, e: Exercise) => { setDraft({ ...draft, exercises: draft.exercises.map((x, j) => (j === i ? blankExercise(e) : x)) }); setPicking(null); };
   const remove = (i: number) => { setDraft({ ...draft, exercises: draft.exercises.filter((_, j) => j !== i) }); setActiveExercise((n) => Math.max(0, Math.min(n, draft.exercises.length - 2))); };
@@ -186,7 +190,10 @@ export function Workout() {
             </div>
             <p className="mb-2 text-sm text-muted">{ex.target}</p>
             {lib && !existing && (() => { // D61: the last numbers and what they suggest — the person decides
-              const { last, advice: a } = adviceFor(lib, workouts, date);
+              const { last, advice: raw } = adviceFor(lib, workouts, date);
+              // D178: never suggest what the doctor's limit forbids — a harder exercise it rules out, a heavier bell past «до N кг»
+              const a = raw?.kind === 'harder' && breaks(raw.exercise, allowed.limits) ? undefined
+                : raw?.kind === 'heavier' && allowed.limits.some((r) => r.kind === 'max-kg' && r.value !== undefined && raw.kg > r.value) ? undefined : raw;
               if (!last) return null;
               return (
                 <div className="mb-2 space-y-1 text-sm">
@@ -202,7 +209,7 @@ export function Workout() {
             {picking?.replace === i && (
               <div className="mb-3 rounded-xl border border-accent/40 p-2">
                 <p className="mb-2 text-sm font-medium">{E.alternatives(ex.name)}</p>
-                <ExerciseLibrary list={EXERCISES.filter((x) => x.id !== lib?.id && (!lib || x.pattern === lib.pattern))}
+                <ExerciseLibrary list={allowed.list.filter((x) => x.id !== lib?.id && (!lib || x.pattern === lib.pattern))} limits={limitsNote}
                   action={{ label: E.swapThis, run: (x) => replace(i, x) }} />
               </div>
             )}
@@ -238,7 +245,7 @@ export function Workout() {
       {picking && picking.replace === undefined ? (
         <div className="rounded-2xl border border-accent/40 bg-surface p-3">
           <p className="mb-2 font-semibold">{E.add}</p>
-          <ExerciseLibrary action={{ label: E.addThis, run: add }} />
+          <ExerciseLibrary list={allowed.list} limits={limitsNote} action={{ label: E.addThis, run: add }} />
           <button type="button" onClick={() => setPicking(null)} className="mt-2 min-h-tap px-1 text-accent">{t.picker.done}</button>
         </div>
       ) : (

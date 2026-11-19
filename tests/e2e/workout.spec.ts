@@ -159,3 +159,37 @@ test('the exercise library is searched by name or movement, together with the le
   await expect(page.getByRole('button', { name: /^Ривок/ })).toBeVisible();
   await expect(page.getByRole('button', { name: /^Махи двома руками/ })).toHaveCount(0);
 });
+
+test('a doctor’s limit as a structure: «без опори на ліву ногу» hides from the library and from the model what it forbids (D178)', async ({ browser }) => {
+  const page = await device(browser, 'example', { sw: false });
+  await syncOn(page);
+  await page.goto('./#/plan/constraints');
+  await page.getByRole('button', { name: 'Додати обмеження' }).click();
+  const sheet = page.getByRole('dialog');
+  await sheet.getByLabel('Що обмежено').selectOption({ label: 'Без опори' });
+  await sheet.getByLabel('Частина тіла').selectOption({ label: 'Ліва нога' });
+  await sheet.getByLabel('До якої дати (включно)').fill('2099-12-09');
+  await sheet.getByLabel('Хто призначив').fill('Травматолог');
+  await sheet.getByRole('button', { name: 'Зберегти' }).click();
+  await expect(page.getByText('без опори на ліву ногу до 09.12')).toBeVisible();
+
+  let sent: { exercises: { id: string }[]; rules: string[] } | undefined;
+  await page.route('**/workout', async (r) => {
+    sent = r.request().postDataJSON();
+    await r.fulfill({ json: { advice: 'Лише те, що дозволено.', exercises: [
+      { id: 'goblet-squat', sets: 3, reps: 10, seconds: null }, { id: 'floor-press', sets: 3, reps: 8, seconds: null }] } });
+  });
+  await page.goto('./#/exercises');
+  await expect(page.getByTestId('exercise-limits')).toContainText('У плані лікаря — без опори на ліву ногу до 09.12');
+  await expect(page.getByText('Жим лежачи на підлозі').first()).toBeVisible();
+  await expect(page.getByText('Гоблет-присід')).toHaveCount(0);
+  await page.goto('./#/workout');
+  const panel = page.getByRole('region', { name: 'Скласти тренування з ІІ' });
+  await panel.getByRole('button', { name: 'Скласти тренування' }).click();
+  await panel.getByRole('button', { name: 'Дозволити й скласти' }).click();
+  await expect(page.getByText('Лише те, що дозволено.')).toBeVisible();
+  expect(sent!.exercises.map((e) => e.id)).toEqual(['floor-press']); // the request body: nothing standing
+  expect(sent!.rules).toContain('Обмеження лікаря: без опори на ліву ногу до 09.12');
+  await expect(page.getByRole('button', { name: /^Як виконувати: Гоблет/ })).toHaveCount(0); // the model’s forbidden line dropped
+  await expect(page.getByRole('button', { name: /^Як виконувати: Жим лежачи/ })).toBeVisible();
+});
