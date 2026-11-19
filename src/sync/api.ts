@@ -216,3 +216,17 @@ export async function redeemClinicPlan(code: string): Promise<unknown> {
   }
   return data;
 }
+
+// D172 (Soniox): a temporary key for one recording — through the vault with sync, else through this device's token. Never stored.
+export interface SpeechKey { key: string; expiresAt: string; model: string; maxSeconds: number }
+export const speechKey = (keys: Keys | null) => vaultOrDevice<SpeechKey>(keys, 'speech/key', {});
+/** Whether the server gives this vault or device a key now, and its speechId (shown in settings for the test list). */
+export async function speechState(keys: Keys | null): Promise<{ available: boolean; id: string; engine: string }> {
+  if (keys) return call(keys, 'GET', '/speech');
+  const token = await deviceToken(false);
+  let res: Response;
+  try { res = await fetch(`${API_URL}/v1/device/speech`, { headers: { Authorization: `Device ${token}` } }); } catch { throw new ApiError(0, 'offline'); }
+  const data = await res.json().catch(() => ({})) as { error?: string };
+  if (!res.ok) throw new ApiError(res.status, data.error ?? 'error', data);
+  return data as { available: boolean; id: string; engine: string };
+}
