@@ -128,7 +128,7 @@ export function Assistant() {
         {msgs.map((m) => (
           <li key={m.id} className={m.role === 'user' ? 'flex justify-end' : ''}>
             {m.card === 'crisis' ? <CrisisCard className="" /> : m.card === 'danger' || m.danger ? <DangerCard className="" /> : (
-              <div className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm ${m.role === 'user' ? 'bg-accent text-surface' : m.error ? 'border border-warn/40 text-warn' : 'border border-line bg-surface'}`}>
+              <div className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm ${m.role === 'user' ? 'bg-accent text-on-accent' : m.error ? 'border border-warn/40 text-warn' : 'border border-line bg-surface'}`}>
                 {m.text && <p>{m.text}</p>}
                 {m.notOffered?.map((x) => <p key={x.name} className="mt-1 text-xs text-muted">{L.notOffered(x.name, x.reason, x.instead)}</p>) /* D132 */}
                 {m.items && m.items.length > 0 && (
@@ -138,7 +138,7 @@ export function Assistant() {
                         <p className="font-medium">{it.name} <span className="font-normal text-muted">· {amountText(it)} {L.portionGuess}</span></p>
                         <p className="text-xs text-muted">{L.brings(b.kcal, b.protein)}</p>
                         <button type="button" disabled={added.has(`${m.id}:${it.name}`)} onClick={() => void toEvening(it, `${m.id}:${it.name}`)}
-                          className="mt-1 min-h-[2.25rem] rounded-full border border-accent px-3 text-xs text-accent disabled:opacity-40">{added.has(`${m.id}:${it.name}`) ? L.added : L.toEvening}</button>
+                          className="mt-1 min-h-tap rounded-full border border-accent px-3 text-xs text-accent disabled:opacity-40">{added.has(`${m.id}:${it.name}`) ? L.added : L.toEvening}</button>
                       </li>); })}
                   </ul>
                 )}
@@ -153,7 +153,7 @@ export function Assistant() {
         <div className="space-y-2 rounded-xl border border-accent/40 p-3 text-sm">
           <p>{L.consent}</p>
           <button type="button" onClick={() => { giveAssistantConsent(); void ask(askConsent, true); }}
-            className="min-h-tap rounded-xl bg-accent px-3 font-medium text-surface">{L.allow}</button>
+            className="min-h-tap rounded-xl bg-accent px-3 font-medium text-on-accent">{L.allow}</button>
         </div>
       )}
       {msgs.length === 0 && (
@@ -175,7 +175,7 @@ export function Assistant() {
       <form className="sticky bottom-[calc(var(--tabbar)+.25rem+env(safe-area-inset-bottom))] mt-auto flex gap-2 bg-bg py-2 md:bottom-0" onSubmit={(e) => { e.preventDefault(); void ask(text); }}>
         {speechSupported() && (
           <button type="button" onClick={mic} aria-label={listening ? L.stop : L.speak}
-            className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full ${listening ? 'animate-pulse bg-warn' : 'bg-accent'} text-surface`}>
+            className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full ${listening ? 'animate-pulse bg-warn' : 'bg-accent'} text-on-accent`}>
             {listening ? <Square size={20} aria-hidden /> : <Mic size={22} aria-hidden />}</button>
         )}
         <label className="flex-1"><span className="sr-only">{L.input}</span>

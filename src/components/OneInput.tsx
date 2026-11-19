@@ -176,7 +176,7 @@ export function OneInput({ date, plan, foods, recipes, all, medItems, can, light
           onMeds={() => undefined} onWhich={() => undefined} onLightDay={() => undefined} onAsk={() => undefined}
           onFood={() => { setPhoto({ state: 'none' }); onFood({ rows: photo.rows, via: 'photo' }); }} />;
       })()}
-      <form className="flex items-center gap-2 rounded-full border border-line bg-surface p-1.5 pl-4 shadow-sm" onSubmit={(e) => { e.preventDefault(); submit(); }}>
+      <form className="flex items-center gap-2 rounded-full border border-line bg-surface p-2 pl-4 shadow-sm" onSubmit={(e) => { e.preventDefault(); submit(); }}>
         <label className="min-w-0 flex-1"><span className="sr-only">{L.field}</span>
           <input type="text" value={text} onChange={(e) => { listened.current = false; setText(e.target.value); }} placeholder={L.field} autoComplete="off" enterKeyHint="send"
             className="block min-h-tap w-full bg-transparent outline-none" /></label>
@@ -217,7 +217,7 @@ function AnswerCard({ talk, foods, onClose, onConsent, onEvening }: {
             <li key={it.name} data-suggestion={it.name} className="rounded-xl bg-bg p-2">
               <p className="font-medium">{it.name} <span className="font-normal text-muted">· {amountText(it)} {A.portionGuess}</span></p>
               <p className="text-xs text-muted">{A.brings(b.kcal, b.protein)}</p>
-              <button type="button" onClick={() => onEvening(it)} className="mt-1 min-h-[2.25rem] rounded-full border border-accent px-3 text-xs text-accent">{A.toEvening}</button>
+              <button type="button" onClick={() => onEvening(it)} className="mt-1 min-h-tap rounded-full border border-accent px-3 text-xs text-accent">{A.toEvening}</button>
             </li>); })}
         </ul>}
       </>}

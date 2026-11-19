@@ -9,7 +9,7 @@ export function NeedsSync({ text, back }: { text: string; back?: string }) {
     <div className="space-y-2">
       <p className="text-sm text-muted">{text}</p>
       <button type="button" onClick={() => navigate(`/sync?back=${encodeURIComponent(back ?? pathname + search)}`)}
-        className="min-h-tap rounded-xl bg-accent px-3 font-medium text-surface">{t.menu.enableSync}</button>
+        className="min-h-tap rounded-xl bg-accent px-3 font-medium text-on-accent">{t.menu.enableSync}</button>
     </div>
   );
 }

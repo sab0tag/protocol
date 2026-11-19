@@ -62,7 +62,7 @@ export function ClinicStaffAccess({ auth }: { auth: ClinicAuth }) {
       <fieldset><legend>Ролі запрошеного</legend>{['doctor', 'admin'].map(role => <label className="flex min-h-tap items-center gap-2" key={role}><input type="checkbox" checked={roles.includes(role)} onChange={() => toggle(role)} />{role === 'doctor' ? 'Лікар' : 'Адміністратор'}</label>)}</fieldset>
       <p className="text-sm">Лист діє 72 години. Повторне надсилання скасує попереднє запрошення. Дані пацієнтів не відкриваються.</p>
       {inviteReceipt.current && <button type="button" className="min-h-tap underline" disabled={busy} onClick={() => { inviteReceipt.current = null; setNotice('Наступне надсилання скасує попереднє запрошення й створить нове.'); }}>Почати нове надсилання</button>}
-      <button className="min-h-tap bg-accent text-white rounded-xl px-4 disabled:opacity-50" disabled={!enabled || busy || !name.trim() || !email.trim() || !roles.length}>Надіслати запрошення</button>
+      <button className="min-h-tap bg-accent text-on-accent rounded-xl px-4 disabled:opacity-50" disabled={!enabled || busy || !name.trim() || !email.trim() || !roles.length}>Надіслати запрошення</button>
     </form>
     <ul className="space-y-2">{invites.map(i => <li className="text-sm break-words" key={i.id}>{i.email} · {({ sending: 'надсилається', sent: 'очікує прийняття', failed: 'не надіслано', accepted: 'прийнято', revoked: 'відкликано', expired: 'строк минув' } as Record<string, string>)[i.state] ?? i.state}
       {['sending', 'sent'].includes(i.state) && <button className="min-h-tap underline ml-2" disabled={busy} onClick={() => void action(() => clinicRevokeInvite(auth, i.id))}>Відкликати запрошення</button>}</li>)}</ul>

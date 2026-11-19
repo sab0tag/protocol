@@ -74,7 +74,7 @@ export function LabsScan({ known }: { known: LabRow[] }) {
         <div className="mt-2 space-y-2 rounded-xl border border-accent/40 p-2 text-sm">
           <p>{L.consent}</p>
           <button type="button" onClick={async () => { await db.meta.update('sync', { labsConsent: true }); setState('none'); input.current?.click(); }}
-            className="min-h-tap rounded-xl bg-accent px-3 font-medium text-surface">{L.allow}</button>
+            className="min-h-tap rounded-xl bg-accent px-3 font-medium text-on-accent">{L.allow}</button>
         </div>
       )}
       {state === 'form' && (
@@ -92,7 +92,7 @@ export function LabsScan({ known }: { known: LabRow[] }) {
                 <input value={r.unit} onChange={(e) => set(i, { unit: e.target.value })} aria-label={`${L.unit}: ${r.name}`} className={field} />
                 <label className="col-start-2 col-end-5 -mt-1 flex items-center gap-2 text-xs text-muted">{L.referenceField}
                   <input value={r.reference} onChange={(e) => set(i, { reference: e.target.value })} aria-label={`${L.referenceField}: ${r.name}`}
-                    className="min-h-[2.25rem] min-w-0 flex-1 rounded-lg border border-line bg-bg px-2 text-sm text-ink" /></label>
+                    className="min-h-tap min-w-0 flex-1 rounded-lg border border-line bg-bg px-2 text-sm text-ink" /></label>
                 {(() => {
                   const h = labHint(known.find((k) => k.name === r.name.trim()), r.unit, Number(r.value.replace(',', '.')));
                   return h && <span className="col-start-2 col-end-5 -mt-1 text-xs text-warn">
@@ -103,7 +103,7 @@ export function LabsScan({ known }: { known: LabRow[] }) {
           </ul>
           <div className="flex flex-wrap gap-2">
             <button type="button" disabled={!chosen.length} onClick={() => void save()}
-              className="min-h-tap rounded-xl bg-accent px-3 font-medium text-surface disabled:opacity-40">{L.save(chosen.length)}</button>
+              className="min-h-tap rounded-xl bg-accent px-3 font-medium text-on-accent disabled:opacity-40">{L.save(chosen.length)}</button>
             <button type="button" onClick={() => { setState('none'); setRows([]); }} className="min-h-tap rounded-xl border border-line px-3">{t.meal.cancel}</button>
           </div>
         </section>

@@ -59,7 +59,7 @@ export function SimpleEntrySheet({ kind, entry, date, onClose }: {
           <span>{t.status.done}</span>
         </label>
         <div className="flex gap-2 pt-1">
-          <button type="submit" className="min-h-tap flex-1 rounded-xl bg-accent px-4 font-medium text-surface">{t.simple.save}</button>
+          <button type="submit" className="min-h-tap flex-1 rounded-xl bg-accent px-4 font-medium text-on-accent">{t.simple.save}</button>
           <button type="button" onClick={onClose} className="min-h-tap rounded-xl border border-line px-4">{t.simple.cancel}</button>
         </div>
       </form>

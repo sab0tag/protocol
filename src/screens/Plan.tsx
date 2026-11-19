@@ -269,7 +269,7 @@ function Paper({ url, title }: { url: string; title: string }) {
   const [open, setOpen] = useState(false);
   return (
     <div>
-      <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} className="mt-1 min-h-[2rem] text-sm text-accent underline">{open ? P.paperHide : P.paper}</button>
+      <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} className="mt-1 min-h-tap text-sm text-accent underline">{open ? P.paperHide : P.paper}</button>
       {open && <img src={url} alt={P.paperAlt(title)} className="mt-1 max-h-32 max-w-full rounded border border-line" />}
     </div>
   );
@@ -310,7 +310,7 @@ function FormSheet({ title, onClose, onSave, onDelete, children, blocked }: {
         {children}
         {blocked && <p role="status" className="text-sm text-warn">{blocked}</p>}
         <div className="flex flex-wrap gap-2 pt-1">
-          <button type="submit" disabled={!!blocked} className="min-h-tap flex-1 rounded-xl bg-accent px-4 font-medium text-surface disabled:opacity-40">{P.save}</button>
+          <button type="submit" disabled={!!blocked} className="min-h-tap flex-1 rounded-xl bg-accent px-4 font-medium text-on-accent disabled:opacity-40">{P.save}</button>
           <button type="button" onClick={onClose} className="min-h-tap rounded-xl border border-line px-4">{P.cancel}</button>
           {onDelete && <button type="button" onClick={async () => { await onDelete(); onClose(); }}
             className="min-h-tap rounded-xl px-3 text-warn">{P.delete}</button>}
@@ -588,7 +588,7 @@ function ClinicActivate({ title, onActivate }: { title: string; onActivate: () =
       <span>Я звірив(ла) цей план із призначенням лікаря: {title}</span>
     </label>
     <p className="text-muted">Після підтвердження призначення потраплять у ваш план без часу прийому. Час і тривалість ви вкажете самі.</p>
-    <button type="button" disabled={!checked || busy} className="min-h-tap rounded-xl bg-accent px-4 text-white disabled:opacity-50"
+    <button type="button" disabled={!checked || busy} className="min-h-tap rounded-xl bg-accent px-4 text-on-accent disabled:opacity-50"
       onClick={async () => { setBusy(true); try { await onActivate(); } finally { setBusy(false); } }}>Додати до мого плану</button>
   </div>;
 }

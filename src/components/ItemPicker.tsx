@@ -32,7 +32,7 @@ export function ItemPicker({ foods, recipes, all, allergies = new Set(), onAdd, 
         <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={L.search} autoFocus autoComplete="off"
           className="block min-h-tap w-full rounded-xl border border-line bg-bg px-3" /></label>
       {phrase && phrase.length > 0 && (
-        <button type="button" onClick={() => add(phrase.map((r) => r.item!))} className="min-h-tap w-full rounded-xl bg-accent px-3 text-left font-medium text-surface">
+        <button type="button" onClick={() => add(phrase.map((r) => r.item!))} className="min-h-tap w-full rounded-xl bg-accent px-3 text-left font-medium text-on-accent">
           {L.addAll(phrase.map((r) => `${r.item!.name} ${amountText(r.item!)}`).join(', '))}</button>
       )}
       {(dishes.length > 0 || matches.length > 0) && (

@@ -206,7 +206,7 @@ export function PlanScan({ plan, onDone, onboarding }: { plan: PlanRow; onDone?:
           <h2 className="text-base font-semibold">Передавання медичних даних для розпізнавання</h2>
           <p>{L.consent}</p>
           <p className="rounded-xl border border-line bg-bg p-3 text-muted">Ви можете приховати особисті дані на фото перед надсиланням. Розпізнані призначення не стануть частиною плану, доки ви не перевірите та не підтвердите їх.</p>
-          <button type="button" onClick={() => void allow()} className="min-h-tap rounded-xl bg-accent px-3 font-medium text-surface">{L.allow}</button>
+          <button type="button" onClick={() => void allow()} className="min-h-tap rounded-xl bg-accent px-3 font-medium text-on-accent">{L.allow}</button>
         </div>
       )}
       {state === 'form' && (
@@ -249,7 +249,7 @@ export function PlanScan({ plan, onDone, onboarding }: { plan: PlanRow; onDone?:
                           {l.kind === 'unread' ? <div className="py-2">{body}</div> : (
                             <label className="flex min-h-tap items-start gap-3 py-2">
                               <input type="checkbox" checked={on.has(l.key)} disabled={!!lack} onChange={() => toggle(l.key)} aria-label={nameOf(l)}
-                                className="mt-0.5 h-5 w-5 shrink-0 accent-[rgb(var(--accent))] disabled:opacity-40" />
+                                className="mt-1 h-5 w-5 shrink-0 accent-[rgb(var(--accent))] disabled:opacity-40" />
                               {body}
                             </label>
                           )}
@@ -270,7 +270,7 @@ export function PlanScan({ plan, onDone, onboarding }: { plan: PlanRow; onDone?:
                           )}
                           {onboarding && isMed(l) && !on.has(l.key) && (
                             <button type="button" onClick={() => flip(l.key)} aria-pressed={skip.has(l.key)}
-                              className="mb-2 ml-8 min-h-[2rem] rounded-full border border-line px-3 text-xs">{skip.has(l.key) ? `${L.skippedMed} · ${L.unskipMed}` : L.skipMed}</button>
+                              className="mb-2 ml-8 min-h-tap rounded-full border border-line px-3 text-xs">{skip.has(l.key) ? `${L.skippedMed} · ${L.unskipMed}` : L.skipMed}</button>
                           )}
                           {MODULE_POLICY_ENABLED && l.kind === 'prescription' && l.prescription.kind === 'lifestyle' && <label className="mb-2 ml-8 block text-sm">
                             <span>{t.startFlow.activity}</span><select value={l.prescription.activity ?? ''} onChange={(e) => {
@@ -293,7 +293,7 @@ export function PlanScan({ plan, onDone, onboarding }: { plan: PlanRow; onDone?:
                 <ul className="divide-y divide-line">
                   {gone.map((p) => (
                     <li key={p.id}><label className="flex min-h-tap items-start gap-3 py-2">
-                      <input type="checkbox" checked={close.has(p.id)} aria-label={L.closeAria(p.title)} className="mt-0.5 h-5 w-5 shrink-0 accent-[rgb(var(--accent))]"
+                      <input type="checkbox" checked={close.has(p.id)} aria-label={L.closeAria(p.title)} className="mt-1 h-5 w-5 shrink-0 accent-[rgb(var(--accent))]"
                         onChange={() => setClose((x) => { const n = new Set(x); if (n.has(p.id)) n.delete(p.id); else n.add(p.id); return n; })} />
                       <span><span className="font-medium">{p.title}</span>{p.dose && ` · ${p.dose}`}<span className="block text-sm text-muted">{L.close}</span></span>
                     </label></li>

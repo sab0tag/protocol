@@ -68,7 +68,7 @@ function Row({ to, title, piece, children }: { to: string; title: string; piece?
           {children && <span className="block text-sm text-muted">{children}</span>}</span>
         <ChevronRight size={18} className="shrink-0 text-muted" aria-hidden />
       </Link>
-      {piece && <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} className="min-h-[2rem] text-sm text-accent underline">{open ? L.paperHide : L.paper}</button>}
+      {piece && <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} className="min-h-tap text-sm text-accent underline">{open ? L.paperHide : L.paper}</button>}
       {piece && open && <img src={piece} alt={`${L.paper}: ${title}`} className="mt-1 max-h-32 max-w-full rounded border border-line" />}
     </li>
   );

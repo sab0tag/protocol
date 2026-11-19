@@ -6,12 +6,12 @@ export function AllergenPicker({ value, onChange, legend = t.allergen.fromPackag
   return (
     <fieldset>
       <legend className="mb-1 text-sm text-muted">{legend}</legend>
-      <div className="flex flex-wrap gap-1.5">
+      <div className="flex flex-wrap gap-2">
         {ALLERGENS.map((a) => {
           const on = value.includes(a);
           return (
             <button key={a} type="button" aria-pressed={on} onClick={() => onChange(on ? value.filter((x) => x !== a) : ALLERGENS.filter((x) => x === a || value.includes(x)))}
-              className={`min-h-tap rounded-full border px-2.5 text-sm ${on ? 'border-warn bg-warn-bg font-medium text-warn' : 'border-line'}`}>{t.allergen.name[a]}</button>
+              className={`min-h-tap rounded-full border px-3 text-sm ${on ? 'border-warn bg-warn-bg font-medium text-warn' : 'border-line'}`}>{t.allergen.name[a]}</button>
           );
         })}
       </div>

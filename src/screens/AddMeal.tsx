@@ -179,7 +179,7 @@ export function AddMeal() {
             {fileInput}
           </div>
           <PhotoStatus photo={photo} allow={allowPhoto} />
-          {!query && <p className="mt-1 flex items-start gap-1 text-xs text-muted"><Mic size={14} className="mt-0.5 shrink-0" aria-hidden />{t.meal.dictate}</p>}
+          {!query && <p className="mt-1 flex items-start gap-1 text-xs text-muted"><Mic size={14} className="mt-1 shrink-0" aria-hidden />{t.meal.dictate}</p>}
           {danger && (crisis ? <CrisisCard className="mt-2" /> : <DangerCard className="mt-2" />) /* D97: one card for a danger sign, nothing else about those words */}
           {!danger && phrase && <RecognizedPanel key={query} title={t.meal.recognized} rows={phrase}
             onAdd={(picked, missing) => { setItems((xs) => [...xs, ...picked]); setQuery(''); for (const m of missing) void countOnce('nf', m); }}
@@ -302,7 +302,7 @@ export function AddMeal() {
                 <input value={pinName} onChange={(e) => setPinName(e.target.value)} placeholder={t.meal.pinName} autoFocus
                   className="block min-h-tap w-full rounded-xl border border-line bg-bg px-3" /></label>
               <button type="button" disabled={!pinName.trim()} onClick={() => void pinMeal(pinName, items).then(() => setPinName(null))}
-                className="min-h-tap rounded-xl bg-accent px-3 font-medium text-surface disabled:opacity-40">{t.dishes.save}</button>
+                className="min-h-tap rounded-xl bg-accent px-3 font-medium text-on-accent disabled:opacity-40">{t.dishes.save}</button>
             </div>
           )}
           {items.length > 0 && pinName === null && (dishName === null
@@ -315,7 +315,7 @@ export function AddMeal() {
                     className="block min-h-tap w-full rounded-xl border border-line bg-bg px-3" /></label>
                 <button type="button" disabled={!dishName.trim()}
                   onClick={() => { const similar = similarDish(dishName, recipes ?? []); if (similar) setSameDish(similar); else void saveDish(dishName, newId()); }}
-                  className="min-h-tap rounded-xl bg-accent px-3 font-medium text-surface disabled:opacity-40">{t.dishes.save}</button>
+                  className="min-h-tap rounded-xl bg-accent px-3 font-medium text-on-accent disabled:opacity-40">{t.dishes.save}</button>
               </div>
             ))}
           {sameDish && dishName !== null && <SameDish similar={sameDish} onSame={() => void saveDish(sameDish.name, sameDish.id)} onNew={() => void saveDish(dishName, newId())} />}
@@ -453,7 +453,7 @@ function CheckPanel({ foods, checks, anyActive, swapped, eaten, plan }: { foods:
               <div key={j} className="text-sm">
                 <p>{j > 0 && <Badge verdict={h.verdict} small />} {h.itemName !== item.name && <span className="font-medium">{h.itemName}: </span>}{h.message}{h.suggestion && <span className="text-muted"> → {h.suggestion}</span>}{h.noSwap && <span className="text-muted"> · {t.check.noSwap}</span>}
                   {plan && <button type="button" onClick={() => { if (why !== `${i}:${j}`) void count('why'); setWhy(why === `${i}:${j}` ? null : `${i}:${j}`); }} aria-expanded={why === `${i}:${j}`}
-                    className="ml-2 min-h-[2rem] px-1 text-accent underline">{t.why.ask}</button>}</p>
+                    className="ml-2 min-h-tap px-1 text-accent underline">{t.why.ask}</button>}</p>
                 {plan && why === `${i}:${j}` && (
                   <p className="mt-1 rounded-lg bg-bg p-2">{whyFlagged(h, plan).text} <Link to="/plan" className="text-accent underline">{t.why.openPlan}</Link></p>
                 )}
@@ -481,7 +481,7 @@ function attentionText(checks: ItemCheck[]): string {
 
 function Badge({ verdict, small }: { verdict: 'ok' | 'replace' | 'remove' | 'adjust'; small?: boolean }) {
   const look = verdict === 'ok' ? 'bg-accent/10 text-accent' : 'bg-warn-bg text-warn';
-  return <span className={`shrink-0 rounded-full px-2 ${small ? 'text-xs' : 'py-0.5 text-sm'} font-medium ${look}`}>{t.check.verdict[verdict]}</span>;
+  return <span className={`shrink-0 rounded-full px-2 ${small ? 'text-xs' : 'py-1 text-sm'} font-medium ${look}`}>{t.check.verdict[verdict]}</span>;
 }
 
 const fmt = (n: number) => String(Math.round(n * 10) / 10).replace('.', ',');
