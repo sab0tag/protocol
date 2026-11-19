@@ -1,5 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { codeFromScan } from '../domain/clinicCode';
+
+// D177: the camera and its QR reader are loaded only when the person opens them
+const QrScanner = lazy(() => import('../components/QrScanner').then((m) => ({ default: m.QrScanner })));
 import { db } from '../data/db';
 import { activateClinicPlan, saveClinicImport } from '../data/carePlans';
 import { finishModuleOnboarding } from '../data/moduleStart';
@@ -36,6 +40,10 @@ function PlanImport() {
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [ticked, setTicked] = useState<Set<string>>(new Set());
   const navigate = useNavigate();
+  const location = useLocation();
+  const [scan, setScan] = useState(false), [pasted, setPasted] = useState(''), [pasteError, setPasteError] = useState('');
+  /** D177: a code read here (camera or pasted) — the same screen with that code, and the plan is fetched at once */
+  const open = (c: string) => navigate(`/plan/import?code=${encodeURIComponent(c)}`, { replace: true, state: { scanned: true } });
   const [state, setState] = useState<'idle' | 'loading' | 'saved' | 'already' | 'busy'>('idle');
   const [verified, setVerified] = useState(false); // D171: «звірив(ла)» before anything becomes the plan (D157)
   const [error, setError] = useState('');
@@ -96,6 +104,9 @@ function PlanImport() {
       navigate('/plan/prescriptions', { replace: true });
     } catch { setError('Не вдалося додати план. Спробуйте ще раз.'); setState('idle'); }
   }
+  // D177: a code the person just scanned or pasted in the app is fetched without another tap; a link opened from outside still waits for «Переглянути план»
+  const scanned = useRef((location.state as { scanned?: boolean } | null)?.scanned === true);
+  useEffect(() => { if (code && scanned.current) { scanned.current = false; void load(); } }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const clinic = preview?.snapshot?.issuer.organizationName ?? preview?.plan.clinician.organizationName;
 
   return (
@@ -107,10 +118,20 @@ function PlanImport() {
         <div className="space-y-3">
           <p className="text-sm text-muted">Клініка передає план одноразовим кодом. Ви побачите його і самі оберете, що зберегти. Код спрацьовує лише один раз.</p>
           {error && <p role="alert" className="text-sm">{error}</p>}
-          <button className="min-h-tap rounded-xl bg-accent px-4 text-white disabled:opacity-50" disabled={!code || state === 'loading'} onClick={load}>
+          {code && <button className="min-h-tap rounded-xl bg-accent px-4 text-white disabled:opacity-50" disabled={state === 'loading'} onClick={load}>
             {state === 'loading' ? 'Завантажуємо…' : retryAt !== null ? 'Повторити' : 'Переглянути план'}
-          </button>
-          {!code && <p className="text-sm text-muted">Відскануйте QR-код від клініки.</p>}
+          </button>}
+          {!code && <div className="space-y-3">
+            {scan ? <Suspense fallback={<p className="text-sm text-muted">Вмикаю камеру…</p>}><QrScanner onCode={open} onClose={() => setScan(false)} /></Suspense>
+              : <button type="button" onClick={() => setScan(true)} className="min-h-tap w-full rounded-xl bg-accent px-4 font-semibold text-on-accent">Сканувати QR камерою</button>}
+            <form className="space-y-2" onSubmit={(e) => { e.preventDefault(); const c = codeFromScan(pasted); if (c) open(c); else setPasteError('Це не посилання на план від клініки. Скопіюйте його повністю або відскануйте QR.'); }}>
+              <label className="block text-sm">Або вставте посилання чи код від клініки
+                <input value={pasted} onChange={(e) => { setPasted(e.target.value); setPasteError(''); }} autoComplete="off" autoCapitalize="off" spellCheck={false}
+                  className="mt-1 block min-h-tap w-full rounded-xl border border-line bg-surface px-3" /></label>
+              {pasteError && <p role="alert" className="text-sm">{pasteError}</p>}
+              <button className="min-h-tap rounded-xl border-2 border-line px-4 font-semibold disabled:opacity-50" disabled={!pasted.trim()}>Відкрити</button>
+            </form>
+          </div>}
         </div>
       ) : (
         <div className="space-y-3">
