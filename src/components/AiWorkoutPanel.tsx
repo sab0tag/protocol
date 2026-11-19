@@ -11,6 +11,8 @@ import { useRecentEntries } from '../data/queries';
 import { todayISO } from '../domain/dates';
 import type { Level } from '../data/exercises';
 import { draftFromAi, workoutRequest } from '../domain/aiWorkout';
+import { allowedExercises } from '../domain/trainingRules';
+import { EXERCISES } from '../data/exercises';
 import type { Plan, Workout, WorkoutExercise } from '../domain/types';
 import { t } from '../i18n/uk';
 import { aiWorkout, ApiError } from '../sync/api';
@@ -52,8 +54,9 @@ export function AiWorkoutPanel({ workouts, plan, date, onDraft }: {
     setBusy(true); setError('');
     try {
       const mins = Math.min(90, Math.max(10, Math.round(Number(minutes) || 35)));
-      const r = await aiWorkout(keys, workoutRequest({ levels, workouts, plan, minutes: mins, wish }));
-      const d = draftFromAi(r, levels);
+      const r = await aiWorkout(keys, workoutRequest({ levels, workouts, plan, minutes: mins, wish, date: forDate }));
+      const ok = new Set(allowedExercises(EXERCISES, plan, forDate).list.map((e) => e.id)); // D178
+      const d = draftFromAi(r, levels, (id) => ok.has(id));
       if (!d.exercises.length) { setError(L.empty); return; }
       onDraft(d.exercises, [r.advice.trim(), d.dropped ? L.dropped(d.dropped) : ''].filter(Boolean).join(' '), forDate);
     } catch (e) {

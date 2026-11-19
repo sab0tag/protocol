@@ -26,10 +26,11 @@ import { useAllEntries, useModuleEvents, usePlan } from '../data/queries';
 import { stockLeft } from '../domain/stock';
 import { atLocal, newId, sinceNow, todayISO } from '../domain/dates';
 import { AllergenPicker } from '../components/AllergenPicker';
-import { LIMIT_UNITS, type Constraint, type ConstraintTag, type DailyLimit, type Mode, type Plan as PlanT, type Prescription, type Targets } from '../domain/types';
+import { LIMIT_UNITS, type BodyPart, type Restriction, type RestrictionKind, type Constraint, type ConstraintTag, type DailyLimit, type Mode, type Plan as PlanT, type Prescription, type Targets } from '../domain/types';
 import { countOnce } from '../data/tally';
 import { activateClinicPlan } from '../data/carePlans';
 import { t } from '../i18n/uk';
+import { BODY_PARTS, restrictionText } from '../domain/trainingRules';
 
 const P = t.plan;
 const field = 'mt-1 block min-h-tap w-full rounded-xl border border-line bg-bg px-3';
@@ -40,6 +41,7 @@ type Editing =
   | { what: 'prescription'; item?: Prescription }
   | { what: 'constraint'; item?: Constraint }
   | { what: 'mode'; item?: Mode }
+  | { what: 'restriction'; item?: Restriction }
   | { what: 'targets' }
   | { what: 'checkup' };
 
@@ -177,6 +179,14 @@ export function Plan({ section = 'home' }: { section?: PlanSection }) {
         ))}
       </Block>}
 
+      {/* D178: limits for training as a structure — the library and «Скласти тренування» show only what they allow */}
+      {section === 'constraints' && <Block title={t.training.title} empty={t.training.empty} addLabel={t.training.add} onAdd={() => setEditing({ what: 'restriction' })}>
+        {(plan.restrictions ?? []).map((r) => (
+          <Item key={r.id} onEdit={() => setEditing({ what: 'restriction', item: r })} title={restrictionText(r)}
+            meta={[r.active ? undefined : P.inactive, r.until && r.until < todayISO() ? t.training.ended : undefined]} source={r.source} />
+        ))}
+      </Block>}
+
       {section === 'goals' && <>
       <Block title={P.targets} onAdd={() => setEditing({ what: 'targets' })} addLabel={P.edit}>
         <li className="px-3 py-2">{targetSummary(tg) || <span className="text-muted">{P.emptyBy.targets}</span>}</li>
@@ -209,6 +219,7 @@ export function Plan({ section = 'home' }: { section?: PlanSection }) {
       {editing?.what === 'prescription' && <PrescriptionForm plan={plan} item={editing.item} onClose={() => setEditing(null)} />}
       {editing?.what === 'constraint' && <ConstraintForm plan={plan} item={editing.item} onClose={() => setEditing(null)} />}
       {editing?.what === 'mode' && <ModeForm plan={plan} item={editing.item} onClose={() => setEditing(null)} />}
+      {editing?.what === 'restriction' && <RestrictionForm plan={plan} item={editing.item} onClose={() => setEditing(null)} />}
       {editing?.what === 'targets' && <TargetsForm plan={plan} onClose={() => setEditing(null)} />}
       {editing?.what === 'checkup' && <CheckupForm plan={plan} onClose={() => setEditing(null)} />}
     </section>
@@ -488,6 +499,34 @@ function ModeForm({ plan, item, onClose }: { plan: PlanRow; item?: Mode; onClose
       <p className="text-sm text-muted">{P.modeTargets}</p>
       <TargetFields value={m.targetsOverride} onChange={(v) => setM({ ...m, targetsOverride: v })} />
       <Field label={P.notesLines}><textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} className={`${field} py-2`} /></Field>
+    </FormSheet>
+  );
+}
+
+/** D178: one limit for training, as the doctor said it — what, which part, how much, until when, who. */
+function RestrictionForm({ plan, item, onClose }: { plan: PlanRow; item?: Restriction; onClose: () => void }) {
+  const T = t.training;
+  const [r, setR] = useState<Restriction>(item ?? { id: newId(), kind: 'no-weight-bearing', part: 'left-leg', source: '', active: true });
+  const needsPart = r.kind === 'no-weight-bearing' || r.kind === 'no-load', needsValue = r.kind === 'max-kg' || r.kind === 'max-pulse';
+  const onSave = () => {
+    const clean: Restriction = { id: r.id, kind: r.kind, source: r.source.trim(), active: r.active,
+      ...(r.kind !== 'max-pulse' && r.part ? { part: r.part } : {}), ...(needsValue && r.value ? { value: r.value } : {}), ...(r.until ? { until: r.until } : {}) };
+    return save({ restrictions: upsert(plan.restrictions ?? [], clean) });
+  };
+  return (
+    <FormSheet title={item ? P.edit : T.add} onClose={onClose} onSave={onSave} blocked={needsPart && !r.part ? T.needPart : needsValue && !(r.value && r.value > 0) ? T.needValue : undefined}
+      onDelete={item ? () => save({ restrictions: (plan.restrictions ?? []).filter((x) => x.id !== item.id) }) : undefined}>
+      <Field label={T.kind}><select value={r.kind} onChange={(e) => setR({ ...r, kind: e.target.value as RestrictionKind })} className={field}>
+        {Object.entries(T.kinds).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></Field>
+      {r.kind !== 'max-pulse' && <Field label={T.part}><select value={r.part ?? ''} onChange={(e) => setR({ ...r, part: (e.target.value || undefined) as BodyPart | undefined })} className={field}>
+        {!needsPart && <option value="">{T.noPart}</option>}
+        {BODY_PARTS.map((p) => <option key={p} value={p}>{T.parts[p]}</option>)}</select></Field>}
+      {needsValue && <Field label={T.value}><input type="number" inputMode="numeric" min={1} required value={r.value ?? ''}
+        onChange={(e) => setR({ ...r, value: e.target.value === '' ? undefined : Math.max(1, Math.round(Number(e.target.value))) })} className={field} /></Field>}
+      <Field label={T.until}><input type="date" value={r.until ?? ''} onChange={(e) => setR({ ...r, until: e.target.value || undefined })} className={field} /></Field>
+      <p className="text-sm text-muted">{T.untilHint}</p>
+      <Field label={T.source}><input value={r.source} onChange={(e) => setR({ ...r, source: e.target.value })} placeholder={T.sourceHint} className={field} /></Field>
+      <label className="flex min-h-tap items-center gap-2"><input type="checkbox" className="protocol-switch" checked={r.active} onChange={(e) => setR({ ...r, active: e.target.checked })} />{P.active}</label>
     </FormSheet>
   );
 }

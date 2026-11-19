@@ -4,7 +4,7 @@ import { draftFromAi, retarget, workoutRequest } from '../../src/domain/aiWorkou
 
 describe('«Скласти тренування» (D63)', () => {
   it('sends the chosen levels only, the last workouts in numbers, the active limits', () => {
-    const b = workoutRequest({ levels: [1, 2], plan: examplePlan(new Date('2026-10-01T12:00:00')), minutes: 35, wish: ' коротко ',
+    const b = workoutRequest({ levels: [1, 2], plan: examplePlan(new Date('2026-10-01T12:00:00')), minutes: 35, wish: ' коротко ', date: '2026-10-13',
       workouts: [{ id: 'w', date: '2026-10-12', durationMin: 30, equipment: '', feeling: 'Легко',
         exercises: [{ exerciseId: 'row', name: 'Тяга в нахилі однією рукою', target: '', sets: [{ side: 'R', reps: 10 }, { side: 'L', reps: 9 }] }] }] });
     expect(b.exercises.every((e) => e.level <= 2)).toBe(true);
