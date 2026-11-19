@@ -6,6 +6,7 @@ import { blankExercise, EQUIPMENT } from './workouts';
 import { lastNumbers } from './progression';
 import { exerciseOf } from '../data/exercises';
 import type { Plan, Workout, WorkoutExercise } from './types';
+import { activeRestrictions, allowedExercises, restrictionText } from './trainingRules';
 
 export interface WorkoutBody {
   exercises: { id: string; name: string; level: number; pattern: string; unilateral: boolean; timed: boolean }[];
@@ -17,13 +18,15 @@ export interface WorkoutBody {
 }
 export interface AiWorkout { exercises: { id: string; sets: number; reps: number | null; seconds: number | null }[]; advice: string }
 
-export function workoutRequest(args: { levels: Level[]; workouts: Workout[]; plan: Plan | undefined; minutes: number; wish: string }): WorkoutBody {
+/** D178: `date` — the day the session is for; a doctor's limit that holds then filters the library before the model sees it. */
+export function workoutRequest(args: { levels: Level[]; workouts: Workout[]; plan: Plan | undefined; minutes: number; wish: string; date: string }): WorkoutBody {
   return {
-    exercises: EXERCISES.filter((e) => args.levels.includes(e.level))
+    exercises: allowedExercises(EXERCISES.filter((e) => args.levels.includes(e.level)), args.plan, args.date).list
       .map(({ id, name, level, pattern, unilateral, timed }) => ({ id, name, level, pattern, unilateral, timed })),
     history: args.workouts.slice(-6).map((w) => ({ date: w.date, feeling: w.feeling ?? '',
       items: w.exercises.map((x) => `${x.name}: ${lastNumbers(x, exerciseOf(x)?.timed ?? false)}`) })),
-    rules: (args.plan?.constraints ?? []).filter((c) => c.active).map((c) => (c.reason ? `${c.title}: ${c.reason}` : c.title)),
+    rules: [...(args.plan?.constraints ?? []).filter((c) => c.active).map((c) => (c.reason ? `${c.title}: ${c.reason}` : c.title)),
+      ...activeRestrictions(args.plan, args.date).map((r) => `Обмеження лікаря: ${restrictionText(r)}`)],
     equipment: EQUIPMENT, minutes: args.minutes, wish: args.wish.trim(),
   };
 }
@@ -37,13 +40,13 @@ export function retarget(target: string, sets: number, n: number, timed: boolean
 }
 
 /** `dropped` — lines the app refused (unknown, or not of the chosen levels); a repeated exercise is just merged away. */
-export function draftFromAi(r: AiWorkout, levels: Level[]): { exercises: WorkoutExercise[]; dropped: number } {
+export function draftFromAi(r: AiWorkout, levels: Level[], allowed: (id: string) => boolean = () => true): { exercises: WorkoutExercise[]; dropped: number } {
   const seen = new Set<string>();
   const out: WorkoutExercise[] = [];
   let dropped = 0;
   for (const x of r.exercises) {
     const e = exerciseById.get(x.id);
-    if (!e || !levels.includes(e.level)) { dropped += 1; continue; }
+    if (!e || !levels.includes(e.level) || !allowed(e.id)) { dropped += 1; continue; } // D178: a forbidden id never gets in, whatever the model said
     if (seen.has(e.id)) continue;
     seen.add(e.id);
     const sets = clamp(x.sets, 1, 5) ?? e.sets;

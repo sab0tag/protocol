@@ -9,13 +9,16 @@ import { ExerciseFigure } from './ExerciseFigure';
 
 const L = t.exercise;
 
-export function ExerciseLibrary({ list = EXERCISES, action }: { list?: Exercise[]; action?: { label: string; run: (e: Exercise) => void } }) {
+/** D178: `limits` — the doctor's limits that hid part of the library, said above it (not a warning, the plan's own words) */
+export function ExerciseLibrary({ list = EXERCISES, action, limits }: { list?: Exercise[]; action?: { label: string; run: (e: Exercise) => void };
+  limits?: { hidden: number; texts: string[] } }) {
   const [level, setLevel] = useState<Level | 0>(0);
   const [open, setOpen] = useState<Exercise | null>(null);
   const [query, setQuery] = useState('');
   const shown = searchExercises(list, query).filter((e) => !level || e.level === level);
   return (
     <div className="space-y-3">
+      {limits && limits.hidden > 0 && <p role="note" className="rounded-xl border border-line bg-surface p-2 text-sm" data-testid="exercise-limits">{t.training.hidden(limits.hidden, limits.texts)}</p>}
       <label className="block"><span className="sr-only">{L.search}</span>
         <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={L.searchHint} aria-label={L.search}
           aria-describedby={query.trim() ? 'exercise-found' : undefined} className="block min-h-tap w-full rounded-xl border border-line bg-bg px-3" /></label>

@@ -26,6 +26,22 @@ export interface Constraint {
   off?: string[]; // D90: for `diet` — ids of the preset's rules the person switched off
 }
 
+// D178 (task 7, step 4): a doctor's limit for training, as a structure the code filters by — not a line for the model.
+export type BodyPart = 'left-leg' | 'right-leg' | 'left-arm' | 'right-arm' | 'back' | 'neck';
+export type RestrictionKind = 'no-weight-bearing' | 'no-load' | 'max-kg' | 'max-pulse';
+export interface Restriction {
+  id: string;
+  kind: RestrictionKind;
+  /** the body part, for «без опори», «без навантаження», «до N кг» */
+  part?: BodyPart;
+  /** kilograms for max-kg, beats a minute for max-pulse */
+  value?: number;
+  /** the last day it holds; absent — until the doctor lifts it */
+  until?: ISODate;
+  source: string;
+  active: boolean;
+}
+
 export interface Prescription {
   id: string;
   kind: 'medication' | 'supplement' | 'test' | 'lifestyle';
@@ -106,6 +122,8 @@ export interface Plan {
   questions?: string[];
   /** D22: the last JSON export — the weekly reminder counts from it. */
   lastExportAt?: ISODate;
+  /** D178: limits for training as a structure; the old text constraints stay as they are and are not filtered by */
+  restrictions?: Restriction[];
   /** D72: one goal for the week, chosen by the person on «Тиждень» */
   weekGoal?: { text: string; set: ISODate };
 }
