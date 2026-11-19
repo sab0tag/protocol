@@ -9,7 +9,7 @@ import { useState } from 'react';
 import { db } from '../data/db';
 import { useAllEntries, useAllWellbeing, useFoods, useLabs, usePlan, useWeights, useWorkouts } from '../data/queries';
 import { dateOf, todayISO } from '../domain/dates';
-import { buildReport, habitLabel, prnLimitText, reportText, trackingLines, unscoredMedText, waterLines, coverageLines } from '../domain/report';
+import { buildReport, habitLabel, prnLimitText, reportText, trackingLines, unscoredMedText, waterLines, coverageLines, sideLines } from '../domain/report';
 import { rehabLines } from '../domain/rehabReport';
 import { labNumber } from '../domain/labs';
 import { useObservation } from '../app/observation';
@@ -156,6 +156,10 @@ export function Report() {
         </section>
       )}
 
+      {r.sideEffects?.length ? <section className="protocol-card rounded-2xl border border-line bg-surface p-3" data-testid="report-side-effects">
+        <h2 className="mb-2 font-semibold">{t.side.report}</h2>
+        <div className="space-y-1 text-sm">{sideLines(r, dmShort).map((line) => <p key={line}>{line}</p>)}</div>
+      </section> : null}{/* D194 */}
       {r.rehab && <section className="protocol-card rounded-2xl border border-line bg-surface p-3" data-testid="report-rehab">
         <h2 className="mb-2 font-semibold">{t.rehab.title}</h2>
         <div className="space-y-1 text-sm">{rehabLines(r.rehab, dmShort).map((line) => <p key={line}>{line}</p>)}</div>

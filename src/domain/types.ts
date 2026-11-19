@@ -297,6 +297,8 @@ export interface DayEntry {
   scheduleChanges?: { from: ISODateTime; to: ISODateTime; changedAt: ISODateTime }[];
   /** D189: where an injection prescribed by the doctor went (insulin, GLP-1) — asked after the dose is marked; no doses, no catalogue */
   site?: InjectionSite;
+  /** D194: a new medicine's daily question (kind 'note', checkKey side:<id>) — side effects yes / no and the person's word */
+  side?: { yes: boolean; text?: string };
   /** D119: how a meal was recorded — said in the voice window, or with lines from a photo of the plate; absent = typed or tapped */
   via?: 'voice' | 'photo';
   /** D174: a meal said aloud through Soniox (absent = the phone's engine) — for the pilot's `by_soniox` */
