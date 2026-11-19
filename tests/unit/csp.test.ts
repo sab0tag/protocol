@@ -1,12 +1,11 @@
 // D184: the deployed CSP lets the phone open Soniox's stream — and nothing wider. A forgotten origin is invisible to the
 // e2e tests (they fake the socket); the browser just drops the connection in 2 ms.
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import vercelText from '../../vercel.json?raw';
 import { SONIOX_URL } from '../../src/data/speechSoniox';
 
 const csp = (): string => {
-  const config = JSON.parse(readFileSync(resolve(process.cwd(), 'vercel.json'), 'utf8')) as { headers: { headers: { key: string; value: string }[] }[] };
+  const config = JSON.parse(vercelText) as { headers: { headers: { key: string; value: string }[] }[] };
   return config.headers.flatMap((h) => h.headers).find((h) => h.key === 'Content-Security-Policy')!.value;
 };
 const connectSrc = () => csp().split(';').map((d) => d.trim()).find((d) => d.startsWith('connect-src'))!.split(/\s+/).slice(1);
