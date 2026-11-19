@@ -47,6 +47,7 @@ export const ROUTES = {
   menu:         { path: '/menu',           feature: 'menu.ai' },
   reminders:    { path: '/reminders',      feature: 'reminders.settings' },
   shopping:     { path: '/shopping',       feature: 'menu.shopping' },
+  devSpeech:    { path: '/dev/speech',     feature: 'voice' }, // D175: the voice experiment, behind `?speechdev=on`
   fallback:     { path: '*',               feature: 'day' },
 } as const satisfies Readonly<Record<string, { readonly path: string; readonly feature: FeatureId }>>;
 

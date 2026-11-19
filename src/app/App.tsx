@@ -1,5 +1,5 @@
 import { ClinicInvitationScreen } from '../screens/ClinicInvitationScreen';
-import type { ReactNode } from 'react';
+import { lazy, Suspense, type ReactNode } from 'react';
 import { HashRouter, Navigate, Route, Routes, useLocation, useParams, useSearchParams } from 'react-router-dom';
 import { slotAt } from '../domain/mealSlots';
 import { Layout } from '../components/Layout';
@@ -51,6 +51,9 @@ import { Modules } from '../screens/Modules';
 import { Weight } from '../screens/Weight';
 import type { FeatureId } from '../domain/features';
 
+// D175: the experiment page carries the corpus and a YAML reader — loaded only when opened
+const DevSpeech = lazy(() => import('../screens/DevSpeech').then((m) => ({ default: m.DevSpeech })));
+
 /** A fresh form for every meal: /meal/new after editing /meal/:id must not keep the old state.
  *  D159: /meal/new alone is «Сьогодні» with the tile of the meal going on now; the full form is /meal/new?slot=N. */
 function MealRoute() {
@@ -71,7 +74,7 @@ const SCREENS = {
   onboarding: <Onboarding />, progress: <Progress />, progressInsights: <Insights />, progressMotivation: <Motivation />,
   progressLabs: <Labs />, report: <Report />, dishes: <Dishes />, foods: <MyFoods />, data: <Data />,
   more: <More />, moreCategory: <MoreCategory />, about: <About />, conciergeLog: <ConciergeLog />,
-  assistant: <Assistant />, sync: <Sync />, menu: <Menu />, reminders: <Reminders />, shopping: <Shopping />, modules: <Modules />, weight: <Weight />, fallback: <Navigate to="/" replace />,
+  assistant: <Assistant />, sync: <Sync />, menu: <Menu />, reminders: <Reminders />, shopping: <Shopping />, modules: <Modules />, weight: <Weight />, devSpeech: <Suspense fallback={null}><DevSpeech /></Suspense>, fallback: <Navigate to="/" replace />,
 } satisfies Record<RouteId, ReactNode>;
 
 function FeatureGate({ feature, children }: { feature: FeatureId; children: ReactNode }) {

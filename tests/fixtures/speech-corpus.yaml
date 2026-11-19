@@ -1,0 +1,225 @@
+# Корпус експерименту з голосом (SPEC.md D175, ТЗ «подключение и адаптация Soniox», розділ «Эксперимент»). 40 фраз.
+# say — еталон: що людина читає вголос на #/dev/speech; expect — що з нього робить поле «Скажіть або напишіть…»
+# (readOneInput у контексті CORPUS_CONTEXT з src/domain/speechCorpus.ts: 08:30, ранкові дози не відмічено).
+# forms — ті самі слова, як їх може написати рушій (цифри замість слів, пунктуація, великі літери, латиниця, апостроф):
+# кожна має читатися так само, як еталон (tests/unit/speechCorpus.test.ts). Нова форма, що ламає розбір, — чиниться
+# в розборі (одна нормалізація), не особливим кодом під Soniox: той самий текст можна надрукувати.
+# card — чернетка на екрані для команд D107. Групи й кількість — з ТЗ: їжа укр. 14, рос. і суміш 6, ліки з дозою 8,
+# вода 4, команди 6, питання 2.
+
+# ── їжа, українська (14) ──
+- id: food-oats-stop
+  group: food-uk
+  say: "на сніданок вівсянка два яйця кава з молоком це все"
+  forms: ["На сніданок вівсянка, 2 яйця, кава з молоком. Це все.", "на сніданок вівсянка 2 яйця кава з молоком це все"]
+  expect: { kind: food, items: ["Вівсян", "Яйце", "Кава з молоком"] }
+- id: food-eggs-coffee
+  group: food-uk
+  say: "два яйця і кава з молоком, це все"
+  forms: ["Два яйця і кава з молоком. Це все.", "2 яйця і кава з молоком, це все"]
+  expect: { kind: food, items: ["Яйце", "Кава з молоком"] }
+- id: food-buckwheat-chicken
+  group: food-uk
+  say: "гречка з куркою і чай"
+  forms: ["Гречка з куркою і чай."]
+  expect: { kind: food, items: ["Гречка з куркою", "Чай"] }
+- id: food-borsch-bread
+  group: food-uk
+  say: "борщ і шматок хліба"
+  forms: ["Борщ і шматок хліба.", "борщ і 1 шматок хліба"]
+  expect: { kind: food, items: ["Борщ", "Білий хліб"] }
+- id: food-banana
+  group: food-uk
+  say: "з'їв банан"
+  forms: ["З’їв банан.", "зʼїв банан", "з'їв банан"]
+  expect: { kind: food, items: ["Банан"] }
+- id: food-bread-grams
+  group: food-uk
+  say: "шістдесят грамів хліба і сир"
+  forms: ["60 грамів хліба і сир.", "60 г хліба і сир"]
+  expect: { kind: food }
+- id: food-cottage-cheese
+  group: food-uk
+  say: "сирники зі сметаною"
+  forms: ["Сирники зі сметаною."]
+  expect: { kind: food }
+- id: food-apple-nuts
+  group: food-uk
+  say: "яблуко і жменя горіхів"
+  forms: ["Яблуко і жменя горіхів."]
+  expect: { kind: food }
+- id: food-fish-rice
+  group: food-uk
+  say: "на вечерю риба з рисом"
+  forms: ["На вечерю риба з рисом."]
+  expect: { kind: food }
+- id: food-mash-cutlet
+  group: food-uk
+  say: "картопляне пюре і котлета"
+  forms: ["Картопляне пюре і котлета."]
+  expect: { kind: food }
+- id: food-yogurt
+  group: food-uk
+  say: "склянка кефіру і печиво"
+  forms: ["Склянка кефіру і печиво.", "1 склянка кефіру і печиво"]
+  expect: { kind: food }
+- id: food-soup-salad
+  group: food-uk
+  say: "на обід суп і салат з огірків"
+  forms: ["На обід суп і салат з огірків."]
+  expect: { kind: food }
+- id: food-omelette
+  group: food-uk
+  say: "омлет і чай без цукру"
+  forms: ["Омлет і чай без цукру."]
+  expect: { kind: food }
+- id: food-porridge-half
+  group: food-uk
+  say: "пів порції вівсянки"
+  forms: ["Пів порції вівсянки.", "0,5 порції вівсянки"]
+  expect: { kind: food }
+
+# ── їжа, російська і суміш (6) ──
+- id: ru-buckwheat-200
+  group: food-ru
+  say: "гречка с курицей, двести грамм"
+  forms: ["Гречка с курицей, 200 грамм.", "гречка с курицей 200 г"]
+  expect: { kind: food }
+- id: ru-eggs-coffee
+  group: food-ru
+  say: "два яйца и кофе с молоком"
+  forms: ["2 яйца и кофе с молоком."]
+  expect: { kind: food }
+- id: ru-oats
+  group: food-ru
+  say: "на завтрак овсянка"
+  forms: ["На завтрак овсянка."]
+  expect: { kind: food }
+- id: mix-coffee
+  group: food-ru
+  say: "випив кофе з молоком"
+  forms: ["Випив кофе з молоком."]
+  expect: { kind: food }
+- id: ru-borsch
+  group: food-ru
+  say: "борщ и хлеб"
+  forms: ["Борщ и хлеб."]
+  expect: { kind: food }
+- id: mix-cottage
+  group: food-ru
+  say: "творог і банан"
+  forms: ["Творог и банан.", "творог и банан"]
+  expect: { kind: food }
+
+# ── ліки з дозою (8) ──
+- id: med-metformin-500
+  group: meds
+  say: "прийняв метформін п'ятсот"
+  forms: ["Прийняв метформін 500.", "прийняв Метформін 500 мг"]
+  expect: { kind: meds, meds: ["Метформін"] }
+- id: med-vitd-2000
+  group: meds
+  say: "вітамін д дві тисячі"
+  forms: ["Вітамін D 2000.", "вітамін Д 2000 МО", "Вітамін D, 2 000"]
+  expect: { kind: meds, meds: ["Вітамін D"] }
+- id: med-enalapril-10
+  group: meds
+  say: "випив еналаприл десять міліграм"
+  forms: ["Випив еналаприл 10 мг.", "випив Еналаприл 10 мг"]
+  expect: { kind: meds, meds: ["Еналаприл"] }
+- id: med-siofor-850
+  group: meds
+  say: "сіофор вісімсот п'ятдесят випила"
+  forms: ["Сіофор 850 випила.", "сіофор 850 випила"]
+  expect: { kind: meds, meds: ["Метформін"] }
+- id: med-omeprazole
+  group: meds
+  say: "омепразол двадцять міліграм прийняв"
+  forms: ["Омепразол 20 мг прийняв.", "омепразол 20 прийняв"]
+  expect: { kind: meds, meds: ["Омепразол"] }
+- id: med-morning
+  group: meds
+  say: "ранкові таблетки прийняв"
+  forms: ["Ранкові таблетки прийняв."]
+  expect: { kind: meds, meds: ["Метформін", "Еналаприл", "Вітамін D", "Омепразол"] }
+- id: med-vitd-ru
+  group: meds
+  say: "витамин д выпил"
+  forms: ["Витамин D выпил.", "витамин Д выпил"]
+  expect: { kind: meds, meds: ["Вітамін D"] }
+- id: med-metformin-plain
+  group: meds
+  say: "випила метформін"
+  forms: ["Випила метформін.", "Випила Метформін"]
+  expect: { kind: meds, meds: ["Метформін"] }
+
+# ── вода (4) ──
+- id: water-glass
+  group: water
+  say: "склянка води"
+  forms: ["Склянка води.", "1 склянка води"]
+  expect: { kind: water, water_ml: 250 }
+- id: water-half-litre
+  group: water
+  say: "пів літра води"
+  forms: ["Пів літра води.", "0,5 л води", "0.5 л води"]
+  expect: { kind: water, water_ml: 500 }
+- id: water-300
+  group: water
+  say: "триста мілілітрів води"
+  forms: ["300 мл води.", "300 мл води"]
+  expect: { kind: water, water_ml: 300 }
+- id: water-two-more
+  group: water
+  say: "ще дві склянки"
+  forms: ["Ще дві склянки.", "ще 2 склянки"]
+  expect: { kind: water, water_ml: 500 }
+
+# ── команди D107 на чернетці (6) ──
+- id: cmd-not-two-three
+  group: commands
+  card: "два яйця, шістдесят грамів хліба і кава з молоком"
+  say: "не два, а три яйця"
+  forms: ["Не два, а три яйця.", "не 2 а 3 яйця", "Не 2, а 3 яйця."]
+  expect: { kind: edit }
+- id: cmd-undo
+  group: commands
+  say: "скасуй останнє"
+  forms: ["Скасуй останнє.", "Скасуй останнє"]
+  expect: { kind: undo }
+- id: cmd-remove-coffee
+  group: commands
+  card: "два яйця, шістдесят грамів хліба і кава з молоком"
+  say: "прибери каву"
+  forms: ["Прибери каву.", "Прибери каву"]
+  expect: { kind: edit, items: ["Яйце", "Білий хліб"] }
+- id: cmd-bread-40
+  group: commands
+  card: "два яйця, шістдесят грамів хліба і кава з молоком"
+  say: "хліба було сорок грамів"
+  forms: ["Хліба було 40 грамів.", "хліба було 40 г"]
+  expect: { kind: food }
+- id: cmd-instead
+  group: commands
+  card: "два яйця, шістдесят грамів хліба і кава з молоком"
+  say: "замість кави чай"
+  forms: ["Замість кави чай.", "Замість кави — чай."]
+  expect: { kind: edit }
+- id: cmd-add-banana
+  group: commands
+  card: "два яйця, шістдесят грамів хліба і кава з молоком"
+  say: "додай банан"
+  forms: ["Додай банан.", "Додай банан"]
+  expect: { kind: edit }
+
+# ── питання (2) ──
+- id: q-metformin-coffee
+  group: questions
+  say: "чи можна метформін після кави?"
+  forms: ["Чи можна метформін після кави?", "чи можна метформін після кави"]
+  expect: { kind: question }
+- id: q-dinner
+  group: questions
+  say: "що з'їсти на вечерю?"
+  forms: ["Що з’їсти на вечерю?", "що зʼїсти на вечерю"]
+  expect: { kind: question }

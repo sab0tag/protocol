@@ -236,3 +236,50 @@ test('only the Soniox «yes»: a shortcut never starts the phone’s engine by i
   expect(await page.evaluate(() => (window as unknown as { __say: string[] }).__say.length)).toBe(1); // no fallback without D95
   await expect(sheet.locator('[data-item]')).toHaveCount(0);
 });
+
+test('#/dev/speech: only with its flag; one phrase read by both engines in a random order, text and times kept, the JSON out (D175)', async ({ browser }) => {
+  const page = await device(browser, 'example', { sw: false });
+  await page.goto('./#/dev/speech');
+  await expect(page.getByText('Сторінку експерименту вимкнено')).toBeVisible(); // no flag — nothing to run
+  await page.route('**/v1/device/speech', (r) => r.fulfill({ json: { available: true, id: 'a1b2c3d4e5f6', engine: 'soniox-test' } }));
+  await page.route('**/v1/device/speech/key', (r) => r.fulfill({ json: { key: 'snx_temp_e2e', expiresAt: new Date(Date.now() + 60_000).toISOString(), model: 'stt-rt-v6', maxSeconds: 60 } }));
+  await page.addInitScript(() => {
+    localStorage.setItem('protocol.deviceToken', 'dev_e2e');
+    localStorage.setItem('protocol.sonioxConsent', 'yes'); localStorage.setItem('protocol.voice.ok', '1');
+    navigator.mediaDevices.getUserMedia = async () => new AudioContext().createMediaStreamDestination().stream;
+    // Soniox's socket, stubbed: the words after the config, the end after the empty frame
+    (window as unknown as { WebSocket: unknown }).WebSocket = class {
+      readyState = 0; onopen: (() => void) | null = null; onmessage: ((e: { data: string }) => void) | null = null; onerror = null; onclose: (() => void) | null = null;
+      constructor(readonly url: string, readonly protocols: string[]) { setTimeout(() => { this.readyState = 1; this.onopen?.(); }, 30); }
+      send(d: unknown) {
+        if (typeof d !== 'string') return;
+        if (d === '') setTimeout(() => this.onmessage?.({ data: JSON.stringify({ tokens: [], finished: true }) }), 30);
+        else setTimeout(() => this.onmessage?.({ data: JSON.stringify({ tokens: [{ text: 'Склянка води. Це все.', is_final: true }] }) }), 60);
+      }
+      close() { this.readyState = 3; }
+    };
+  });
+  await fakeSpeech(page, ['склянка води']);
+  await page.goto('./?speechdev=on#/dev/speech');
+  const lab = page.getByTestId('dev-speech');
+  await expect(lab.getByText('Фраза 1 з 40')).toBeVisible();
+  await lab.getByRole('button', { name: 'Далі' }).click();
+  await expect(lab.getByTestId('dev-phrase')).toHaveText('два яйця і кава з молоком, це все');
+  for (let i = 0; i < 27; i++) await lab.getByRole('button', { name: 'Далі' }).click(); // to «склянка води»
+  await expect(lab.getByTestId('dev-phrase')).toHaveText('склянка води');
+  await lab.getByRole('button', { name: 'Запис 1' }).click();
+  await expect(lab.getByText(/Запис 1 · Почуто:/)).toBeVisible();
+  await lab.getByRole('button', { name: 'Запис 2' }).click();
+  await expect(lab.getByText(/Запис 2 · Почуто:/)).toBeVisible();
+  await expect(lab.getByTestId('dev-runs')).toHaveText('Записів на цьому телефоні: 2');
+  const [file] = await Promise.all([page.waitForEvent('download'), lab.getByRole('button', { name: 'Вивантажити JSON' }).click()]);
+  const out = JSON.parse(await (await file.createReadStream()).toArray().then((b) => Buffer.concat(b).toString('utf8'))) as { runs: Record<string, unknown>[] };
+  expect(out.runs.map((r) => r.engine).sort()).toEqual(['browser', 'soniox']);
+  for (const r of out.runs) {
+    expect(r.phrase).toBe('water-glass');
+    expect(String(r.text).toLowerCase()).toContain('склянка води');
+    expect(Object.keys(r).sort()).toEqual(expect.arrayContaining(['startedAt', 'endedAt', 'text', 'engine', 'platform', 'speaker', 'condition']));
+    expect(Object.keys(r).some((k) => /audio|sound|key/i.test(k))).toBe(false); // text and times only
+  }
+  expect(out.runs.find((r) => r.engine === 'soniox')!.socketMs).toBeGreaterThan(0);
+});

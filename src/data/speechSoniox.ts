@@ -16,7 +16,9 @@ export const SILENCE_MS = 2_500, NO_SPEECH_MS = 6_000, MAX_MS = 60_000, WARN_MS 
 
 export interface ListenHandlers { interim: (text: string) => void; final: (text: string, heard: string) => void; error: (e: SpeechError) => void; end: () => void;
   /** after 45 s — «Ще 15 с», so the stop at 60 s is no surprise */
-  left?: (seconds: number) => void }
+  left?: (seconds: number) => void;
+  /** D175 (the experiment): how long Soniox's socket was open — what is billed; once per recording that opened one */
+  socket?: (ms: number) => void }
 
 type Socket = Pick<WebSocket, 'send' | 'close' | 'readyState'> & { onopen: ((e: unknown) => void) | null; onmessage: ((e: { data: unknown }) => void) | null;
   onerror: ((e: unknown) => void) | null; onclose: ((e: unknown) => void) | null };
@@ -86,11 +88,14 @@ export function listenSoniox(on: ListenHandlers, before: string[], deps: SonioxD
   const queue: ArrayBuffer[] = [];
   const heard = () => newWords(`${finals}${partial}`.trim(), before); // D107: what came before, glued on, is cut off
 
+  let socketAt: number | null = null;
+  const socketClosed = () => { if (socketAt !== null) { const ms = Date.now() - socketAt; socketAt = null; on.socket?.(ms); } };
   const release = () => { audio?.stop(); audio = null; mic?.getTracks().forEach((t) => t.stop()); mic = null; unhide(); for (const t of timers) clearTimeout(t); clearTimeout(silence); };
   const finish = (err?: SpeechError) => {
     if (ended) return;
     ended = true; release();
     try { ws?.close(); } catch { /* closed */ }
+    socketClosed();
     const said = heard(), text = withoutStop(said);
     if (text) on.final(text, said);
     if (err && !(err === 'no-speech' && text)) on.error(err);
@@ -109,6 +114,7 @@ export function listenSoniox(on: ListenHandlers, before: string[], deps: SonioxD
     if (!deps.fallbackAllowed()) { finish('other'); return; } // no D95 consent: the sound goes nowhere else — «напишіть текстом»
     fellBack = true; ended = true; release();
     try { ws?.close(); } catch { /* closed */ }
+    socketClosed();
     // After the waits the phone may refuse to start its own engine (iPhone wants the tap itself): then the same «напишіть текстом»
     let said = false;
     stopFallback = deps.fallback({ ...on, interim: (t) => { said = true; on.interim(t); },
@@ -134,7 +140,7 @@ export function listenSoniox(on: ListenHandlers, before: string[], deps: SonioxD
     timers.push(setTimeout(() => { if (!heardAny) finish('no-speech'); }, NO_SPEECH_MS));
     timers.push(setTimeout(() => on.left?.(Math.round((MAX_MS - WARN_MS) / 1000)), WARN_MS));
     timers.push(setTimeout(stop, Math.min(MAX_MS, k.maxSeconds * 1000)));
-    try { ws = env.socket(SONIOX_URL, ['soniox-api-key', k.key]); } catch { fallBack('network'); return; }
+    try { ws = env.socket(SONIOX_URL, ['soniox-api-key', k.key]); socketAt = Date.now(); } catch { fallBack('network'); return; }
     ws.onopen = () => {
       ws!.send(JSON.stringify({ model: k.model, audio_format: 'pcm_s16le', sample_rate: sampleRate, num_channels: 1,
         language_hints: LANGUAGE_HINTS, context: speechContext(), enable_endpoint_detection: true, max_endpoint_delay_ms: SILENCE_MS }));
