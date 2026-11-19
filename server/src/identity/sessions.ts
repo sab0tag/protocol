@@ -1,4 +1,5 @@
 import { address } from './address.ts';
+import { suspendIdle } from '../clinic/lifecycle.ts';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import type { DatabaseSync } from 'node:sqlite';
 import { immediate } from '../db/tx.ts';
@@ -86,6 +87,9 @@ export class Sessions {
         this.audit(accountId, 'account.create', 'ok');
       }
       const created = this.insert(accountId, p.issuer, p.authTime, p.mfa, t + ABSOLUTE_MS, p.verifiedEmail);
+      // D176: a sign-in after 90 idle days does not reset the clock — the membership is suspended first; the others restart
+      suspendIdle(this.db, t, accountId);
+      this.db.prepare("UPDATE organization_memberships SET active_since = ? WHERE account_id = ? AND status = 'active' AND suspended_at IS NULL").run(t, accountId);
       this.audit(accountId, 'login', p.mfa ? 'ok_mfa' : 'ok');
       return created;
     });

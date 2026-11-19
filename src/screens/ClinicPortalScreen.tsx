@@ -12,6 +12,9 @@ const ERR: Record<string, string> = {
   mfa_required: 'Потрібне підтвердження входу другим фактором.', step_up_required: 'Підтвердіть вхід ще раз для цієї дії.',
   context_required: 'Оберіть клініку.', identity_unavailable: 'Сервіс входу тимчасово недоступний.',
   database_busy: 'Сервіс тимчасово зайнятий. Спробуйте ще раз.',
+  // D176
+  suspended: 'Доступ призупинено: 90 днів без входу. Відновити його може адміністратор клініки.',
+  tokens_retired: 'Нові службові токени більше не видаються. Запросіть співробітника листом — після входу через запрошення.',
 };
 const FORM: Record<string, string> = {
   title: 'Вкажіть назву плану.', medication: 'У кожному рядку ліків потрібні назва, доза й частота.', empty: 'Додайте хоча б один пункт.', invalid: 'Занадто довгий текст.',
@@ -95,6 +98,8 @@ export function ClinicPortalScreen() {
         <>
           <p className="text-sm text-muted">{me.displayName}, {me.organizationName} · {me.role === 'admin' ? 'адміністратор' : 'лікар'}{' '}
             <button className="min-h-tap underline" onClick={() => void signOut()}>Вийти</button></p>
+          {me.tokenUntil !== undefined && <p role="note" className="protocol-card p-3 text-sm" data-testid="token-sunset">
+            Вхід за службовим токеном діє до {new Date(me.tokenUntil).toLocaleDateString('uk-UA')}. Перейдіть на вхід через запрошення: адміністратор надсилає лист, вхід — через пошту клініки з другим фактором.</p>}
           {(me.roles ?? [me.role]).includes('admin') && (typeof token === 'string' ? <Staff key={me.organizationId} token={token} /> : <ClinicStaffAccess key={me.organizationId} auth={token} />)}
           {(me.roles ?? [me.role]).includes('doctor') && <Issue key={me.organizationId} token={token} me={me} />}
         </>
