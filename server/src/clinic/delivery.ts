@@ -1,4 +1,4 @@
-import { createHash, randomBytes, randomUUID } from 'node:crypto';
+import { createCipheriv, createDecipheriv, createHash, hkdfSync, randomBytes, randomUUID } from 'node:crypto';
 import type { DatabaseSync } from 'node:sqlite';
 import { ClinicError, type Actor, type ClinicDirectory } from './directory.ts';
 import { CarePlanV1, DeliverySnapshotV1, type RedeemedPlan } from './carePlan.ts';
@@ -6,6 +6,28 @@ import { immediate } from '../db/tx.ts';
 
 const hash = (s: string) => createHash('sha256').update(s).digest('hex');
 export const DEFAULT_TTL_MS = 24 * 60 * 60 * 1000;
+
+// D176, ACCESS-07-B: the plan waits sealed. Its key comes from the patient's one-time code (HKDF-SHA256, the delivery id
+// as salt); the server keeps only the code's hash, so a copy of the database or a backup does not open a waiting plan.
+// AES-256-GCM, a fresh 12-byte nonce; stored as base64url(nonce | tag | ciphertext). The plan's hash stays the hash of
+// the plain text — checked again after opening.
+const SEAL_INFO = 'protocol/plan-delivery/v1';
+const sealKey = (code: string, id: string) => Buffer.from(hkdfSync('sha256', code, id, SEAL_INFO, 32));
+export function sealPlan(code: string, id: string, plain: string): string {
+  const iv = randomBytes(12), c = createCipheriv('aes-256-gcm', sealKey(code, id), iv);
+  const body = Buffer.concat([c.update(plain, 'utf8'), c.final()]);
+  return Buffer.concat([iv, c.getAuthTag(), body]).toString('base64url');
+}
+/** The plain text, or null when the seal does not open (wrong code, or the stored bytes changed). */
+export function openPlan(code: string, id: string, sealed: string): string | null {
+  try {
+    const b = Buffer.from(sealed, 'base64url');
+    if (b.length < 29) return null;
+    const d = createDecipheriv('aes-256-gcm', sealKey(code, id), b.subarray(0, 12));
+    d.setAuthTag(b.subarray(12, 28));
+    return Buffer.concat([d.update(b.subarray(28)), d.final()]).toString('utf8');
+  } catch { return null; }
+}
 export const MAX_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 export type DeliveryStatus = 'pending' | 'redeemed' | 'revoked' | 'expired' | 'tampered';
@@ -16,11 +38,11 @@ export class RedeemFailure extends Error {
 }
 
 /** Why a stored payload was rejected. Goes to the audit log as a category only — never the payload itself. */
-type TamperKind = 'missing' | 'hash' | 'json' | 'schema' | 'org' | 'snapshot';
+type TamperKind = 'missing' | 'seal' | 'hash' | 'json' | 'schema' | 'org' | 'snapshot';
 /** Points between SQL statements of `redeem`, for fault-injection tests. */
 export type RedeemStep = 'read' | 'transition' | 'audit';
 
-interface Row { id: string; org: string; status: string; expires: number; plan: string | null; plan_hash: string; issued_by: string; created: number; format: number }
+interface Row { id: string; org: string; status: string; expires: number; plan: string | null; plan_hash: string; issued_by: string; created: number; format: number; sealed: number }
 
 /**
  * One-time plan hand-over (spec PR-12, ACCESS-00-H). The code that goes into a link or QR is a random secret and never
@@ -60,8 +82,8 @@ export class PlanDelivery {
         plan: { ...parsed.data, issuedAt, clinician: { displayName: issuer.displayName, organizationName: issuer.organizationName } } };
       if (!DeliverySnapshotV1.safeParse(snapshot).success) throw new ClinicError('bad_request');
       const plan = JSON.stringify(snapshot);
-      this.db.prepare('INSERT INTO plan_delivery (id, org, issued_by, code_hash, plan, plan_hash, expires, created, format) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 2)')
-        .run(id, actor.orgId, actor.memberId, hash(code), plan, hash(plan), expires, created);
+      this.db.prepare('INSERT INTO plan_delivery (id, org, issued_by, code_hash, plan, plan_hash, expires, created, format, sealed) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 2, 1)')
+        .run(id, actor.orgId, actor.memberId, hash(code), sealPlan(code, id, plan), hash(plan), expires, created);
       this.dir.record(actor, 'plan.issue', id);
     });
     return { deliveryId: id, code, expiresAt: expires };
@@ -110,7 +132,7 @@ export class PlanDelivery {
     if (typeof code !== 'string' || code.length < 20 || code.length > 200) throw new RedeemFailure('invalid');
     const h = hash(code);
     const out = immediate(this.db, (): RedeemedPlan | RedeemError => {
-      const row = this.db.prepare('SELECT id, org, status, expires, plan, plan_hash, issued_by, created, format FROM plan_delivery WHERE code_hash = ?').get(h) as Row | undefined;
+      const row = this.db.prepare('SELECT id, org, status, expires, plan, plan_hash, issued_by, created, format, sealed FROM plan_delivery WHERE code_hash = ?').get(h) as Row | undefined;
       this.fault?.('read');
       if (!row) return 'invalid';
       if (row.status === 'revoked') return 'revoked';
@@ -121,7 +143,7 @@ export class PlanDelivery {
         if (row.plan !== null) this.db.prepare('UPDATE plan_delivery SET plan = NULL WHERE id = ?').run(row.id);
         return 'expired';
       }
-      const verdict = this.verify(row);
+      const verdict = this.verify(row, code);
       if (typeof verdict === 'string') {
         this.claim(row.id, 'tampered');
         this.fault?.('transition');
@@ -145,11 +167,13 @@ export class PlanDelivery {
     if (r.changes !== 1) throw new Error('delivery changed under an immediate transaction');
   }
 
-  private verify(row: Row): RedeemedPlan | TamperKind {
+  private verify(row: Row, code: string): RedeemedPlan | TamperKind {
     if (row.plan === null) return 'missing';
-    if (hash(row.plan) !== row.plan_hash) return 'hash';
+    const text = row.sealed ? openPlan(code, row.id, row.plan) : row.plan; // rows issued before D176 are plain
+    if (text === null) return 'seal';
+    if (hash(text) !== row.plan_hash) return 'hash';
     let json: unknown;
-    try { json = JSON.parse(row.plan); } catch { return 'json'; }
+    try { json = JSON.parse(text); } catch { return 'json'; }
     if (row.format === 1) {
       const parsed = CarePlanV1.safeParse(json);
       if (!parsed.success) return 'schema';

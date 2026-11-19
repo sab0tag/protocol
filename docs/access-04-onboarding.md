@@ -144,3 +144,19 @@ remain their own ACCESS-07/06/08 work. Local patient use stays account-free.
 
 Local checks on Node 24: 344 server tests, 671 client tests, both typechecks and production build. Selected real-API
 browser coverage includes eight passing clinic/login/invitation scenarios including a lost-response SMTP retry; full CI remains required before merge.
+
+## D176: lifecycle after sign-in by invitation
+
+Migration **0006_access_lifecycle**. With `CLINIC_IDENTITY_V2=on` only:
+
+- **Idle suspension.** A membership whose last sign-in or restore (`active_since`, else `created_at`) is 90 days old is
+  refused with `403 suspended`; the hourly housekeeping records `suspended_at` and `staff.suspend.idle`. A sign-in after
+  the 90 days suspends first and never resets the clock. Only an admin of that clinic restores it (fresh session,
+  `POST /v1/clinic/staff/:id/restore`). Provisional records still waiting for their invitation are not idle.
+- **Quarterly access review.** `GET /v1/clinic/access` lists active staff with roles and state, the last confirmation
+  and whether one is due (90 days). `POST /v1/clinic/access/review` (session, fresh) stores date, reviewer id and count.
+- **Token retirement.** No bearer token is issued (`410 tokens_retired` for add staff / rotate). Every token out gets
+  `token_until` = now + 30 days once, at start and hourly; `/me` returns `tokenUntil` for the cabinet banner. The
+  per-clinic cutover above still applies — whichever comes first. `CLINIC_TOKENS_RETIRED=off` exists for the e2e server.
+- **Sealed plans (ACCESS-07-B).** A waiting plan is AES-256-GCM sealed with a key derived (HKDF-SHA256, salt = delivery
+  id) from the patient's one-time code, which the server never stores. Rows from before stay plain until redeemed.

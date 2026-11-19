@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { ApiError } from '../sync/api';
 import { clinicStaff, clinicInvitations, clinicInvite, clinicRevokeInvite, clinicSetRoles, clinicDeactivate, clinicAuthTransition, clinicCutover, clinicStats,
-  type ClinicAuth, type StaffMember, type StaffInvite, type AuthTransition, type ClinicStats } from '../sync/clinicApi';
+  clinicAccess, clinicConfirmAccess, clinicRestore,
+  type ClinicAuth, type StaffMember, type StaffInvite, type AuthTransition, type ClinicStats, type AccessReview } from '../sync/clinicApi';
 const explain = (e: unknown) => ({
   invitation_unavailable: 'Надсилання запрошень не налаштовано або не вдалося. Зверніться до оператора чи спробуйте ще раз.',
   invitation_conflict: 'Цього співробітника вже привʼязано або запрошення змінилося. Оновіть список.',
@@ -12,6 +13,7 @@ const explain = (e: unknown) => ({
   mutation_in_progress: 'Попереднє надсилання ще не завершене. Оновіть список або почніть нове надсилання.',
   mutation_failed: 'Попередній лист не був підтверджений. Спробуйте нове надсилання.',
   offline: 'Немає зʼєднання.',
+  forbidden: 'Ця дія — лише після входу через запрошення.',
 } as Record<string, string>)[e instanceof ApiError ? e.code : ''] ?? 'Не вдалося виконати дію. Оновіть список і спробуйте ще раз.';
 export function ClinicStaffAccess({ auth }: { auth: ClinicAuth }) {
   const inviteReceipt = useRef<{ payload: string; key: string } | null>(null), cutoffReceipt = useRef<{ hours: number; key: string } | null>(null);
@@ -20,9 +22,10 @@ export function ClinicStaffAccess({ auth }: { auth: ClinicAuth }) {
   const [enabled, setEnabled] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState(''), [notice, setNotice] = useState('');
   const [target, setTarget] = useState(''), [name, setName] = useState(''), [email, setEmail] = useState(''), [roles, setRoles] = useState(['doctor']);
   const [grace, setGrace] = useState(168), [confirmed, setConfirmed] = useState(false);
+  const [review, setReview] = useState<AccessReview | null>(null), reviewReceipt = useRef<string | null>(null);
   async function load() {
-    const [members, invitations, migration, summary] = await Promise.all([clinicStaff(auth), clinicInvitations(auth), clinicAuthTransition(auth), clinicStats(auth)]);
-    setStaff(members); setInvites(invitations.invitations); setEnabled(invitations.enabled); setTransition(migration); setStats(summary);
+    const [members, invitations, migration, summary, access] = await Promise.all([clinicStaff(auth), clinicInvitations(auth), clinicAuthTransition(auth), clinicStats(auth), clinicAccess(auth)]);
+    setStaff(members); setInvites(invitations.invitations); setEnabled(invitations.enabled); setTransition(migration); setStats(summary); setReview(access);
   }
   useEffect(() => { void load().catch(e => setError(explain(e))); }, [auth]); // eslint-disable-line react-hooks/exhaustive-deps
   async function action(f: () => Promise<unknown>, message = '') {
@@ -34,7 +37,15 @@ export function ClinicStaffAccess({ auth }: { auth: ClinicAuth }) {
     <button className="min-h-tap underline" disabled={busy} onClick={() => void action(load)}>Оновити співробітників</button>
     {stats && <div className="text-sm"><h2 className="font-medium">Плани за {stats.days} днів</h2><p>Видано: {stats.issued} · отримано: {stats.redeemed} · очікують: {stats.pending} · прострочено: {stats.expired} · скасовано: {stats.revoked}</p></div>}
     <h2 className="text-lg font-medium">Співробітники та ролі</h2>
-    <ul className="space-y-3">{staff.map(member => <StaffRow key={member.id} member={member} busy={busy} save={(roles,key) => action(() => clinicSetRoles(auth, member.id, roles, member.rolesVersion ?? 0, key))} remove={() => action(() => clinicDeactivate(auth, member.id))} />)}</ul>
+    <ul className="space-y-3">{staff.map(member => <StaffRow key={member.id} member={member} busy={busy} save={(roles,key) => action(() => clinicSetRoles(auth, member.id, roles, member.rolesVersion ?? 0, key))} remove={() => action(() => clinicDeactivate(auth, member.id))}
+      restore={() => action(() => clinicRestore(auth, member.id), 'Доступ відновлено. Відлік 90 днів почався знову.')} />)}</ul>
+    {review && <section className="space-y-2 text-sm" data-testid="access-review">
+      <h2 className="text-lg font-medium">Хто має доступ</h2>
+      {review.due && <p role="note" className="protocol-card p-3">Раз на квартал перевірте список: кожен, хто тут є, бачить кабінет клініки. Зайвих — вимкніть, решту підтвердіть.</p>}
+      <p>{review.lastReview ? `Востаннє підтверджено ${new Date(review.lastReview.at).toLocaleDateString('uk-UA')} (${review.lastReview.members} осіб).` : 'Список ще не підтверджували.'}</p>
+      <ul>{review.members.map(m => <li key={m.id}>{m.displayName} · {(m.roles ?? [m.role]).map(r => r === 'admin' ? 'адміністратор' : 'лікар').join(', ')} · {m.suspended ? 'призупинено' : m.lastSignIn ? `вхід ${new Date(m.lastSignIn).toLocaleDateString('uk-UA')}` : m.linked ? 'ще не входив(ла)' : 'очікує привʼязки'}</li>)}</ul>
+      <button className="min-h-tap rounded-xl border px-4 disabled:opacity-50" disabled={busy} onClick={() => void action(() => { reviewReceipt.current ??= crypto.randomUUID(); return clinicConfirmAccess(auth, reviewReceipt.current).then(() => { reviewReceipt.current = null; }); }, 'Список доступу підтверджено.')}>Підтвердити список доступу</button>
+    </section>}
     <form className="space-y-3" onSubmit={e => { e.preventDefault(); void action(async () => {
       const input = { email, displayName: name, roles, ...(target ? { targetMemberId: target } : {}) }, payload = JSON.stringify(input);
       if (!inviteReceipt.current || inviteReceipt.current.payload !== payload) inviteReceipt.current = { payload, key: crypto.randomUUID() };
@@ -67,12 +78,13 @@ export function ClinicStaffAccess({ auth }: { auth: ClinicAuth }) {
     {notice && <p role="status">{notice}</p>}{error && <p role="alert">{error}</p>}
   </div>;
 }
-function StaffRow({ member, busy, save, remove }: { member: StaffMember; busy: boolean; save: (roles: string[], key: string) => Promise<void>; remove: () => Promise<void> }) {
+function StaffRow({ member, busy, save, remove, restore }: { member: StaffMember; busy: boolean; save: (roles: string[], key: string) => Promise<void>; remove: () => Promise<void>; restore: () => Promise<void> }) {
   const receipt = useRef<{ payload: string; key: string } | null>(null);
   const [roles, setRoles] = useState(member.roles ?? [member.role]);
   useEffect(() => setRoles(member.roles ?? [member.role]), [member]);
   return <li className="text-sm space-y-1">
-    <p>{member.displayName} · {member.active ? member.linked ? 'приєднався' : 'очікує привʼязки' : 'вимкнено'}</p>
+    <p>{member.displayName} · {member.active ? member.suspended ? 'доступ призупинено: 90 днів без входу' : member.linked ? 'приєднався' : 'очікує привʼязки' : 'вимкнено'}
+      {member.active && member.suspended && <button className="min-h-tap underline ml-2" disabled={busy} onClick={() => void restore()}>Відновити доступ</button>}</p>
     {member.active && <fieldset><legend className="sr-only">Ролі: {member.displayName}</legend>{(['doctor', 'admin'] as const).map(role => <label className="inline-flex min-h-tap items-center gap-2 mr-3" key={role}><input type="checkbox" checked={roles.includes(role)} onChange={() => setRoles(old => old.includes(role) ? old.filter(r => r !== role) : [...old, role])} />{role === 'doctor' ? 'Лікар' : 'Адміністратор'}</label>)}
       <button className="min-h-tap underline mr-3" disabled={busy || !roles.length} onClick={() => { const payload = JSON.stringify({ roles, version: member.rolesVersion }); if (!receipt.current || receipt.current.payload !== payload) receipt.current = { payload, key: crypto.randomUUID() }; void save(roles,receipt.current.key); }}>Зберегти ролі</button>
       <button className="min-h-tap underline" disabled={busy} onClick={() => void remove()}>Вимкнути</button>

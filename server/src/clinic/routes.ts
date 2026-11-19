@@ -10,8 +10,8 @@ import { DatabaseBusy, isBusy } from '../db/tx.ts';
 import { IdentityError } from '../identity/errors.ts';
 import { identityStatus, sessionToken, safeMutation, type Identity } from '../identity/routes.ts';
 
-const STATUS: Record<ClinicError['code'], 400 | 401 | 403 | 404 | 409> = {
-  unauthenticated: 401, forbidden: 403, not_found: 404, last_admin: 409, conflict: 409, bad_request: 400,
+const STATUS: Record<ClinicError['code'], 400 | 401 | 403 | 404 | 409 | 410> = {
+  unauthenticated: 401, forbidden: 403, not_found: 404, last_admin: 409, conflict: 409, bad_request: 400, suspended: 403, tokens_retired: 410,
 };
 const ID = /^[0-9a-f-]{36}$/;
 
@@ -85,6 +85,10 @@ export function mountClinic(app: Hono, o: { dir: ClinicDirectory; delivery: Plan
     dir.setRoles(a, id(c), roleSet(b.roles), Number(b.version), mutation(c,a,`staff.roles/${id(c)}`,b)); return { ok: true };
   }));
   app.get('/v1/clinic/auth-transition', c => run(c, a => dir.authTransition(a)));
+  // D176: the quarterly access list, its confirmation, and bringing back someone suspended after 90 days
+  app.get('/v1/clinic/access', c => run(c, a => dir.accessReview(a)));
+  app.post('/v1/clinic/access/review', small, c => run(c, a => dir.confirmAccess(a, mutation(c, a, 'access.review', {}))));
+  app.post('/v1/clinic/staff/:id/restore', small, c => run(c, a => { dir.restore(a, id(c), mutation(c, a, `staff.restore/${id(c)}`, {})); return { ok: true }; }));
   app.post('/v1/clinic/auth-transition', small, c => run(c, async a => {
     const b = await body(c); if (typeof b.graceHours !== 'number' || b.confirm !== true) throw new ClinicError('bad_request');
     dir.cutover(a, b.graceHours, mutation(c,a,'auth-transition',b)); return { ok: true };

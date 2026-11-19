@@ -1,4 +1,5 @@
 import type { DatabaseSync } from 'node:sqlite';
+import { IDLE_MS, IDLE_SQL } from './lifecycle.ts';
 import { ClinicError } from './errors.ts';
 import { can, isRole, type Action, type Role } from './roles.ts';
 
@@ -57,21 +58,24 @@ export class ClinicPolicy {
       const { memberId, orgId } = subject.actor;
       const transition = this.db.prepare('SELECT legacy_until FROM clinic_auth_transitions WHERE org = ?').get(orgId);
       if (transition && Number(transition.legacy_until) <= this.now()) throw new ClinicError('unauthenticated');
-      const row = this.db.prepare(`SELECT l.role, l.active, l.token_hash, m.status, a.status AS account_status
+      const row = this.db.prepare(`SELECT l.role, l.active, l.token_hash, l.token_until, m.status, a.status AS account_status
         FROM clinic_members l JOIN organization_memberships m ON m.legacy_member_id = l.id AND m.organization_id = l.org
         JOIN accounts a ON a.id = m.account_id WHERE l.id = ? AND l.org = ?`).get(memberId, orgId) as
-        { role: string; active: number; token_hash: string; status: string; account_status: string } | undefined;
+        { role: string; active: number; token_hash: string; token_until: number | null; status: string; account_status: string } | undefined;
+      if (row && row.token_until !== null && row.token_until <= this.now()) throw new ClinicError('unauthenticated'); // D176: a retired token
       if (!row || subject.actor.credentialHash !== undefined && subject.actor.credentialHash !== row.token_hash || row.active !== 1 || row.status !== 'active' || !['active', 'pending_link'].includes(row.account_status)) {
         throw new ClinicError('unauthenticated');
       }
       return { orgId, authorMemberId: memberId, roles: isRole(row.role) ? [row.role] : [] };
     }
-    const row = this.db.prepare(`SELECT m.legacy_member_id, m.status, a.status AS account_status
+    const row = this.db.prepare(`SELECT m.legacy_member_id, m.status, a.status AS account_status, m.suspended_at, ${IDLE_SQL} AS idle
       FROM organization_memberships m JOIN accounts a ON a.id = m.account_id
       WHERE m.id = ? AND m.account_id = ? AND m.organization_id = ?`)
-      .get(subject.membershipId, subject.accountId, subject.orgId) as
-      { legacy_member_id: string | null; status: string; account_status: string } | undefined;
+      .get(this.now() - IDLE_MS, subject.membershipId, subject.accountId, subject.orgId) as
+      { legacy_member_id: string | null; status: string; account_status: string; suspended_at: number | null; idle: number } | undefined;
     if (!row || row.status !== 'active' || row.account_status !== 'active') throw new ClinicError('unauthenticated');
+    // D176: suspended after 90 days without a sign-in — the hourly sweep writes it down, the check never waits for it
+    if (row.suspended_at !== null || row.idle) throw new ClinicError('suspended');
     const roles = this.db.prepare('SELECT role FROM organization_membership_roles WHERE membership_id = ?')
       .all(subject.membershipId).map((r) => r.role).filter(isRole);
     // Existing delivery authors remain their legacy IDs after account/member linking.

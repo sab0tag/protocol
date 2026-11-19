@@ -27,6 +27,7 @@ const child = spawn(process.execPath, ['--disable-warning=ExperimentalWarning', 
   ...process.env, ...smtp.env, NODE_EXTRA_CA_CERTS: cert, CLINIC_IDENTITY_V2: 'on', OIDC_ISSUER: fake.issuer,
   OIDC_CLIENT_ID: fake.clientId, OIDC_CLIENT_SECRET: fake.clientSecret, APP_ORIGIN: 'http://localhost:4318',
   OIDC_REDIRECT_URI: 'http://localhost:8099/v1/auth/callback',
+  CLINIC_TOKENS_RETIRED: 'off', // D176: the token sign-in production still has is tested here too
 
 } });
 let stopping = false;

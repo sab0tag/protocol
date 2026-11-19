@@ -22,6 +22,7 @@ import { claudeRecognizer } from './photo.ts';
 import { tick, vapidKeys, webPushSender } from './push.ts';
 import { Store } from './store.ts';
 import { identityConfig } from './identity/config.ts';
+import { retireTokens, suspendIdle } from './clinic/lifecycle.ts';
 import { Oidc } from './identity/oidc.ts';
 import { demoGuard } from './demo/guard.ts';
 import { sonioxKeys, speechConfig } from './speech.ts';
@@ -56,7 +57,17 @@ const effort = (env.PHOTO_EFFORT ?? 'low') as 'low' | 'medium' | 'high';
 const backups = env.BACKUP_DIR ?? '/backups';
 const vapid = vapidKeys(store, env);
 const send = webPushSender(vapid, env.VAPID_SUBJECT ?? 'https://protocol.beyondthesignal.to');
-const clinic = new ClinicDirectory(store.database);
+// D176: with sign-in by invitation on, old tokens are retired (none issued, 30 days for those out) and 90 idle days suspend a
+// membership. `CLINIC_TOKENS_RETIRED=off` keeps tokens only for the e2e server, which also tests the token sign-in that
+// production (sign-in by invitation off) still has.
+const tokensRetired = !!identity && env.CLINIC_TOKENS_RETIRED !== 'off';
+const clinic = new ClinicDirectory(store.database, Date.now, { tokensRetired });
+const lifecycle = () => {
+  if (!identity) return;
+  if (tokensRetired) retireTokens(store.database, Date.now());
+  suspendIdle(store.database, Date.now());
+};
+try { lifecycle(); } catch (e) { console.error('staff lifecycle failed:', (e as Error).message); }
 const invitations = (() => {
   try { return identity ? new StaffInvitations(store.database, clinic, identity.cfg.appOrigin, invitationMailer(env)) : undefined; }
   catch { console.error('staff invitation configuration refused'); process.exit(1); }
@@ -127,6 +138,7 @@ const backupTimer = setInterval(() => {
   try { conciergeHousekeeping(store, `${backups}/concierge`, new Date()); } catch (e) { console.error('concierge log housekeeping failed:', (e as Error).message); } // D91
   try { mutationHousekeeping(store.database,Date.now()); } catch { console.error('mutation housekeeping failed'); }
   try { invitations?.housekeeping(); } catch { console.error('invitation housekeeping failed'); }
+  try { lifecycle(); } catch (e) { console.error('staff lifecycle failed:', (e as Error).message); } // D176
   try { identity?.sessions.housekeeping(); } catch (e) { console.error('session housekeeping failed:', (e as Error).message); } // ACCESS-03
   try { pilotHousekeeping(store, new Date()); } catch (e) { console.error('pilot housekeeping failed:', (e as Error).message); } // D119
 }, 3600_000);

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { breakSeal } from './support/sealed.ts';
 import { createApp, DEFAULT_LIMITS } from '../src/app.ts';
 import type { PhotoResult, Recognizer } from '../src/photo.ts';
 import { Store } from '../src/store.ts';
@@ -482,7 +483,7 @@ describe('clinic plan redemption', () => {
   });
   it('a damaged stored plan answers 410 tampered every time, without plan content', async () => {
     const { code, redeem, store } = rigPlan();
-    store.database.prepare("UPDATE plan_delivery SET plan = replace(plan, 'План', 'Інший')").run();
+    breakSeal(store.database);
     for (let i = 0; i < 2; i++) {
       const r = await redeem(code);
       expect(r.status).toBe(410);

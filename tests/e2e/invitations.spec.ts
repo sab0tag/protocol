@@ -79,3 +79,21 @@ test('lost invitation response retries the same key and does not submit a second
     expect(keys).toHaveLength(2); expect(keys[0]).toBe(keys[1]); expect(inbox()).toHaveLength(count+1);
   } finally { await context.close(); }
 });
+
+test('«Хто має доступ»: the quarterly list shows each person’s state; confirming it is recorded (D176)', async ({ browser }) => {
+  const context = await browser.newContext({ ignoreHTTPSErrors: true, serviceWorkers: 'block', viewport: { width: 390, height: 844 } });
+  try {
+    const admin = await context.newPage(); await admin.goto('./#/clinic');
+    await admin.getByRole('link', { name: 'Увійти через захищений сервіс' }).click(); await admin.getByRole('button', { name: 'Continue as Admin', exact: true }).click();
+    await admin.getByRole('combobox', { name: 'Клініка', exact: true }).selectOption({ label: 'Synthetic OIDC Clinic' });
+    const review = admin.getByTestId('access-review');
+    await expect(review.getByRole('heading', { name: 'Хто має доступ' })).toBeVisible();
+    await expect(review).toContainText('Synthetic OIDC Doctor');
+    await expect(review).toContainText(/Synthetic OIDC Admin · адміністратор · вхід \d{2}\.\d{2}\.\d{4}/); // signed in just now
+    await review.getByRole('button', { name: 'Підтвердити список доступу' }).click();
+    await expect(admin.getByRole('status')).toContainText('Список доступу підтверджено');
+    await expect(review).toContainText(/Востаннє підтверджено \d{2}\.\d{2}\.\d{4}/);
+    await expect(review.getByRole('note')).toHaveCount(0); // not due any more
+    expect(await admin.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  } finally { await context.close(); }
+});
