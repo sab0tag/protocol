@@ -176,7 +176,7 @@ export function OneInput({ date, plan, foods, recipes, all, medItems, can, light
           onMeds={() => undefined} onWhich={() => undefined} onLightDay={() => undefined} onAsk={() => undefined}
           onFood={() => { setPhoto({ state: 'none' }); onFood({ rows: photo.rows, via: 'photo' }); }} />;
       })()}
-      <form className="flex items-center gap-2 rounded-full border border-line bg-surface p-1.5 pl-4 shadow-sm" onSubmit={(e) => { e.preventDefault(); submit(); }}>
+      <form className="flex items-center gap-2 rounded-full border border-line bg-surface p-2 pl-4 shadow-sm" onSubmit={(e) => { e.preventDefault(); submit(); }}>
         <label className="min-w-0 flex-1"><span className="sr-only">{L.field}</span>
           <input type="text" value={text} onChange={(e) => { listened.current = false; setText(e.target.value); }} placeholder={L.field} autoComplete="off" enterKeyHint="send"
             className="block min-h-tap w-full bg-transparent outline-none" /></label>
@@ -217,7 +217,7 @@ function AnswerCard({ talk, foods, onClose, onConsent, onEvening }: {
             <li key={it.name} data-suggestion={it.name} className="rounded-xl bg-bg p-2">
               <p className="font-medium">{it.name} <span className="font-normal text-muted">· {amountText(it)} {A.portionGuess}</span></p>
               <p className="text-xs text-muted">{A.brings(b.kcal, b.protein)}</p>
-              <button type="button" onClick={() => onEvening(it)} className="mt-1 min-h-[2.25rem] rounded-full border border-accent px-3 text-xs text-accent">{A.toEvening}</button>
+              <button type="button" onClick={() => onEvening(it)} className="mt-1 min-h-tap rounded-full border border-accent px-3 text-xs text-accent">{A.toEvening}</button>
             </li>); })}
         </ul>}
       </>}
@@ -256,6 +256,13 @@ function Card({ card, meal, can, lightDay, onClose, onMeds, onWhich, onLightDay,
       ? shell(<><p className="font-semibold">{L.lightDay}</p><button type="button" onClick={onLightDay} className={`${button} bg-accent text-on-accent`}>{L.lightDayYes}</button></>, L.lightDay)
       : null;
     // D162 (the D166 flag off): the question goes to «Помічник», put in its field, sent only by the person
+    // D191: «запитати лікаря, …» — on the doctor's list after «Додати»; never to the assistant
+    case 'doctor-question': return shell(<><p className="font-semibold">{t.ask.oneField(card.text)}</p>
+      <button type="button" onClick={async () => {
+        const p = await db.plan.get('main');
+        if (p && !(p.questions ?? []).includes(card.text)) await saved(db.plan.update('main', { questions: [...(p.questions ?? []), card.text] }), t.ask.added);
+        onClose();
+      }} className={`${button} bg-accent text-on-accent`}>{t.ask.yes}</button></>, t.ask.oneField(card.text));
     case 'question': return shell(<><p>{L.question}</p><button type="button" onClick={() => onAsk(card.text)} className={`${button} border-2 border-line`}>{L.ask}</button></>, L.question);
     case 'assistant-off': return shell(<><p>{L.assistantOff}</p><Link to="/modules" className="inline-flex min-h-tap items-center text-accent underline">{L.modules}</Link></>, L.assistantOff);
     case 'no-card': return shell(<p>{L.noCard}</p>, L.noCard);

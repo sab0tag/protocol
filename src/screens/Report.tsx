@@ -89,7 +89,7 @@ export function Report() {
               {x.unmatched > 0 && <span className="block text-sm text-muted">{t.prn.reportUnmatched(x.unmatched)}</span>}</p>
           ))}
           {r.meds && <p>{L.meds(r.meds.taken, r.meds.due)}
-            {r.meds.list.length > 0 && <span className="mt-1 block space-y-0.5 text-sm text-muted">{r.meds.list.map((m) => <span key={m.title} className="block">{L.medLine(m)}</span>)}</span>}
+            {r.meds.list.length > 0 && <span className="mt-1 block space-y-1 text-sm text-muted">{r.meds.list.map((m) => <span key={m.title} className="block">{L.medLine(m)}</span>)}</span>}
             {r.meds.missed.length > 0 && <span className="block text-sm text-muted">{r.meds.missed.map((m) => L.missed(m.title, m.count)).join(' · ')}</span>}</p>}
           {!!r.skipDetails?.length && <section aria-label="Підтверджені пропуски" className="space-y-1 border-t border-line pt-2">
             <h3 className="font-medium">Підтверджені пропуски</h3>
@@ -200,7 +200,7 @@ export function Report() {
       </section>
 
       <div className="flex flex-wrap gap-2 print:hidden">
-        <button type="button" onClick={() => { void count('report'); window.print(); }} className="flex min-h-tap flex-1 items-center justify-center gap-2 rounded-xl bg-accent px-4 font-medium text-surface"><Printer size={18} />{L.print}</button>
+        <button type="button" onClick={() => { void count('report'); window.print(); }} className="flex min-h-tap flex-1 items-center justify-center gap-2 rounded-xl bg-accent px-4 font-medium text-on-accent"><Printer size={18} />{L.print}</button>
         <button type="button" aria-expanded={consenting} onClick={() => { setConsenting(c => !c); setAgreedText(null); }} className="flex min-h-tap flex-1 items-center justify-center gap-2 rounded-xl border border-accent px-4 font-medium text-accent"><Share2 size={18} />{shared || L.share}</button>
       </div>
       {consenting && <section aria-label="Підтвердження передачі" className="protocol-card space-y-3 p-4 text-sm print:hidden">
@@ -211,7 +211,7 @@ export function Report() {
           <span>Я погоджуюсь передати ці дані своєму лікарю</span>
         </label>
         <div className="flex gap-2">
-          <button type="button" disabled={!agreed} onClick={() => void share()} className="min-h-tap flex-1 rounded-xl bg-accent px-4 font-medium text-surface disabled:opacity-50">Передати звіт</button>
+          <button type="button" disabled={!agreed} onClick={() => void share()} className="min-h-tap flex-1 rounded-xl bg-accent px-4 font-medium text-on-accent disabled:opacity-50">Передати звіт</button>
           <button type="button" onClick={() => { setConsenting(false); setAgreedText(null); }} className="min-h-tap rounded-xl border border-line px-4">Скасувати</button>
         </div>
       </section>}

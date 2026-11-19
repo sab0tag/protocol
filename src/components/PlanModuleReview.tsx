@@ -26,7 +26,7 @@ export function PlanModuleReview({ before, after, onClose }: { before: Plan; aft
     {candidates.map((key) => <label key={key} className="flex min-h-tap items-center gap-3">
       <input type="checkbox" checked={picked.includes(key)} disabled={busy} onChange={(e) => setPicked((all) => e.target.checked ? [...all, key] : all.filter((k) => k !== key))} className="h-5 w-5 accent-[rgb(var(--accent))]" />
       <span>{t.startFlow.enable(key === 'weight' ? t.progress.weight : t.modules.names[key])}</span></label>)}
-    <div className="flex flex-wrap gap-2"><button type="button" disabled={busy || !picked.some((key) => candidates.includes(key))} onClick={() => void apply()} className="min-h-tap rounded-xl bg-accent px-3 font-medium text-surface disabled:opacity-40">{t.startFlow.apply}</button>
+    <div className="flex flex-wrap gap-2"><button type="button" disabled={busy || !picked.some((key) => candidates.includes(key))} onClick={() => void apply()} className="min-h-tap rounded-xl bg-accent px-3 font-medium text-on-accent disabled:opacity-40">{t.startFlow.apply}</button>
       <button type="button" disabled={busy} onClick={onClose} className="min-h-tap rounded-xl border border-line px-3">{t.startFlow.decline}</button></div>
     {error && <p role="alert" className="text-sm text-warn">{error}</p>}
   </section>;

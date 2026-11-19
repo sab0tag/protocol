@@ -4,6 +4,7 @@
 // «чи можна метформін?» must not become a tick) → commands: a light day, an edit of the last card, a medicine of today's
 // plan (only after «Так»), water → food (readMeal, through the voice reading) → nothing. Pure: the corpus
 // tests/fixtures/one-input.yaml runs through this function.
+import { doctorQuestion } from './doctorQuestions';
 import { redFlagInText } from './rehabSafety';
 import { spokenForm } from './spokenForm';
 import { withoutStop } from './foodSearch';
@@ -35,6 +36,7 @@ export type OneInput =
   | { kind: 'crisis' }
   | { kind: 'danger' }
   | { kind: 'question'; text: string }
+  | { kind: 'doctor-question'; text: string }
   | { kind: 'assistant-off'; text: string }
   | { kind: 'light-day' }
   | { kind: 'undo' }
@@ -123,6 +125,8 @@ export function readOneInput(text: string, ctx: OneInputContext): OneInput {
   if (crisisInText(raw)) return { kind: 'crisis' }; // D130: first, and the model is never called
   if (dangerInText(raw)) return { kind: 'danger' }; // D97
   if (ctx.injured && redFlagInText(raw)) return { kind: 'danger' }; // D181: a red flag with a cast or after an operation
+  const toDoctor = doctorQuestion(raw); // D191: «запитати лікаря, …» — for the doctor's list, never the assistant
+  if (toDoctor) return { kind: 'doctor-question', text: toDoctor };
   if (isQuestion(raw)) return ctx.assistant ? { kind: 'question', text: raw } : { kind: 'assistant-off', text: raw };
   if (lightDayCommand(raw)) return { kind: 'light-day' }; // D139
   return readSaid(spokenForm(raw), ctx);

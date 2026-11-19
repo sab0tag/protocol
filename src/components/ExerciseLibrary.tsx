@@ -49,7 +49,7 @@ export function ExerciseLibrary({ list = EXERCISES, action, limits }: { list?: E
       {open && (
         <ExerciseCard exercise={open} onClose={() => setOpen(null)}>
           {action && <button type="button" onClick={() => { action.run(open); setOpen(null); }}
-            className="min-h-tap w-full rounded-xl bg-accent px-4 font-medium text-surface">{action.label}</button>}
+            className="min-h-tap w-full rounded-xl bg-accent px-4 font-medium text-on-accent">{action.label}</button>}
         </ExerciseCard>
       )}
     </div>

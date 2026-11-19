@@ -9,7 +9,7 @@ export function DangerCard({ className = 'mt-3' }: { className?: string }) {
   useEffect(() => { void countOnce('danger', String(Math.floor(Date.now() / 600_000))); }, []); // D119: shown — the same card again within 10 min once
   return (
     <div role="alert" className={`${className} space-y-2 rounded-xl border border-warn bg-warn-bg p-3 text-warn`}>
-      <p className="flex items-start gap-2 font-medium"><TriangleAlert size={20} className="mt-0.5 shrink-0" aria-hidden />{t.symptom.dangerAlert}</p>
+      <p className="flex items-start gap-2 font-medium"><TriangleAlert size={20} className="mt-1 shrink-0" aria-hidden />{t.symptom.dangerAlert}</p>
       <a href="tel:103" className="flex min-h-tap items-center justify-center gap-2 rounded-xl bg-warn px-4 font-semibold text-surface"><Phone size={18} aria-hidden />{t.symptom.call}</a>
     </div>
   );

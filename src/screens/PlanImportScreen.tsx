@@ -121,7 +121,7 @@ function PlanImport() {
         <div className="space-y-3">
           <p className="text-sm text-muted">Клініка передає план одноразовим кодом. Ви побачите його і самі оберете, що зберегти. Код спрацьовує лише один раз.</p>
           {error && <p role="alert" className="text-sm">{error}</p>}
-          {code && <button className="min-h-tap rounded-xl bg-accent px-4 text-white disabled:opacity-50" disabled={state === 'loading'} onClick={load}>
+          {code && <button className="min-h-tap rounded-xl bg-accent px-4 text-on-accent disabled:opacity-50" disabled={state === 'loading'} onClick={load}>
             {state === 'loading' ? 'Завантажуємо…' : retryAt !== null ? 'Повторити' : 'Переглянути план'}
           </button>}
           {elsewhere && <div role="alert" className="protocol-card space-y-2 p-3 text-sm" data-testid="qr-elsewhere">

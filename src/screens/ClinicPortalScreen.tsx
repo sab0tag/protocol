@@ -75,7 +75,7 @@ export function ClinicPortalScreen() {
         <p>Після прийняття поверніться до кабінету. Якщо клініка не зʼявилась, перевірте обліковий запис або зверніться до адміністратора.</p>
         <p>Для тестування використовуйте лише вигадані призначення. Доступ лікаря не надає права читати щоденник пацієнта.</p>
       </div>}
-      {enabled && !session && !checking && <a href={identityLoginURL()} className="inline-flex min-h-tap items-center rounded-xl bg-accent px-4 text-white">Увійти через захищений сервіс</a>}
+      {enabled && !session && !checking && <a href={identityLoginURL()} className="inline-flex min-h-tap items-center rounded-xl bg-accent px-4 text-on-accent">Увійти через захищений сервіс</a>}
       {checking && <p role="status">Перевіряємо сесію…</p>}
       {session && <div className="space-y-2 text-sm">
         <button className="min-h-tap underline mr-4" onClick={() => void signOut()}>Вийти з кабінету</button>
@@ -92,7 +92,7 @@ export function ClinicPortalScreen() {
             <input className="mt-1 block min-h-tap w-full rounded-xl border px-3" type="password" autoComplete="off" value={input} onChange={(e) => setInput(e.target.value)} />
           </label>
           {error && <p role="alert" className="text-sm">{error}</p>}
-          <button className="min-h-tap rounded-xl bg-accent px-4 text-white disabled:opacity-50" disabled={checking || input.trim().length < 20}>Увійти</button>
+          <button className="min-h-tap rounded-xl bg-accent px-4 text-on-accent disabled:opacity-50" disabled={checking || input.trim().length < 20}>Увійти</button>
         </form></details>
       ) : me ? (
         <>
@@ -145,7 +145,7 @@ function Staff({ token }: { token: ClinicAuth }) {
         <select className="block min-h-tap w-full rounded-xl border px-3" aria-label="Роль" value={role} onChange={(e) => setRole(e.target.value as 'doctor' | 'admin')}>
           <option value="doctor">Лікар</option><option value="admin">Адміністратор</option>
         </select>
-        <button className="min-h-tap rounded-xl bg-accent px-4 text-white disabled:opacity-50" disabled={!name.trim()}>Додати</button>
+        <button className="min-h-tap rounded-xl bg-accent px-4 text-on-accent disabled:opacity-50" disabled={!name.trim()}>Додати</button>
       </form>
       {issued && <p role="status" className="break-all text-sm">Токен нового співробітника (показується один раз, передайте його особисто): <code>{issued}</code></p>}
       {error && <p role="alert" className="text-sm">{error}</p>}
@@ -176,7 +176,7 @@ function Issue({ token, me }: { token: ClinicAuth; me: ClinicMe }) {
     <div className="space-y-3">
       <p className="text-sm">Покажіть пацієнту цей QR. Код одноразовий і діє до {new Date(sent.expiresAt).toLocaleString('uk-UA')}. Після закриття екрана його не можна відновити.</p>
       {/* the QR is drawn by qrcode-generator from our own link */}
-      <div className="mx-auto w-64 rounded-xl bg-white p-2" dangerouslySetInnerHTML={{ __html: qrSvg(sent.link) }} />
+      <div className="mx-auto w-64 rounded-xl bg-paper p-2" dangerouslySetInnerHTML={{ __html: qrSvg(sent.link) }} />
       <p className="text-sm" role="status">Статус: {({ pending: 'очікує', redeemed: 'отримано', revoked: 'скасовано', expired: 'прострочено', tampered: 'план пошкоджено — видайте новий' } as Record<string, string>)[sent.status] ?? 'невідомо'}</p>
       <div className="flex gap-3">
         <button className="min-h-tap underline" onClick={refresh}>Оновити статус</button>
@@ -203,7 +203,7 @@ function Issue({ token, me }: { token: ClinicAuth; me: ClinicMe }) {
       <label className="flex min-h-tap items-start gap-2 text-sm"><input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
         Пацієнт погодився отримати цей план у застосунок.</label>
       {error && <p role="alert" className="text-sm">{error}</p>}
-      <button className="min-h-tap rounded-xl bg-accent px-4 text-white disabled:opacity-50" disabled={!consent}>Створити QR</button>
+      <button className="min-h-tap rounded-xl bg-accent px-4 text-on-accent disabled:opacity-50" disabled={!consent}>Створити QR</button>
     </form>
   );
 }

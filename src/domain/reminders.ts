@@ -9,6 +9,7 @@ import { observedPlannedEntry, observedTask, type Observation } from './observat
 import type { DayEntry, Plan, Prescription } from './types';
 import { FOOD_COMPLETE } from './habits';
 import { mealCategoryFor } from './mealCategory';
+import { fastingHours, fastingTests } from './fastingTest';
 import { reminderAllowed, type ReminderPolicy } from '../../server/src/reminderPolicy';
 
 export interface ReminderSettings {
@@ -172,8 +173,12 @@ export function reminders(args: { entries: DayEntry[]; plan: Plan | undefined; s
   if (settings.visits && plan) {
     const before = (d: string) => format(addDays(new Date(`${d}T12:00:00`), -1), 'yyyy-MM-dd');
     for (const due of [...new Set(plan.prescriptions.filter((p) => p.kind === 'test' && p.dueDate).map((p) => p.dueDate!))]) {
-      push({ key: `test:${due}:eve`, at: at(before(due), '19:00'), once: true, payload: { t: 'Завтра — аналізи', b: 'Перевірте, що потрібно', k: 'test', u: url(due), tag: `test:${due}`, d: due } });
-      push({ key: `test:${due}`, at: at(due, '07:00'), once: true, payload: { t: 'Сьогодні — аналізи', b: 'Перевірте, що потрібно', k: 'test', u: url(due), tag: `test:${due}`, d: due } });
+      // D193: a test on an empty stomach says so the evening before, with the referral's hours, and «спершу аналіз» that morning
+      const fast = fastingTests(plan, due), hours = fastingHours(fast);
+      push({ key: `test:${due}:eve`, at: at(before(due), '19:00'), once: true, payload: { t: 'Завтра — аналізи', k: 'test', u: url(due), tag: `test:${due}`, d: due,
+        b: fast.length ? `Завтра аналіз натщесерце — ${hours ? `без їжі ${hours} год до нього` : 'без їжі, за правилами лабораторії'}` : 'Перевірте, що потрібно' } });
+      push({ key: `test:${due}`, at: at(due, '07:00'), once: true, payload: { t: 'Сьогодні — аналізи', k: 'test', u: url(due), tag: `test:${due}`, d: due,
+        b: fast.length ? 'Спершу аналіз натщесерце, сніданок — після нього' : 'Перевірте, що потрібно' } });
     }
     const visit = plan.nextCheckup?.date;
     if (visit) {

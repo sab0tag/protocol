@@ -116,9 +116,9 @@ function MarkTile({ tile, onHistory }: { tile: Tile; onHistory: () => void }) {
       onPointerDown={start} onPointerUp={stop} onPointerLeave={stop} onPointerCancel={stop}
       onContextMenu={(e) => { e.preventDefault(); stop(); onHistory(); }}
       aria-label={`${tile.label}: ${tile.full ?? (tile.state || L.notYet)}`} aria-description={L.hold}
-      className="flex min-h-[3.75rem] min-w-0 flex-col items-center justify-center gap-0.5 rounded-2xl border border-line bg-surface px-0.5 py-2 text-center">
+      className="flex min-h-[3.75rem] min-w-0 flex-col items-center justify-center gap-1 rounded-2xl border border-line bg-surface px-1 py-2 text-center">
       <Icon size={20} className="text-accent" aria-hidden />
-      <span className="max-w-full overflow-hidden whitespace-nowrap text-[13px] font-semibold leading-tight tracking-[-0.035em]">{tile.label}</span>
+      <span lang="uk" className="max-w-full break-words text-xs font-semibold leading-tight tracking-[-0.035em] [hyphens:auto]">{tile.label}</span>{/* D190: scales with the system font, wraps instead of cutting */}
       <span className="tabular max-w-full truncate text-xs text-muted">{tile.state}</span>
     </button>
   );

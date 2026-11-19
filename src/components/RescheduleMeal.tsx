@@ -43,7 +43,7 @@ export function RescheduleMeal({ entry, onClose, onMoved }: { entry: DayEntry; o
           className="mt-1 block min-h-tap w-full rounded-xl border border-line bg-bg px-3" /></label>
       {error && <p role="alert" className="text-sm text-warn">{error}</p>}
       <div className="flex gap-2">
-        <button type="submit" disabled={busy} className="min-h-tap flex-1 rounded-xl bg-accent px-4 font-medium text-surface disabled:opacity-50">{busy ? L.saving : L.action}</button>
+        <button type="submit" disabled={busy} className="min-h-tap flex-1 rounded-xl bg-accent px-4 font-medium text-on-accent disabled:opacity-50">{busy ? L.saving : L.action}</button>
         <button type="button" onClick={onClose} disabled={busy} className="min-h-tap rounded-xl border border-line px-4">{t.simple.cancel}</button>
       </div>
     </form>

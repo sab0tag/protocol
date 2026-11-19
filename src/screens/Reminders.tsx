@@ -75,7 +75,7 @@ export function Reminders() {
             <>
               {needsHomeScreen() && <p className="text-sm text-warn">{L.homeScreen}</p>}
               <button type="button" disabled={busy} onClick={() => void run(() => enablePush(keys, s))}
-                className="flex min-h-tap items-center gap-2 rounded-xl bg-accent px-3 font-medium text-surface disabled:opacity-40">
+                className="flex min-h-tap items-center gap-2 rounded-xl bg-accent px-3 font-medium text-on-accent disabled:opacity-40">
                 <BellRing size={18} aria-hidden />{L.on}</button>
             </>
           )}

@@ -29,7 +29,7 @@ export function DietPicker({ value, onPick, fill, onFill, targets }: {
         {found.map(({ diet: d, byTable }) => (
           <li key={d.code}>
             <button type="button" aria-pressed={value === d.code} onClick={() => onPick(d)}
-              className={`block min-h-tap w-full rounded-xl border px-3 py-1.5 text-left ${value === d.code ? 'border-accent bg-accent/10' : 'border-line'}`}>
+              className={`block min-h-tap w-full rounded-xl border px-3 py-2 text-left ${value === d.code ? 'border-accent bg-accent/10' : 'border-line'}`}>
               <span className="block font-medium">{d.code} — {d.name}</span>
               {byTable && <span className="block text-sm text-warn">{L.byTable(byTable, d.code)}</span>}
               <span className="block text-xs text-muted">{d.indications}</span>
