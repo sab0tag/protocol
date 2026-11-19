@@ -2,12 +2,23 @@
 import react from '@vitejs/plugin-react';
 import { build as viteBuild, defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
+import vercel from './vercel.json';
+
+// D185: the worker keeps index.html with the headers it was first fetched with (the CSP among them) and fetches it again only
+// when the file itself changes — a header-only change in vercel.json never reached an installed app (D184 stayed blocked).
+// A mark of the headers in index.html makes every header change a new revision of the shell.
+const headersMark = (() => {
+  let h = 0x811c9dc5;
+  for (const ch of JSON.stringify(vercel.headers)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 0x01000193) >>> 0; }
+  return h.toString(16).padStart(8, '0');
+})();
 
 let modulePolicyEnabled = false;
 export default defineConfig({
   base: './',
   plugins: [
     react(),
+    { name: 'headers-revision', transformIndexHtml: (html) => html.replace('</head>', `  <meta name="protocol-headers" content="${headersMark}" />\n  </head>`) },
     {
       name: 'shared-reminder-policy',
       configResolved(config) { modulePolicyEnabled = config.env.VITE_MODULE_POLICY_ENABLED === 'true'; },
