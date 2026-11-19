@@ -341,6 +341,16 @@ export const t = {
     search: 'Продукт, страва або кілька через кому', done: 'Готово',
     addAll: (what: string) => `Додати: ${what}`,
   },
+  nutrients: { // D188: salt, sugars, fibre, saturated fat — an unknown is «не відомо», a sum with unknowns «не менше»
+    salt: 'Сіль', sugars: 'Цукри', fiber: 'Клітковина', satFat: 'Насичені жири', more: 'Більше нутрієнтів', unknown: 'не відомо',
+    value: (x: string, unit: string, partial: boolean) => `${partial ? 'не менше ' : ''}${x} ${unit}`,
+    saltLine: (have: string, max: string | undefined, partial: boolean) => `сіль ${partial ? 'не менше ' : '~'}${have} г${max ? ` з ${max}` : ''}`,
+    saltOver: (by: string) => `понад межу на ${by} г`,
+    saltHint: 'Сіль = натрій × 2,5; до неї входить і та, що вже є в продуктах (хліб, сир, ковбаса). Де натрію не знаємо — «не менше».',
+    saltField: 'Сіль, г', sugarsField: 'Цукри, г', fiberField: 'Клітковина, г', satFatField: 'Насичені жири, г',
+    kcalCheck: (n: number) => `Перевірте: за БЖВ ≈ ${n} ккал`, kcalFromMacros: (n: number) => `Не вказано — порахуємо за БЖВ: ≈ ${n} ккал`,
+    source: 'Сіль, цукри, клітковина й насичені жири базових продуктів — з відкритої таблиці USDA FoodData Central; страви — сума складників.',
+  },
   summary: { // D53: «Уже сьогодні»
     title: 'Сьогодні', forDay: 'Підсумок дня', setup: 'Налаштувати', done: 'Готово', all: 'Усі показники', less: 'Згорнути',
     setupHint: (min: number, max: number) => `Оберіть ${min}–${max} головні показники; решта — в «Усі показники».`,

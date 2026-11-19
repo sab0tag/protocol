@@ -9,6 +9,7 @@ import { Beef, Check, Droplet, Flame, MessageCircle, Milk, Pill, Wheat } from 'l
 import { Link } from 'react-router-dom';
 import { useState } from 'react';
 import type { DayTotals } from '../domain/nutrition';
+import { SaltRow } from './SaltRow';
 import { round } from '../domain/nutrition';
 import type { Targets } from '../domain/types';
 import type { FoodState } from '../domain/habits';
@@ -62,8 +63,8 @@ function metric(key: MetricKey, totals: DayTotals, targets: Targets, meds: { don
   }
 }
 
-export function DaySummary({ totals, targets, meds, streak, food, onComplete, allowed, title = L.title, quiet = false, compact = false }: { totals: DayTotals; targets: Targets; meds: { done: number; total: number }; streak?: string; title?: string;
-  food?: FoodState; onComplete?: (on: boolean) => void; allowed?: readonly MetricKey[]; quiet?: boolean; compact?: boolean }) {
+export function DaySummary({ totals, targets, meds, streak, food, onComplete, allowed, title = L.title, quiet = false, compact = false, salt = null }: { totals: DayTotals; targets: Targets; meds: { done: number; total: number }; streak?: string; title?: string;
+  food?: FoodState; onComplete?: (on: boolean) => void; allowed?: readonly MetricKey[]; quiet?: boolean; compact?: boolean; salt?: { maxG?: number } | null }) {
   const { can } = useFeatures();
   const [main, setMain] = useState<MetricKey[]>(loadMain);
   const [all, setAll] = useState(false);
@@ -106,6 +107,7 @@ export function DaySummary({ totals, targets, meds, streak, food, onComplete, al
       ) : (
         <>
           <Metrics compact={compact} list={shown(effectiveMain)} />
+          {salt && <div className="mt-4"><SaltRow totals={totals} limit={salt} hint={false} /></div>/* D188: the plan limits salt — always shown */}
           {!quiet && all && <div className="mt-3 border-t border-line pt-3"><Metrics compact={compact} list={shown(rest)} /></div>}
           {!quiet && <button type="button" onClick={() => setAll((v) => !v)} aria-expanded={all} className="mt-2 min-h-tap text-sm text-accent">{all ? L.less : L.all}</button>}
         </>

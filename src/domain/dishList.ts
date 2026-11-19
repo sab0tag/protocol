@@ -4,7 +4,7 @@
 // not found or not counted — to the model, as D110; (4) only a name — a draft «Потрібен склад», no numbers (ТЗ v1.0, R08).
 // The export is the same format back: .json keeps every number (the round trip asks nothing of the model), .csv is to read.
 import type { DishLine } from './dishBreakdown';
-import { mealNutrients } from './nutrition';
+import { mealNutrients, scaledExtras } from './nutrition';
 import { readMeal } from './foodSearch';
 import { ALLERGENS, EST_TAGS, type Allergen, type EstTag, type Food, type MealItem, type Recipe } from './types';
 
@@ -159,7 +159,7 @@ function portable(it: MealItem, foods: Map<string, Food>): MealItem {
   if (!f?.custom) return it;
   const k = it.grams / 100, p = f.per100g;
   const { foodId: _f, ...rest } = it;
-  return { ...rest, manual: { kcal: p.kcal * k, protein: p.protein * k, fat: p.fat * k, carbs: p.carbs * k, ...(p.calciumMg != null ? { calciumMg: p.calciumMg * k } : {}) } };
+  return { ...rest, manual: { kcal: p.kcal * k, protein: p.protein * k, fat: p.fat * k, carbs: p.carbs * k, ...(p.calciumMg != null ? { calciumMg: p.calciumMg * k } : {}), ...scaledExtras(p, k) } };
 }
 
 export function toFile(recipes: Recipe[], foods: Map<string, Food>): DishFile {
@@ -207,7 +207,7 @@ export function fileLine(it: MealItem, i: number, foods: Map<string, Food>): Dis
   const n = mealNutrients([it], foods), k = 100 / Math.max(0.5, it.grams);
   const calcium = it.manual ? it.manual.calciumMg : food ? n.calciumMg : undefined; // D131: unknown stays unknown, not 0
   return { key: `i${i}`, said: it.name, grams: it.grams, amountSaid: true, per100: { kcal: n.kcal * k, protein: n.protein * k, fat: n.fat * k, carbs: n.carbs * k,
-    ...(calcium !== undefined ? { calciumMg: calcium * k } : {}) },
+    ...(calcium !== undefined ? { calciumMg: calcium * k } : {}), ...(it.manual ? scaledExtras(it.manual, k) : food ? scaledExtras(food.per100g, 1) : {}) },
     ...(it.est ? { est: it.est } : {}) };
 }
 

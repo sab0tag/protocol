@@ -18,7 +18,7 @@ import { amountText, approxG, itemFor, parseQuery, readMeal, searchFoods, type C
 import { frequentItems } from '../domain/habits';
 import { medFoodNotes } from '../domain/medFood';
 import { blockKeyFor, hitLabels, mealBlocks, NEW_SNACK, recentSlotDays, sameFood, SLOTS, slotEntries, slotTime, tileState, usualForSlot, withFoodDose, yesterdaySlot, type MealBlock, type Slot, type TileState } from '../domain/mealSlots';
-import { mealNutrients, round } from '../domain/nutrition';
+import { dayTotals, mealNutrients, round, saltLimit, saltLine } from '../domain/nutrition';
 import { dishItem, setPortions } from '../domain/recipes';
 import type { ItemCheck, RuleHit } from '../domain/rules';
 import { crisisInText, dangerInText } from '../domain/symptoms';
@@ -291,7 +291,8 @@ function TileBody({ slot, name, date, lines, planned, checks, all, day, foods, r
       {photo.state === 'done' && photo.rows.length > 0 && <RecognizedPanel title={t.meal.photoTitle} rows={photo.rows} note={photo.note} addLabel={L.addAll} usualGrams={usualGrams}
         onAdd={(picked, missing) => { void write(picked, 'photo'); setPhoto({ state: 'none' }); for (const m of missing) void countOnce('nf', m); }} />}
 
-      {items.length > 0 && <PlanLine checks={checks} foods={foods} plan={plan} kcal={round(meal.kcal)} protein={round(meal.protein)} />}
+      {items.length > 0 && <PlanLine checks={checks} foods={foods} plan={plan} kcal={round(meal.kcal)} protein={round(meal.protein)}
+        salt={saltLimit(plan) ? saltLine(dayTotals(day, foods), saltLimit(plan)!, t.nutrients.saltLine) : undefined} />}
       <MedFoodPanel notes={medNotes} />
 
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -429,7 +430,7 @@ function EditLine({ line, foods, onClose, onRemove }: { line: Line; foods: Map<s
 }
 
 /** One line of the check by the plan for this meal, «Чому?» on a tap; calories and protein small beside it. */
-function PlanLine({ checks, foods, plan, kcal, protein }: { checks: ItemCheck[]; foods: Map<string, Food>; plan: Plan | undefined; kcal: number; protein: number }) {
+function PlanLine({ checks, foods, plan, kcal, protein, salt }: { checks: ItemCheck[]; foods: Map<string, Food>; plan: Plan | undefined; kcal: number; protein: number; salt?: string | undefined }) {
   const [why, setWhy] = useState(false);
   const active = plan?.constraints.filter((c) => c.active) ?? [];
   const status = foodPlanStatus(checks, foods, plan);
@@ -452,6 +453,7 @@ function PlanLine({ checks, foods, plan, kcal, protein }: { checks: ItemCheck[];
           className="min-h-[2rem] px-1 underline">{t.why.ask}</button>}
         <span className="tabular ml-auto text-xs opacity-80">{t.tiles.totals(kcal, protein)}</span>
       </p>
+      {salt && <p className="tabular text-xs opacity-80" data-testid="tile-salt">{salt}{/* D188: the day's salt, the plan limits it */}</p>}
       {why && plan && <div className="mt-1 space-y-1">
         {hits.map((h, i) => <p key={i}>{whyFlagged(h, plan).text}</p>)}
         <p className="text-xs">{t.meal.planLimit}</p>

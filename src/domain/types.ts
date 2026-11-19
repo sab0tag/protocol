@@ -171,7 +171,15 @@ export interface Nutrients {
   fat: number;
   carbs: number;
   calciumMg?: number;
+  /** D188: four more, all optional — no value is «не відомо», never 0; salt = sodium × 2.5 */
+  sodiumMg?: number;
+  fiberG?: number;
+  sugarsG?: number;
+  satFatG?: number;
 }
+/** D188: the nutrients a table may or may not know */
+export const EXTRA_KEYS = ['sodiumMg', 'fiberG', 'sugarsG', 'satFatG'] as const;
+export type ExtraKey = (typeof EXTRA_KEYS)[number];
 
 /** D26: a household measure of a food — «шт», «ст. л.», «склянка» — and its approximate weight. */
 export interface FoodUnit {

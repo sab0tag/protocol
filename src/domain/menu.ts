@@ -6,9 +6,9 @@ import { byAt, dateOf } from './dates';
 import { FOOD_COMPLETE } from './habits';
 import { SLOT_END, slotAt, slotEntries, type Slot } from './mealSlots';
 import { itemFor } from './foodSearch';
-import { activeMode, effectiveTargets, mealNutrients, normalize, ZERO, add } from './nutrition';
+import { activeMode, effectiveTargets, mealNutrients, normalize, ZERO, add, type Sum } from './nutrition';
 import { setPortions, sumGrams } from './recipes';
-import type { DayEntry, Food, ISODate, MealItem, Nutrients, Plan, Recipe } from './types';
+import type { DayEntry, Food, ISODate, MealItem, Plan, Recipe } from './types';
 
 export interface MenuResult {
   /** `line` — an existing meal line taken as is (D37: «Як учора», an edited draft); the model never sends it */
@@ -123,7 +123,7 @@ export function draftFrom(result: MenuResult, ctx: {
   return { date, meals, tips: result.tips.map((s) => s.trim()).filter(Boolean).slice(0, 5) };
 }
 
-export function draftTotals(meals: { items: MealItem[] }[], foods: Map<string, Food>): Required<Nutrients> {
+export function draftTotals(meals: { items: MealItem[] }[], foods: Map<string, Food>): Sum {
   return meals.reduce((sum, m) => add(sum, mealNutrients(m.items, foods)), { ...ZERO });
 }
 

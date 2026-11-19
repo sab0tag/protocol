@@ -7,6 +7,7 @@ import { newId } from '../domain/dates';
 import type { Allergen, Food, MealItem } from '../domain/types';
 import { AllergenPicker } from './AllergenPicker';
 import { t } from '../i18n/uk';
+import { EMPTY_FIELDS, fieldsToNutrients, NutrientFields, nutrientsToFields, type Fields } from './NutrientFields';
 import { ApiError, label, type LabelResult } from '../sync/api';
 import { currentKeys } from '../sync/runner';
 import { shrink } from '../sync/shrink';
@@ -14,7 +15,6 @@ import { saved } from './Toast';
 
 const L = t.label;
 const field = 'mt-1 block min-h-tap w-full rounded-xl border border-line bg-bg px-3';
-type Num = 'kcal' | 'protein' | 'fat' | 'carbs' | 'calciumMg';
 
 /** D45: «Фото етикетки» — Claude reads the nutrition table, the person checks it, the food goes to «Мої продукти»
  *  (and, from «Додати їжу», into the meal with the eaten weight). */
@@ -25,7 +25,7 @@ export function LabelScan({ onAdd }: { onAdd?: (item: MealItem) => void }) {
   const [error, setError] = useState('');
   const [allergens, setAllergens] = useState<Allergen[]>([]); // D57: ticked from the package
   const [name, setName] = useState('');
-  const [n, setN] = useState<Record<Num, string>>({ kcal: '', protein: '', fat: '', carbs: '', calciumMg: '' });
+  const [n, setN] = useState<Fields>(EMPTY_FIELDS); // D188
   const [grams, setGrams] = useState('100');
   const [note, setNote] = useState('');
   const [drink, setDrink] = useState(false); // D169: «Це напій» — counted in the day's fluid
@@ -44,8 +44,7 @@ export function LabelScan({ onAdd }: { onAdd?: (item: MealItem) => void }) {
     try {
       const r: LabelResult = await label(keys, await shrink(file, 1600, 0.85)); // small print — a bit more detail
       if (!r.readable) { setError(r.note ?? L.unreadable); setState('none'); return; }
-      const p = r.per100g, s = (x: number | null) => (x == null ? '' : String(Math.round(x * 10) / 10));
-      setName(r.name); setN({ kcal: s(p.kcal), protein: s(p.protein), fat: s(p.fat), carbs: s(p.carbs), calciumMg: s(p.calciumMg) });
+      setName(r.name); setN(nutrientsToFields(r.per100g));
       setGrams(String(r.servingG ?? 100)); setNote(r.note ?? ''); setAllergens([]); setState('form');
     } catch (e) {
       const code = e instanceof ApiError ? (e.status === 0 ? 'offline' : e.code) : 'other';
@@ -55,13 +54,12 @@ export function LabelScan({ onAdd }: { onAdd?: (item: MealItem) => void }) {
   const num = (v: string) => Math.max(0, Number(v.replace(',', '.')) || 0);
   const save = async (addToMeal: boolean) => {
     const food: Food = { id: `u-${newId()}`, name: name.trim(), custom: true, tags: drink ? [DRINK_TAG] : [],
-      per100g: { kcal: num(n.kcal), protein: num(n.protein), fat: num(n.fat), carbs: num(n.carbs), ...(n.calciumMg ? { calciumMg: num(n.calciumMg) } : {}) },
+      per100g: fieldsToNutrients(n),
       allergens }; // D58: an empty list here means «checked — none», unlike an own food never checked
     await saved(db.foods.put(food), t.toast.food(food.name));
     if (addToMeal && onAdd) onAdd({ foodId: food.id, name: food.name, grams: num(grams) || 100 });
     setState('none');
   };
-  const labels: [Num, string][] = [['kcal', 'ккал'], ['protein', 'Б, г'], ['fat', 'Ж, г'], ['carbs', 'В, г'], ['calciumMg', 'Ca, мг']];
 
   return (
     <div className="mt-2">
@@ -84,12 +82,7 @@ export function LabelScan({ onAdd }: { onAdd?: (item: MealItem) => void }) {
           <label className="block"><span className="text-sm text-muted">{t.meal.freeName}</span>
             <input value={name} onChange={(e) => setName(e.target.value)} className={field} /></label>
           <p className="text-sm text-muted">{L.per100}</p>
-          <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
-            {labels.map(([k, l]) => (
-              <label key={k} className="block"><span className="text-sm text-muted">{l}</span>
-                <input inputMode="decimal" value={n[k]} onChange={(e) => setN((x) => ({ ...x, [k]: e.target.value }))} className={field} /></label>
-            ))}
-          </div>
+          <NutrientFields value={n} onChange={setN} field={field} kcalLabel="ккал" />
           <AllergenPicker value={allergens} onChange={setAllergens} />
           <label className="flex min-h-tap items-center gap-3"><input type="checkbox" checked={drink} onChange={(e) => setDrink(e.target.checked)} className="h-6 w-6 accent-[rgb(var(--accent))]" />
             <span>{t.water.isDrink}</span></label>

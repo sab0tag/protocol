@@ -2,7 +2,7 @@
 import react from '@vitejs/plugin-react';
 import { build as viteBuild, defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
-import vercel from './vercel.json';
+import vercel from './vercel.json' with { type: 'json' };
 
 // D185: the worker keeps index.html with the headers it was first fetched with (the CSP among them) and fetches it again only
 // when the file itself changes — a header-only change in vercel.json never reached an installed app (D184 stayed blocked).

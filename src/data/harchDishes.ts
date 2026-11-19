@@ -5,6 +5,8 @@ import dishes from './harch/dishes.json';
 import products from './harch/products.json';
 import subs from './harch/substitutions.json';
 import { HARCH_PRODUCT } from './harch/productMap';
+import { HARCH_EXTRA } from './nutrientSources';
+import { scaledExtras } from '../domain/nutrition';
 import type { Food, MealItem } from '../domain/types';
 
 export interface HarchDish { card: number; name: string; category: string; diets: string[]; outputG: number; items: MealItem[]; verified: false }
@@ -12,6 +14,8 @@ export interface HarchSubstitution { basis: 'protein' | 'carbs'; product: string
 
 type RawDish = { card_no: number; name: string; category: string; diets: string[]; ingredients: { product: string; brutto_g: number; netto_g: number }[]; output_g: number };
 const k = (per100: number | undefined, g: number) => Math.round(((per100 ?? 0) * g) / 10) / 10;
+/** D188: a product without a base food — its sodium, fibre, sugars, saturated fat from nutrientSources.ts, for the grams */
+const extra = (product: string, g: number) => { const e = HARCH_EXTRA[product]; return e ? scaledExtras(e, g / 100) : {}; };
 const HP = new Map((products as { name: string; protein: number; fat: number; carbs: number; kcal: number }[]).map((p) => [p.name, p]));
 
 /** A card's ingredients as meal lines (net weight): this base's food where mapped, else Харчоблок's own numbers. */
@@ -22,7 +26,7 @@ export function harchDishes(foods: Map<string, Food>): HarchDish[] {
       const id = HARCH_PRODUCT[i.product], f = id ? foods.get(id) : undefined, p = HP.get(i.product);
       return f ? { foodId: f.id, name: f.name, grams: i.netto_g }
         : { name: i.product, grams: i.netto_g, manual: { kcal: k(p?.kcal, i.netto_g), protein: k(p?.protein, i.netto_g), fat: k(p?.fat, i.netto_g),
-          carbs: k(p?.carbs, i.netto_g), calciumMg: 0 } }; // Харчоблок has no calcium — 0, not a guess
+          carbs: k(p?.carbs, i.netto_g), calciumMg: 0, ...extra(i.product, i.netto_g) } }; // Харчоблок has no calcium — 0, not a guess; D188: the four from the table where it has them
     }),
   }));
 }

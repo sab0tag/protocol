@@ -3,6 +3,7 @@
 // The first 15 rows are SPEC.md §9.1; ids are stable (meals and exports refer to them).
 import type { Food, FoodUnit } from '../domain/types';
 import { BASE_ALLERGENS } from './allergens';
+import { BASE_EXTRA } from './nutrientSources';
 
 type U = [string, number];
 const f = (id: string, name: string, kcal: number, protein: number, fat: number, carbs: number, calciumMg: number,
@@ -272,4 +273,6 @@ const BASE: Food[] = [
 ];
 
 /** D57: with the allergens of their typical composition. */
-export const FOODS: Food[] = BASE.map((x) => (BASE_ALLERGENS[x.id] ? { ...x, allergens: BASE_ALLERGENS[x.id] } : x));
+// D188: sodium, fibre, sugars, saturated fat — from nutrientSources.ts (USDA, a source per row); a food not there knows none
+const extra = (id: string) => { const e = BASE_EXTRA[id]; if (!e) return {}; const { src: _s, note: _n, ...v } = e; return v; };
+export const FOODS: Food[] = BASE.map((x) => ({ ...x, per100g: { ...x.per100g, ...extra(x.id) }, ...(BASE_ALLERGENS[x.id] ? { allergens: BASE_ALLERGENS[x.id] } : {}) }));
