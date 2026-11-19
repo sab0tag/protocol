@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { migrate } from '../db/migrate.ts';
 import { ClinicDirectory } from './directory.ts';
 import { PlanDelivery, MAX_TTL_MS, type RedeemStep } from './delivery.ts';
+import { breakSeal, reseal } from '../../test/support/sealed.ts';
 
 const rig = () => {
   const db = new DatabaseSync(':memory:');
@@ -100,22 +101,19 @@ describe('plan delivery', () => {
     expect(del.redeem(d.code).title).toBe('План');
   });
   it('a payload altered in storage ends tampered: committed, erased, audited once, and never reported as used', () => {
-    const corrupt: Record<string, (db: DatabaseSync) => void> = {
-      hash: (db) => db.prepare("UPDATE plan_delivery SET plan = replace(plan, 'План', 'Інший')").run(),
+    type D = { code: string; deliveryId: string };
+    const corrupt: Record<string, (db: DatabaseSync, d: D) => void> = {
+      seal: (db) => breakSeal(db), // D176: the stored bytes changed — the seal does not open
+      hash: (db, d) => reseal(db, d, (v) => v.replace('План', 'Інший')),
       missing: (db) => db.prepare('UPDATE plan_delivery SET plan = NULL').run(),
-      json: (db) => { const v = '{not json'; db.prepare('UPDATE plan_delivery SET plan = ?, plan_hash = ?').run(v, sha(v)); },
-      schema: (db) => { const v = JSON.stringify({ schemaVersion: 2 }); db.prepare('UPDATE plan_delivery SET plan = ?, plan_hash = ?').run(v, sha(v)); },
-      org: (db) => {
-        const row = db.prepare('SELECT plan FROM plan_delivery').get() as { plan: string };
-        const snapshot = JSON.parse(row.plan);
-        const v = JSON.stringify({ ...snapshot, plan: { ...snapshot.plan, organizationId: 'інша' } });
-        db.prepare('UPDATE plan_delivery SET plan = ?, plan_hash = ?').run(v, sha(v));
-      },
+      json: (db, d) => reseal(db, d, () => '{not json', sha),
+      schema: (db, d) => reseal(db, d, () => JSON.stringify({ schemaVersion: 2 }), sha),
+      org: (db, d) => reseal(db, d, (v) => { const s = JSON.parse(v); return JSON.stringify({ ...s, plan: { ...s.plan, organizationId: 'інша' } }); }, sha),
     };
     for (const [kind, damage] of Object.entries(corrupt)) {
       const { del, dir, adminA, docA, a, plan, db } = rig();
       const d = del.issue(docA, { plan: plan(a.orgId), patientConsent: true });
-      damage(db);
+      damage(db, d);
       expect(err(() => del.redeem(d.code)), kind).toBe('tampered');
       expect(err(() => del.redeem(d.code)), kind).toBe('tampered');
       expect(db.prepare('SELECT status, plan FROM plan_delivery').get(), kind).toEqual({ status: 'tampered', plan: null });
@@ -167,7 +165,7 @@ describe('stats with tampered deliveries', () => {
     const ok = del.issue(docA, { plan: plan(a.orgId), patientConsent: true });
     del.redeem(ok.code);
     const bad = del.issue(docA, { plan: plan(a.orgId), patientConsent: true });
-    db.prepare("UPDATE plan_delivery SET plan = replace(plan, 'План', 'Інший') WHERE id = ?").run(bad.deliveryId);
+    breakSeal(db, bad.deliveryId);
     expect(err(() => del.redeem(bad.code))).toBe('tampered');
     del.issue(docA, { plan: plan(a.orgId), patientConsent: true });
     const s = del.stats(adminA);
@@ -188,7 +186,7 @@ describe('redeem atomicity under technical faults', () => {
     const doc = dir.authenticate(dir.addStaff(admin, { displayName: 'Лікар', role: 'doctor' }).token)!;
     const d = del.issue(doc, { plan: { schemaVersion: 1, planId: crypto.randomUUID(), organizationId: org.orgId, issuedAt: '2025-01-01T10:00:00+02:00',
       clinician: { displayName: 'Лікар', organizationName: 'А' }, title: 'План', medications: [], restrictions: [], tests: [] }, patientConsent: true });
-    if (damage) db.prepare("UPDATE plan_delivery SET plan = replace(plan, 'План', 'Інший')").run();
+    if (damage) breakSeal(db);
     const snapshot = () => ({ row: db.prepare('SELECT status, plan FROM plan_delivery').get(), audit: dir.auditLog(admin).length });
     return { del, d, db, snapshot };
   };

@@ -139,7 +139,7 @@ export class StaffInvitations {
         if (currentRoles !== row.target_roles) throw new InvitationError('conflict');
         if (this.db.prepare('SELECT 1 FROM external_identities WHERE account_id = ?').get(target.account_id!)) throw new InvitationError('conflict');
         membershipId = String(target.id);
-        this.db.prepare('UPDATE organization_memberships SET account_id = ? WHERE id = ?').run(s.accountId, membershipId);
+        this.db.prepare('UPDATE organization_memberships SET account_id = ?, active_since = ?, suspended_at = NULL WHERE id = ?').run(s.accountId, this.now(), membershipId); // D176: accepted — the 90-day clock starts
         // Keep the old account as a disabled tombstone once no membership still uses it. IDs/authorship stay intact.
         this.db.prepare("UPDATE accounts SET status = 'disabled' WHERE id = ? AND NOT EXISTS (SELECT 1 FROM organization_memberships WHERE account_id = ?)").run(target.account_id!, target.account_id!);
       } else {

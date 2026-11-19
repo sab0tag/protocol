@@ -9,11 +9,16 @@ export { ClinicError, type DirectoryError } from './errors.ts';
 import { projectLegacyMember } from './memberships.ts';
 import { Sessions } from '../identity/sessions.ts';
 import { IdentityError } from '../identity/errors.ts';
+import { IDLE_MS, REVIEW_EVERY_MS, TOKEN_LIFE_MS } from './lifecycle.ts';
 
 /** The caller as the server knows it. `orgId` comes from the member record, never from the request. */
 export type Actor = LegacyActor & { session?: { hash: string; accountId: string; membershipId: string } };
 
-export interface Member { id: string; displayName: string; role: Role; roles?: Role[]; rolesVersion?: number; active: boolean; linked?: boolean }
+export interface Member { id: string; displayName: string; role: Role; roles?: Role[]; rolesVersion?: number; active: boolean; linked?: boolean;
+  /** D176: 90 days without a sign-in; an admin restores */
+  suspended?: boolean; lastSignIn?: number | null }
+/** D176: the quarterly «who has access» list and when it was last confirmed */
+export interface AccessReview { members: Member[]; lastReview: { at: number; reviewer: string; members: number } | null; due: boolean }
 export interface AuditEntry { at: number; actor: string; action: string; target: string | null }
 
 const hash = (s: string) => createHash('sha256').update(s).digest('hex');
@@ -30,9 +35,13 @@ export class ClinicDirectory {
   private readonly policy: ClinicPolicy;
   private readonly sessions: Sessions;
 
-  constructor(db: DatabaseSync, now: () => number = Date.now) {
+  /** D176: sign-in by invitation is on — no bearer token is issued any more, an operator-made one lives 30 days */
+  private readonly tokensRetired: boolean;
+
+  constructor(db: DatabaseSync, now: () => number = Date.now, opts: { tokensRetired?: boolean } = {}) {
     this.db = db;
     this.now = now;
+    this.tokensRetired = !!opts.tokensRetired;
     this.policy = new ClinicPolicy(db, now);
     this.sessions = new Sessions(db, now);
     // tables: src/db/migrations (0001_baseline); constructors never change the schema
@@ -52,6 +61,7 @@ export class ClinicDirectory {
       this.db.prepare('INSERT INTO clinic_orgs (id, name, created) VALUES (?, ?, ?)').run(orgId, n, this.now());
       this.db.prepare('INSERT INTO clinic_members (id, org, name, role, token_hash, created) VALUES (?, ?, ?, ?, ?, ?)')
         .run(adminId, orgId, a, 'admin', hash(token), this.now());
+      if (this.tokensRetired) this.db.prepare('UPDATE clinic_members SET token_until = ? WHERE id = ?').run(this.now() + TOKEN_LIFE_MS, adminId); // D176
       projectLegacyMember(this.db, adminId);
       this.audit(orgId, adminId, 'org.create', orgId);
     });
@@ -120,18 +130,22 @@ export class ClinicDirectory {
   }
 
   /** What the portal needs to compose a plan: the caller's own name and organization. */
-  profile(actor: Actor): { memberId: string; role: Role; displayName: string; organizationId: string; organizationName: string; roles: Role[] } {
+  profile(actor: Actor): { memberId: string; role: Role; displayName: string; organizationId: string; organizationName: string; roles: Role[]; tokenUntil?: number } {
     this.require(actor, 'clinic.profile.read');
     const r = this.db.prepare('SELECT m.name AS name, m.role AS role, m.active AS active, o.name AS org FROM clinic_members m JOIN clinic_orgs o ON o.id = m.org WHERE m.id = ? AND m.org = ?')
       .get(actor.memberId, actor.orgId) as { name: string; role: Role; active: number; org: string } | undefined;
     if (!r || !r.active) throw new ClinicError('unauthenticated');
     const roles = actor.session ? this.sessions.contexts(actor.session.accountId).find(m => m.membershipId === actor.session!.membershipId)?.roles : undefined;
     const role: Role = roles ? roles.includes('admin') ? 'admin' : 'doctor' : r.role;
-    return { memberId: actor.memberId, role, displayName: r.name, organizationId: actor.orgId, organizationName: r.org, roles: roles ? roles.filter(isRole) : [r.role] };
+    // D176: someone still on an old token sees until when it works — and that sign-in by invitation replaces it
+    const until = actor.session ? undefined : (this.db.prepare('SELECT token_until FROM clinic_members WHERE id = ?').get(actor.memberId) as { token_until: number | null } | undefined)?.token_until;
+    return { memberId: actor.memberId, role, displayName: r.name, organizationId: actor.orgId, organizationName: r.org, roles: roles ? roles.filter(isRole) : [r.role],
+      ...(until != null ? { tokenUntil: Number(until) } : {}) };
   }
 
   addStaff(actor: Actor, input: { displayName: string; role: Role }): { memberId: string; token: string } {
     this.require(actor, 'staff.manage');
+    if (this.tokensRetired) throw new ClinicError('tokens_retired'); // D176: staff come by invitation
     const name = input.displayName.trim();
     if (!name || name.length > 200 || !isRole(input.role)) throw new ClinicError('bad_request');
     const id = randomUUID(), token = newToken();
@@ -152,9 +166,54 @@ export class ClinicDirectory {
       { id: string; name: string; role: Role; active: number }[]).map((m) => ({ id: m.id, displayName: m.name, role: m.role, active: !!m.active, ...(actor.session ? this.staffIdentity(m.id) : {}) }));
   }
 
-  private staffIdentity(memberId: string): { roles: Role[]; rolesVersion: number; linked: boolean } {
-    const m = this.db.prepare('SELECT m.id, m.roles_version, a.status, EXISTS(SELECT 1 FROM external_identities e WHERE e.account_id = a.id) AS verified FROM organization_memberships m JOIN accounts a ON a.id = m.account_id WHERE m.legacy_member_id = ?').get(memberId);
-    return { rolesVersion: Number(m?.roles_version ?? 1), linked: m?.status === 'active' && m?.verified === 1, roles: m ? this.db.prepare('SELECT role FROM organization_membership_roles WHERE membership_id = ? ORDER BY role').all(m.id!).map(r => r.role).filter(isRole) : [] };
+  private staffIdentity(memberId: string): { roles: Role[]; rolesVersion: number; linked: boolean; suspended: boolean; lastSignIn: number | null } {
+    const m = this.db.prepare(`SELECT m.id, m.roles_version, m.suspended_at, m.active_since, m.created_at, a.status, EXISTS(SELECT 1 FROM external_identities e WHERE e.account_id = a.id) AS verified
+      FROM organization_memberships m JOIN accounts a ON a.id = m.account_id WHERE m.legacy_member_id = ?`).get(memberId);
+    const linked = m?.status === 'active' && m?.verified === 1;
+    const since = m ? Number(m.active_since ?? m.created_at) : 0;
+    return { rolesVersion: Number(m?.roles_version ?? 1), linked, roles: m ? this.db.prepare('SELECT role FROM organization_membership_roles WHERE membership_id = ? ORDER BY role').all(m.id!).map(r => r.role).filter(isRole) : [],
+      suspended: linked && (m?.suspended_at != null || since <= this.now() - IDLE_MS), lastSignIn: m?.active_since == null ? null : Number(m.active_since) };
+  }
+
+  /** D176: the «who has access» list for an admin, with the last confirmation and whether a new one is due (a quarter). */
+  accessReview(actor: Actor): AccessReview {
+    this.require(actor, 'staff.manage');
+    const last = this.db.prepare('SELECT reviewed_at, reviewer, members FROM clinic_access_reviews WHERE org = ? ORDER BY reviewed_at DESC, id DESC LIMIT 1').get(actor.orgId) as
+      { reviewed_at: number; reviewer: string; members: number } | undefined;
+    return { members: this.listStaff(actor).filter((m) => m.active),
+      lastReview: last ? { at: Number(last.reviewed_at), reviewer: last.reviewer, members: Number(last.members) } : null,
+      due: !last || Number(last.reviewed_at) <= this.now() - REVIEW_EVERY_MS };
+  }
+
+  /** D176: the admin confirms that everyone on the list should keep access. A fresh sign-in; ids and a count go to the trail. */
+  confirmAccess(actor: Actor, mutation?: Mutation): { at: number; members: number } {
+    if (!actor.session) throw new ClinicError('forbidden');
+    return immediate(this.db, () => {
+      this.require(actor, 'staff.manage'); this.fresh(actor);
+      return performMutation(this.db, bindMutation(mutation, `${actor.session!.accountId}/${actor.session!.membershipId}/${actor.orgId}/access.review`), () => {
+        const n = Number((this.db.prepare('SELECT COUNT(*) AS n FROM clinic_members WHERE org = ? AND active = 1').get(actor.orgId) as { n: number }).n);
+        const at = this.now();
+        this.db.prepare('INSERT INTO clinic_access_reviews (org, reviewed_at, reviewer, members) VALUES (?, ?, ?, ?)').run(actor.orgId, at, actor.memberId, n);
+        this.audit(actor.orgId, actor.memberId, 'access.review', actor.orgId);
+        return { at, members: n };
+      });
+    });
+  }
+
+  /** D176: an admin brings back a membership suspended after 90 days; its clock starts again now. */
+  restore(actor: Actor, memberId: string, mutation?: Mutation): void {
+    if (!actor.session) throw new ClinicError('forbidden');
+    immediate(this.db, () => {
+      this.require(actor, 'staff.manage'); this.fresh(actor);
+      return performMutation(this.db, bindMutation(mutation, `${actor.session!.accountId}/${actor.session!.membershipId}/${actor.orgId}/staff.restore/${memberId}`), () => {
+        const m = this.target(actor, memberId);
+        if (!m.active) throw new ClinicError('not_found');
+        const r = this.db.prepare("UPDATE organization_memberships SET suspended_at = NULL, active_since = ? WHERE legacy_member_id = ? AND organization_id = ? AND status = 'active'")
+          .run(this.now(), memberId, actor.orgId);
+        if (!r.changes) throw new ClinicError('not_found');
+        this.audit(actor.orgId, actor.memberId, 'staff.restore', memberId);
+      });
+    });
   }
 
   setRoles(actor: Actor, memberId: string, roles: Role[], version?: number, mutation?: Mutation): void {
@@ -237,6 +296,7 @@ export class ClinicDirectory {
   /** Replaces a lost token: the old one stops working immediately. */
   rotateToken(actor: Actor, memberId: string): string {
     this.require(actor, 'staff.manage');
+    if (this.tokensRetired) throw new ClinicError('tokens_retired'); // D176
     return immediate(this.db, () => {
       this.require(actor, 'staff.manage');
       this.fresh(actor); this.legacyCredential(actor.orgId);

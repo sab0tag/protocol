@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { breakSeal } from './support/sealed.ts';
 import { createApp } from '../src/app.ts';
 import { ClinicDirectory } from '../src/clinic/directory.ts';
 import { PlanDelivery } from '../src/clinic/delivery.ts';
@@ -93,7 +94,7 @@ describe('clinic API', () => {
     const { app, call, a, plan, store } = rig();
     const doc = (await call(a.token, 'POST', '/staff', { displayName: 'Лікар', role: 'doctor' })).json.token;
     const d = (await call(doc, 'POST', '/plans', { plan: plan(a.orgId), patientConsent: true })).json;
-    store.database.prepare("UPDATE plan_delivery SET plan = replace(plan, 'План', 'Інший')").run();
+    breakSeal(store.database);
     const r = await app.request('/v1/clinic/plans/redeem', { method: 'POST', body: JSON.stringify({ code: d.code }), headers: { 'Content-Type': 'application/json' } });
     expect(r.status).toBe(410);
     expect((await call(doc, 'GET', `/plans/${d.deliveryId}`)).json.status).toBe('tampered');

@@ -1,8 +1,12 @@
 import { API_URL, ApiError } from './api';
 import type { ClinicPlanV1 } from '../domain/planImport';
 
-export interface ClinicMe { memberId: string; role: 'admin' | 'doctor'; displayName: string; organizationId: string; organizationName: string; roles?: ('admin' | 'doctor')[] }
-export interface StaffMember { id: string; displayName: string; role: 'admin' | 'doctor'; active: boolean; roles?: ('admin' | 'doctor')[]; rolesVersion?: number; linked?: boolean }
+export interface ClinicMe { memberId: string; role: 'admin' | 'doctor'; displayName: string; organizationId: string; organizationName: string; roles?: ('admin' | 'doctor')[];
+  /** D176: an old token works until then */
+  tokenUntil?: number }
+export interface StaffMember { id: string; displayName: string; role: 'admin' | 'doctor'; active: boolean; roles?: ('admin' | 'doctor')[]; rolesVersion?: number; linked?: boolean;
+  /** D176: 90 days without a sign-in */
+  suspended?: boolean; lastSignIn?: number | null }
 export type ClinicAuth = string | { csrfToken: string; organizationId: string; signal?: AbortSignal; onDenied?: () => void };
 
 async function clinic<T>(token: ClinicAuth, method: string, path: string, body?: unknown, mutationKey?: string): Promise<T> {
@@ -47,4 +51,9 @@ export const clinicRevokeInvite = (a: ClinicAuth, id: string) => clinic<{ ok: tr
 export const clinicSetRoles = (a: ClinicAuth, id: string, roles: string[], version: number, key?: string) => clinic<{ ok: true }>(a, 'PUT', `/staff/${id}/roles`, { roles, version }, key);
 export interface AuthTransition { migratedAt: number | null; legacyUntil: number | null; unlinked: string[] }
 export const clinicAuthTransition = (a: ClinicAuth) => clinic<AuthTransition>(a, 'GET', '/auth-transition');
+// D176: the quarterly access list, its confirmation, and restoring someone suspended after 90 days
+export interface AccessReview { members: StaffMember[]; lastReview: { at: number; reviewer: string; members: number } | null; due: boolean }
+export const clinicAccess = (a: ClinicAuth) => clinic<AccessReview>(a, 'GET', '/access');
+export const clinicConfirmAccess = (a: ClinicAuth, key?: string) => clinic<{ at: number; members: number }>(a, 'POST', '/access/review', {}, key);
+export const clinicRestore = (a: ClinicAuth, id: string, key?: string) => clinic<{ ok: true }>(a, 'POST', `/staff/${id}/restore`, {}, key);
 export const clinicCutover = (a: ClinicAuth, graceHours: number, key?: string) => clinic<{ ok: true }>(a, 'POST', '/auth-transition', { graceHours, confirm: true }, key);

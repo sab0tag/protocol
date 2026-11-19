@@ -3,7 +3,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { afterEach, describe, expect, it } from 'vitest';
 import { createApp } from '../src/app.ts';
 import { ClinicDirectory } from '../src/clinic/directory.ts';
-import { PlanDelivery } from '../src/clinic/delivery.ts';
+import { openPlan, PlanDelivery, sealPlan } from '../src/clinic/delivery.ts';
 import { MIGRATIONS, assertCurrent, migrate } from '../src/db/migrate.ts';
 import { Store } from '../src/store.ts';
 
@@ -37,7 +37,7 @@ describe('ACCESS-07-A server snapshots', () => {
     const declared = structuredClone(plan);
     const issued = delivery.issue(actor, { plan, patientConsent: true });
     const before = db.prepare('SELECT plan, plan_hash, format FROM plan_delivery WHERE id = ?').get(issued.deliveryId)!;
-    expect(before.format).toBe(2); expect(sha(before.plan as string)).toBe(before.plan_hash);
+    expect(before.format).toBe(2); expect(sha(openPlan(issued.code, issued.deliveryId, before.plan as string)!)).toBe(before.plan_hash);
     plan.title = 'Changed input'; plan.clinician.displayName = 'Another source';
     db.prepare('UPDATE clinic_members SET name = ? WHERE id = ?').run('Renamed doctor', actor.memberId);
     db.prepare('UPDATE clinic_orgs SET name = ? WHERE id = ?').run('Renamed clinic', org.orgId);
@@ -91,14 +91,14 @@ describe('ACCESS-07-A server snapshots', () => {
       const { db, delivery, actor, plan } = rig();
       const issued = delivery.issue(actor, { plan, patientConsent: true });
       const row = db.prepare('SELECT plan FROM plan_delivery WHERE id = ?').get(issued.deliveryId)!;
-      const snapshot = JSON.parse(row.plan as string);
+      const snapshot = JSON.parse(openPlan(issued.code, issued.deliveryId, row.plan as string)!); // D176: opened with the patient's code
       if (field === 'snapshotId') snapshot.snapshotId = randomUUID();
       if (field === 'memberId') snapshot.issuer.memberId = randomUUID();
       if (field === 'organizationId') snapshot.issuer.organizationId = randomUUID();
       if (field === 'issuedAt') snapshot.issuedAt = '2026-01-01T00:00:00Z';
       if (field === 'clinician') snapshot.plan.clinician.displayName = 'Replaced';
       const body = JSON.stringify(snapshot);
-      db.prepare('UPDATE plan_delivery SET plan = ?, plan_hash = ? WHERE id = ?').run(body, sha(body), issued.deliveryId);
+      db.prepare('UPDATE plan_delivery SET plan = ?, plan_hash = ? WHERE id = ?').run(sealPlan(issued.code, issued.deliveryId, body), sha(body), issued.deliveryId);
       expect(() => delivery.redeemWithProvenance(issued.code)).toThrow('tampered');
       expect(() => delivery.redeemWithProvenance(issued.code)).toThrow('tampered');
       expect(db.prepare('SELECT status, plan FROM plan_delivery WHERE id = ?').get(issued.deliveryId)).toEqual({ status: 'tampered', plan: null });
@@ -123,6 +123,7 @@ it('migration 3 preserves existing payloads/hash/IDs and never certifies a legac
     expect(db.prepare('SELECT * FROM plan_delivery').get()).toEqual({ ...before, format: 1 });
     expect(migrate(db, MIGRATIONS().slice(0, 3)).applied).toEqual([]);
     expect(() => assertCurrent(db, MIGRATIONS().slice(0, 2))).toThrow('newer_schema');
+    migrate(db); // D176: a plain row from before stays readable after the seal arrives
     const got = new PlanDelivery(db, dir).redeemWithProvenance(code);
     expect(got).toEqual({ plan: legacy });
     expect(got.snapshot).toBeUndefined();

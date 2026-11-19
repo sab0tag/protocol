@@ -161,7 +161,7 @@ describe('per-clinic legacy cutoff', () => {
       db.exec('PRAGMA foreign_keys = ON'); migrate(db, MIGRATIONS().slice(0,4));
       db.exec("INSERT INTO accounts VALUES ('a','active',1); INSERT INTO sessions VALUES ('hash','a','https://issuer.test/',1,1,999999,NULL,1,1,'csrf')");
       const before = db.prepare('SELECT * FROM sessions').all();
-      expect(migrate(db).applied).toEqual([5]);
+      expect(migrate(db, MIGRATIONS().slice(0, 5)).applied).toEqual([5]);
       expect(db.prepare('SELECT * FROM sessions').all()).toEqual(before.map(row => ({ ...row, verified_email: null })));
       expect(db.prepare('PRAGMA foreign_key_check').all()).toEqual([]);
     } finally { db.close(); }
