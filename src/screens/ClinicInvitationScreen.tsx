@@ -47,7 +47,7 @@ export function ClinicInvitationScreen() {
     } catch (e) { setError(messages[e instanceof ApiError ? e.code : ''] ?? 'Не вдалося виконати дію. Перевірте вхід і спробуйте ще раз.'); }
     finally { setBusy(false); }
   }
-  const button = 'min-h-tap rounded-xl bg-accent px-4 text-white disabled:opacity-50';
+  const button = 'min-h-tap rounded-xl bg-accent px-4 text-on-accent disabled:opacity-50';
   return <section className="min-w-0 space-y-4 break-words pt-4">
     <h1 className="text-2xl font-semibold">Запрошення до клініки</h1>
     {accepted ? <><p role="status">Запрошення прийнято. Доступ до клініки додано.</p><a className="underline min-h-tap inline-flex items-center" href="#/clinic">Відкрити кабінет</a></> : !code ?

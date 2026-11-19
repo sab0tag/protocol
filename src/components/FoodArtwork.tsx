@@ -9,15 +9,15 @@ import fruitPhoto from '../assets/food-fruit.jpg';
 import soupPhoto from '../assets/food-soup.jpg';
 
 const FOOD_ARTWORK = [
-  { words: ['яйц', 'омлет'], image: '🍳', color: 'bg-amber-500/10', photo: eggsPhoto },
-  { words: ['суп', 'борщ', 'юшк'], image: '🍲', color: 'bg-red-500/10', photo: soupPhoto },
-  { words: ['кур', 'індич', 'котлет', 'м’яс', 'мяс'], image: '🍗', color: 'bg-orange-500/10', photo: chickenPhoto },
-  { words: ['риб', 'хек', 'лосос'], image: '🐟', color: 'bg-sky-500/10', photo: fishPhoto },
-  { words: ['салат', 'вінегрет', 'огір', 'помід', 'брокол', 'овоч'], image: '🥗', color: 'bg-emerald-500/10', photo: saladPhoto },
-  { words: ['рис', 'греч', 'вівсян', 'каша', 'булгур'], image: '🍚', color: 'bg-yellow-500/10', photo: oatmealPhoto },
-  { words: ['молок', 'кефір', 'йогур', 'сир', 'творог'], image: '🥛', color: 'bg-blue-500/10', photo: dairyPhoto },
-  { words: ['яблук', 'банан', 'ягод', 'фрукт'], image: '🍎', color: 'bg-rose-500/10', photo: fruitPhoto },
-  { words: ['хліб', 'лаваш', 'сендвіч', 'бутерброд'], image: '🥪', color: 'bg-orange-500/10', photo: wrapPhoto },
+  { words: ['яйц', 'омлет'], image: '🍳', color: 'bg-warn/10', photo: eggsPhoto },
+  { words: ['суп', 'борщ', 'юшк'], image: '🍲', color: 'bg-danger/10', photo: soupPhoto },
+  { words: ['кур', 'індич', 'котлет', 'м’яс', 'мяс'], image: '🍗', color: 'bg-warn/10', photo: chickenPhoto },
+  { words: ['риб', 'хек', 'лосос'], image: '🐟', color: 'bg-water/10', photo: fishPhoto },
+  { words: ['салат', 'вінегрет', 'огір', 'помід', 'брокол', 'овоч'], image: '🥗', color: 'bg-ok/10', photo: saladPhoto },
+  { words: ['рис', 'греч', 'вівсян', 'каша', 'булгур'], image: '🍚', color: 'bg-pending/10', photo: oatmealPhoto },
+  { words: ['молок', 'кефір', 'йогур', 'сир', 'творог'], image: '🥛', color: 'bg-water/10', photo: dairyPhoto },
+  { words: ['яблук', 'банан', 'ягод', 'фрукт'], image: '🍎', color: 'bg-danger/10', photo: fruitPhoto },
+  { words: ['хліб', 'лаваш', 'сендвіч', 'бутерброд'], image: '🥪', color: 'bg-warn/10', photo: wrapPhoto },
 ] as const;
 
 function artworkFor(name: string) {

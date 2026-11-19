@@ -100,7 +100,7 @@ function ScreenBoundary({ children }: { children: ReactNode }) {
 /** D106: a new version is downloading; the page reloads itself when it is in. */
 function UpdateBar() {
   const on = useUi((s) => s.updating);
-  return on ? <p role="status" className="fixed inset-x-0 top-0 z-50 bg-accent px-4 py-1 text-center text-sm text-surface">{t.update.coming}</p> : null;
+  return on ? <p role="status" className="fixed inset-x-0 top-0 z-50 bg-accent px-4 py-1 text-center text-sm text-on-accent">{t.update.coming}</p> : null;
 }
 
 // Hash routing works on any static host without rewrite rules.

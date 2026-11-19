@@ -44,7 +44,7 @@ export function EntryPreview({ entry, foods, all }: { entry: DayEntry; foods?: M
               <span className="tabular shrink-0 text-sm text-muted">{round(lineNutrients(it, foods).kcal)} {t.units.kcal}</span>
             </div>
             {it.components?.length ? (
-              <p className="mt-0.5 text-xs text-muted">{it.components.map((c) => `${c.name} ${amountText(c)}`).join(', ')}</p>
+              <p className="mt-1 text-xs text-muted">{it.components.map((c) => `${c.name} ${amountText(c)}`).join(', ')}</p>
             ) : null}
           </li>
         ))}

@@ -44,7 +44,7 @@ export function Nutrition() {
       {date !== todayISO() && <button type="button" onClick={() => setDate(todayISO())} className="min-h-tap px-1 text-sm text-accent">{t.day.today}</button>}
     </div>
     <div className="grid grid-cols-2 gap-2">
-      <Link to="/meal/new" className="col-span-2 flex min-h-tap items-center justify-center gap-2 rounded-2xl bg-accent px-4 py-3 font-semibold text-surface"><Plus size={20} aria-hidden />{t.meal.title}</Link>
+      <Link to="/meal/new" className="col-span-2 flex min-h-tap items-center justify-center gap-2 rounded-2xl bg-accent px-4 py-3 font-semibold text-on-accent"><Plus size={20} aria-hidden />{t.meal.title}</Link>
       <Link to="/dishes" className="flex min-h-tap items-center justify-center rounded-xl border border-line px-2 text-center text-sm">{t.dishes.title}</Link>
       <Link to="/assistant" className="flex min-h-tap items-center justify-center rounded-xl border border-line px-2 text-center text-sm">{L.ask}</Link>
     </div>

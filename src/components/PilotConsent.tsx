@@ -34,10 +34,10 @@ export function summaryAll(s: Summary): string[] {
 export function SummaryView({ s }: { s: Summary }) {
   return (
     <div className="text-sm">
-      <ul className="list-disc space-y-0.5 pl-5" data-testid="pilot-head">{summaryHead(s).map((x) => <li key={x}>{x}</li>)}</ul>
+      <ul className="list-disc space-y-1 pl-5" data-testid="pilot-head">{summaryHead(s).map((x) => <li key={x}>{x}</li>)}</ul>
       <details className="mt-1">
         <summary className="min-h-tap cursor-pointer text-accent underline">{L.sampleAll}</summary>
-        <ul className="list-disc space-y-0.5 pl-5 text-muted" data-testid="pilot-all">{summaryAll(s).map((x) => <li key={x}>{x}</li>)}</ul>
+        <ul className="list-disc space-y-1 pl-5 text-muted" data-testid="pilot-all">{summaryAll(s).map((x) => <li key={x}>{x}</li>)}</ul>
       </details>
     </div>
   );
@@ -144,7 +144,7 @@ export function PilotSurvey() {
       )}
       <div className="flex gap-2">
         <button type="button" disabled={!ready} onClick={async () => { await answerSurvey(kind, a as SurveyAnswer); setKind(null); toast(S.thanks); }}
-          className="min-h-tap flex-1 rounded-xl bg-accent px-3 font-medium text-surface disabled:opacity-40">{S.send}</button>
+          className="min-h-tap flex-1 rounded-xl bg-accent px-3 font-medium text-on-accent disabled:opacity-40">{S.send}</button>
         <button type="button" disabled={savingLater} onClick={() => void defer()} className="min-h-tap rounded-xl border border-line px-3 disabled:opacity-50">{S.later}</button>
       </div>
     </section>

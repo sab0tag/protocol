@@ -12,7 +12,7 @@ export function Sheet({ title, onClose, children, placement = 'bottom', id }: {
   close.current = onClose;
   useLayoutEffect(() => panel.current ? activateSheet(panel.current, () => close.current()) : undefined, []);
   return (
-    <div className={`fixed inset-0 z-30 flex bg-black/50 backdrop-blur-sm ${placement === 'left' ? 'items-stretch justify-start' : 'items-end justify-center md:items-center'}`} onClick={onClose}>
+    <div className={`fixed inset-0 z-30 flex bg-scrim/50 backdrop-blur-sm ${placement === 'left' ? 'items-stretch justify-start' : 'items-end justify-center md:items-center'}`} onClick={onClose}>
       <div ref={panel} id={id} role="dialog" aria-modal="true" aria-label={title}
         className={placement === 'left'
           ? 'protocol-navigation-drawer h-dvh w-[min(22rem,calc(100%-2rem))] overflow-y-auto border-r border-line bg-surface p-4 pb-safe shadow-xl'

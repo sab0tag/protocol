@@ -91,11 +91,11 @@ export function AiWorkoutPanel({ workouts, plan, date, onDraft }: {
         <div className="space-y-2 rounded-xl border border-accent/40 p-2 text-sm">
           <p>{L.consent}</p>
           <button type="button" onClick={async () => { await db.meta.update('sync', { workoutConsent: true }); setAsking(false); void make(true); }}
-            className="min-h-tap rounded-xl bg-accent px-3 font-medium text-surface">{L.allow}</button>
+            className="min-h-tap rounded-xl bg-accent px-3 font-medium text-on-accent">{L.allow}</button>
         </div>
       ) : (
         <button type="button" onClick={() => void make()} disabled={busy}
-          className="flex min-h-tap items-center gap-2 rounded-xl bg-accent px-3 font-medium text-surface disabled:opacity-40">
+          className="flex min-h-tap items-center gap-2 rounded-xl bg-accent px-3 font-medium text-on-accent disabled:opacity-40">
           <Sparkles size={18} aria-hidden />{busy ? L.busy : L.make}</button>
       )}
       {error && <p role="alert" className="text-sm text-warn">{error}</p>}

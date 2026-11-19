@@ -56,10 +56,10 @@ export function BreakdownEditor({ foods, plan, name, onName, portions, onPortion
             </span>
             <label className="w-20 shrink-0"><span className="sr-only">{L.grams(l.food?.name ?? l.said)}</span>
               <input type="number" inputMode="decimal" min={0} step={1} value={l.grams} onChange={(e) => set(l.key, Math.max(0, Number(e.target.value) || 0))}
-                className="min-h-[2.25rem] w-full rounded-lg border border-line bg-bg px-2 text-right" /></label>
+                className="min-h-tap w-full rounded-lg border border-line bg-bg px-2 text-right" /></label>
             <span className="pt-2 text-xs text-muted">г</span>
             <button type="button" onClick={() => onLines(lines.filter((x) => x.key !== l.key))} aria-label={`${t.meal.remove}: ${l.food?.name ?? l.said}`}
-              className="flex h-9 w-8 items-center justify-center text-muted"><X size={16} aria-hidden /></button>
+              className="flex h-11 w-11 items-center justify-center text-muted"><X size={16} aria-hidden /></button>
           </li>); })}
       </ul>
       <div className="tabular rounded-xl bg-bg p-2 text-sm">

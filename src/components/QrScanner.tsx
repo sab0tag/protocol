@@ -48,7 +48,7 @@ export function QrScanner({ onCode, onClose }: { onCode: (target: ScanTarget) =>
   }, []); // eslint-disable-line react-hooks/exhaustive-deps -- once per opening
   return (
     <div className="space-y-2" data-testid="qr-scanner">
-      <video ref={video} playsInline muted className={`aspect-square w-full max-w-sm rounded-xl bg-black object-cover ${ready ? '' : 'opacity-60'}`} aria-label="Камера для QR-коду" />
+      <video ref={video} playsInline muted className={`aspect-square w-full max-w-sm rounded-xl bg-scrim object-cover ${ready ? '' : 'opacity-60'}`} aria-label="Камера для QR-коду" />
       {problem ? <p role="alert" className="text-sm">{SAY[problem]}</p> : <p role="status" className="text-sm text-muted">{ready ? 'Наведіть камеру на QR-код від клініки.' : 'Вмикаю камеру…'}</p>}
       <button type="button" onClick={onClose} className="min-h-tap rounded-xl border-2 border-line px-4 font-semibold">Закрити камеру</button>
     </div>
