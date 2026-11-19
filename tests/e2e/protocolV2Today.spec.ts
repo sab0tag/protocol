@@ -24,7 +24,7 @@ test('Protocol 2.0 Today heading retains accessible date navigation and actionab
 test('the example-data warning appears before the example schedule', async ({ browser }) => {
   const page = await device(browser);
   const warning = page.getByRole('status').filter({ hasText: 'Це приклад:' });
-  const schedule = page.getByRole('region', { name: /^(Зараз|Не відмічено( з .+)?|Далі за планом)$/ /* D167 */ }).first();
+  const schedule = page.getByRole('region', { name: /^(Зараз|Не відмічено( з .+)?|Далі за планом|Далі)$/ /* D167; «Далі» — at night, the next dose is tomorrow's */ }).first();
   await expect(warning).toBeVisible();
   await expect(schedule).toBeVisible();
   const [warningBox, scheduleBox] = await Promise.all([warning.boundingBox(), schedule.boundingBox()]);
