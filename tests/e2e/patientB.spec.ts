@@ -88,6 +88,12 @@ test('two profiles on one phone — rehab and fitness — do not mix: modes, his
   await page.getByRole('button', { name: 'Відкрити профіль: Олена', exact: true }).click();
   await page.getByText('Інші способи почати').click(); await page.getByRole('button', { name: /^Пропустити/ }).click();
   await expect(page.getByTestId('active-profile')).toContainText('Олена'); // the switch has reloaded
+  if (process.env.VITE_MODULE_POLICY_ENABLED === 'true') { // a skipped onboarding starts with training off; switched on as a person would
+    await page.goto('./#/modules');
+    const training = page.getByRole('switch', { name: 'Тренування', exact: true });
+    if (!(await training.isChecked())) await training.click();
+    await expect(training).toBeChecked();
+  }
   await page.goto('./#/plan/constraints');
   await expect(page.getByRole('button', { name: 'Додати комплекс' })).toBeVisible();
   await page.getByRole('button', { name: 'Додати комплекс' }).click();
