@@ -54,6 +54,18 @@ describe('the connection', () => {
     expect(ws.sent[1]).toBeInstanceOf(ArrayBuffer);
   });
 
+  it('the sound said while the key is still coming is kept and goes right after the config, in order (D186)', async () => {
+    let release!: () => void;
+    const r = rig({ key: () => new Promise((ok) => { release = () => ok({ key: 'snx_temp_x', model: 'stt-rt-v6', maxSeconds: 60 }); }) });
+    await tick(); // the microphone is on, the key is not here yet
+    r.sound(); r.sound(); // «На сніданок…» — said at «Слухаю…»
+    expect(r.sockets).toHaveLength(0);
+    release(); await tick();
+    r.sound();
+    const ws = r.sockets[0]!; ws.open();
+    expect(typeof ws.sent[0]).toBe('string'); // the config first
+    expect(ws.sent.slice(1).filter((x) => x instanceof ArrayBuffer)).toHaveLength(3);
+  });
   it('no microphone — not-allowed, and no key asked for', async () => {
     const r = rig({ mic: async () => { throw new Error('denied'); } }); await tick();
     expect(r.on.error).toHaveBeenCalledWith('not-allowed');
