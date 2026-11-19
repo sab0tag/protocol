@@ -67,6 +67,8 @@ export interface Prescription {
   title: string;
   dose?: string; // entered by the user from the doctor's words
   schedule?: { times: string[]; withFood?: boolean };
+  /** D192: an empty-stomach medicine — how many minutes before food, as the plan or the leaflet says; typed by the person, never filled in */
+  beforeFoodMin?: number;
   dueDate?: ISODate; // for lab tests
   notes?: string;
   source: string;

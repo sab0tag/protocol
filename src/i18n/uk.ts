@@ -362,6 +362,9 @@ export const t = {
     place: (part: string, side: string) => `${part} ${side}`, later: 'Не зараз', saved: 'Місце уколу записано',
     hint: 'Місце краще міняти: так шкіра не ущільнюється. Дози й препарат — лише як призначив лікар.',
   },
+  fasting: { // D192: «Натщесерце → їжа» on the breakfast tile
+    wait: (n: number, title: string) => `Сніданок через ${n} хв — після «${title}»`, empty: (title: string) => `«${title}» — натщесерце, до їжі`,
+  },
   nutrients: { // D188: salt, sugars, fibre, saturated fat — an unknown is «не відомо», a sum with unknowns «не менше»
     salt: 'Сіль', sugars: 'Цукри', fiber: 'Клітковина', satFat: 'Насичені жири', more: 'Більше нутрієнтів', unknown: 'не відомо',
     value: (x: string, unit: string, partial: boolean) => `${partial ? 'не менше ' : ''}${x} ${unit}`,
@@ -1342,7 +1345,8 @@ export const t = {
     emptyShort: { prescriptions: 'Ще немає — додайте або сфотографуйте висновок', constraints: 'Ще немає — додайте, якщо лікар назвав',
       goals: 'Ще немає — як домовились із лікарем', checkup: 'Дату ще не внесено' }, source: 'Джерело', reason: 'Причина',
     title_: 'Назва', kind: 'Тип', dose: 'Доза (зі слів лікаря)', times: 'Час прийому (через кому, 08:30, 20:00)',
-    withFood: 'Під час їжі', dueDate: 'Здати до', notes: 'Примітки', tag: 'Що це за обмеження',
+    withFood: 'Під час їжі', beforeFood: 'За скільки хвилин до їжі (як у плані чи в інструкції)', beforeFoodPh: 'напр. 30 — або порожньо', // D192
+    dueDate: 'Здати до', notes: 'Примітки', tag: 'Що це за обмеження',
     from: 'З', to: 'По', notesLines: 'Нотатки (кожна з нового рядка)', tests: 'Аналізи (кожен з нового рядка)', date: 'Дата',
     finish: (title: string, noDose: boolean, noTime: boolean) => `${title} — не вказано ${noDose && noTime ? 'дозу й час прийому' : noDose ? 'дозу' : 'час прийому'}.${noTime ? ' Без часу нагадувань не буде.' : ''} Доповніть у «Плані».`,
     finishAction: 'Доповнити', // D100

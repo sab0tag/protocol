@@ -400,6 +400,10 @@ function PrescriptionForm({ plan, item, onClose }: { plan: PlanRow; item?: Presc
         <input type="checkbox" checked={p.schedule?.withFood ?? false} className="protocol-switch"
           onChange={(e) => setP({ ...p, schedule: { times: p.schedule?.times ?? [], withFood: e.target.checked } })} />
         <span>{P.withFood}</span></label>
+      {drug && p.schedule?.withFood === false && ( /* D192: only as the plan or the leaflet says — the app never fills it in */
+        <Field label={P.beforeFood}><input inputMode="numeric" value={p.beforeFoodMin ?? ''} placeholder={P.beforeFoodPh} className={field}
+          onChange={(e) => { const n = Number(e.target.value); const { beforeFoodMin: _b, ...rest } = p; setP(e.target.value.trim() && n > 0 && n <= 240 ? { ...p, beforeFoodMin: Math.round(n) } : rest); }} /></Field>
+      )}
       {(p.kind === 'medication' || p.kind === 'supplement') && (
         <div className="grid grid-cols-2 gap-2">
           <Field label={P.stockLeft}><input inputMode="numeric" value={left} onChange={(e) => setLeft(e.target.value)} placeholder={P.stockPh} className={field} /></Field>
