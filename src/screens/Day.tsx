@@ -1,4 +1,5 @@
 import { format } from 'date-fns';
+import { sessionsOn } from '../domain/rehab';
 import { ActionDetail, applyEntryChange } from '../components/ActionDetail';
 import { withStatus } from '../data/entryActions';
 import { RescheduleMeal } from '../components/RescheduleMeal';
@@ -203,6 +204,7 @@ export function Day() {
       {checklist && entries && <QuickMarks date={date} isToday={isToday} light={light} items={checklist.items} entries={entries}
         fluid={dayFluid(entries, foods ?? new Map(), date)} targets={{ ...targets, ...(plan?.targets.waterMaxMl ? { waterMaxMl: plan.targets.waterMaxMl } : {}), ...(plan?.targets.waterFrom ? { waterFrom: plan.targets.waterFrom } : {}) }} /* D169 */
         wellbeing={wellbeingToday ?? undefined} workoutDone={!!workouts?.some((w) => w.date === date) || entries.some((e) => e.kind === 'workout' && e.status === 'done')}
+        {...(plan?.rehab?.stages.length ? { rehab: { done: sessionsOn(entries, date).length, perDay: plan.rehab.perDay } } : {})} /* D179 */
         onWorkout={() => setSimple({ kind: 'workout' })} onUnwell={() => setSymptom({})} request={openMark} onRequestDone={() => setOpenMark(null)} />}
       {can('food.log') && date <= today && entries && all && foods && recipes && <MealTiles date={date} day={entries} all={all} foods={foods} recipes={recipes} plan={plan}
         quiet={light || !scoredDay(observation, 'food', date)} open={openTile} onOpen={(key) => { setListenTile(false); setOpenTile(key); setTileDraft(null); }} listen={listenTile} onConfirm={setConfirming}

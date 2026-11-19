@@ -28,3 +28,14 @@ describe('the model’s flat lines → the app’s conclusion (D101)', () => {
     expect(toResult({ readable: false, date: 'вчора', doctor: ' ', note: 'Це чек', lines: [] })).toMatchObject({ date: null, doctor: null, note: 'Це чек', diet: null, nextVisit: null });
   });
 });
+
+describe('D179: exercises of a rehabilitation complex', () => {
+  it('exercise lines come out as written, with their stage; an empty name is dropped', () => {
+    const r = toResult({ readable: true, date: '2026-11-18', doctor: 'Реабілітолог', note: '', lines: [
+      { group: 'exercise', title: 'Згинання стопи', words: 'повільно', dose: '3 × 10', times: [], perDay: 0, durationDays: 0, asNeeded: false, food: 'unsaid', tag: 'none', allergens: [], target: 'none', value: 'Тижні 1–3', date: '', page: 1, box: [0, 0, 1, 0.1], sure: 'yes' },
+      { group: 'exercise', title: ' ', words: '', dose: '', times: [], perDay: 0, durationDays: 0, asNeeded: false, food: 'unsaid', tag: 'none', allergens: [], target: 'none', value: '', date: '', page: 1, box: [0, 0, 1, 0.1], sure: 'check' },
+    ] } as ConclusionModel);
+    expect(r.exercises).toEqual([{ name: 'Згинання стопи', dose: '3 × 10', note: 'повільно', stage: 'Тижні 1–3', page: 1, box: [0, 0, 1, 0.1], sure: 'yes' }]);
+    expect(r.prescriptions).toEqual([]);
+  });
+});

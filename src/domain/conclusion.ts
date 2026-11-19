@@ -8,7 +8,7 @@ import { addDays, addMonths, format, parseISO } from 'date-fns';
 import { findDiets } from './diets';
 import { parseLimit } from './prn';
 import { fold, searchMeds, type MedIndex } from './meds';
-import { ALLERGENS, type Allergen, type Constraint, type ConstraintTag, type Plan, type Prescription, type Targets } from './types';
+import { ALLERGENS, type Allergen, type Constraint, type ConstraintTag, type Plan, type Prescription, type RehabComplex, type RehabStage, type Targets } from './types';
 
 export interface Where { page: number; box: number[]; sure: 'yes' | 'check' }
 export type TargetKey = 'kcal' | 'proteinG' | 'carbsMaxG' | 'fatG' | 'waterMl' | 'waterMaxMl' | 'lastMealBy' | 'weightGoalKg' | 'maxWeightLossKgPerWeek';
@@ -23,6 +23,8 @@ export interface ConclusionResult {
   prescriptions: ({ kind: string; title: string; dose: string | null; times: string[]; perDay: number | null; frequency: string | null;
     durationDays: number | null; asNeeded: boolean; withFood: boolean | null } & Where)[];
   tests: ({ title: string } & Where)[];
+  /** D179: exercises of a rehabilitation complex; absent from an older server */
+  exercises?: ({ name: string; dose: string | null; note: string | null; stage: string | null } & Where)[];
   nextVisit: ({ date: string; title?: string } & Where) | null;
   targets: ({ key: TargetKey; value: string } & Where)[];
   unread: { text: string; page: number; box: number[] }[];
@@ -39,6 +41,7 @@ export type DraftLine = Common & (
   | { kind: 'prescription'; prescription: Prescription; frequency?: string; timing?: { input: string; perDay: number | null; entered?: true }; suggestedDate?: true }
   | { kind: 'target'; target: Exclude<keyof Targets, 'fromDiet'>; value: Targets[Exclude<keyof Targets, 'fromDiet'>] }
   | { kind: 'checkup'; date: string; title: string }
+  | { kind: 'rehab'; complex: RehabComplex } // D179: the exercises read, as one complex — always to check against the sheet
   | { kind: 'unread'; text: string });
 
 const TAGS: ConstraintTag[] = ['oxalate', 'gallbladder', 'lactose', 'glycemic', 'iron', 'sodium', 'allergy', 'custom'];
@@ -163,6 +166,19 @@ export function draftLines(r: ConclusionResult, newId: () => string, opts: Draft
       prescription: { id: newId(), kind: 'test', title: x.title.trim(), source, ...(due ? { dueDate: due } : {}) } });
   }
 
+  // D179: the exercises as one complex, stages in paper order; never ✓ — the sheet is compared line by line
+  const ex = (r.exercises ?? []).filter((x) => x.name.trim());
+  if (ex.length) {
+    const stages: RehabStage[] = [];
+    for (const x of ex) {
+      const label = x.stage?.trim() || 'Етап 1';
+      let s = stages.find((st) => st.title === label);
+      if (!s) { s = { id: newId(), title: label, exercises: [] }; stages.push(s); }
+      s.exercises.push({ id: newId(), name: x.name.trim().slice(0, 200), ...(x.dose?.trim() ? { dose: x.dose.trim().slice(0, 80) } : {}), ...(x.note?.trim() ? { note: x.note.trim().slice(0, 500) } : {}) });
+    }
+    out.push({ kind: 'rehab', key: key('r'), ...at(ex[0]!), status: 'check', complex: { id: newId(), perDay: 1, stages, stageId: stages[0]!.id, source } });
+  }
+
   for (const u of r.unread) {
     if (!u.text.trim()) continue;
     const from = fromOf(u, pages);
@@ -267,11 +283,13 @@ export const sameConstraint = (a: Constraint, b: Constraint) =>
 
 /** The ticked lines put into the plan: a limit of the same kind (or a medicine of the same name) is updated in place. */
 /** D114: `placed` gets, for each line put in, the id it has in the plan (a limit or a medicine already there keeps its own). */
-export function applyLines(plan: Plan, lines: DraftLine[], since?: { since: string; sinceTime: string }, placed?: Map<string, string>): Pick<Plan, 'constraints' | 'prescriptions' | 'targets'> & Partial<Pick<Plan, 'nextCheckup'>> {
+export function applyLines(plan: Plan, lines: DraftLine[], since?: { since: string; sinceTime: string }, placed?: Map<string, string>): Pick<Plan, 'constraints' | 'prescriptions' | 'targets'> & Partial<Pick<Plan, 'nextCheckup' | 'rehab'>> {
   let constraints = [...plan.constraints], prescriptions = [...plan.prescriptions];
   const targets: Targets = { ...plan.targets };
   let nextCheckup = plan.nextCheckup;
+  let rehab: RehabComplex | undefined; // D179: a complex from the sheet replaces the plan's (the newer paper)
   for (const l of lines) {
+    if (l.kind === 'rehab') { rehab = l.complex; placed?.set(l.key, 'rehab'); continue; }
     if (l.kind === 'constraint') {
       const c = l.constraint;
       const i = constraints.findIndex((x) => sameConstraint(x, c));
@@ -299,5 +317,5 @@ export function applyLines(plan: Plan, lines: DraftLine[], since?: { since: stri
       placed?.set(l.key, 'checkup');
     }
   }
-  return { constraints, prescriptions, targets, ...(nextCheckup ? { nextCheckup } : {}) };
+  return { constraints, prescriptions, targets, ...(nextCheckup ? { nextCheckup } : {}), ...(rehab ? { rehab } : {}) };
 }

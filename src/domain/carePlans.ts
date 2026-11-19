@@ -1,6 +1,6 @@
 /** R5 expand phase. Source plans stay separate; this module does not replace the legacy journal,
  * activate instructions, compute obligations, or grant access to another person's records. */
-import type { Constraint, Mode, Plan, Prescription, Targets } from './types';
+import type { Constraint, Mode, Plan, Prescription, Targets, RehabComplex } from './types';
 import type { ClinicSnapshot } from './clinicSnapshot';
 
 export type CarePlanStatus = 'draft' | 'active' | 'paused' | 'completed' | 'archived';
@@ -29,7 +29,8 @@ export type PlanItemContent =
   | { type: 'constraint'; value: Constraint }
   | { type: 'target'; key: Exclude<keyof Targets, 'fromDiet'>; value: Targets[Exclude<keyof Targets, 'fromDiet'>]; referenceDiet?: string }
   | { type: 'mode'; value: Mode }
-  | { type: 'follow_up'; value: NonNullable<Plan['nextCheckup']> };
+  | { type: 'follow_up'; value: NonNullable<Plan['nextCheckup']> }
+  | { type: 'rehab'; value: RehabComplex }; // D179
 export interface CarePlanItem {
   id: string;
   personId: string;

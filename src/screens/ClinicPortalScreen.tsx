@@ -195,6 +195,11 @@ function Issue({ token, me }: { token: ClinicAuth; me: ClinicMe }) {
       <label className="block text-sm">Обмеження (рядок на пункт)<textarea className={box} rows={2} value={form.restrictions} onChange={set('restrictions')} /></label>
       <label className="block text-sm">Аналізи (рядок на пункт)<textarea className={box} rows={2} value={form.tests} onChange={set('tests')} /></label>
       <label className="block text-sm">Наступний візит<input className={`${box} min-h-tap`} maxLength={500} value={form.followUp} onChange={set('followUp')} /></label>
+      {/* D179: the rehabilitation complex — the patient's app shows it exactly as written; stages move only with the patient's «Так» */}
+      <label className="block text-sm">ЛФК, необовʼязково (вправа: назва | дозування | примітка; етап: «Етап 2 з 10.12.2026: часткова опора»)
+        <textarea className={box} rows={4} maxLength={4000} value={form.rehab ?? ''} onChange={set('rehab')} /></label>
+      {form.rehab?.trim() && <label className="block text-sm">ЛФК разів на день<input type="number" min={1} max={10} className={`${box} min-h-tap`} value={form.rehabPerDay ?? 1}
+        onChange={(e) => setForm({ ...form, rehabPerDay: Math.round(Number(e.target.value) || 1) })} /></label>}
       <label className="flex min-h-tap items-start gap-2 text-sm"><input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
         Пацієнт погодився отримати цей план у застосунок.</label>
       {error && <p role="alert" className="text-sm">{error}</p>}

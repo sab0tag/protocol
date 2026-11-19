@@ -18,6 +18,8 @@ export const CarePlanV1 = z.object({
   restrictions: z.array(z.string().min(1).max(500)).max(100),
   tests: z.array(z.string().min(1).max(500)).max(100),
   followUp: z.string().max(500).optional(),
+  /** D179: a rehabilitation complex as the doctor wrote it (stages and exercises as lines, the app's own format) */
+  rehab: z.object({ perDay: z.number().int().min(1).max(10), text: z.string().min(1).max(4000) }).strict().optional(),
 }).strict();
 export type CarePlanV1 = z.infer<typeof CarePlanV1>;
 

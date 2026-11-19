@@ -28,7 +28,7 @@ import type { Prescription } from '../domain/types';
 const L = t.conclusion;
 const P = t.plan;
 const GROUPS = ['meds', 'limits', 'targets', 'checks', 'unread'] as const;
-const groupOf = (l: DraftLine): (typeof GROUPS)[number] => l.kind === 'unread' ? 'unread' : l.kind === 'constraint' ? 'limits' : l.kind === 'target' ? 'targets'
+const groupOf = (l: DraftLine): (typeof GROUPS)[number] => l.kind === 'unread' ? 'unread' : l.kind === 'constraint' || l.kind === 'rehab' ? 'limits' : l.kind === 'target' ? 'targets'
   : l.kind === 'checkup' || (l.kind === 'prescription' && l.prescription.kind === 'test') ? 'checks' : 'meds';
 const isMed = (l: DraftLine) => groupOf(l) === 'meds';
 const CONSENT = profileKey('protocol.conclusionConsent');
@@ -324,6 +324,7 @@ function nameOf(l: DraftLine): string {
   if (l.kind === 'constraint') return l.constraint.title;
   if (l.kind === 'target') return l.target === 'carbsG' ? P.target.carbsMax : P.target[l.target as keyof typeof P.target];
   if (l.kind === 'checkup') return [L.groups.checks, day(l.date), l.title].filter(Boolean).join(', ');
+  if (l.kind === 'rehab') return t.rehab.planTitle;
   return l.text;
 }
 
@@ -364,6 +365,9 @@ function LineText({ line: l, plan, known, change }: { line: DraftLine; plan: Pla
     const value = typeof l.value === 'object' ? String(l.value.max ?? '') : String(l.value).replace('.', ',');
     return <span>{label}: <span className="font-medium">{value}</span></span>;
   }
+  if (l.kind === 'rehab') return <span><span className="font-medium">{t.rehab.planTitle}</span>{plan.rehab && updates}
+    {l.complex.stages.map((s) => <span key={s.id} className="block text-sm text-muted">{s.title}: {s.exercises.map((x) => x.dose ? `${x.name} ${x.dose}` : x.name).join(', ')}</span>)}
+    <span className="block text-xs text-muted">{t.rehab.fromPhoto}</span></span>;
   return <span><span className="font-medium">{day(l.date)}</span>
     {l.title && <span className="block text-sm text-muted">{l.title}</span>}</span>;
 }
