@@ -131,12 +131,15 @@ export function listenSoniox(on: ListenHandlers, before: string[], deps: SonioxD
   void (async () => {
     try { mic = await env.microphone(); } catch { release(); on.error('not-allowed'); ended = true; on.end(); return; }
     if (ended || closing) { release(); return; }
+    if (!audio) { fallBack('other'); return; }
+    // D186: the sound is kept from the moment the microphone is on — «Слухаю…» shows at the tap, and people start speaking
+    // while the key is still coming (0.3–1 s, longer on a phone's network); attached after the key, «На сніданок» was lost.
+    // The queue holds up to 200 chunks (≈ 17 s at 48 kHz) and goes out right after the config.
+    audio.attach(mic, (b) => { if (closing || ended) return; if (ws?.readyState === 1) ws.send(b); else if (queue.length < 200) queue.push(b); });
+    const sampleRate = audio.sampleRate;
     let k: Awaited<ReturnType<SonioxDeps['key']>>;
     try { k = await deps.key(); } catch { fallBack('network'); return; }
     if (ended || closing) { release(); return; }
-    if (!audio) { fallBack('other'); return; }
-    audio.attach(mic, (b) => { if (closing || ended) return; if (ws?.readyState === 1) ws.send(b); else if (queue.length < 200) queue.push(b); });
-    const sampleRate = audio.sampleRate;
     timers.push(setTimeout(() => { if (!heardAny) finish('no-speech'); }, NO_SPEECH_MS));
     timers.push(setTimeout(() => on.left?.(Math.round((MAX_MS - WARN_MS) / 1000)), WARN_MS));
     timers.push(setTimeout(stop, Math.min(MAX_MS, k.maxSeconds * 1000)));
