@@ -223,6 +223,9 @@ export const speechKey = (keys: Keys | null) => vaultOrDevice<SpeechKey>(keys, '
 /** Whether the server gives this vault or device a key now, and its speechId (shown in settings for the test list). */
 export async function speechState(keys: Keys | null): Promise<{ available: boolean; id: string; engine: string }> {
   if (keys) return call(keys, 'GET', '/speech');
+  // a device without sync is asked only once it already has its token — the check alone never makes one (5 a day per address)
+  try { deviceMem ??= localStorage.getItem(DEVICE) ?? undefined; } catch { /* private mode */ }
+  if (!deviceMem) return { available: false, id: '', engine: 'browser' };
   const token = await deviceToken(false);
   let res: Response;
   try { res = await fetch(`${API_URL}/v1/device/speech`, { headers: { Authorization: `Device ${token}` } }); } catch { throw new ApiError(0, 'offline'); }

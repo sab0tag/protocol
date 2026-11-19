@@ -103,6 +103,13 @@ export const t = {
     source: 'Інструкція', report: (n: number) => `Перетини препарат + їжа: ${n}`,
   },
   update: { coming: 'Завантажую нову версію — сторінка оновиться сама за кілька секунд' }, // D106
+  voiceSettings: { // D174: «Ще → Налаштування → Голос»
+    title: 'Голос', phone: 'Телефон', soniox: 'Soniox',
+    phoneHint: 'Голос розпізнає ваш телефон: на Android — Google, на iPhone — Apple.',
+    sonioxHint: 'Голос розпізнає Soniox; якщо він недоступний, — телефон (лише якщо ви погодилися на це раніше).',
+    phoneOnly: 'Голос розпізнає ваш телефон: на Android — Google, на iPhone — Apple.',
+    testId: 'ID для тестування голосу', noId: 'з’явиться, коли сервер оновиться',
+  },
   voice: { // D95: the voice window
     open: 'Сказати голосом', title: 'Скажіть, що з’їли чи прийняли', listen: 'Говорити', listening: 'Слухаю…', again: 'Сказати ще',
     hint: 'Напр.: «на сніданок два яйця, хліб і кава з молоком», «вітамін D випив», «склянка води». Скажіть «це все», щоб закінчити. Потім можна: «прибери каву», «хліба було 40 грамів», «як учора».',
@@ -110,6 +117,11 @@ export const t = {
     typed: 'Або напишіть тут', typedPh: 'два яйця, кава з молоком', apply: 'Додати',
     consent: 'Голос розпізнає ваш браузер: на Android — сервіс Google, на iPhone — Apple. Звук іде до них, не до нас; застосунок зберігає лише текст, який ви бачите тут.',
     consentOk: 'Зрозуміло, говорити',
+    // D174: Soniox's own consent — who gets the sound, and that typing always works; the retention line waits for Soniox's written answer
+    consentTitle: 'Згода на розпізнавання голосу',
+    sonioxConsent: 'Голос розпізнає сервіс Soniox: звук фрази йде до нього напряму з телефона, не через нас. Застосунок зберігає лише текст, який ви бачите тут. Замість голосу завжди можна написати текстом.',
+    sonioxOk: 'Так, говорити',
+    left: (s: number) => `Ще ${s} с`, // D174: before the stop at 60 s
     errors: { 'no-support': 'Цей браузер не розпізнає голос — напишіть текстом або надиктуйте мікрофоном клавіатури.',
       network: 'Немає зв’язку — голос зараз не розпізнати. Напишіть текстом: розбір працює й без інтернету.',
       'not-allowed': 'Немає дозволу на мікрофон — дайте його в налаштуваннях браузера або напишіть текстом.',
@@ -677,6 +689,7 @@ export const t = {
       plan: (m: number, c: number) => `у плані ліків: ${m}, обмежень: ${c} (лише кількість, без назв)`,
       photo: (on: boolean, rows: number, unchecked: number, edited: number) => `план з фото висновку: ${on ? 'так' : 'ні'}; рядків прочитано з фото цього тижня: ${rows}, не внесено: ${unchecked}, виправлено потім: ${edited}`,
       help: (why: number, shown: number, taken: number, danger: number) => `«Чому?» відкрито: ${why}; вечірні підказки — показано ${shown}, прийнято ${taken}; картка 103: ${danger}`,
+      soniox: (n: number) => `з них голосом через Soniox: ${n}`, // D174
       rem: (sent: number, opened: number) => `нагадування: прийшло ${sent}, відкрито ${opened}`,
       other: (water: number, workouts: number, well: number, report: number) => `днів з водою: ${water}, тренувань: ${workouts}, днів із самопочуттям: ${well}, звіт для лікаря: ${report}`,
       src: (code: string) => `код лікаря: ${code}`,

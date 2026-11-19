@@ -7,7 +7,8 @@ import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointer
 import { Link } from 'react-router-dom';
 import { db } from '../data/db';
 import { useFavorites } from '../data/queries';
-import { listen, speechSupported, type SpeechError } from '../data/speech';
+import { listen, speechSupported, voiceConsent, voiceMark, type SpeechError, type VoiceConsent } from '../data/speech';
+import { VoiceConsentCard } from './VoiceConsentCard';
 import { count, countOnce } from '../data/tally';
 import { whyFlagged } from '../domain/concierge';
 import { atLocal, dateOf, newId, timeOf } from '../domain/dates';
@@ -32,7 +33,7 @@ import { PhotoStatus, usePlatePhoto } from './PlatePhoto';
 import { RecognizedPanel } from './RecognizedPanel';
 import { Sheet } from './Sheet';
 import { saved } from './Toast';
-import { giveVoiceOk, okGiven } from './VoiceSheet';
+import { okGiven } from './VoiceSheet';
 
 const L = t.tiles;
 const copy = (items: MealItem[]): MealItem[] => JSON.parse(JSON.stringify(items)) as MealItem[];
@@ -177,11 +178,12 @@ function TileBody({ slot, name, date, lines, planned, checks, all, day, foods, r
     const target = lines.at(-1)?.entry;
     const label = L.added(names(add));
     if (target) {
-      const next: DayEntry = { ...target, items: [...(target.items ?? []), ...add], ...(via ? { via } : {}) };
+      const { voiceEngine: _was, ...rest } = target; // the record's engine is the one of its latest voice line
+      const next: DayEntry = { ...(via === 'voice' ? rest : target), items: [...(target.items ?? []), ...add], ...(via ? { via } : {}), ...(via === 'voice' ? voiceMark() : {}) };
       await saved(db.entries.put(next), label, () => db.entries.put(target));
     } else {
       const entry: DayEntry = { id: newId(), at: at ?? atLocal(date, slotTime({ slot, date, now: new Date(), entries: all })), kind: 'meal', status: 'done',
-        title: name, items: add, ...(via ? { via } : {}) };
+        title: name, items: add, ...(via ? { via } : {}), ...(via === 'voice' ? voiceMark() : {}) };
       await saved(db.entries.add(entry), label, () => db.entries.delete(entry.id));
       onCreated?.(entry.id);
     }
@@ -321,15 +323,20 @@ function TileField({ autoStart, input, listened, name, query, setQuery, onPhoto,
   autoStart?: boolean; input: RefObject<HTMLInputElement>; listened: { current: boolean }; name: string; query: string; setQuery: (q: string) => void; onPhoto: () => void; photoBusy: boolean; onEnter: () => void;
 }) {
   const [busy, setBusy] = useState(false);
-  const [ask, setAsk] = useState(false);
+  const [ask, setAsk] = useState<Exclude<VoiceConsent, 'ok'> | false>(false);
   const [error, setError] = useState<SpeechError | null>(null);
+  const [left, setLeft] = useState<number | null>(null); // D174: «Ще 15 с»
   const stop = useRef<() => void>(() => undefined);
   useEffect(() => () => stop.current(), []);
-  useEffect(() => { if (autoStart && speechSupported()) start(); }, []); // eslint-disable-line react-hooks/exhaustive-deps -- once, on opening
-  const start = () => {
-    if (!okGiven()) { setAsk(true); return; }
-    setAsk(false); setError(null); setBusy(true);
-    stop.current = listen({ interim: setQuery, final: (x) => { listened.current = true; setQuery(x); }, error: setError, end: () => setBusy(false) });
+  // a shortcut's auto-start has no tap: the phone's engine, never Soniox (iPhone keeps audio made without a gesture silent)
+  useEffect(() => { if (autoStart && speechSupported()) start(false); }, []); // eslint-disable-line react-hooks/exhaustive-deps -- once, on opening
+  const start = (tap = true) => {
+    const need = voiceConsent();
+    // no tap: only the phone's engine and only with its consent (D95); otherwise the consent this tap would need, or nothing
+    if (!tap && !okGiven()) { if (need !== 'ok') setAsk(need); return; }
+    if (tap && need !== 'ok') { setAsk(need); return; }
+    setAsk(false); setError(null); setBusy(true); setLeft(null);
+    stop.current = listen({ interim: setQuery, final: (x) => { listened.current = true; setQuery(x); }, error: setError, end: () => { setBusy(false); setLeft(null); }, left: setLeft }, [], { tap });
   };
   return (
     <div>
@@ -345,11 +352,8 @@ function TileField({ autoStart, input, listened, name, query, setQuery, onPhoto,
         <button type="button" onClick={onPhoto} disabled={photoBusy} aria-label={L.camera}
           className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 border-line text-accent disabled:opacity-40"><Camera size={20} aria-hidden /></button>
       </div>
-      {ask && <div className="mt-2 space-y-2 rounded-xl border border-line p-2 text-sm">
-        <p>{t.voice.consent}</p>
-        <button type="button" onClick={() => { giveVoiceOk(); start(); }} className="min-h-tap rounded-full bg-accent px-4 font-semibold text-surface">{t.voice.consentOk}</button>
-      </div>}
-      {busy && <p role="status" className="mt-1 text-sm text-muted">{L.listening}</p>}
+      {ask && <VoiceConsentCard kind={ask} onYes={() => start()} className="mt-2 rounded-xl border border-line p-2" />}
+      {busy && <p role="status" className="mt-1 text-sm text-muted">{L.listening}{left !== null ? ` · ${t.voice.left(left)}` : ''}</p>}
       {error && <p role="alert" className="mt-1 text-sm text-muted">{t.voice.errors[error] ?? t.voice.errors.other}</p>}
     </div>
   );

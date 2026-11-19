@@ -102,7 +102,10 @@ describe('the pilot’s weekly summary (D119)', () => {
     const entries = [meal('1', '2026-10-26T13:00:00', 'voice'), meal('2', '2026-10-26T19:00:00'), meal('3', '2026-10-28T13:00:00', 'photo'),
       { ...meal('4', '2026-10-29T13:00:00'), status: 'planned' as const }, meal('5', '2026-11-02T08:00:00', 'voice')];
     const s = weekSummary(base({ entries, plan: { ...emptyPlan(), onboardedAt: '2026-10-20' }, tallies: { nf: 3, rem_sent: 5, rem_open: 2 } }), '2026-W44');
-    expect(s.food).toEqual({ days_logged: 2, entries: 3, by_voice: 1, by_text: 1, by_photo: 1, not_found: 3 });
+    expect(s.food).toEqual({ days_logged: 2, entries: 3, by_voice: 1, by_text: 1, by_photo: 1, not_found: 3 }); // no by_soniox when 0 (D174)
+    const said = weekSummary(base({ entries: [...entries, { ...meal('6', '2026-10-27T13:00:00', 'voice'), voiceEngine: 'soniox' as const }],
+      plan: { ...emptyPlan(), onboardedAt: '2026-10-20' } }), '2026-W44');
+    expect(said.food).toMatchObject({ by_voice: 2, by_soniox: 1 }); // D174: of the meals said aloud, through Soniox
     expect(s.active_days).toBe(2);
     expect(s.days_in).toBe(13); // 20 Oct … 1 Nov
     expect(s.rem).toBeUndefined();

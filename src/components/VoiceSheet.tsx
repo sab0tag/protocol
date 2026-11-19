@@ -9,7 +9,7 @@ import { format } from 'date-fns';
 import { Mic, Square, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { db, inDemo } from '../data/db';
-import { listen, speechSupported, type SpeechError } from '../data/speech';
+import { giveVoiceConsent, listen, speechSupported, voiceConsent, voiceMark, type SpeechError } from '../data/speech';
 import { atLocal, newId } from '../domain/dates';
 import { amountText, needsGrams, approxG } from '../domain/foodSearch';
 import { dishItem, setPortions } from '../domain/recipes';
@@ -36,7 +36,6 @@ const C = t.voice.cmd;
 const OK_KEY = profileKey('protocol.voice.ok'), METRIC_KEY = profileKey(`protocol.metrics.voice${inDemo() ? '.demo' : ''}`); // D98: the pilot's measure from own use only
 /** D95: the voice consent — given once, in this window or at a meal tile's microphone (D159). */
 export const okGiven = () => { try { return localStorage.getItem(OK_KEY) === '1'; } catch { return false; } };
-export const giveVoiceOk = () => { try { localStorage.setItem(OK_KEY, '1'); } catch { /* private mode */ } };
 
 /** D95: seconds from opening the window to writing — the pilot's measure; the last 50, on this device only. */
 export function voiceSeconds(): number[] {
@@ -57,9 +56,12 @@ export function VoiceSheet({ date, plan, foods, recipes, today, yesterday, meds,
   const recent = useRecentEntries(date, 8); // R03: the day and the week before it
   const opened = useRef(Date.now());
   const ids = useRef({ meal: newId(), water: newId(), meds: new Map<string, string>() }); // fixed: a second tap writes the same rows
-  const [ok, setOk] = useState(okGiven);
+  const [need] = useState(voiceConsent); // D174: Soniox's own consent or the phone's (D95), asked once
+  const [ok, setOk] = useState(need === 'ok');
+  const autoStarted = useRef(false);
   const [session, setSession] = useState<VoiceSession>(newSession); // what is taken in (D107: with its history); the field's words go on top of it
   const [heard, setHeard] = useState('');
+  const [left, setLeft] = useState<number | null>(null); // D174: «Ще 15 с»
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<SpeechError | null>(null);
   const [typed, setTyped] = useState('');
@@ -88,13 +90,15 @@ export function VoiceSheet({ date, plan, foods, recipes, today, yesterday, meds,
   };
   const edit = (fn: (d: VoiceDraft) => VoiceDraft, note?: string) => { setSession(change(now, fn(now.draft), note)); setTyped(''); };
   const undo = () => { const prev = now.history.at(-1); if (prev) setSession({ draft: prev, history: now.history.slice(0, -1), note: C.undone }); setTyped(''); };
-  const start = () => {
+  const start = (tap = true) => {
     if (typed.trim()) commit(); // the next words are more of the meal or a command on it
-    setError(null); setHeard(''); setBusy(true);
-    stop.current = listen({ interim: setHeard, final: (x, heard) => { said.current.push(heard); setHeard(''); setTyped(x); }, error: setError, end: () => setBusy(false) },
-      said.current);
+    setError(null); setHeard(''); setBusy(true); setLeft(null);
+    stop.current = listen({ interim: setHeard, final: (x, heard) => { said.current.push(heard); setHeard(''); setTyped(x); }, error: setError, end: () => { setBusy(false); setLeft(null); },
+      left: setLeft }, said.current, { tap });
   };
-  useEffect(() => { if (ok && speechSupported()) start(); return () => stop.current(); }, [ok]); // eslint-disable-line react-hooks/exhaustive-deps
+  // opened already agreed (a shortcut, a link): it starts by itself — without a tap, so on the phone's engine (D174)
+  // — and only with the phone's own consent (D95): the Soniox «yes» says nothing about Google or Apple
+  useEffect(() => { if (ok && okGiven() && !autoStarted.current && speechSupported()) { autoStarted.current = true; start(false); } return () => stop.current(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const save = async () => {
     if (savePending.current || savedOnce.current) return;
@@ -108,7 +112,7 @@ export function VoiceSheet({ date, plan, foods, recipes, today, yesterday, meds,
         || (draft.waterMl > 0 && !featureCan('water.log', latest)))) return;
       setSaving(true);
       const at = atLocal(date, time), rows: DayEntry[] = [];
-      if (draft.items.length) rows.push({ id: ids.current.meal, at, kind: 'meal', status: 'done', title: draft.title ?? defaultTitle(time), items: draft.items.map((x) => x.item), via: 'voice' }); // D119
+      if (draft.items.length) rows.push({ id: ids.current.meal, at, kind: 'meal', status: 'done', title: draft.title ?? defaultTitle(time), items: draft.items.map((x) => x.item), via: 'voice', ...voiceMark() }); // D119, D174
       for (const m of draft.meds) {
         const id = ids.current.meds.get(m.key) ?? newId(); ids.current.meds.set(m.key, id);
         rows.push({ id, at, kind: 'med', status: 'done', title: m.title, checkKey: m.key, ...(m.prescriptionId ? { prescriptionId: m.prescriptionId } : {}) });
@@ -146,9 +150,10 @@ export function VoiceSheet({ date, plan, foods, recipes, today, yesterday, meds,
 
   if (!ok) return (
     <Sheet title={L.title} onClose={onClose}>
-      <p className="text-sm">{L.consent}</p>
-      <button type="button" onClick={() => { giveVoiceOk(); setOk(true); }}
-        className="mt-3 min-h-tap w-full rounded-xl bg-accent px-4 font-medium text-surface">{L.consentOk}</button>
+      <p className="text-sm">{need === 'soniox' ? L.sonioxConsent : L.consent}</p>
+      {/* «Так» starts the recording from this very tap — the audio is made inside the gesture (iPhone) */}
+      <button type="button" onClick={() => { if (need !== 'ok') giveVoiceConsent(need); setOk(true); autoStarted.current = true; if (speechSupported()) start(); }}
+        className="mt-3 min-h-tap w-full rounded-xl bg-accent px-4 font-medium text-surface">{need === 'soniox' ? L.sonioxOk : L.consentOk}</button>
     </Sheet>
   );
 
@@ -159,7 +164,7 @@ export function VoiceSheet({ date, plan, foods, recipes, today, yesterday, meds,
         <button type="button" onClick={() => (busy ? stop.current() : start())} aria-label={busy ? L.listening : empty ? L.listen : L.again}
           className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-full ${busy ? 'animate-pulse bg-warn text-surface' : 'bg-accent text-surface'}`}>
           {busy ? <Square size={22} aria-hidden /> : <Mic size={24} aria-hidden />}</button>
-        <p role="status" className="min-h-[3rem] flex-1 text-sm">{busy ? heard || L.listening : empty ? L.hint : L.more}</p>
+        <p role="status" className="min-h-[3rem] flex-1 text-sm">{busy ? heard || L.listening : empty ? L.hint : L.more}{busy && left !== null && <span className="block font-semibold">{L.left(left)}</span>}</p>
       </div>
       {error && <p role="alert" className="mt-2 text-sm text-warn">{L.errors[error]}</p>}
       {danger && (crisis ? <CrisisCard /> : <DangerCard />)}

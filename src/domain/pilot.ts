@@ -16,7 +16,7 @@ export type Platform = (typeof PLATFORMS)[number];
 export interface Summary {
   v: 1; pid: string; week: string; src?: string; days_in: number; active_days: number;
   meds: { due: number; done: number; skipped: number; late_30: number; prn_taken: number };
-  food: { days_logged: number; entries: number; by_voice: number; by_text: number; by_photo: number; not_found: number };
+  food: { days_logged: number; entries: number; by_voice: number; by_text: number; by_photo: number; not_found: number; by_soniox?: number };
   plan: { meds: number; constraints: number; from_photo: boolean; photo_rows: number; photo_rows_edited: number; photo_rows_unchecked: number };
   help: { why_opened: number; topup_shown: number; topup_taken: number; danger_card: number };
   rem?: { sent: number; opened: number }; // D122: opened from the notification — not a dose confirmed
@@ -75,14 +75,14 @@ export function weekSummary(data: PilotData, week: string): Summary {
   ].filter((d) => d >= first && d <= last));
   const firstDay = [...entries.filter((e) => e.status !== 'planned').map((e) => dateOf(e.at)), ...workouts.map((w) => w.date),
     ...wellbeing.map((w) => w.date), ...weights.map((w) => w.date), ...(plan?.onboardedAt ? [plan.onboardedAt] : [])].sort()[0];
-  const voice = meals.filter((e) => e.via === 'voice').length, photo = meals.filter((e) => e.via === 'photo').length;
+  const voice = meals.filter((e) => e.via === 'voice').length, soniox = meals.filter((e) => e.via === 'voice' && e.voiceEngine === 'soniox').length, photo = meals.filter((e) => e.via === 'photo').length;
   return {
     v: 1, pid: data.pid, week, ...(data.src ? { src: data.src } : {}),
     days_in: firstDay && firstDay <= last ? differenceInCalendarDays(parseISO(last), parseISO(firstDay)) + 1 : 0,
     active_days: recorded.size,
     meds,
     food: { days_logged: new Set(meals.map((e) => dateOf(e.at))).size, entries: meals.length, by_voice: voice, by_text: meals.length - voice - photo,
-      by_photo: photo, not_found: n.nf ?? 0 },
+      by_photo: photo, not_found: n.nf ?? 0, ...(soniox ? { by_soniox: soniox } : {}) }, // D174: of by_voice; sent only when >0 (an older server refuses the field)
     plan: {
       meds: (plan?.prescriptions ?? []).filter((p) => isMed(p.kind) && !(p.since && p.since > last) && !(p.until && p.until < first)).length,
       constraints: (plan?.constraints ?? []).filter((c) => c.active).length,

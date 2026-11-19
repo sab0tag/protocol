@@ -14,7 +14,7 @@ const COOL = 'protocol.sonioxCoolUntil';
 const read = (k: string) => { try { return localStorage.getItem(k); } catch { return null; } };
 const save = (k: string, v: string) => { try { localStorage.setItem(k, v); } catch { /* private mode */ } };
 let server: { available: boolean; id: string; at: number } | null = null, failures = 0;
-export async function refreshSpeech(): Promise<{ available: boolean; id: string } | null> {
+export async function refreshSpeech(): Promise<{ available: boolean; id: string; at: number } | null> {
   try {
     const { currentKeys } = await import('../sync/runner');
     const s = await speechState(currentKeys() ?? null);
@@ -22,10 +22,30 @@ export async function refreshSpeech(): Promise<{ available: boolean; id: string 
   } catch { server = { available: false, id: '', at: Date.now() }; }
   return server;
 }
-export function sonioxReady(): boolean {
+/** Soniox could be used here now — the server gives this device a key, the person did not choose «Телефон», no cool-down. */
+function sonioxOffered(): boolean {
   if (server && Date.now() - server.at > 3_600_000) { void refreshSpeech(); }
-  return read(SONIOX_CONSENT) === 'yes' && read(VOICE_ENGINE) !== 'phone' && !!server?.available && Date.now() >= Number(read(COOL) ?? 0);
+  return read(VOICE_ENGINE) !== 'phone' && !!server?.available && Date.now() >= Number(read(COOL) ?? 0);
 }
+export function sonioxReady(): boolean { return sonioxOffered() && read(SONIOX_CONSENT) === 'yes'; }
+
+// D174 (Soniox, PR 3): which consent the first tap of a microphone asks. Soniox's is its own (the D95 one does not carry over);
+// the phone's engine keeps D95. «Так» starts the recording from that same tap (the AudioContext must be made in the gesture).
+const D95_KEY = () => profileKey('protocol.voice.ok');
+export type VoiceConsent = 'ok' | 'soniox' | 'browser';
+export function voiceConsent(): VoiceConsent {
+  if (sonioxOffered()) return read(SONIOX_CONSENT) === 'yes' ? 'ok' : 'soniox';
+  return read(D95_KEY()) === '1' ? 'ok' : 'browser';
+}
+export function giveVoiceConsent(kind: Exclude<VoiceConsent, 'ok'>) { if (kind === 'soniox') save(SONIOX_CONSENT, 'yes'); else save(D95_KEY(), '1'); }
+/** «Ще → Налаштування → Голос»: the person's choice; «Телефон» is never overridden by the server */
+export const voiceEngineChoice = (): 'phone' | 'soniox' => (read(VOICE_ENGINE) === 'phone' ? 'phone' : 'soniox');
+export const setVoiceEngineChoice = (v: 'phone' | 'soniox') => save(VOICE_ENGINE, v);
+/** the engine of the last recording that gave text — written on a meal said aloud (`voiceEngine`), for the pilot's measure */
+let lastEngine: 'soniox' | 'browser' = 'browser';
+export const lastVoiceEngine = () => lastEngine;
+/** what a meal record said aloud carries about its engine (D174) */
+export const voiceMark = (): { voiceEngine?: 'soniox' } => (lastEngine === 'soniox' ? { voiceEngine: 'soniox' } : {});
 /** for the settings switch (PR 3): the server's answer as last seen */
 export const speechServer = () => server;
 type Rec = { lang: string; interimResults: boolean; continuous: boolean; maxAlternatives: number; start(): void; stop(): void; abort(): void
@@ -45,12 +65,14 @@ export type { ListenHandlers };
 /** Listen once (until a pause, or «це все» at the end — D105): the words as they come (`interim`), then the final text
  *  without the stop words. Returns stop(). Safari on iPhone often ends without ever marking a result final — then the
  *  last words heard are the text (they were shown and never reached the draft, D105). */
-export function listen(on: ListenHandlers, before: string[] = []): () => void {
-  // D173: Soniox when the person agreed to it, did not choose the phone's engine, and the server gives this device a key now
-  if (sonioxReady()) return listenSoniox(on, before, { key: async () => speechKey((await import('../sync/runner')).currentKeys() ?? null),
+export function listen(on: ListenHandlers, before: string[] = [], opts: { tap?: boolean } = {}): () => void {
+  // D173: Soniox when the person agreed to it, did not choose the phone's engine, and the server gives this device a key now.
+  // D174: only from a tap — a recording started by itself (a shortcut's auto-start) has no gesture, and iPhone would keep its
+  // audio suspended; it goes to the phone's engine.
+  if (opts.tap !== false && sonioxReady()) return listenSoniox({ ...on, final: (t, h) => { lastEngine = 'soniox'; on.final(t, h); } }, before, { key: async () => speechKey((await import('../sync/runner')).currentKeys() ?? null),
     fallback: browserListen, fallbackAllowed: () => read(profileKey('protocol.voice.ok')) === '1' /* D95 */, outcome: (ok) => { failures = ok ? 0 : failures + 1; if (failures >= 3) { failures = 0; save(COOL, String(Date.now() + 3_600_000)); } } });
   if (server === null) void refreshSpeech();
-  return browserListen(on, before);
+  return browserListen({ ...on, final: (t, h) => { lastEngine = 'browser'; on.final(t, h); } }, before);
 }
 
 /** The browser's own engine (D95) — Google on Android, Apple on iPhone. */

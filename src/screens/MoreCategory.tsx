@@ -5,6 +5,7 @@ import { t } from '../i18n/uk';
 import { useSync } from '../sync/runner';
 import { ProfilePhotoSettings } from '../components/ProfilePhotoSettings';
 import { ThemeSettings } from '../components/ThemeSettings';
+import { VoiceSettings } from '../components/VoiceSettings';
 
 /** «Ще → Налаштування». The old categories of «Ще» (/more/food, /more/health, /more/app) lead to the one list. */
 export function MoreCategory() {
@@ -19,6 +20,7 @@ export function MoreCategory() {
       <h1 className="text-2xl font-semibold tracking-tight">{t.more.settings}</h1>
       <LinkList links={links} />
       <ThemeSettings />
+      <VoiceSettings />
       <ProfilePhotoSettings />
     </section>
   );

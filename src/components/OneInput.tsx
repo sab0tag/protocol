@@ -14,7 +14,8 @@ import { fieldAnswers } from '../app/fieldAnswers';
 import { answer, assistantConsented, eveningSnack, giveAssistantConsent, keepTalk, talkOf, type Answer } from '../app/assistantAnswer';
 import { applyLightDay } from '../app/lightDay';
 import { db } from '../data/db';
-import { listen, speechSupported, type SpeechError } from '../data/speech';
+import { listen, speechSupported, voiceConsent, type SpeechError, type VoiceConsent } from '../data/speech';
+import { VoiceConsentCard } from './VoiceConsentCard';
 import { count } from '../data/tally';
 import { brings } from '../domain/assistant';
 import type { CheckItem } from '../domain/checklist';
@@ -34,7 +35,6 @@ import { DangerCard } from './DangerCard';
 import { markMeds } from './MarkTime';
 import { PhotoStatus, usePlatePhoto } from './PlatePhoto';
 import { saved, toast } from './Toast';
-import { giveVoiceOk, okGiven } from './VoiceSheet';
 
 const L = t.one;
 const dayRows = (date: string) => db.entries.where('at').startsWith(`${date}T`).toArray();
@@ -73,7 +73,8 @@ export function OneInput({ date, plan, foods, recipes, all, medItems, can, light
   const [card, setCard] = useState<Reading | null>(null);
   const [food, setFood] = useState<VoiceDraft | null>(null); // the food card stays for edits («прибери курку») until written
   const [busy, setBusy] = useState(false);
-  const [ask, setAsk] = useState(false);
+  const [ask, setAsk] = useState<Exclude<VoiceConsent, 'ok'> | false>(false);
+  const [left, setLeft] = useState<number | null>(null); // D174: «Ще 15 с»
   const [error, setError] = useState<SpeechError | null>(null);
   const [talk, setTalk] = useState<{ q: string; a?: Answer } | null>(null); // a question and its answer, while it is on screen
   const asked = useRef(0); // D130: an answer to a question closed or replaced since does not land
@@ -133,9 +134,10 @@ export function OneInput({ date, plan, foods, recipes, all, medItems, can, light
   };
   const submit = () => { if (text.trim()) read(text); };
   const listenNow = () => {
-    if (!okGiven()) { setAsk(true); return; }
-    setAsk(false); setError(null); setBusy(true);
-    stop.current = listen({ interim: setText, final: (x) => { listened.current = true; setText(x); read(x); }, error: setError, end: () => setBusy(false) });
+    const need = voiceConsent(); // D174: Soniox's own consent, or the phone's (D95)
+    if (need !== 'ok') { setAsk(need); return; }
+    setAsk(false); setError(null); setBusy(true); setLeft(null);
+    stop.current = listen({ interim: setText, final: (x) => { listened.current = true; setText(x); read(x); }, error: setError, end: () => { setBusy(false); setLeft(null); }, left: setLeft });
   };
   const markYes = (meds: DueMed[]) => act(async () => {
     const groups = new Map<string, DueMed[]>();
@@ -185,10 +187,8 @@ export function OneInput({ date, plan, foods, recipes, all, medItems, can, light
           {busy ? <Square size={18} aria-hidden /> : <Mic size={20} aria-hidden />}</button>}
         {fileInput}
       </form>
-      {ask && <div className="protocol-card space-y-2 p-3 text-sm">
-        <p>{t.voice.consent}</p>
-        <button type="button" onClick={() => { giveVoiceOk(); listenNow(); }} className="min-h-tap rounded-full bg-accent px-4 font-semibold text-on-accent">{t.voice.consentOk}</button>
-      </div>}
+      {ask && <VoiceConsentCard kind={ask} onYes={listenNow} className="protocol-card p-3" />}
+      {busy && left !== null && <p role="status" className="px-3 text-sm font-semibold">{t.voice.left(left)}</p>}
       {error && <p role="alert" className="px-3 text-sm text-muted">{t.voice.errors[error] ?? t.voice.errors.other}</p>}
     </section>
   );
