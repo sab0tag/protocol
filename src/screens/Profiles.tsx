@@ -28,7 +28,7 @@ export function Profiles() {
         {profiles.map(p => <li key={p.id} className="flex items-center gap-3 p-4">
           <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-accent/10 text-accent" aria-hidden>{p.name ? Array.from(p.name)[0]?.toLocaleUpperCase('uk') : <UserRound />}</span>
           <div className="min-w-0 flex-1"><p className="break-words font-semibold">{p.name || L.self}</p><p className="text-sm text-muted">{labels[p.relation]}</p>
-          {p.id === activeProfileId ? <span className="flex items-center gap-1 text-sm text-accent"><Check size={14} aria-hidden />{L.active}</span> : <button type="button" className="min-h-tap text-accent underline" onClick={() => { try { switchProfile(p.id); } catch { setError(L.error); } }}>{L.select}: {p.name}</button>}</div>
+          {p.id === activeProfileId ? <span className="flex items-center gap-1 text-sm text-accent"><Check size={14} aria-hidden />{L.active}</span> : <button type="button" className="min-h-tap text-accent underline" onClick={() => { try { switchProfile(p.id); } catch { setError(L.error); } }}>{L.select}: {p.name || L.self}</button>}</div>
           <button type="button" className="flex min-h-tap min-w-tap items-center justify-center text-accent" aria-label={`${L.edit}: ${p.name || L.self}`} onClick={() => { setError(''); setEditing({ ...p }); }}><Pencil size={18} aria-hidden /></button>
         </li>)}
       </ul>

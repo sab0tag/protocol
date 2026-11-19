@@ -522,7 +522,7 @@ function RehabForm({ plan, onClose }: { plan: PlanRow; onClose: () => void }) {
   const onSave = () => {
     // the stage being done keeps its place (by order — titles may be reworded); an edit never moves it on
     const old = plan.rehab, at = old ? Math.max(0, old.stages.findIndex((s) => s.id === old.stageId)) : 0;
-    return save({ rehab: { id: old?.id ?? newId(), perDay: Math.min(10, Math.max(1, perDay)), stages, stageId: stages[Math.min(at, stages.length - 1)]!.id, source: source.trim() } });
+    return save({ rehab: { id: old?.id ?? newId(), perDay: Math.min(10, Math.max(1, perDay)), stages, stageId: stages[Math.min(at, stages.length - 1)]!.id, source: source.trim(), since: old?.since ?? todayISO() } });
   };
   return (
     <FormSheet title={R.planTitle} onClose={onClose} onSave={onSave} blocked={stages.length ? undefined : R.needText}
