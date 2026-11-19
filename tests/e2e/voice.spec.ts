@@ -211,3 +211,28 @@ test('Soniox offered: its own consent even after the phone’s, «Так» start
   await expect(page.getByText(/250 мл/).first()).toBeVisible();
   expect(keys).toHaveLength(1);
 });
+
+test('only the Soniox «yes»: a shortcut never starts the phone’s engine by itself; a failed key — «напишіть текстом», nothing else hears (D174)', async ({ browser }) => {
+  const page = await device(browser, 'example', { sw: false });
+  const keys: string[] = [];
+  await page.route('**/v1/device/speech', (r) => r.fulfill({ json: { available: true, id: 'a1b2c3d4e5f6', engine: 'soniox-test' } }));
+  await page.route('**/v1/device/speech/key', (r) => { keys.push(r.request().method()); return r.fulfill({ status: 503, json: { error: 'speech_off' } }); });
+  await page.addInitScript(() => {
+    localStorage.setItem('protocol.deviceToken', 'dev_e2e');
+    localStorage.setItem('protocol.sonioxConsent', 'yes'); // Soniox agreed to; the phone's engine (D95) never was
+    navigator.mediaDevices.getUserMedia = async () => new AudioContext().createMediaStreamDestination().stream;
+  });
+  await fakeSpeech(page, ['два яйця']);
+  await page.goto('./#/more/settings'); // the server's answer is in before the shortcut
+  await expect(page.getByTestId('voice-test-id')).toHaveText('a1b2c3d4e5f6');
+  await page.goto('./#/do/voice');
+  const sheet = page.getByRole('dialog', { name: /Скажіть, що з’їли/ });
+  await expect(sheet.getByRole('button', { name: 'Говорити' })).toBeVisible(); // no consent asked, and not listening
+  await page.waitForTimeout(400);
+  expect(await page.evaluate(() => (window as unknown as { __say: string[] }).__say.length)).toBe(1); // the phone's engine never started
+  await sheet.getByRole('button', { name: 'Говорити' }).click();
+  await expect.poll(() => keys.length).toBe(1);
+  await expect(sheet.getByRole('alert')).toBeVisible();
+  expect(await page.evaluate(() => (window as unknown as { __say: string[] }).__say.length)).toBe(1); // no fallback without D95
+  await expect(sheet.locator('[data-item]')).toHaveCount(0);
+});

@@ -331,8 +331,10 @@ function TileField({ autoStart, input, listened, name, query, setQuery, onPhoto,
   // a shortcut's auto-start has no tap: the phone's engine, never Soniox (iPhone keeps audio made without a gesture silent)
   useEffect(() => { if (autoStart && speechSupported()) start(false); }, []); // eslint-disable-line react-hooks/exhaustive-deps -- once, on opening
   const start = (tap = true) => {
-    const need = tap ? voiceConsent() : (okGiven() ? 'ok' : 'browser');
-    if (need !== 'ok') { setAsk(need); return; }
+    const need = voiceConsent();
+    // no tap: only the phone's engine and only with its consent (D95); otherwise the consent this tap would need, or nothing
+    if (!tap && !okGiven()) { if (need !== 'ok') setAsk(need); return; }
+    if (tap && need !== 'ok') { setAsk(need); return; }
     setAsk(false); setError(null); setBusy(true); setLeft(null);
     stop.current = listen({ interim: setQuery, final: (x) => { listened.current = true; setQuery(x); }, error: setError, end: () => { setBusy(false); setLeft(null); }, left: setLeft }, [], { tap });
   };

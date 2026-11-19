@@ -36,7 +36,6 @@ const C = t.voice.cmd;
 const OK_KEY = profileKey('protocol.voice.ok'), METRIC_KEY = profileKey(`protocol.metrics.voice${inDemo() ? '.demo' : ''}`); // D98: the pilot's measure from own use only
 /** D95: the voice consent — given once, in this window or at a meal tile's microphone (D159). */
 export const okGiven = () => { try { return localStorage.getItem(OK_KEY) === '1'; } catch { return false; } };
-export const giveVoiceOk = () => { try { localStorage.setItem(OK_KEY, '1'); } catch { /* private mode */ } };
 
 /** D95: seconds from opening the window to writing — the pilot's measure; the last 50, on this device only. */
 export function voiceSeconds(): number[] {
@@ -98,7 +97,8 @@ export function VoiceSheet({ date, plan, foods, recipes, today, yesterday, meds,
       left: setLeft }, said.current, { tap });
   };
   // opened already agreed (a shortcut, a link): it starts by itself — without a tap, so on the phone's engine (D174)
-  useEffect(() => { if (ok && !autoStarted.current && speechSupported()) { autoStarted.current = true; start(false); } return () => stop.current(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // — and only with the phone's own consent (D95): the Soniox «yes» says nothing about Google or Apple
+  useEffect(() => { if (ok && okGiven() && !autoStarted.current && speechSupported()) { autoStarted.current = true; start(false); } return () => stop.current(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const save = async () => {
     if (savePending.current || savedOnce.current) return;
