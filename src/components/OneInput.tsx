@@ -256,6 +256,13 @@ function Card({ card, meal, can, lightDay, onClose, onMeds, onWhich, onLightDay,
       ? shell(<><p className="font-semibold">{L.lightDay}</p><button type="button" onClick={onLightDay} className={`${button} bg-accent text-on-accent`}>{L.lightDayYes}</button></>, L.lightDay)
       : null;
     // D162 (the D166 flag off): the question goes to «Помічник», put in its field, sent only by the person
+    // D191: «запитати лікаря, …» — on the doctor's list after «Додати»; never to the assistant
+    case 'doctor-question': return shell(<><p className="font-semibold">{t.ask.oneField(card.text)}</p>
+      <button type="button" onClick={async () => {
+        const p = await db.plan.get('main');
+        if (p && !(p.questions ?? []).includes(card.text)) await saved(db.plan.update('main', { questions: [...(p.questions ?? []), card.text] }), t.ask.added);
+        onClose();
+      }} className={`${button} bg-accent text-on-accent`}>{t.ask.yes}</button></>, t.ask.oneField(card.text));
     case 'question': return shell(<><p>{L.question}</p><button type="button" onClick={() => onAsk(card.text)} className={`${button} border-2 border-line`}>{L.ask}</button></>, L.question);
     case 'assistant-off': return shell(<><p>{L.assistantOff}</p><Link to="/modules" className="inline-flex min-h-tap items-center text-accent underline">{L.modules}</Link></>, L.assistantOff);
     case 'no-card': return shell(<p>{L.noCard}</p>, L.noCard);
