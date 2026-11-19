@@ -46,6 +46,11 @@ services:
       DEMO_IDP_CLIENT_ID: protocol-demo
       DEMO_IDP_REDIRECT: https://api-protocol-demo.${DEMO_ROOT}/v1/auth/callback
     mem_limit: 192m
+    # the server image checks :8080/health; the sign-in listens on :8090 and has no /health — its own discovery document instead
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:8090/.well-known/openid-configuration').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      interval: 30s
+      timeout: 5s
     networks: { default: {}, edge: { aliases: [protocol-demo-idp] } }
 
   mailpit:
