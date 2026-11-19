@@ -153,6 +153,8 @@ export interface Plan {
   /** D21: the last visit to the doctor (the report starts from it) and «Мої питання» for the next one. */
   lastVisit?: ISODate;
   questions?: string[];
+  /** D195: the home time zone, the zones answered, and a «як удома» shift of the medicines' times to undo at home */
+  zone?: { home: string; asked?: string[]; shift?: { zone: string; minutes: number } };
   /** D22: the last JSON export — the weekly reminder counts from it. */
   lastExportAt?: ISODate;
   /** D178: limits for training as a structure; the old text constraints stay as they are and are not filtered by */

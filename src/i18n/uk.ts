@@ -354,6 +354,13 @@ export const t = {
     place: (part: string, side: string) => `${part} ${side}`, later: 'Не зараз', saved: 'Місце уколу записано',
     hint: 'Місце краще міняти: так шкіра не ущільнюється. Дози й препарат — лише як призначив лікар.',
   },
+  zone: { // D195: «перенести час прийому?» after a time zone change
+    away: (diff: string) => `Ви в іншому часовому поясі (${diff} год). Перенести час прийому ліків?`,
+    local: 'За місцевим часом', localHint: (t: string) => `${t} — на годиннику тут`,
+    home: 'Як удома', homeHint: (t: string, here: string) => `${t} удома = ${here} тут`,
+    back: 'Ви знову вдома. Повернути час прийому ліків, як був?', backYes: 'Повернути', keep: 'Залишити як є',
+    hint: 'Без відповіді нічого не змінюється. Час можна змінити й у плані.', saved: 'Час прийому змінено',
+  },
   nutrients: { // D188: salt, sugars, fibre, saturated fat — an unknown is «не відомо», a sum with unknowns «не менше»
     salt: 'Сіль', sugars: 'Цукри', fiber: 'Клітковина', satFat: 'Насичені жири', more: 'Більше нутрієнтів', unknown: 'не відомо',
     value: (x: string, unit: string, partial: boolean) => `${partial ? 'не менше ' : ''}${x} ${unit}`,

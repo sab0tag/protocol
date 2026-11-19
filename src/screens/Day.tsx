@@ -30,6 +30,7 @@ import { useSync } from '../sync/runner';
 import { SimpleEntrySheet } from './SimpleEntrySheet';
 import { NowCard } from '../components/NowCard';
 import { InjectionSiteCard } from '../components/InjectionSiteCard';
+import { ZoneCard } from '../components/ZoneCard';
 import { DayHeader } from '../components/DayHeader';
 import { DayRhythm } from '../components/DayRhythm';
 import { ExampleNotice } from '../components/ExampleNotice';
@@ -202,6 +203,7 @@ export function Day() {
       <div data-testid="focused-day-now">
         {entries && <NowCard compact entries={entries} plan={plan} date={date} observation={observation} onConfirm={setConfirming} onReschedule={setRescheduling} />}
       </div>
+      {isToday && plan && !context.demo && <ZoneCard plan={plan} /> /* D195 */}
       {entries && all && plan && <InjectionSiteCard day={entries} all={all} prescriptions={plan.prescriptions} /> /* D189 */}
       {checklist && entries && <QuickMarks date={date} isToday={isToday} light={light} items={checklist.items} entries={entries}
         fluid={dayFluid(entries, foods ?? new Map(), date)} targets={{ ...targets, ...(plan?.targets.waterMaxMl ? { waterMaxMl: plan.targets.waterMaxMl } : {}), ...(plan?.targets.waterFrom ? { waterFrom: plan.targets.waterFrom } : {}) }} /* D169 */
