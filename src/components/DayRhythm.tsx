@@ -51,7 +51,7 @@ export function DayRhythm({ date, rhythm, foods, onEntry, onDose, onAnytime, onA
           <span className="text-sm text-muted">{L.anytime}</span>
           {rhythm.anytime.map((i) => (
             <button key={i.key} type="button" onClick={() => onAnytime(i)}
-              className="flex min-h-tap items-center gap-1.5 rounded-full border border-line bg-surface px-3 text-sm font-medium">
+              className="flex min-h-tap items-center gap-2 rounded-full border border-line bg-surface px-3 text-sm font-medium">
               {i.kind === 'workout' ? <Dumbbell size={16} className="text-accent" aria-hidden /> : <Pill size={16} className="text-accent" aria-hidden />}{i.title}</button>
           ))}
         </div>
@@ -119,7 +119,7 @@ function Node({ node, phase, pending, last, foods, onEntry, onDose }: {
           {e.timeUnknown || e.adherence === 'uncertain' ? '—' : node.at}</span><Dot state={state} />
         <span className="min-w-0">
           {phase === 'current' && <span className="protocol-rhythm-phase">{L.nearest}</span>}
-          <span className={`flex items-start gap-2 font-medium ${state === 'skipped' || state === 'done' ? 'line-through decoration-muted' : ''}`}><Icon size={16} className="mt-0.5 shrink-0 text-accent" aria-hidden />{e.title}</span>
+          <span className={`flex items-start gap-2 font-medium ${state === 'skipped' || state === 'done' ? 'line-through decoration-muted' : ''}`}><Icon size={16} className="mt-1 shrink-0 text-accent" aria-hidden />{e.title}</span>
           {detail && <span className="block truncate text-sm text-muted">{detail}</span>}
           <span className={`block text-sm ${state === 'done' ? 'text-accent' : state === 'symptom' ? 'text-warn' : 'text-muted'}`}>{word}</span>
         </span>

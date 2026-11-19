@@ -29,7 +29,7 @@ export function Pilot() {
       <header className="protocol-scene-header"><h1 className="text-2xl font-semibold">{L.title}</h1></header>
       <p className="text-sm">{on && m.consent ? L.on(format(parseISO(m.consent.at), 'd MMMM yyyy', { locale: uk })) : L.off}</p>
       {!on && (asking ? <PilotConsent onDone={() => setAsking(false)} />
-        : <button type="button" onClick={() => setAsking(true)} className="min-h-tap w-full rounded-xl bg-accent px-4 font-medium text-surface">{L.join}</button>)}
+        : <button type="button" onClick={() => setAsking(true)} className="min-h-tap w-full rounded-xl bg-accent px-4 font-medium text-on-accent">{L.join}</button>)}
       {on && <button type="button" onClick={() => void turnOff().then(() => toast(L.stopped))} className="min-h-tap w-full rounded-xl border border-line px-4">{L.stop}</button>}
       <SourceField current={m.src} />
       <section aria-label={L.sent} className="space-y-2">

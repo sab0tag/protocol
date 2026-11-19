@@ -10,7 +10,7 @@ const L = t.exercise;
 
 export function LevelBadge({ level }: { level: 1 | 2 | 3 }) {
   const look = level === 1 ? 'bg-accent/10 text-accent' : level === 2 ? 'bg-water/15 text-water' : 'bg-warn-bg text-warn';
-  return <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${look}`}>{L.levels[level - 1]}</span>;
+  return <span className={`rounded-full px-2 py-1 text-xs font-medium ${look}`}>{L.levels[level - 1]}</span>;
 }
 
 export function ExerciseCard({ exercise: e, onClose, children }: { exercise: Exercise; onClose: () => void; children?: ReactNode }) {

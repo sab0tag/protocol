@@ -44,7 +44,7 @@ export function Toaster() {
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-[calc(var(--tabbar)+.25rem+env(safe-area-inset-bottom))] z-30 flex justify-center px-4 md:bottom-6 print:hidden">
       <div key={current.id} role="status" aria-live="polite"
-        className={`pointer-events-auto flex max-w-md items-center gap-3 rounded-2xl px-4 py-2.5 shadow-lg motion-safe:animate-[toast-in_160ms_ease-out]
+        className={`pointer-events-auto flex max-w-md items-center gap-3 rounded-2xl px-4 py-3 shadow-lg motion-safe:animate-[toast-in_160ms_ease-out]
           ${current.tone === 'ok' ? 'bg-ink text-bg' : 'bg-warn text-surface'}`}>
         <Icon size={18} aria-hidden className="shrink-0" />
         <span className="font-medium">{current.text}</span>

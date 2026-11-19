@@ -126,7 +126,7 @@ function KettlebellWorkout() {
           <div className="rounded-2xl bg-bg p-3"><Check size={18} className="mb-2 text-accent" aria-hidden /><p className="text-xl font-semibold tabular">{draft.exercises.reduce((n, ex) => n + ex.sets.length, 0)}</p><p className="text-xs text-muted">{existing ? 'Підходів у записі' : 'Підходів у плані'}</p></div>
           <div className="rounded-2xl bg-bg p-3"><Clock3 size={18} className="mb-2 text-accent" aria-hidden /><p className="text-xl font-semibold tabular">{draft.durationMin}</p><p className="text-xs text-muted">{existing ? 'Записано, хв' : 'У плані, хв'}</p></div>
         </div>
-        <button type="button" onClick={() => { exercisesHeading.current?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth', block: 'start' }); exercisesHeading.current?.focus({ preventScroll: true }); }} className="flex min-h-tap items-center justify-center rounded-xl bg-accent px-4 font-semibold text-surface">{existing ? 'Переглянути вправи' : 'Перейти до вправ'}</button>
+        <button type="button" onClick={() => { exercisesHeading.current?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth', block: 'start' }); exercisesHeading.current?.focus({ preventScroll: true }); }} className="flex min-h-tap items-center justify-center rounded-xl bg-accent px-4 font-semibold text-on-accent">{existing ? 'Переглянути вправи' : 'Перейти до вправ'}</button>
       </section>
 
       {draft.exercises.length > 0 && (
@@ -173,7 +173,7 @@ function KettlebellWorkout() {
 
       {!existing && (
         <p className="flex items-start gap-2 protocol-card rounded-2xl border border-line bg-surface p-3 text-sm">
-          <Info size={18} className="mt-0.5 shrink-0 text-muted" />
+          <Info size={18} className="mt-1 shrink-0 text-muted" />
           {schedule.postponed ?? (schedule.due ? L.today : `${L.notToday}. ${schedule.next ? L.nextOn(dm(schedule.next)) : ''}`)}
         </p>
       )}
@@ -291,7 +291,7 @@ function KettlebellWorkout() {
       <div className="sticky bottom-[calc(var(--tabbar)+.5rem+env(safe-area-inset-bottom))] z-10 md:bottom-4">
         <button type="button" onClick={() => void save()} disabled={!dirty}
           className={`flex min-h-[3.25rem] w-full items-center justify-center gap-2 rounded-2xl px-4 font-semibold shadow-lg ${dirty
-            ? 'bg-accent text-surface' : 'border border-accent/40 bg-surface text-accent'}`}>
+            ? 'bg-accent text-on-accent' : 'border border-accent/40 bg-surface text-accent'}`}>
           {dirty ? <Save size={20} aria-hidden /> : <Check size={20} aria-hidden />}
           {dirty ? (existing ? L.saveChanges : L.save) : L.saved}</button>
       </div>

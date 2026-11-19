@@ -31,7 +31,7 @@ async function issuePlan(browser: Browser, doctorToken: string, title: string) {
   const response = doctor.waitForResponse(r => r.url().endsWith('/v1/clinic/plans') && r.request().method() === 'POST');
   await doctor.getByRole('button', { name: 'Створити QR', exact: true }).click();
   const issued = await (await response).json() as { deliveryId: string; code: string };
-  await expect(doctor.locator('div.bg-white > svg')).toBeVisible();
+  await expect(doctor.locator('div.bg-paper > svg')).toBeVisible();
   return { doctor, context, ...issued };
 }
 

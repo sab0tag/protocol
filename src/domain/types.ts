@@ -155,6 +155,8 @@ export interface Plan {
   /** D21: the last visit to the doctor (the report starts from it) and «Мої питання» for the next one. */
   lastVisit?: ISODate;
   questions?: string[];
+  /** D191: questions asked at a visit — the doctor's answer in one line, the date; the open list is `questions` */
+  answered?: { q: string; a: string; at: ISODate }[];
   /** D22: the last JSON export — the weekly reminder counts from it. */
   lastExportAt?: ISODate;
   /** D178: limits for training as a structure; the old text constraints stay as they are and are not filtered by */
