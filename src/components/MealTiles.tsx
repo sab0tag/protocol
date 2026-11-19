@@ -20,6 +20,7 @@ import { medFoodNotes } from '../domain/medFood';
 import { blockKeyFor, hitLabels, mealBlocks, NEW_SNACK, recentSlotDays, sameFood, SLOTS, slotEntries, slotTime, tileState, usualForSlot, withFoodDose, yesterdaySlot, type MealBlock, type Slot, type TileState } from '../domain/mealSlots';
 import { dayTotals, mealNutrients, round, saltLimit, saltLine } from '../domain/nutrition';
 import { fastingMorning } from '../domain/fastingTest';
+import { beforeFood } from '../domain/beforeFood';
 import { dishItem, setPortions } from '../domain/recipes';
 import type { ItemCheck, RuleHit } from '../domain/rules';
 import { crisisInText, dangerInText } from '../domain/symptoms';
@@ -133,6 +134,7 @@ function MealTile({ block, now, date, day, all, foods, recipes, plan, quiet, ope
             : state === 'missed' ? <span className="text-muted"> — {L.notRecorded} · <span className="font-medium text-accent">{L.add}</span></span>
               : summary && <span className={`${state === 'planned' ? 'text-muted' : ''}`}> · {summary}</span>}
           {slot === 0 && state !== 'recorded' && <FastingTestLine plan={plan} date={date} day={day} /> /* D193 */}
+          {slot === 0 && state !== 'recorded' && <BeforeFoodLine plan={plan} day={day} /> /* D192 */}
           {state === 'recorded' && labels.length > 0 && <span className="mt-1 flex flex-wrap gap-1">{labels.map((x) => <PlanLabel key={x} text={x} />)}</span>}
         </span>
         {state === 'recorded' && !labels.length && plan?.constraints.some((c) => c.active) && foodPlanStatus(checks, foods, plan).state === 'clear'
@@ -156,8 +158,17 @@ function FastingTestLine({ plan, date, day }: { plan: Plan | undefined; date: st
     {m.meds.length > 0 && <span className="block">{t.fastingTest.meds(m.meds.join(', '))}</span>}</span>;
 }
 
+/** D192: an empty-stomach medicine marked — how long until breakfast; refreshed every half minute. */
+function BeforeFoodLine({ plan, day }: { plan: Plan | undefined; day: DayEntry[] }) {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => { const id = window.setInterval(() => setNow(new Date()), 30_000); return () => window.clearInterval(id); }, []);
+  const b = beforeFood(plan, day, now);
+  if (!b) return null;
+  return <span className="block text-sm text-warn" data-testid="before-food">{b.minutes ? t.fasting.wait(b.minutes, b.title) : t.fasting.empty(b.title)}</span>;
+}
+
 function PlanLabel({ text }: { text: string }) {
-  return <span className="rounded-full bg-warn-bg px-2 py-0.5 text-xs font-semibold text-warn">{text}</span>;
+  return <span className="rounded-full bg-warn-bg px-2 py-1 text-xs font-semibold text-warn">{text}</span>;
 }
 
 function TileBody({ slot, name, date, lines, planned, checks, all, day, foods, recipes, plan, onConfirm, onClose, at, onCreated, listen, draft, onDraftDone }: {
@@ -273,7 +284,7 @@ function TileBody({ slot, name, date, lines, planned, checks, all, day, foods, r
                 <button type="button" data-item={item.name} onClick={() => pickOne(item)} className="flex min-h-tap w-full items-center gap-2 px-3 py-1 text-left">
                   <span className="min-w-0 flex-1">
                     <span className="block">{recipe && <span className="mr-1 rounded-full bg-accent/10 px-2 text-xs font-medium text-accent">{t.meal.dish}</span>}{item.name}</span>
-                    <span className="mt-0.5 flex flex-wrap items-center gap-1 text-sm text-muted"><span className="tabular mr-1">{amountText(item)}{item.unit || (recipe && !item.recipe?.byGrams) ? ` ≈ ${approxG(item.grams)} г` : ''}</span>
+                    <span className="mt-1 flex flex-wrap items-center gap-1 text-sm text-muted"><span className="tabular mr-1">{amountText(item)}{item.unit || (recipe && !item.recipe?.byGrams) ? ` ≈ ${approxG(item.grams)} г` : ''}</span>
                       {marks.map((x) => <PlanLabel key={x} text={x} />)}</span>
                   </span>
                   {!marks.length && plan?.constraints.some((c) => c.active) && <Check size={16} className="shrink-0 text-accent" aria-label={t.check.fits} />}
@@ -358,7 +369,7 @@ function TileField({ autoStart, input, listened, name, query, setQuery, onPhoto,
             onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); onEnter(); } }}
             className="block min-h-tap w-full rounded-full border-2 border-line bg-bg px-4" /></label>
         {speechSupported() && <button type="button" onClick={() => (busy ? stop.current() : start())} aria-label={busy ? L.listening : L.mic}
-          className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-surface ${busy ? 'animate-pulse bg-warn' : 'bg-accent'}`}>
+          className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-on-accent ${busy ? 'animate-pulse bg-warn' : 'bg-accent'}`}>
           {busy ? <Square size={18} aria-hidden /> : <Mic size={20} aria-hidden />}</button>}
         <button type="button" onClick={onPhoto} disabled={photoBusy} aria-label={L.camera}
           className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 border-line text-accent disabled:opacity-40"><Camera size={20} aria-hidden /></button>
@@ -398,7 +409,7 @@ function SwipeRow({ line, labels, onTap, onRemove }: { line: Line; labels: strin
         className="relative flex min-h-tap w-full items-center gap-2 bg-surface py-1 text-left">
         <span className="min-w-0 flex-1">
           <span className="block">{item.name}</span>
-          <span className="mt-0.5 flex flex-wrap items-center gap-1 text-sm text-muted"><span className="tabular mr-1">{amountText(item)}</span>
+          <span className="mt-1 flex flex-wrap items-center gap-1 text-sm text-muted"><span className="tabular mr-1">{amountText(item)}</span>
             {labels.map((x) => <PlanLabel key={x} text={x} />)}</span>
         </span>
         <span className="tabular shrink-0 text-xs text-muted">{line.entry.timeUnknown ? '' : timeOf(line.entry.at)}</span>
@@ -460,7 +471,7 @@ function PlanLine({ checks, foods, plan, kcal, protein, salt }: { checks: ItemCh
         {clear && <Check size={16} className="shrink-0 self-center" aria-hidden />}
         <span className="font-semibold">{text}</span>
         {plan && active.length > 0 && <button type="button" aria-expanded={why} onClick={() => { if (!why) void count('why'); setWhy((v) => !v); }}
-          className="min-h-[2rem] px-1 underline">{t.why.ask}</button>}
+          className="min-h-tap px-1 underline">{t.why.ask}</button>}
         <span className="tabular ml-auto text-xs opacity-80">{t.tiles.totals(kcal, protein)}</span>
       </p>
       {salt && <p className="tabular text-xs opacity-80" data-testid="tile-salt">{salt}{/* D188: the day's salt, the plan limits it */}</p>}

@@ -99,7 +99,7 @@ export function ConfirmMeal({ entry, date, foods, onClose, onEdit, onPin, onDele
       </fieldset>
 
       <button type="button" onClick={save} disabled={!ticked.size || !when()}
-        className="mt-4 min-h-tap w-full rounded-xl bg-accent px-4 font-medium text-surface disabled:opacity-40">
+        className="mt-4 min-h-tap w-full rounded-xl bg-accent px-4 font-medium text-on-accent disabled:opacity-40">
         {!ticked.size ? L.pickSome : !when() ? L.pickWhen : L.save(ticked.size)}</button>
       <button type="button" onClick={none} className="mt-2 min-h-tap w-full rounded-xl border border-line px-4">{L.none}</button>
 

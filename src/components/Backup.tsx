@@ -60,7 +60,7 @@ export function Backup({ alwaysOpen = false }: { alwaysOpen?: boolean }) {
       </summary>
       <p className="mb-3 mt-2 text-sm text-muted">{synced ? L.textSynced : L.text}</p>
       <div className="flex flex-wrap gap-2">
-        <button type="button" onClick={() => void download()} className="flex min-h-tap items-center gap-2 rounded-xl bg-accent px-3 font-medium text-surface"><Download size={18} />{L.save}</button>
+        <button type="button" onClick={() => void download()} className="flex min-h-tap items-center gap-2 rounded-xl bg-accent px-3 font-medium text-on-accent"><Download size={18} />{L.save}</button>
         {canShareFiles && <button type="button" onClick={() => void share()} className="flex min-h-tap items-center gap-2 rounded-xl border border-accent px-3 font-medium text-accent"><Share2 size={18} />{L.share}</button>}
         <button type="button" onClick={() => input.current?.click()} className="flex min-h-tap items-center gap-2 rounded-xl border border-line px-3"><Upload size={18} />{L.restore}</button>
         <input ref={input} type="file" accept="application/json,.json" className="hidden" onChange={(e) => void pick(e.target.files?.[0])} />

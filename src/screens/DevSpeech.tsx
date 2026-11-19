@@ -85,7 +85,7 @@ export function DevSpeech() {
         <div className="flex flex-wrap gap-2">
           {[1, 2].map((n) => (
             <button key={n} type="button" onClick={() => record(n)} disabled={busy !== null && busy !== n}
-              className={`flex min-h-tap items-center gap-2 rounded-full px-4 font-semibold disabled:opacity-40 ${busy === n ? 'animate-pulse bg-warn text-surface' : 'bg-accent text-on-accent'}`}>
+              className={`flex min-h-tap items-center gap-2 rounded-full px-4 font-semibold disabled:opacity-40 ${busy === n ? 'animate-pulse bg-warn text-on-accent' : 'bg-accent text-on-accent'}`}>
               {busy === n ? <Square size={18} aria-hidden /> : <Mic size={18} aria-hidden />}{done[n] ? L.again(n) : L.record(n)}</button>))}
         </div>
         {busy !== null && <p role="status" className="text-sm">{live || L.listening}</p>}

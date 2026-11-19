@@ -109,7 +109,7 @@ export function Labs() {
             <input value={lab.target} onChange={(e) => setLab({ ...lab, target: e.target.value })} placeholder="< 5,6" className={field} /></label>
           <p className="col-span-2 text-xs text-muted">{L.referenceHint}</p>
           {message && <p role="alert" className="col-span-2 text-sm text-warn">{message}</p>}
-          <button type="submit" className="min-h-tap rounded-xl bg-accent px-3 font-medium text-surface">{t.plan.save}</button>
+          <button type="submit" className="min-h-tap rounded-xl bg-accent px-3 font-medium text-on-accent">{t.plan.save}</button>
           <button type="button" onClick={() => setOpen(false)} className="min-h-tap rounded-xl border border-line px-3">{t.plan.cancel}</button>
           </fieldset>
         </form>

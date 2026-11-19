@@ -43,7 +43,7 @@ export function WeightCard() {
 
         {max != null && tooFastTwoWeeks(weeks) && (
           <p role="alert" className="mb-3 flex items-start gap-2 rounded-xl bg-warn-bg p-2 text-sm text-warn">
-            <AlertTriangle size={18} className="mt-0.5 shrink-0" aria-hidden />{L.tooFast(max)}</p>
+            <AlertTriangle size={18} className="mt-1 shrink-0" aria-hidden />{L.tooFast(max)}</p>
         )}
 
         {pace(weeks) !== undefined && (

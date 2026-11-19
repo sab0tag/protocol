@@ -63,7 +63,7 @@ export function DayHeader({ date, setDate, action }: { date: string; setDate: (d
                   className={`flex min-h-tap w-full flex-col items-center rounded-xl py-1 ${selected ? 'bg-accent text-on-accent' : day === today ? 'bg-accent/10 text-accent' : 'text-ink'}`}>
                   <span className={`text-xs first-letter:uppercase ${selected ? '' : 'text-muted'}`}>{format(x, 'EEEEEE', { locale: uk })}</span>
                   <span className="tabular text-lg font-medium leading-tight">{format(x, 'd')}</span>
-                  <span className={`mt-0.5 h-1.5 w-1.5 rounded-full ${withRecords?.has(day) ? (selected ? 'bg-on-accent' : 'bg-accent') : 'bg-transparent'}`} aria-hidden />
+                  <span className={`mt-1 h-1.5 w-1.5 rounded-full ${withRecords?.has(day) ? (selected ? 'bg-on-accent' : 'bg-accent') : 'bg-transparent'}`} aria-hidden />
                 </button>
               </li>
             );

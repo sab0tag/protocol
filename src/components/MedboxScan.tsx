@@ -48,7 +48,7 @@ export function MedboxScan({ onRead }: { onRead: (r: MedboxResult) => void }) {
         <div className="space-y-2 rounded-xl border border-accent/40 p-2 text-sm">
           <p>{P.medPhotoConsent}</p>
           <button type="button" onClick={async () => { await db.meta.update('sync', { medboxConsent: true }); setState('none'); input.current?.click(); }}
-            className="min-h-tap rounded-xl bg-accent px-3 font-medium text-surface">{P.medPhotoAllow}</button>
+            className="min-h-tap rounded-xl bg-accent px-3 font-medium text-on-accent">{P.medPhotoAllow}</button>
         </div>
       )}
       {said && <p role="status" className="text-sm text-muted">{said}</p>}

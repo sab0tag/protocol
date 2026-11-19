@@ -58,7 +58,7 @@ export function ProfilePhotoSettings() {
         <p className="mt-1 text-sm text-muted">{L.localOnly}</p>
         <div className="mt-2 flex flex-wrap gap-2">
           <button type="button" disabled={busy} onClick={() => input.current?.click()}
-            className="inline-flex min-h-tap items-center gap-2 rounded-xl bg-accent px-3 font-medium text-surface disabled:opacity-50">
+            className="inline-flex min-h-tap items-center gap-2 rounded-xl bg-accent px-3 font-medium text-on-accent disabled:opacity-50">
             <Camera size={17} aria-hidden />{busy ? L.saving : photo ? L.change : L.choose}
           </button>
           {photo && <button type="button" onClick={() => void remove()} className="inline-flex min-h-tap items-center gap-2 rounded-xl border border-line px-3">

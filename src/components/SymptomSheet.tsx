@@ -101,7 +101,7 @@ export function SymptomSheet({ date, entry, all, foods, onClose }: { date: strin
       </section>}
 
       <button type="button" onClick={() => void save()} disabled={!picked.length || !at || saving}
-        className="mt-4 min-h-tap w-full rounded-xl bg-accent px-4 font-medium text-surface disabled:opacity-40">{picked.length ? L.save : L.pickSome}</button>
+        className="mt-4 min-h-tap w-full rounded-xl bg-accent px-4 font-medium text-on-accent disabled:opacity-40">{picked.length ? L.save : L.pickSome}</button>
     </Sheet>
   );
 }

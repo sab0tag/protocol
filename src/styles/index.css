@@ -16,6 +16,8 @@
   --meter-calcium: 142 105 23; --meter-carbs: 147 113 30;
   --ok: 20 119 84; --ok-bg: 232 247 238; --danger: 198 61 69; --danger-bg: 255 240 240;
   --pending: 40 108 155; --pending-bg: 237 246 252; --disabled: 112 122 116;
+  /* D190: the same in both themes — a QR code needs white paper, an overlay or a photo mask needs black */
+  --paper: 255 255 255; --scrim: 0 0 0;
   --moved: 117 96 179; --moved-bg: 243 239 255;
   color-scheme: light;
 }
@@ -28,7 +30,7 @@
     --meter-energy: 248 145 77; --meter-protein: 117 220 160; --meter-meds: 186 160 255;
     --meter-calcium: 235 202 115; --meter-carbs: 227 186 111;
     --ok: 117 220 160; --ok-bg: 24 58 40; --danger: 255 150 150; --danger-bg: 74 28 32;
-    --pending: 150 180 240; --pending-bg: 28 40 70; --disabled: 140 156 146;
+    --pending: 150 180 240; --pending-bg: 28 40 70; --disabled: 140 156 146; --paper: 255 255 255; --scrim: 0 0 0;
     color-scheme: dark;
   }
 }
@@ -40,12 +42,12 @@
   --meter-energy: 248 145 77; --meter-protein: 117 220 160; --meter-meds: 186 160 255;
   --meter-calcium: 235 202 115; --meter-carbs: 227 186 111;
   --ok: 117 220 160; --ok-bg: 24 58 40; --danger: 255 150 150; --danger-bg: 74 28 32;
-  --pending: 150 180 240; --pending-bg: 28 40 70; --disabled: 140 156 146;
+  --pending: 150 180 240; --pending-bg: 28 40 70; --disabled: 140 156 146; --paper: 255 255 255; --scrim: 0 0 0;
   color-scheme: dark;
 }
 
 html, body { background: rgb(var(--bg)); color: rgb(var(--ink)); }
-body { font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; -webkit-tap-highlight-color: transparent; }
+body { font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; -webkit-tap-highlight-color: transparent; font-size: 1rem; line-height: 1.45; } /* D190: body 16 px, 1.45 */
 /* D97: a hint never looks like a value typed in («08:30» that is not set) */
 ::placeholder { color: rgb(var(--muted)); opacity: 0.55; font-style: italic; }
 .tabular { font-variant-numeric: tabular-nums; }
@@ -92,7 +94,7 @@ input[type="date"]:focus-within, input[type="time"]:focus-within, input[type="da
   }
   .protocol-action:hover { background: rgb(var(--accent-hover)); }
   .protocol-action:active { background: rgb(var(--accent-pressed)); }
-  .protocol-state { @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold; }
+  .protocol-state { @apply inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold; }
   .protocol-state-ok { background: rgb(var(--ok-bg)); color: rgb(var(--ok)); }
   .protocol-state-warn { background: rgb(var(--warn-bg)); color: rgb(var(--warn)); }
   .protocol-state-danger { background: rgb(var(--danger-bg)); color: rgb(var(--danger)); }
@@ -115,7 +117,7 @@ body { background-image: radial-gradient(ellipse at 10% 0%, rgb(var(--accent) / 
 /* ТЗ 17.11, step 2 (D160): no stock photos behind section headings — the heading is text. */
 .protocol-card { border-radius: var(--protocol-radius-card); border-color: rgb(var(--line) / .8); }
 .protocol-card > h2, .protocol-card > div > h2 { letter-spacing: -.02em; }
-.protocol-toggle-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 1rem; padding-block: .65rem; }
+.protocol-toggle-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 1rem; padding-block: .75rem; }
 .protocol-toggle-row > .protocol-switch { grid-column: 2; grid-row: 1; }
 .protocol-toggle-row > span { grid-column: 1; grid-row: 1; }
 input[type=checkbox] { appearance: none; width: 1.25rem; height: 1.25rem; flex-shrink: 0; border: 1.5px solid rgb(var(--muted) / .6); border-radius: .375rem; background-color: rgb(var(--bg)); cursor: pointer; }
@@ -148,7 +150,7 @@ input[type=checkbox].protocol-switch:checked::after { transform: translateX(1.12
 @media (min-width: 380px) {
   .protocol-metric-rings[data-count="3"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
-.protocol-metric { min-width: 0; border-radius: 1.125rem; background: rgb(var(--bg) / .7); padding: .875rem; }
+.protocol-metric { min-width: 0; border-radius: 1.125rem; background: rgb(var(--bg) / .7); padding: 1rem; }
 .protocol-week-metric { gap: .25rem; padding: .5rem; }
 .protocol-week-ring { width: 3.5rem; height: 3.5rem; }
 .protocol-metric-value { font-size: clamp(1rem, 3.5vw, 1.25rem); font-weight: 600; letter-spacing: -.025em; }
@@ -189,13 +191,13 @@ main :where(details[open] > summary)::after { transform: rotate(180deg); }
 .protocol-card :where(dt, figcaption) { line-height: 1.5; }
 .protocol-card dd { font-variant-numeric: tabular-nums; letter-spacing: -.025em; }
 .protocol-action, .protocol-action-secondary { min-height: var(--protocol-height-control); }
-.protocol-bottom-nav a { min-height: 3.5rem; font-size: .75rem; line-height: 1.25; }
+.protocol-bottom-nav a { min-height: 3.5rem; font-size: .8125rem; line-height: 1.25; }
 .protocol-bottom-nav a[aria-current="page"] { background: rgb(var(--accent) / .12); }
 .protocol-rhythm-node > button { border: 1px solid transparent; }
 .protocol-rhythm-node[data-phase="current"] > button { border-color: rgb(var(--accent) / .5); background: rgb(var(--accent) / .08); box-shadow: inset 3px 0 rgb(var(--accent)); }
 .protocol-rhythm-node[data-phase="past"] > button { background: rgb(var(--line) / .15); }
 .protocol-rhythm-node[data-phase="future"] > button { border-color: rgb(var(--line) / .55); }
-.protocol-rhythm-phase { display: block; color: rgb(var(--accent)); font-size: .75rem; font-weight: 600; line-height: 1.5; }
+.protocol-rhythm-phase { display: block; color: rgb(var(--accent)); font-size: .8125rem; font-weight: 600; line-height: 1.5; }
 .protocol-rhythm-phase:empty { display: none; }
 .protocol-rhythm-node[data-phase="past"] .protocol-rhythm-phase { color: rgb(var(--muted)); }
 @keyframes protocol-card-enter { from { opacity: .5; transform: translateY(5px); } to { opacity: 1; transform: none; } }
@@ -223,7 +225,7 @@ main :where(details[open] > summary)::after { transform: rotate(180deg); }
 
 /* UI-ARCH-01: one responsive shell; screen bodies migrate in their own stages. */
 .protocol-app-header { min-height: 4rem; display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
-.protocol-brand { display: inline-flex; align-items: center; gap: .375rem; min-height: 2.75rem; min-width: 0; padding-right: .5rem; font-size: 1rem; font-weight: 650; letter-spacing: -.02em; white-space: nowrap; }
+.protocol-brand { display: inline-flex; align-items: center; gap: .5rem; min-height: 2.75rem; min-width: 0; padding-right: .5rem; font-size: 1rem; font-weight: 650; letter-spacing: -.02em; white-space: nowrap; }
 .protocol-brand svg { flex-shrink: 0; }
 /* ТЗ 17.11, step 2: «Назад» and «Ще» are words next to the icon, at least 44 px each way */
 .protocol-header-back, .protocol-header-more { display: inline-flex; align-items: center; gap: .25rem; min-height: 2.75rem; min-width: 2.75rem; padding-inline: .5rem; border-radius: 9999px; font-weight: 600; white-space: nowrap; }
@@ -234,7 +236,7 @@ main :where(details[open] > summary)::after { transform: rotate(180deg); }
 .protocol-header-status { display: inline-flex; align-items: center; min-height: 2.75rem; min-width: 0; padding-inline: .5rem; font-size: .875rem; color: rgb(var(--warn)); text-decoration: underline; text-underline-offset: 3px; }
 .protocol-bottom-nav a { min-height: 4rem; }
 /* D160: the example, said once — a thin line above the header, not a notice on every screen */
-.protocol-example-strip { display: flex; align-items: center; justify-content: center; gap: .375rem; margin-inline: -1rem; padding: .125rem 1rem; background: rgb(var(--warn-bg)); color: rgb(var(--warn)); font-size: .875rem; }
+.protocol-example-strip { display: flex; align-items: center; justify-content: center; gap: .5rem; margin-inline: -1rem; padding: .25rem 1rem; background: rgb(var(--warn-bg)); color: rgb(var(--warn)); font-size: .875rem; }
 .protocol-example-strip button { min-height: 2.75rem; padding-inline: .5rem; }
 /* the bottom tab bar's height on phones: sticky actions and toasts sit above it, or at the edge where there are no tabs */
 .protocol-app-shell { --tabbar: 0rem; }
