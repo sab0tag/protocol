@@ -17,7 +17,9 @@ describe('nutrition', () => {
 
   it('takes a free line as entered for the whole portion', () => {
     const n = itemNutrients({ name: 'Суп', grams: 300, manual: { kcal: 150, protein: 8, fat: 5, carbs: 18 } }, undefined);
-    expect(n).toEqual({ kcal: 150, protein: 8, fat: 5, carbs: 18, calciumMg: 0 });
+    expect(n).toMatchObject({ kcal: 150, protein: 8, fat: 5, carbs: 18, calciumMg: 0 });
+    // D188: a free line without the four does not know them — unknown, not 0
+    expect(n.partial).toEqual({ sodiumMg: true, fiberG: true, sugarsG: true, satFatG: true });
   });
 
   it('sums a meal', () => {

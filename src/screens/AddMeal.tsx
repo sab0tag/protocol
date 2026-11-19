@@ -25,7 +25,7 @@ import { Amount } from '../components/Amount';
 import { dishItem, foodFromLine, recipeFrom, setPortions, similarDish, withComponents } from '../domain/recipes';
 import { SameDish } from '../components/SameDish';
 import { atLocal, dateOf, newId, timeOf, todayISO } from '../domain/dates';
-import { dayTotals, effectiveTargets, lineNutrients, mealNutrients, round } from '../domain/nutrition';
+import { dayTotals, effectiveTargets, lineNutrients, mealNutrients, round, add, saltLimit, saltLine } from '../domain/nutrition';
 import { hasSwaps, mealVerdict, type ItemCheck } from '../domain/rules';
 import { approxG, measureWord, readMeal } from '../domain/foodSearch';
 import { RecognizedPanel } from '../components/RecognizedPanel';
@@ -36,8 +36,9 @@ import { keep, kept } from '../data/kept';
 import { dietCoverage } from '../domain/diets';
 import { evaluate, safeSwaps } from '../domain/evaluate';
 import { currentKeys } from '../sync/runner';
-import type { Cooking, DayEntry, Food, MealItem, Nutrients, Plan, Recipe } from '../domain/types';
+import type { Cooking, DayEntry, Food, MealItem, Plan, Recipe } from '../domain/types';
 import { t } from '../i18n/uk';
+import { EMPTY_FIELDS, fieldsToNutrients, NutrientFields, type Fields } from '../components/NutrientFields';
 import { CrisisCard } from '../components/CrisisCard';
 import { useUi } from '../store/ui';
 
@@ -119,8 +120,8 @@ export function AddMeal() {
   const meal = mealNutrients(items, foods);
   const before = others ? dayTotals(others, foods) : undefined;
   const targets = effectiveTargets(plan, date);
-  const after = before && (eaten ? { ...before, carbs: before.carbs + meal.carbs, protein: before.protein + meal.protein,
-    calciumMg: before.calciumMg + meal.calciumMg, kcal: before.kcal + meal.kcal } : before);
+  const after = before && (eaten ? { ...add(before, meal), waterMl: before.waterMl } : before);
+  const salt = saltLimit(plan); // D188
 
   // R03: one evaluation — what was eaten against what else was eaten; a planned meal as a forecast with the day's plans too
   const ectx = plan && foods && recent ? { plan, date, foods, entries: recent, ...(id ? { exclude: id } : {}) } : null;
@@ -335,6 +336,7 @@ export function AddMeal() {
                 : targets.carbsG?.max != null ? ` (${t.summary.limit(targets.carbsG.max)})` : ''}
               {targets.proteinG != null && ` · білок ${round(after.protein)} з ${targets.proteinG} ${t.units.g}`}
               {targets.calciumMg != null && ` · кальцій ${round(after.calciumMg)} з ${targets.calciumMg} ${t.units.mg}`}
+              {salt && <span data-testid="meal-salt"> · {saltLine(after, salt, t.nutrients.saltLine)}</span>}
             </p>
           )}
         </div>}
@@ -385,9 +387,8 @@ function FreeItemForm({ onAdd }: { onAdd: (item: MealItem) => void }) {
   const [save, setSave] = useState(true);
   const [name, setName] = useState('');
   const [grams, setGrams] = useState('');
-  const [n, setN] = useState<Record<keyof Nutrients, string>>({ kcal: '', protein: '', fat: '', carbs: '', calciumMg: '' });
+  const [n, setN] = useState<Fields>(EMPTY_FIELDS); // D188: one set of fields, kcal checked against the macros
   const num = (s: string) => Math.max(0, Number(s.replace(',', '.')) || 0);
-  const labels: [keyof Nutrients, string][] = [['kcal', t.units.kcal], ['protein', 'Б, г'], ['fat', 'Ж, г'], ['carbs', 'В, г'], ['calciumMg', 'Ca, мг']];
   return (
     <div className="mt-2 space-y-2 rounded-xl border border-line p-2">
       <div className="grid grid-cols-[1fr_6rem] gap-2">
@@ -397,12 +398,7 @@ function FreeItemForm({ onAdd }: { onAdd: (item: MealItem) => void }) {
           <input type="number" inputMode="decimal" min={0} value={grams} onChange={(e) => setGrams(e.target.value)} className={field} /></label>
       </div>
       <p className="text-sm text-muted">{t.meal.manualHint}</p>
-      <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
-        {labels.map(([k, label]) => (
-          <label key={k} className="block"><span className="text-sm text-muted">{label}</span>
-            <input type="text" inputMode="decimal" value={n[k] ?? ''} onChange={(e) => setN((x) => ({ ...x, [k]: e.target.value }))} className={field} /></label>
-        ))}
-      </div>
+      <NutrientFields value={n} onChange={setN} field={field} kcalLabel={t.units.kcal} />
       <label className="protocol-toggle-row min-h-tap text-sm">
         <input type="checkbox" checked={save} onChange={(e) => setSave(e.target.checked)} className="protocol-switch" />
         <span>{t.meal.saveToBase}</span>
@@ -410,7 +406,7 @@ function FreeItemForm({ onAdd }: { onAdd: (item: MealItem) => void }) {
       <button type="button" disabled={!name.trim() || !grams}
         onClick={async () => {
           const item: MealItem = { name: name.trim(), grams: num(grams),
-            manual: { kcal: num(n.kcal), protein: num(n.protein), fat: num(n.fat), carbs: num(n.carbs), calciumMg: num(n.calciumMg ?? '') } };
+            manual: fieldsToNutrients(n) };
           const food = save ? foodFromLine(item, `u-${newId()}`) : null;
           if (food) await saved(db.foods.put(food), t.toast.food(food.name));
           onAdd(food ? { foodId: food.id, name: food.name, grams: item.grams } : item);

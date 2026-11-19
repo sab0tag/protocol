@@ -549,3 +549,30 @@
   status: fixed
   found: 2026-10-19
   note: "Safari може почути російською: «и», «эспрессо»."
+
+# ── Числівники — кількість, а не слово пошуку (черга агента, задача 10, D188) ──
+# «два яйця» у Calorize знаходить морозиво «Два вершки»: число — це кількість штук, а не частина назви.
+
+- id: numeral-two-eggs
+  phrase: "два яйця"
+  profile: clean
+  expect:
+    - { name: "Яйце варене", qty: 2, unit: шт, grams: [95, 105] }  # число — 2 шт; не морозиво «Два вершки»
+  status: fixed
+  found: 2026-11-19
+
+- id: numeral-three-plums
+  phrase: "три сливи"
+  profile: clean
+  expect:
+    - { name: "Слива", qty: 3, unit: шт, grams: [85, 95] }
+  status: fixed
+  found: 2026-11-19
+
+- id: numeral-half-plate-borscht
+  phrase: "пів тарілки борщу"
+  profile: clean
+  expect:
+    - { name: "Борщ", qty: 0.5, unit: порція }
+  status: fixed
+  found: 2026-11-19

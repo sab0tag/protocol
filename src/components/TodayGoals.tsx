@@ -7,7 +7,7 @@ import { todayISO } from '../domain/dates';
 import { presentDay } from '../domain/dayPresentation';
 import { foodState } from '../domain/habits';
 import { lightDayOnDate } from '../domain/lightDay';
-import { dayTotals, effectiveTargets } from '../domain/nutrition';
+import { dayTotals, effectiveTargets, saltLimit } from '../domain/nutrition';
 import { observedTargets, scoredDay } from '../domain/observation';
 import { t } from '../i18n/uk';
 import { DaySummary, type MetricKey } from './DaySummary';
@@ -33,6 +33,7 @@ export function TodayGoals() {
     <div className="protocol-card p-0">
       <p aria-hidden className="px-4 pt-4 font-semibold">{t.summary.title}</p>{/* the region's own name is sr-only in the compact look */}
       <DaySummary compact quiet={light} title={t.summary.title} totals={dayTotals(entries, foods)} targets={targets} allowed={allowed}
+        salt={allowed && !allowed.includes('kcal') ? null : saltLimit(plan)}
         meds={{ done: meds.filter((i) => i.done).length, total: meds.length }} {...(!light ? { food: foodState(entries) } : {})} />
     </div>
   );

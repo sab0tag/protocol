@@ -5,6 +5,7 @@ import { examplePlan } from '../../src/data/seed.example';
 import { asksTopup, brings, dayContext, fixedAnswer, lineOf, passing } from '../../src/domain/assistant';
 import { scrubTalk, urgentReply, withoutDropped } from '../../src/domain/assistant';
 import { dishItem } from '../../src/domain/recipes';
+import { ZERO } from '../../src/domain/nutrition';
 
 const plan = examplePlan(new Date('2026-10-24T12:00:00')); // lactose, glycemia, oxalate; Вітамін D
 const foods = new Map(FOODS.map((f) => [f.id, f]));
@@ -30,7 +31,7 @@ describe('the assistant around the model (D117)', () => {
     expect(brings(shown[0]!, foods).protein).toBe(Math.round(12.6 * 1.1));
   });
   it('the model is told the day’s numbers and the plan’s rules — never a medicine', () => {
-    const c = dayContext(plan, plan.targets, { kcal: 900.4, protein: 60, fat: 30, carbs: 100, calciumMg: 400, waterMl: 500 }, '18:40', ['Яйце варене']);
+    const c = dayContext(plan, plan.targets, { ...ZERO, kcal: 900.4, protein: 60, fat: 30, carbs: 100, calciumMg: 400, waterMl: 500 }, '18:40', ['Яйце варене']);
     expect(c.day).toMatchObject({ kcal: 900, proteinG: 60 });
     expect(c.targets).toMatchObject({ kcal: 2100, proteinG: 140 });
     expect(JSON.stringify(c)).not.toContain('Вітамін D');

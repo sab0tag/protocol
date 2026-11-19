@@ -12,7 +12,8 @@ import { useDayEntries, useFoods, usePlan, useRecentEntries } from '../data/quer
 import { byAt, shownTime, todayISO } from '../domain/dates';
 import { evaluate } from '../domain/evaluate';
 import { foodPlanStatus } from '../domain/foodPlanStatus';
-import { activeMode, dayTotals, effectiveTargets, mealNutrients, round } from '../domain/nutrition';
+import { activeMode, dayTotals, effectiveTargets, mealNutrients, round, saltG, saltLimit, gramsText, type Sum } from '../domain/nutrition';
+import { SaltRow } from '../components/SaltRow';
 import { observedTargets } from '../domain/observation';
 import { isLocalDate } from '../domain/modulePreferences';
 import type { DayEntry, Food, MealItem, Plan } from '../domain/types';
@@ -66,8 +67,10 @@ export function Nutrition() {
       <p className="tabular text-sm text-muted">{t.summary.carbs}: {round(totals.carbs)} {t.units.g} · {L.fat}: {round(totals.fat)} {t.units.g}</p>
       {targets.carbsG?.min != null && <p className="text-sm text-muted">{t.summary.carbs} · {t.summary.atLeast(targets.carbsG.min)}</p>}
       {targets.carbsG?.max != null && targets.carbsG.max > 0 && <div className="space-y-2"><p className="text-sm text-muted">{t.summary.carbs} · {t.summary.limit(targets.carbsG.max)}</p><ProgressTrack ratio={totals.carbs / targets.carbsG.max} label={L.carbLimit} valueText={`${round(totals.carbs)} / ${targets.carbsG.max} ${t.units.g}`} tone={totals.carbs > targets.carbsG.max ? 'warn' : 'carbs'} /></div>}
+      <SaltRow totals={totals} limit={saltLimit(plan)} />
       {mode && <p className="text-sm text-muted">{L.mode}: {mode.mode.title}</p>}
       {targets.fromDiet && Object.keys(targets.fromDiet).length > 0 && <p className="text-xs text-muted">{L.reference}</p>}
+      <MoreNutrients totals={totals} salt={!saltLimit(plan)} />
     </section>
     <section className="protocol-card space-y-3" aria-labelledby="nutrition-meals">
       <h2 id="nutrition-meals" className="text-lg font-semibold">{L.meals}</h2>
@@ -100,4 +103,21 @@ function incompleteLine(item: MealItem, foods: Map<string, Food>): boolean {
   if (item.est) return true;
   if (item.components?.length) return item.components.some(part => incompleteLine(part, foods));
   return !item.manual && (!item.foodId || !foods.has(item.foodId));
+}
+
+const N = t.nutrients;
+/** D188: salt (when the plan does not limit it), sugars, fibre, saturated fat — folded; «не менше» where a line did not know. */
+function MoreNutrients({ totals, salt }: { totals: Sum; salt: boolean }) {
+  const row = (label: string, value: number, partial: boolean | undefined, unit: string) =>
+    <li key={label} className="flex justify-between gap-2"><span className="text-muted">{label}</span>
+      <span className="tabular">{!value && partial ? N.unknown : N.value(gramsText(value), unit, !!partial)}</span></li>;
+  return <details data-testid="more-nutrients"><summary className="min-h-tap cursor-pointer py-2 text-sm text-accent">{N.more}</summary>
+    <ul className="space-y-1 text-sm">
+      {salt && row(N.salt, saltG(totals.sodiumMg), totals.partial.sodiumMg, t.units.g)}
+      {row(N.sugars, totals.sugarsG, totals.partial.sugarsG, t.units.g)}
+      {row(N.fiber, totals.fiberG, totals.partial.fiberG, t.units.g)}
+      {row(N.satFat, totals.satFatG, totals.partial.satFatG, t.units.g)}
+    </ul>
+    <p className="mt-2 text-xs text-muted">{N.source}</p>
+  </details>;
 }

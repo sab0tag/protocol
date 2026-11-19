@@ -1,5 +1,6 @@
 // Dishes (D27): a recipe is ingredients for one portion; in a meal it becomes one line with a copy of them.
 import type { Food, MealItem, Recipe } from './types';
+import { scaledExtras } from './nutrition';
 
 const round1 = (n: number) => Math.round(n * 10) / 10;
 
@@ -9,7 +10,7 @@ export function scaleItems(items: MealItem[], factor: number): MealItem[] {
     ...it, grams: Math.round(it.grams * factor),
     ...(it.unit ? { unit: { ...it.unit, qty: round1(it.unit.qty * factor) } } : {}),
     ...(it.manual ? { manual: { ...it.manual, kcal: it.manual.kcal * factor, protein: it.manual.protein * factor,
-      fat: it.manual.fat * factor, carbs: it.manual.carbs * factor, calciumMg: (it.manual.calciumMg ?? 0) * factor } } : {}),
+      fat: it.manual.fat * factor, carbs: it.manual.carbs * factor, calciumMg: (it.manual.calciumMg ?? 0) * factor, ...scaledExtras(it.manual, factor) } } : {}),
   }));
 }
 
@@ -45,7 +46,7 @@ export function foodFromLine(item: MealItem, id: string): Food | null {
   const k = 100 / item.grams, r = (n: number) => Math.round(n * k * 10) / 10;
   const m = item.manual;
   return { id, name: item.name.trim(), custom: true, tags: [],
-    per100g: { kcal: Math.round(m.kcal * k), protein: r(m.protein), fat: r(m.fat), carbs: r(m.carbs), calciumMg: Math.round((m.calciumMg ?? 0) * k) } };
+    per100g: { kcal: Math.round(m.kcal * k), protein: r(m.protein), fat: r(m.fat), carbs: r(m.carbs), calciumMg: Math.round((m.calciumMg ?? 0) * k), ...scaledExtras(m, k) } };
 }
 
 /** D36: before an own food is deleted, lines that use it keep their nutrients as a free line. */
@@ -60,7 +61,7 @@ export function detachFood(items: MealItem[], food: Food): { items: MealItem[]; 
     changed = true;
     const k = it.grams / 100, p = food.per100g;
     const { foodId: _f, unit: _u, ...rest } = it;
-    return { ...rest, manual: { kcal: p.kcal * k, protein: p.protein * k, fat: p.fat * k, carbs: p.carbs * k, calciumMg: (p.calciumMg ?? 0) * k } };
+    return { ...rest, manual: { kcal: p.kcal * k, protein: p.protein * k, fat: p.fat * k, carbs: p.carbs * k, calciumMg: (p.calciumMg ?? 0) * k, ...scaledExtras(p, k) } };
   });
   return { items: walk(items), changed };
 }
@@ -70,7 +71,7 @@ export function regram(it: MealItem, grams: number): MealItem {
   if (!it.manual || !(it.grams > 0)) return { ...it, grams };
   const k = grams / it.grams, m = it.manual;
   return { ...it, grams, manual: { kcal: m.kcal * k, protein: m.protein * k, fat: m.fat * k, carbs: m.carbs * k,
-    ...(m.calciumMg !== undefined ? { calciumMg: m.calciumMg * k } : {}) } };
+    ...(m.calciumMg !== undefined ? { calciumMg: m.calciumMg * k } : {}), ...scaledExtras(m, k) } };
 }
 
 const norm = (s: string) => s.toLocaleLowerCase('uk').replace(/[ʼ’'`]/g, '').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
