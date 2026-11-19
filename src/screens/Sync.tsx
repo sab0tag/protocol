@@ -32,7 +32,7 @@ export function Sync() {
       {inDemo() ? ( /* D98: nothing of the example goes to the server */
         <div className="space-y-2 protocol-card rounded-2xl border border-line bg-surface p-3">
           <p>{t.example.noSync}</p>
-          <button type="button" onClick={() => void leaveDemo()} className="min-h-tap rounded-xl bg-accent px-3 font-medium text-surface">{t.example.leave}</button>
+          <button type="button" onClick={() => void leaveDemo()} className="min-h-tap rounded-xl bg-accent px-3 font-medium text-on-accent">{t.example.leave}</button>
         </div>
       ) : meta ? <On meta={meta} /> : <Off />}
     </section>
@@ -67,7 +67,7 @@ function Off() {
       {mode === 'none' && (
         <div className="flex flex-wrap gap-2">
           <button type="button" onClick={() => { setCode(newCode()); setMode('new'); }}
-            className="min-h-tap rounded-xl bg-accent px-3 font-medium text-surface">{L.start}</button>
+            className="min-h-tap rounded-xl bg-accent px-3 font-medium text-on-accent">{L.start}</button>
           <button type="button" onClick={() => { setCode(''); setMode('join'); }}
             className="min-h-tap rounded-xl border border-accent px-3 font-medium text-accent">{L.haveCode}</button>
         </div>
@@ -79,7 +79,7 @@ function Off() {
           <p className="rounded-xl bg-warn-bg p-2 text-sm text-warn">{L.codeWarn}</p>
           <div className="flex flex-wrap gap-2">
             <button type="button" disabled={busy} onClick={() => void go(code, 'create')}
-              className="min-h-tap rounded-xl bg-accent px-3 font-medium text-surface disabled:opacity-40">{L.confirmStart}</button>
+              className="min-h-tap rounded-xl bg-accent px-3 font-medium text-on-accent disabled:opacity-40">{L.confirmStart}</button>
             <button type="button" onClick={() => setMode('none')} className="min-h-tap rounded-xl border border-line px-3">{L.cancel}</button>
           </div>
         </div>
@@ -92,7 +92,7 @@ function Off() {
           <p className="text-sm text-muted">{L.enterHint}</p>
           <div className="flex flex-wrap gap-2">
             <button type="submit" disabled={busy || !(parseCode(code) || parsePairCode(code))}
-              className="min-h-tap rounded-xl bg-accent px-3 font-medium text-surface disabled:opacity-40">{L.join}</button>
+              className="min-h-tap rounded-xl bg-accent px-3 font-medium text-on-accent disabled:opacity-40">{L.join}</button>
             <button type="button" onClick={() => setMode('none')} className="min-h-tap rounded-xl border border-line px-3">{L.cancel}</button>
           </div>
         </form>
@@ -148,7 +148,7 @@ function Pairing() {
       {!pair ? (
         <>
           <p className="text-sm text-muted">{L.pairText}</p>
-          <button type="button" onClick={() => void start()} className="min-h-tap rounded-xl bg-accent px-3 font-medium text-surface">{L.pairStart}</button>
+          <button type="button" onClick={() => void start()} className="min-h-tap rounded-xl bg-accent px-3 font-medium text-on-accent">{L.pairStart}</button>
         </>
       ) : (
         <>
@@ -156,7 +156,7 @@ function Pairing() {
           <p className="text-center text-sm text-muted">{L.pairLeft(`${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`)}</p>
           <p className="text-sm">{L.pairHow}</p>
           {/* the QR is drawn by qrcode-generator from our own link — no user input inside */}
-          <div className="mx-auto w-48 rounded-xl bg-white p-2 [&>svg]:h-auto [&>svg]:w-full" aria-label={L.pairQr} role="img" dangerouslySetInnerHTML={{ __html: svg }} />
+          <div className="mx-auto w-48 rounded-xl bg-paper p-2 [&>svg]:h-auto [&>svg]:w-full" aria-label={L.pairQr} role="img" dangerouslySetInnerHTML={{ __html: svg }} />
           <p className="text-xs text-muted">{L.pairIphone}</p>
         </>
       )}
@@ -185,7 +185,7 @@ function On({ meta }: { meta: SyncMeta }) {
         {actionError && <p role="alert" className="text-sm text-warn">{actionError}</p>}
         <div className="flex flex-wrap gap-2">
           <button type="button" onClick={() => paused ? void act(resumeSync) : requestSync()} disabled={status === 'syncing'}
-            className="flex min-h-tap items-center gap-2 rounded-xl bg-accent px-3 font-medium text-surface disabled:opacity-40">
+            className="flex min-h-tap items-center gap-2 rounded-xl bg-accent px-3 font-medium text-on-accent disabled:opacity-40">
             <RefreshCw size={18} aria-hidden />{paused ? L.resume : L.now}</button>
           <button type="button" onClick={() => setShow((v) => !v)} className="min-h-tap rounded-xl border border-line px-3">{show ? L.hideCode : L.showCode}</button>
         </div>

@@ -72,7 +72,7 @@ export function LabelScan({ onAdd }: { onAdd?: (item: MealItem) => void }) {
         <div className="mt-2 space-y-2 rounded-xl border border-accent/40 p-2 text-sm">
           <p>{t.meal.photoConsent}</p>
           <button type="button" onClick={() => { void db.meta.update('sync', { photoConsent: true }); setState('none'); input.current?.click(); }}
-            className="min-h-tap rounded-xl bg-accent px-3 font-medium text-surface">{t.meal.photoAllow}</button>
+            className="min-h-tap rounded-xl bg-accent px-3 font-medium text-on-accent">{t.meal.photoAllow}</button>
         </div>
       )}
       {state === 'form' && (
@@ -92,9 +92,9 @@ export function LabelScan({ onAdd }: { onAdd?: (item: MealItem) => void }) {
           )}
           <div className="flex flex-wrap gap-2">
             {onAdd && <button type="button" disabled={!name.trim()} onClick={() => void save(true)}
-              className="min-h-tap rounded-xl bg-accent px-3 font-medium text-surface disabled:opacity-40">{L.saveAdd}</button>}
+              className="min-h-tap rounded-xl bg-accent px-3 font-medium text-on-accent disabled:opacity-40">{L.saveAdd}</button>}
             <button type="button" disabled={!name.trim()} onClick={() => void save(false)}
-              className={`min-h-tap rounded-xl px-3 font-medium disabled:opacity-40 ${onAdd ? 'border border-accent text-accent' : 'bg-accent text-surface'}`}>{L.saveOnly}</button>
+              className={`min-h-tap rounded-xl px-3 font-medium disabled:opacity-40 ${onAdd ? 'border border-accent text-accent' : 'bg-accent text-on-accent'}`}>{L.saveOnly}</button>
             <button type="button" onClick={() => setState('none')} className="min-h-tap rounded-xl border border-line px-3">{t.meal.cancel}</button>
           </div>
         </div>

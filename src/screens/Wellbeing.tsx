@@ -80,11 +80,11 @@ export function Wellbeing() {
         <fieldset key={key} className="protocol-card rounded-2xl border border-line bg-surface p-5">
           <legend className="sr-only">{L[key]}</legend>
           <div className="mb-3 flex items-center gap-2"><Icon size={19} className="text-accent" aria-hidden /><span className="font-semibold">{L[key]}</span><span className="ml-auto text-sm font-medium text-accent" aria-live="polite">{w[key] ? scoreWords[key][w[key] - 1] : 'Не обрано'}</span></div>
-          <div className="grid grid-cols-5 gap-1.5 rounded-2xl bg-bg p-1.5">
+          <div className="grid grid-cols-5 gap-2 rounded-2xl bg-bg p-2">
             {([1, 2, 3, 4, 5] as Score[]).map((n) => (
               <button key={n} type="button" aria-pressed={w[key] === n} aria-label={`${L[key]}: ${n} — ${scoreWords[key][n - 1]}`}
                 onClick={() => void put({ [key]: w[key] === n ? undefined : n })}
-                className={`min-h-tap rounded-xl border text-base font-semibold transition-colors ${w[key] === n ? 'border-accent bg-accent text-surface shadow-sm' : 'border-transparent text-muted hover:bg-surface'}`}>{n}</button>
+                className={`min-h-tap rounded-xl border text-base font-semibold transition-colors ${w[key] === n ? 'border-accent bg-accent text-on-accent shadow-sm' : 'border-transparent text-muted hover:bg-surface'}`}>{n}</button>
             ))}
           </div>
           <p className="mt-2 flex justify-between gap-2 text-xs text-muted"><span>{scoreWords[key][0]}</span><span>{scoreWords[key][4]}</span></p>
@@ -114,7 +114,7 @@ export function Wellbeing() {
         <p id="note-state" role="status" className={`mt-2 text-sm ${typed.trim() !== (w.note ?? '') ? 'text-warn' : 'text-muted'}`}>
           {typed.trim() !== (w.note ?? '') ? L.noteUnsaved : w.note ? L.noteSaved : ''}</p>
         {typed.trim() !== (w.note ?? '') && (
-          <button type="button" onPointerDown={(e) => e.preventDefault()} onClick={saveNote} className="mt-2 min-h-tap rounded-xl bg-accent px-3 font-medium text-surface">{L.saveNote}</button>
+          <button type="button" onPointerDown={(e) => e.preventDefault()} onClick={saveNote} className="mt-2 min-h-tap rounded-xl bg-accent px-3 font-medium text-on-accent">{L.saveNote}</button>
         )}
       </div>
     </section>

@@ -85,7 +85,7 @@ export function MyDay() {
             <button type="button" onClick={() => void toggle(item)} disabled={(!item.tappable && item.kind !== 'workout') || (future && item.kind === 'med')}
               aria-pressed={item.tappable ? item.done : undefined}
               className="flex min-h-tap w-full items-center gap-3 px-4 py-4 text-left disabled:cursor-default">
-              {item.done ? <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent text-surface"><Check size={16} aria-hidden /></span>
+              {item.done ? <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent text-on-accent"><Check size={16} aria-hidden /></span>
                 : item.kind === 'workout' ? <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 border-line text-muted"><Dumbbell size={13} aria-hidden /></span>
                   : <Circle size={24} className="text-line" aria-hidden />}
               <span className="min-w-0 flex-1">
@@ -113,7 +113,7 @@ export function MyDay() {
       </ul>
 
       {c.workoutNote && (
-        <p className="mt-3 flex items-start gap-2 protocol-card rounded-2xl border border-line bg-surface p-3 text-sm"><Info size={18} className="mt-0.5 shrink-0 text-muted" />{c.workoutNote}</p>
+        <p className="mt-3 flex items-start gap-2 protocol-card rounded-2xl border border-line bg-surface p-3 text-sm"><Info size={18} className="mt-1 shrink-0 text-muted" />{c.workoutNote}</p>
       )}
       {can('wellbeing.log') && <button type="button" onClick={() => navigate('/wellbeing')}
         className="mt-3 flex min-h-tap w-full items-center gap-3 protocol-card rounded-2xl border border-line bg-surface px-3 font-medium">

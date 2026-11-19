@@ -89,7 +89,7 @@ function Due({ item, date, onSnoozed, onConfirm, onReschedule }: { item: NowItem
           onKeyDown={(e) => { if (e.key === 'Escape') setMenu(false); }}
           className="-mr-2 flex min-h-tap min-w-tap items-center justify-center rounded-full text-muted"><MoreHorizontal size={22} aria-hidden /></button>
       </div>
-      <p className="flex items-start gap-2 font-semibold leading-snug"><Icon size={18} className="mt-0.5 shrink-0 text-accent" aria-hidden />
+      <p className="flex items-start gap-2 font-semibold leading-snug"><Icon size={18} className="mt-1 shrink-0 text-accent" aria-hidden />
         <span className="min-w-0">{titleOf(item)}{detail && <span className="font-normal text-muted"> · <span className="first-letter:uppercase">{detail}</span></span>}</span></p>
       {menu && <div id="now-menu" role="group" aria-label={L.more} className="mt-2 flex flex-wrap gap-2">
         <button type="button" onClick={act(() => void later())} className="min-h-tap rounded-full border-2 border-line bg-surface px-3 text-sm font-semibold">{L.later(SNOOZE_MIN)}</button>

@@ -75,7 +75,7 @@ function ExampleEntry() {
     <div role="alertdialog" aria-label={t.welcome.example} className="mb-4 space-y-2 rounded-2xl border border-accent/40 bg-surface p-3 text-sm">
       <p>{t.example.confirm}</p>
       <div className="flex flex-wrap gap-2">
-        <button type="button" onClick={enterDemo} className="min-h-tap rounded-xl bg-accent px-3 font-medium text-surface">{t.example.confirmYes}</button>
+        <button type="button" onClick={enterDemo} className="min-h-tap rounded-xl bg-accent px-3 font-medium text-on-accent">{t.example.confirmYes}</button>
         <button type="button" onClick={() => setAsking(false)} className="min-h-tap rounded-xl border border-line px-3">{t.example.confirmNo}</button>
       </div>
     </div>

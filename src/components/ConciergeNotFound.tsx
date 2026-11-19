@@ -81,7 +81,7 @@ export function ConciergeNotFound({ text, plan, foods, recipes, date, onAdd }: {
             <input type="checkbox" checked={log} onChange={(e) => setLog(e.target.checked)} className="protocol-switch" />
             <span>{L.logAsk}</span></label>
           <button type="button" onClick={async () => { await db.meta.update('sync', { conciergeConsent: true, conciergeLog: log }); void ask(true, log); }}
-            className="min-h-tap rounded-xl bg-accent px-3 font-medium text-surface">{L.allow}</button>
+            className="min-h-tap rounded-xl bg-accent px-3 font-medium text-on-accent">{L.allow}</button>
         </div>
       )}
       {state === 'done' && (

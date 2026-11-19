@@ -32,7 +32,7 @@ export function LightDayControl({ date, onlyEnable = false, compact = false, onD
       <span className="text-muted">{t.lightDay.why}</span>
       {DAY_CONTEXTS.map((r) => { const chosen = dayContexts(observation.events, date, date).get(date) === r; return (
         <button key={r} type="button" aria-pressed={chosen} disabled={busy} onClick={() => void setTodayContext(db, chosen ? 'none' : r).catch(() => setError(true))}
-          className={`min-h-[2.25rem] rounded-full border px-3 ${chosen ? 'border-accent bg-accent/10 font-medium text-accent' : 'border-line'}`}>{t.lightDay.reasons[r]}</button>); })}
+          className={`min-h-tap rounded-full border px-3 ${chosen ? 'border-accent bg-accent/10 font-medium text-accent' : 'border-line'}`}>{t.lightDay.reasons[r]}</button>); })}
     </div>/* D189 */}
     {(!compact || on || (meta && !synced)) && <p role="status" className={`text-muted ${compact ? 'basis-full' : ''}`}>{meta ? synced ? t.modules.synced : t.lightDay.pending : t.modules.local}</p>}
     {error && <p role="alert">{t.startFlow.error}</p>}

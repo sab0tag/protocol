@@ -48,7 +48,7 @@ export function PhotoStatus({ photo, allow }: { photo: PhotoState; allow: () => 
   if (photo.state === 'consent') return (
     <div className="mt-2 space-y-2 rounded-xl border border-accent/40 p-2 text-sm">
       <p>{t.meal.photoConsent}</p>
-      <button type="button" onClick={allow} className="min-h-tap rounded-xl bg-accent px-3 font-medium text-surface">{t.meal.photoAllow}</button>
+      <button type="button" onClick={allow} className="min-h-tap rounded-xl bg-accent px-3 font-medium text-on-accent">{t.meal.photoAllow}</button>
     </div>
   );
   if (photo.state === 'nosync') return <p className="mt-2 text-sm text-muted">{t.meal.photoNeedsSync}</p>;

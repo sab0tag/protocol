@@ -237,8 +237,8 @@ function Steps({ plan, start, onScanned }: { plan: PlanRow; start: number; onSca
       {error && <p role="alert">{error}</p>}
       {step >= 3 && rxBlocked && <p role="status" className="text-sm text-warn">{rxBlocked}</p>}
       <div className="flex flex-wrap gap-2">
-        {step < (enabled ? 4 : 3) ? <button type="button" disabled={busy || (step === 3 && !!rxBlocked)} onClick={() => setStep(step + 1)} className="min-h-tap flex-1 rounded-xl bg-accent px-4 font-medium text-surface">{L.next}</button>
-          : <button type="button" onClick={() => void done(false)} disabled={!!rxBlocked || busy || (enabled && !events)} className="min-h-tap flex-1 rounded-xl bg-accent px-4 font-medium text-surface disabled:opacity-40">{enabled ? t.startFlow.finish : L.finish}</button>}
+        {step < (enabled ? 4 : 3) ? <button type="button" disabled={busy || (step === 3 && !!rxBlocked)} onClick={() => setStep(step + 1)} className="min-h-tap flex-1 rounded-xl bg-accent px-4 font-medium text-on-accent">{L.next}</button>
+          : <button type="button" onClick={() => void done(false)} disabled={!!rxBlocked || busy || (enabled && !events)} className="min-h-tap flex-1 rounded-xl bg-accent px-4 font-medium text-on-accent disabled:opacity-40">{enabled ? t.startFlow.finish : L.finish}</button>}
         <button type="button" onClick={() => setStep(step - 1)} className="min-h-tap rounded-xl border border-line px-4">{L.back}</button>
       </div>
       <button type="button" disabled={busy} onClick={() => void done(true)} className="min-h-tap text-muted underline">{L.skip}</button>

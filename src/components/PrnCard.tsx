@@ -82,28 +82,28 @@ export function PrnCard({ plan, date, entries }: { plan: Plan; date: ISODate; en
                 )}
                 <div className="flex flex-wrap gap-2">
                   <button type="submit" disabled={d.busy || !(num(d.qty) > 0)}
-                    className={`min-h-tap rounded-xl px-3 font-medium disabled:opacity-40 ${d.asking ? 'border border-warn text-warn' : 'bg-accent text-surface'}`}>
+                    className={`min-h-tap rounded-xl px-3 font-medium disabled:opacity-40 ${d.asking ? 'border border-warn text-warn' : 'bg-accent text-on-accent'}`}>
                     {d.busy ? L.busy : d.asking ? L.recordAnyway : L.record}</button>
                   <button type="button" onClick={() => setDraft(null)} className="min-h-tap rounded-xl border border-line px-3">{d.asking ? L.dontRecord : L.cancel}</button>
                 </div>
               </form>
             )}
             {records.length > 0 && (
-              <ul className="mt-1 space-y-0.5 text-sm text-muted">{records.map((e) => (
+              <ul className="mt-1 space-y-1 text-sm text-muted">{records.map((e) => (
                 <li key={e.id} className="flex items-center gap-2">
                   <span className="tabular w-12">{timeOf(e.at)}</span>
                   {fixing?.id === e.id ? (
                     <form className="flex items-center gap-1" onSubmit={(ev) => { ev.preventDefault(); void fix(e, num(fixing.qty)); }}>
                       <input inputMode="decimal" value={fixing.qty} onChange={(ev) => setFixing({ id: e.id, qty: ev.target.value })} autoFocus aria-label={L.qty}
-                        className="min-h-[2rem] w-16 rounded-lg border border-line bg-bg px-2" /><span>{L.units[e.amount!.unit]}</span>
-                      <button type="submit" className="min-h-[2rem] rounded-lg border border-accent px-2 text-accent">{L.fixOk}</button>
+                        className="min-h-tap w-16 rounded-lg border border-line bg-bg px-2" /><span>{L.units[e.amount!.unit]}</span>
+                      <button type="submit" className="min-h-tap rounded-lg border border-accent px-2 text-accent">{L.fixOk}</button>
                     </form>
                   ) : e.amount ? (
                     <button type="button" onClick={() => setFixing({ id: e.id, qty: dec(e.amount!.qty) })} aria-label={L.fix(prnAmountText(e.amount.qty, e.amount.unit))}
-                      className="min-h-[2rem] underline decoration-dotted">{prnAmountText(e.amount.qty, e.amount.unit)}</button>
+                      className="min-h-tap underline decoration-dotted">{prnAmountText(e.amount.qty, e.amount.unit)}</button>
                   ) : <span>{L.noAmount}</span>}
                   <button type="button" onClick={() => void saved(db.entries.delete(e.id), t.toast.deleted(p.title), () => db.entries.put(e))}
-                    aria-label={L.remove(timeOf(e.at))} className="ml-auto flex h-8 w-8 items-center justify-center"><X size={14} aria-hidden /></button>
+                    aria-label={L.remove(timeOf(e.at))} className="ml-auto flex h-11 w-11 items-center justify-center"><X size={14} aria-hidden /></button>
                 </li>))}</ul>
             )}
           </div>

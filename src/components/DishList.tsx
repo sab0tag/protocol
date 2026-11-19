@@ -164,7 +164,7 @@ export function DishList({ foods, recipes, plan, onClose }: { foods: Map<string,
           className="block w-full rounded-xl border border-line bg-bg p-2" /></label>
       <div className="flex flex-wrap gap-2">
         <button type="button" disabled={!text.trim()} onClick={() => take(text.slice(0, MAX_BYTES), false)}
-          className="min-h-tap rounded-xl bg-accent px-4 font-medium text-surface disabled:opacity-40">{L.read}</button>
+          className="min-h-tap rounded-xl bg-accent px-4 font-medium text-on-accent disabled:opacity-40">{L.read}</button>
         <button type="button" onClick={() => file.current?.click()} className="flex min-h-tap items-center gap-2 rounded-xl border border-accent px-3 text-accent">
           <FileUp size={18} aria-hidden />{L.file}</button>
         <input ref={file} type="file" accept=".txt,.csv,.json,text/plain,text/csv,application/json" className="hidden" aria-label={L.file}
@@ -188,14 +188,14 @@ export function DishList({ foods, recipes, plan, onClose }: { foods: Map<string,
         .filter(Boolean).map((x) => <p key={String(x)} className="text-xs text-muted">{x}</p>)}
       {waiting > 0 && !busy && (
         <div className="space-y-1">
-          <button type="button" onClick={() => void run()} className="min-h-tap w-full rounded-xl bg-accent px-4 font-medium text-surface">{L.go}</button>
+          <button type="button" onClick={() => void run()} className="min-h-tap w-full rounded-xl bg-accent px-4 font-medium text-on-accent">{L.go}</button>
           {!dishConsented() && <p className="text-xs text-muted">{L.needConsent}</p>}
         </div>
       )}
       {asking === 'consent' && (
         <div className="space-y-2 rounded-xl border border-accent/40 p-2 text-sm">
           <p>{t.dishes.breakdown.consent}</p>
-          <button type="button" onClick={() => { allowDishes(); setAsking(null); void run(); }} className="min-h-tap rounded-xl bg-accent px-3 font-medium text-surface">{t.dishes.breakdown.allow}</button>
+          <button type="button" onClick={() => { allowDishes(); setAsking(null); void run(); }} className="min-h-tap rounded-xl bg-accent px-3 font-medium text-on-accent">{t.dishes.breakdown.allow}</button>
         </div>
       )}
       {busy && <p role="status" className="text-sm text-muted">{L.busy(busy[0], busy[1])}</p>}
@@ -283,7 +283,7 @@ function CardView({ c, foods, plan, patch, onSave, onRemove, onMake }: { c: Card
           <BreakdownEditor foods={foods} {...(plan ? { plan } : {})} name={c.name} onName={(name) => patch({ name })} portions={c.portions}
             onPortions={(portions) => patch({ portions })} lines={c.lines} onLines={(lines) => patch({ lines })} {...(c.note ? { note: c.note } : {})}>
             <button type="button" disabled={!c.name.trim() || !c.lines.some((l) => l.grams > 0)} onClick={onSave}
-              className="min-h-tap rounded-xl bg-accent px-4 font-medium text-surface disabled:opacity-40">{L.saveOne}</button>
+              className="min-h-tap rounded-xl bg-accent px-4 font-medium text-on-accent disabled:opacity-40">{L.saveOne}</button>
           </BreakdownEditor>
         </div>
       )}

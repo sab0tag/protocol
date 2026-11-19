@@ -71,14 +71,14 @@ export function DishBreakdown({ foods, plan, initial = '', replace }: { foods: M
           <label className="block"><span className="sr-only">{L.describe}</span>
             <textarea value={text} onChange={(e) => setText(e.target.value)} rows={4} placeholder={L.placeholder} className={`${field} py-2`} /></label>
           <button type="button" disabled={text.trim().length < 3 || state === 'busy'} onClick={() => void ask()}
-            className="min-h-tap rounded-xl bg-accent px-4 font-medium text-surface disabled:opacity-40">{state === 'busy' ? L.busy : L.go}</button>
+            className="min-h-tap rounded-xl bg-accent px-4 font-medium text-on-accent disabled:opacity-40">{state === 'busy' ? L.busy : L.go}</button>
         </>
       )}
       {state === 'consent' && (
         <div className="space-y-2 rounded-xl border border-accent/40 p-2 text-sm">
           <p>{L.consent}</p>
           <button type="button" onClick={() => { allowDishes(); void ask(); }}
-            className="min-h-tap rounded-xl bg-accent px-3 font-medium text-surface">{L.allow}</button>
+            className="min-h-tap rounded-xl bg-accent px-3 font-medium text-on-accent">{L.allow}</button>
         </div>
       )}
       {state === 'form' && (
@@ -86,7 +86,7 @@ export function DishBreakdown({ foods, plan, initial = '', replace }: { foods: M
           lines={lines} onLines={setLines} note={note}>
           <div className="flex flex-wrap gap-2">
             <button type="button" disabled={!name.trim() || !lines.some((l) => l.grams > 0)} onClick={trySave}
-              className="min-h-tap rounded-xl bg-accent px-4 font-medium text-surface disabled:opacity-40">{L.save}</button>
+              className="min-h-tap rounded-xl bg-accent px-4 font-medium text-on-accent disabled:opacity-40">{L.save}</button>
             <button type="button" onClick={() => { setState('none'); setLines([]); }} className="min-h-tap rounded-xl border border-line px-4">{t.meal.cancel}</button>
           </div>
           {same && <SameDish similar={same} onSame={() => void save(same)} onNew={() => void save()} />}
