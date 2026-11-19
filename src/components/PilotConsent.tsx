@@ -23,6 +23,7 @@ export function summaryAll(s: Summary): string[] {
     L.all.plan(s.plan.meds, s.plan.constraints),
     L.all.photo(s.plan.from_photo, s.plan.photo_rows, s.plan.photo_rows_unchecked, s.plan.photo_rows_edited),
     L.all.help(s.help.why_opened, s.help.topup_shown, s.help.topup_taken, s.help.danger_card),
+    ...(s.food.by_soniox ? [L.all.soniox(s.food.by_soniox)] : []), // D174
     ...(s.rem ? [L.all.rem(s.rem.sent, s.rem.opened)] : []),
     L.all.other(s.other.water_days, s.other.workouts, s.other.wellbeing_days, s.other.report_made),
     ...(s.src ? [L.all.src(s.src)] : []),

@@ -54,7 +54,7 @@ describe('pilot (D119)', () => {
     const { store, call, join } = setup();
     const p = await join();
     expect((await call('POST', '/v1/pilot/week', p.auth, summary(p.pid, '2026-W44'))).status).toBe(200);
-    expect((await call('POST', '/v1/pilot/week', p.auth, summary(p.pid, '2026-W44', { active_days: 7 }))).status).toBe(200);
+    expect((await call('POST', '/v1/pilot/week', p.auth, summary(p.pid, '2026-W44', { active_days: 7, food: { days_logged: 6, entries: 14, by_voice: 9, by_text: 4, by_photo: 1, not_found: 2, by_soniox: 4 } }))).status).toBe(200); // D174: by_soniox is optional
     expect(rows(store, p.pid)).toBe(1);
     const body = JSON.parse(store.all<{ body: string }>('SELECT body FROM pilot_weeks')[0]!.body);
     expect(body.active_days).toBe(7);
@@ -176,7 +176,7 @@ describe('stats:pilot', () => {
         const week = weekAdd(joined, k);
         if (week > '2026-W50' || (i % 4 === 3 && k >= 1)) continue; // every 4th drops out after the first week
         store.putPilotWeek(pid, week, 'week', src, JSON.stringify(summary(pid, week, { src, active_days: 3 + (i % 5),
-          meds: { due: 14, done: 10 + (i % 5), skipped: 0, late_30: 1, prn_taken: 0 }, food: { days_logged: 4 + (i % 4), entries: 10, by_voice: 6, by_text: 4, by_photo: 0, not_found: 1 } })));
+          meds: { due: 14, done: 10 + (i % 5), skipped: 0, late_30: 1, prn_taken: 0 }, food: { days_logged: 4 + (i % 4), entries: 10, by_voice: 6, by_text: 4, by_photo: 0, not_found: 1, ...(i < 5 ? { by_soniox: 3 } : {}) } })));
       }
       store.putPilotWeek(pid, weekAdd(joined, 1), 'd7', null, JSON.stringify({ q: { helps: 3 + (i % 3), blocker: i % 2 ? 'forget' : 'slow_food' } }));
     }
@@ -184,7 +184,7 @@ describe('stats:pilot', () => {
     expect(hidden).toBe(1);
     expect(new Set(rows.map((r) => r.group))).toEqual(new Set(['всього', 'ENDO-01 · Ендокринолог, клініка 1']));
     const total = rows.find((r) => r.group === 'всього' && r.week === 'всього')!;
-    expect(total).toMatchObject({ consents: 20, plan_entered: 20, qr: 30, ret_w2: 75, marked: 86, on_time: 92, nf_per_entry: 10, voice: 60, photo_edited: 11, photo_unchecked: 22 });
+    expect(total).toMatchObject({ consents: 20, plan_entered: 20, qr: 30, ret_w2: 75, marked: 86, on_time: 92, nf_per_entry: 10, voice: 60, voice_soniox: 13, photo_edited: 11, photo_unchecked: 22 });
     expect(total.helps_d7).toBe(4);
     expect(total.blockers).toBe('forget 10, slow_food 10');
     expect(rows.find((r) => r.group === 'всього' && r.week === '2026-W45')).toMatchObject({ consents: 10, ret_w2: 80 }) // the W44 ones in their 2nd week: 3 and 7 dropped out;
@@ -228,6 +228,7 @@ describe('the counts hang together (R17)', () => {
       summary(p.pid, '2026-W44', { active_days: 3 }), // food on 6 days of 3 active
       summary(p.pid, '2026-W44', { plan: { meds: 1, constraints: 1, from_photo: true, photo_rows: 2, photo_rows_edited: 0, photo_rows_unchecked: 3 } }),
       summary(p.pid, '2027-W53'), // no such week
+      summary(p.pid, '2026-W44', { food: { days_logged: 6, entries: 14, by_voice: 9, by_text: 4, by_photo: 1, not_found: 2, by_soniox: 10 } }), // D174: soniox > voice
     ];
     for (const b of bad) expect((await call('POST', '/v1/pilot/week', p.auth, b)).status).toBe(400);
     expect(rows(store)).toBe(0);

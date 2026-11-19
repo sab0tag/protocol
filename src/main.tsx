@@ -8,6 +8,7 @@ import { initialiseModulePreferences, legacyModuleUsage } from './data/modulePre
 import { ensureProgressOpened } from './data/moduleStart';
 import { MODULE_POLICY_ENABLED } from './domain/rollout';
 import { startSync } from './sync/runner';
+import { refreshSpeech } from './data/speech';
 import { pilotTick, sourceFromLink } from './sync/pilot';
 import { useUi } from './store/ui';
 import { initializePalette, initializeTheme } from './store/theme';
@@ -40,7 +41,7 @@ const start = () => Promise.resolve().then(() => { readProfiles(); return ensure
   await initialiseModulePreferences(db, new Date().toISOString(), legacyModuleUsage(inDemo()), { minimalNew: MODULE_POLICY_ENABLED });
   if (inDemo()) return; // D98: the example never syncs, never counts for the pilot
   if (MODULE_POLICY_ENABLED) await ensureProgressOpened(db);
-  void startSync();
+  void startSync().then(() => refreshSpeech()); // D174: whether this device gets Soniox — known before the first mic tap
   // D119: a QR card's code (the one request without a consent — a count by day and code), then the pilot's week if consented
   void sourceFromLink().then((r) => { if (r) useUi.setState({ srcLink: r }); }).finally(() => void pilotTick());
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') void pilotTick(); });

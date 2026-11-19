@@ -175,3 +175,39 @@ test('amounts nobody said are not shown as if they were; one tap gives all a usu
   await expect(toast(page)).toContainText('Записано');
   expect((await meals(page)).filter((r) => r.startsWith('meal:'))[0]).toContain('Еспресо');
 });
+
+test('Soniox offered: its own consent even after the phone’s, «Так» starts from that tap; no key — the phone’s engine (D174)', async ({ browser }) => {
+  const page = await device(browser, 'example', { sw: false }); // stubbed network: no worker in the way
+  const keys: string[] = [];
+  await page.route('**/v1/device/speech', (r) => r.fulfill({ json: { available: true, id: 'a1b2c3d4e5f6', engine: 'soniox-test' } }));
+  await page.route('**/v1/device/speech/key', (r) => { keys.push(r.request().method()); return r.fulfill({ status: 503, json: { error: 'speech_off' } }); });
+  await page.addInitScript(() => {
+    localStorage.setItem('protocol.deviceToken', 'dev_e2e'); // a device that already has its token
+    localStorage.setItem('protocol.voice.ok', '1'); // the D95 consent was given before Soniox existed
+    // a microphone that gives silence (the real one needs a person)
+    navigator.mediaDevices.getUserMedia = async () => new AudioContext().createMediaStreamDestination().stream;
+  });
+  await fakeSpeech(page, ['два яйця і кава з молоком']);
+  await page.goto('./#/more/settings');
+  const voice = page.getByTestId('voice-settings');
+  await expect(voice.getByRole('radio', { name: 'Soniox', checked: true })).toBeVisible(); // the switch: only when the server gives a key
+  await expect(voice.getByTestId('voice-test-id')).toHaveText('a1b2c3d4e5f6');
+  await page.goto('./#/');
+  await page.getByRole('button', { name: 'Сказати голосом' }).first().click();
+  const consent = page.getByTestId('voice-consent-soniox');
+  await expect(consent).toContainText('Soniox'); // a new consent: the D95 «yes» does not carry over
+  await expect(consent).toContainText('написати текстом');
+  await consent.getByRole('button', { name: 'Так, говорити' }).click();
+  await expect.poll(() => keys.length).toBe(1); // the recording started from that tap, without a second one
+  await expect(page.getByText(/Яйце/).first()).toBeVisible(); // no key → once to the phone’s engine (D95 given), the words arrive
+  expect(await page.evaluate(() => localStorage.getItem('protocol.sonioxConsent'))).toBe('yes');
+  // «Телефон»: the server is never asked for a key again
+  await page.goto('./#/more/settings');
+  await page.getByTestId('voice-settings').getByRole('radio', { name: 'Телефон' }).click();
+  await page.goto('./#/');
+  await page.evaluate(() => { (window as unknown as { __say: string[] }).__say = ['склянка води']; });
+  await page.getByRole('button', { name: 'Сказати голосом' }).first().click();
+  await expect(page.getByTestId('voice-consent-soniox')).toHaveCount(0);
+  await expect(page.getByText(/250 мл/).first()).toBeVisible();
+  expect(keys).toHaveLength(1);
+});

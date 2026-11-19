@@ -230,6 +230,8 @@ export interface DayEntry {
   scheduleChanges?: { from: ISODateTime; to: ISODateTime; changedAt: ISODateTime }[];
   /** D119: how a meal was recorded — said in the voice window, or with lines from a photo of the plate; absent = typed or tapped */
   via?: 'voice' | 'photo';
+  /** D174: a meal said aloud through Soniox (absent = the phone's engine) — for the pilot's `by_soniox` */
+  voiceEngine?: 'soniox';
 }
 
 export interface Wellbeing {

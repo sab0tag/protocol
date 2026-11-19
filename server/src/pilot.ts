@@ -42,7 +42,7 @@ const summary = z.strictObject({
   days_in: n(3650),
   active_days: n(7),
   meds: z.strictObject({ due: n(500), done: n(500), skipped: n(500), late_30: n(500), prn_taken: n(500) }),
-  food: z.strictObject({ days_logged: n(7), entries: n(1000), by_voice: n(1000), by_text: n(1000), by_photo: n(1000), not_found: n(1000) }),
+  food: z.strictObject({ days_logged: n(7), entries: n(1000), by_voice: n(1000), by_text: n(1000), by_photo: n(1000), not_found: n(1000), by_soniox: n(1000).optional() }), // D174: of by_voice
   plan: z.strictObject({ meds: n(100), constraints: n(100), from_photo: z.boolean(), photo_rows: n(200), photo_rows_edited: n(200), photo_rows_unchecked: n(200) }),
   help: z.strictObject({ why_opened: n(1000), topup_shown: n(1000), topup_taken: n(1000), danger_card: n(1000) }),
   rem: z.strictObject({ sent: n(2000), opened: n(2000) }).optional(), // opened from the notification — not a dose confirmed
@@ -54,6 +54,7 @@ const summary = z.strictObject({
   if (s.meds.done + s.meds.skipped > s.meds.due) bad('done + skipped > due');
   if (s.meds.late_30 > s.meds.done) bad('late > done');
   if (s.food.by_voice + s.food.by_text + s.food.by_photo !== s.food.entries) bad('voice + text + photo ≠ entries');
+  if ((s.food.by_soniox ?? 0) > s.food.by_voice) bad('soniox > voice');
   if (s.food.days_logged > s.active_days) bad('food days > active days');
   if (s.plan.photo_rows_unchecked > s.plan.photo_rows) bad('unchecked > rows read');
 });
