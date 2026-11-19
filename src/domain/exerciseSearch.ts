@@ -20,3 +20,10 @@ export function searchExercises(list: readonly Exercise[], query: string): Exerc
     return q.every((w) => own.some((x) => x.startsWith(w)));
   });
 }
+
+/** D181: the library exercise a free name is most like — «Присідання» → a squat: a word of the name starts with a word (4+
+ *  letters) of the exercise or of its movement. For a quiet line about a limit, never to change what was written. */
+export function exerciseLike(list: readonly Exercise[], name: string): Exercise | undefined {
+  const q = words(name);
+  return list.find((e) => words(`${e.name} ${PATTERN_WORDS[e.pattern]}`).some((x) => x.length >= 4 && q.some((w) => w.startsWith(x))));
+}

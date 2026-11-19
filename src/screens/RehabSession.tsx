@@ -10,6 +10,8 @@ import { db, type PlanRow } from '../data/db';
 import { useAllEntries } from '../data/queries';
 import { atLocal, newId, todayISO } from '../domain/dates';
 import { allowStage, currentStage, notYetStage, sessionsOn, stageToAsk } from '../domain/rehab';
+import { painAlert } from '../domain/rehabSafety';
+import { RedFlags } from '../components/RedFlags';
 import type { DayEntry } from '../domain/types';
 import { t } from '../i18n/uk';
 
@@ -21,6 +23,7 @@ export function RehabSession({ plan }: { plan: PlanRow }) {
   const entries = useAllEntries() ?? [];
   const stage = currentStage(c), ask = stageToAsk(c, today);
   const done = sessionsOn(entries, today).length;
+  const alert = painAlert(entries, today); // D181
   const [step, setStep] = useState<'idle' | 'pain'>('idle');
   const [pain, setPain] = useState<number | null>(null), [swelling, setSwelling] = useState<boolean | null>(null);
   const setComplex = (next: typeof c) => saved(db.plan.update('main', { rehab: next }), t.toast.plan);
@@ -34,6 +37,11 @@ export function RehabSession({ plan }: { plan: PlanRow }) {
   return (
     <section className="space-y-4 pt-4" data-testid="rehab">
       <SceneHeader title={R.title} description={R.intro} />
+      {alert && <div role="alert" className="protocol-card space-y-1 border-2 border-warn p-4" data-testid="pain-stop">
+        <p className="text-sm">{t.painStop[alert]}</p>
+        <p className="text-lg font-semibold">{t.painStop.text}</p>
+        <p className="text-sm text-muted">{t.painStop.why}</p>
+      </div>}
       <p className="text-sm font-semibold" data-testid="rehab-count">{R.count(done, c.perDay)}</p>
       {ask && <div role="group" aria-label={R.askTitle} className="protocol-card space-y-2 p-4">
         <p className="font-medium">{R.ask(ask.title)}</p>
@@ -67,6 +75,7 @@ export function RehabSession({ plan }: { plan: PlanRow }) {
           <button type="button" disabled={pain === null || swelling === null} onClick={() => void record()}
             className="min-h-tap w-full rounded-xl bg-accent px-4 font-semibold text-on-accent disabled:opacity-40">{R.save}</button>
         </div>}
+      <RedFlags />
       <p className="text-sm text-muted">{R.never}</p>
     </section>
   );

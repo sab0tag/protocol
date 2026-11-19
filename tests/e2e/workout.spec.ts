@@ -235,3 +235,47 @@ test('a rehabilitation complex: entered as written, «ЛФК N з M» on Today, 
   await page.goto('./#/');
   await expect(page.getByTestId('quick-marks').getByRole('button', { name: /ЛФК/ }).first()).toContainText('1 з 2');
 });
+
+test('safety in rehabilitation: pain 8 → «Зупиніть…», the red flags (a draft) on screen, a red flag in the field → 103 and no model (D181)', async ({ browser }) => {
+  const page = await device(browser, 'skip');
+  const model: string[] = [];
+  await page.route('**/assistant**', (r) => { model.push(r.request().url()); return r.fulfill({ json: {} }); });
+  await page.goto('./#/plan/constraints');
+  await page.getByRole('button', { name: 'Додати комплекс' }).click();
+  await page.getByRole('dialog').getByLabel('Вправи й етапи').fill('Згинання стопи | 3 × 10');
+  await page.getByRole('dialog').getByRole('button', { name: 'Зберегти' }).click();
+  await page.goto('./#/workout');
+  const rehab = page.getByTestId('rehab');
+  await expect(rehab.getByTestId('red-flags')).toContainText('Литка болить і набрякла');
+  await expect(rehab.getByTestId('red-flags')).toContainText('Чернетка, не перевірено лікарем');
+  await expect(rehab.getByTestId('pain-stop')).toHaveCount(0);
+  await rehab.getByRole('button', { name: 'Зробив(ла) комплекс' }).click();
+  await rehab.getByRole('button', { name: '8', exact: true }).click();
+  await rehab.getByRole('button', { name: 'Так', exact: true }).click();
+  await rehab.getByRole('button', { name: 'Записати' }).click();
+  await expect(rehab.getByTestId('pain-stop')).toContainText('Зупиніть ці вправи і зателефонуйте лікарю.');
+
+  await page.goto('./#/');
+  const field = page.getByRole('textbox', { name: /Скажіть або напишіть/ });
+  await field.fill('пальці посиніли під гіпсом');
+  await field.press('Enter');
+  await expect(page.getByRole('link', { name: /103/ }).first()).toBeVisible();
+  expect(model).toEqual([]);
+});
+
+test('a limit broken by what the person wrote: kept, with a quiet line from the plan; the starting set leaves it out (D181)', async ({ browser }) => {
+  const page = await device(browser, 'skip');
+  await page.goto('./#/plan/constraints');
+  await page.getByRole('button', { name: 'Додати обмеження' }).click();
+  const sheet = page.getByRole('dialog');
+  await sheet.getByLabel('До якої дати (включно)').fill('2099-12-09');
+  await sheet.getByRole('button', { name: 'Зберегти' }).click();
+  await page.goto('./#/workout');
+  await expect(page.getByRole('button', { name: /^Як виконувати: Гоблет/ })).toHaveCount(0); // not offered
+  const today = await page.evaluate(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; });
+  await seed(page, [{ store: 'workouts', value: { id: 'w-own', date: today, durationMin: 20, equipment: '', feeling: 'Легко',
+    exercises: [{ exerciseId: 'goblet-squat', name: 'Гоблет-присід', target: '3 × 10', sets: [{ reps: 10 }] }, { name: 'Присідання', target: '', sets: [{ reps: 15 }] }] } }]);
+  await page.goto('./#/workout');
+  await expect(page.getByTestId('limit-line')).toHaveCount(2); // the record stays — two quiet lines
+  await expect(page.getByTestId('limit-line').first()).toHaveText('У плані: без опори на ліву ногу до 09.12.');
+});

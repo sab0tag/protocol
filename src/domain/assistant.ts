@@ -2,6 +2,7 @@
 // ready-made; «що добрати?» is answered by the code alone (scenario 3, D92/D116); a question on medicines, symptoms or
 // changing the plan gets the app's own words (boundaries 2–4, 1); a food the model names becomes a meal line only through the
 // base and the plan's check — what does not pass is not shown (it goes to the log as a finding). Pure.
+import { injured, redFlagInText, rehabAnswer } from './rehabSafety';
 import { evaluate } from './evaluate';
 import { itemFor } from './foodSearch';
 import { lineNutrients, type DayTotals } from './nutrition';
@@ -33,10 +34,13 @@ export type Topic = 'food' | 'medicine' | 'symptoms' | 'plan' | 'other';
 /** D130: where a question goes, by the question alone (not by the talk before it): words of despair → the crisis card; a danger
  *  sign → the 103 card — both before any model, and the talk is cleared; «що добрати?» → the code, but only when the plan has a
  *  target to top up (with none, «що з’їсти на вечерю?» is a question for the model, with the plan's limits); the rest → the model. */
-export type Route = 'crisis' | 'danger' | 'topup' | 'model';
-export function routeQuestion(text: string, plan: Plan): Route {
+export type Route = 'crisis' | 'danger' | 'topup' | 'rehab' | 'model';
+/** D181: with an injury in the plan, its red flags are danger signs too, and a question about exercise is the plan's own answer */
+export function routeQuestion(text: string, plan: Plan, date: string = new Date().toISOString().slice(0, 10)): Route {
   if (crisisInText(text)) return 'crisis';
   if (dangerInText(text)) return 'danger';
+  if (injured(plan, date) && redFlagInText(text)) return 'danger';
+  if (rehabAnswer(text, plan, date)) return 'rehab';
   const t = plan.targets;
   if (asksTopup(text) && (t.kcal !== undefined || t.proteinG !== undefined || t.calciumMg !== undefined)) return 'topup';
   return 'model';

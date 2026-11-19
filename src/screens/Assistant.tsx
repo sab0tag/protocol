@@ -72,7 +72,7 @@ export function Assistant() {
     const words = q.trim();
     if (!words || !day || !totals) return;
     setText('');
-    const route = routeQuestion(words, day.plan); // D130: danger and despair — the card at once; their words are never put in the talk
+    const route = routeQuestion(words, day.plan, day.date); // D130: danger and despair — the card at once; their words are never put in the talk
     if (route === 'crisis' || route === 'danger') { card(route); return; }
     if (!askConsent) say({ role: 'user', text: words });
     const asked = talk.current;
