@@ -159,6 +159,7 @@ export function Report() {
         <h2 className="mb-2 font-semibold">{t.rehab.title}</h2>
         <div className="space-y-1 text-sm">{rehabLines(r.rehab, dmShort).map((line) => <p key={line}>{line}</p>)}</div>
       </section> /* D182 */}
+      {r.ownGoal && <p className="protocol-card rounded-2xl border border-line bg-surface p-3 text-sm" data-testid="report-own-goal">{r.ownGoal}</p> /* D183 */}
 
       <section className="protocol-card rounded-2xl border border-line bg-surface p-3">
         <h2 className="mb-2 font-semibold">{L.symptoms}</h2>
@@ -225,6 +226,6 @@ function Metric({ label, value }: { label: string; value: string }) {
 /** The sections that are in the text, so consent names what actually leaves the phone. */
 function sharedParts(r: ReturnType<typeof buildReport>): string[] {
   return [r.meds && 'прийом ліків', r.prn.length && 'ліки за потреби', r.skipDetails?.length && 'підтверджені пропуски та їх причини', r.labs.length && 'результати аналізів', r.weightStart != null && 'вага',
-    r.symptoms.length && 'симптоми', r.avgEnergy != null && 'енергія', r.workouts && 'тренування', r.rehab && 'ЛФК: заняття, біль і набряк', r.menu && 'меню', r.questions.length && 'ваші питання']
+    r.symptoms.length && 'симптоми', r.avgEnergy != null && 'енергія', r.workouts && 'тренування', r.rehab && 'ЛФК: заняття, біль і набряк', r.ownGoal && 'ваша ціль щодо ваги', r.menu && 'меню', r.questions.length && 'ваші питання']
     .filter((x): x is string => typeof x === 'string');
 }

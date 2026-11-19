@@ -49,6 +49,7 @@ import { FeaturesProvider, useFeatures } from './features';
 import { FeatureUnavailable } from '../components/FeatureUnavailable';
 import { Modules } from '../screens/Modules';
 import { Weight } from '../screens/Weight';
+import { WeightGoal } from '../screens/WeightGoal';
 import type { FeatureId } from '../domain/features';
 
 // D175: the experiment page carries the corpus and a YAML reader — loaded only when opened
@@ -74,7 +75,7 @@ const SCREENS = {
   onboarding: <Onboarding />, progress: <Progress />, progressInsights: <Insights />, progressMotivation: <Motivation />,
   progressLabs: <Labs />, report: <Report />, dishes: <Dishes />, foods: <MyFoods />, data: <Data />,
   more: <More />, moreCategory: <MoreCategory />, about: <About />, conciergeLog: <ConciergeLog />,
-  assistant: <Assistant />, sync: <Sync />, menu: <Menu />, reminders: <Reminders />, shopping: <Shopping />, modules: <Modules />, weight: <Weight />, devSpeech: <Suspense fallback={null}><DevSpeech /></Suspense>, fallback: <Navigate to="/" replace />,
+  assistant: <Assistant />, sync: <Sync />, menu: <Menu />, reminders: <Reminders />, shopping: <Shopping />, modules: <Modules />, weight: <Weight />, devSpeech: <Suspense fallback={null}><DevSpeech /></Suspense>, weightGoal: <WeightGoal />, fallback: <Navigate to="/" replace />,
 } satisfies Record<RouteId, ReactNode>;
 
 function FeatureGate({ feature, children }: { feature: FeatureId; children: ReactNode }) {

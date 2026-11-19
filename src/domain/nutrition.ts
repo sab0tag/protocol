@@ -63,7 +63,9 @@ export function activeMode(plan: Plan | undefined, date: string): { mode: Mode; 
 
 /** Plan targets with the active mode's overrides on top (carbs are merged, not replaced half-way). */
 export function effectiveTargets(plan: Plan | undefined, date: string): Targets {
-  const base = plan?.targets ?? {};
+  // D183: the person's own weight goal fills only what the plan leaves empty — a doctor's number always wins
+  const own: Targets = plan?.ownGoal ? { kcal: plan.ownGoal.kcal, proteinG: plan.ownGoal.proteinG[0] } : {};
+  const base = { ...own, ...Object.fromEntries(Object.entries(plan?.targets ?? {}).filter(([, v]) => v !== undefined)) } as Targets;
   const active = activeMode(plan, date);
   if (!active) return base;
   const o = active.mode.targetsOverride;

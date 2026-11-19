@@ -63,6 +63,7 @@ export async function answer(words: string, d: Day, o: { consent: boolean; log: 
   const route = routeQuestion(words, d.plan, d.date); // D130: by this question alone, not by the talk before it
   if (route === 'crisis' || route === 'danger') return { card: route };
   if (route === 'rehab') return { text: rehabAnswer(words, d.plan, d.date)! }; // D181: the plan's own words, never the model
+  if (route === 'distress') return { text: t.goal.eating }; // D183
   if (route === 'topup') return topupReply(d);
   if (inDemo()) return { text: L.demo }; // D98
   if (!o.consent) return { consent: true };

@@ -63,6 +63,8 @@ export interface Report {
   water?: { days: number; avgMl: number; maxMl?: number; over: { date: ISODate; overMl: number }[] };
   /** D182: the rehabilitation complex — sessions done of those due, pain after them by day, the days with swelling, the limits */
   rehab?: RehabReport;
+  /** D183: «Що я задав сам» — the person's own weight goal, a separate block, never mixed with the doctor's targets */
+  ownGoal?: string;
 }
 
 export function buildReport(args: {
@@ -187,6 +189,7 @@ export function buildReport(args: {
     dietQuestions: plan ? dietConflicts(plan).map((x) => t.diet.conflict(x.code, t.diet.fields[x.field], x.target, x.range[0], x.range[1])) : [],
     labs: labs.filter((l) => inside(l.date)).sort((a, b) => b.date.localeCompare(a.date) || a.name.localeCompare(b.name)),
     ...(rehabReport(plan, entries, from, to < today ? to : today) ?? {}),
+    ...(plan?.ownGoal ? { ownGoal: t.goal.report(plan.ownGoal.input.goalKg, plan.ownGoal.kcal, plan.ownGoal.proteinG, plan.ownGoal.perWeekKg, `${plan.ownGoal.setAt.slice(8, 10)}.${plan.ownGoal.setAt.slice(5, 7)}`) } : {}),
   };
 }
 
@@ -265,6 +268,7 @@ export function reportText(r: Report, dm: (d: ISODate) => string): string {
     r.symptoms.length ? `Симптоми: ${r.symptoms.map((s) => `${s.name} — ${s.count}`).join('; ')}` : '',
     r.coincidences.length ? `Збіги в записах (підрахунок, не висновок):\n${r.coincidences.map((c) => `• ${c}`).join('\n')}` : '',
     ...(r.rehab ? rehabLines(r.rehab, dm) : []),
+    r.ownGoal ?? '',
     r.questions.length ? `Мої питання:\n${r.questions.map((q) => `• ${q}`).join('\n')}` : '',
   ];
   return lines.filter(Boolean).join('\n');

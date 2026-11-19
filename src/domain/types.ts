@@ -116,6 +116,20 @@ export interface Targets {
   fromDiet?: Partial<Record<'kcal' | 'proteinG' | 'fatG' | 'carbsG', string>>;
 }
 
+/** D183: what the weight goal helper was told — numbers, not categories. */
+export interface GoalInput {
+  sex: 'male' | 'female'; age: number; heightCm: number; weightKg: number; goalKg: number;
+  /** steps a day; absent — not known (counted as a sitting day) */
+  stepsPerDay?: number;
+  /** minutes of training a week */
+  trainingMinPerWeek?: number;
+  pregnant?: boolean;
+  /** kcal a day under the expenditure; below 500 only knowingly */
+  deficit?: number;
+}
+/** D183: the person's own goal, set with the helper — never a doctor's number, which always wins and is never overwritten. */
+export interface OwnGoal { input: GoalInput; kcal: number; proteinG: [number, number]; perWeekKg: number; goalDate: ISODate; setAt: ISODate }
+
 /** A temporary mode that overrides targets (e.g. preparing for an OGTT). */
 export interface Mode {
   id: string;
@@ -145,6 +159,8 @@ export interface Plan {
   restrictions?: Restriction[];
   /** D179: the rehabilitation complex; with it the mode is «Реабілітація» */
   rehab?: RehabComplex;
+  /** D183: the weight goal the person set with the helper (not a doctor's) */
+  ownGoal?: OwnGoal;
   /** D72: one goal for the week, chosen by the person on «Тиждень» */
   weekGoal?: { text: string; set: ISODate };
 }
