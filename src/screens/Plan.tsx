@@ -196,6 +196,8 @@ export function Plan({ section = 'home' }: { section?: PlanSection }) {
       </Block>}
 
       {section === 'goals' && <>
+      {/* D183: the person's own goal — a separate thing from the doctor's targets below */}
+      <Link to="/goal" className="protocol-card flex min-h-tap flex-col justify-center p-3" data-testid="goal-link"><span className="font-semibold">{t.goal.planLink}</span><span className="text-sm text-muted">{plan.ownGoal ? t.goal.current(plan.ownGoal.input.goalKg, plan.ownGoal.kcal, plan.ownGoal.proteinG, plan.ownGoal.perWeekKg) : t.goal.planLinkHint}</span></Link>
       <Block title={P.targets} onAdd={() => setEditing({ what: 'targets' })} addLabel={P.edit}>
         <li className="px-3 py-2">{targetSummary(tg) || <span className="text-muted">{P.emptyBy.targets}</span>}</li>
         {dietConflicts(plan).map((x) => ( /* D90: a doctor's target and a diet's norm that differ — a question, not settled */
