@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { codeFromScan } from '../domain/clinicCode';
+import { scanTarget, type ScanTarget } from '../domain/clinicCode';
 
 // D177: the camera and its QR reader are loaded only when the person opens them
 const QrScanner = lazy(() => import('../components/QrScanner').then((m) => ({ default: m.QrScanner })));
@@ -44,6 +44,9 @@ function PlanImport() {
   const [scan, setScan] = useState(false), [pasted, setPasted] = useState(''), [pasteError, setPasteError] = useState('');
   /** D177: a code read here (camera or pasted) — the same screen with that code, and the plan is fetched at once */
   const open = (c: string) => navigate(`/plan/import?code=${encodeURIComponent(c)}`, { replace: true, state: { scanned: true } });
+  // D180: a code of another Protocol (the demo stand) is never sent to this server — it is opened where it was issued
+  const [elsewhere, setElsewhere] = useState<string | null>(null);
+  const take = (t: ScanTarget) => { if ('code' in t) open(t.code); else { setScan(false); setElsewhere(t.elsewhere); } };
   const [state, setState] = useState<'idle' | 'loading' | 'saved' | 'already' | 'busy'>('idle');
   const [verified, setVerified] = useState(false); // D171: «звірив(ла)» before anything becomes the plan (D157)
   const [error, setError] = useState('');
@@ -121,10 +124,14 @@ function PlanImport() {
           {code && <button className="min-h-tap rounded-xl bg-accent px-4 text-white disabled:opacity-50" disabled={state === 'loading'} onClick={load}>
             {state === 'loading' ? 'Завантажуємо…' : retryAt !== null ? 'Повторити' : 'Переглянути план'}
           </button>}
+          {elsewhere && <div role="alert" className="protocol-card space-y-2 p-3 text-sm" data-testid="qr-elsewhere">
+            <p>Цей QR — з іншої версії Протоколу ({new URL(elsewhere).host}). Код діє лише там, тут його не перевіряли й не витратили.</p>
+            <a href={elsewhere} className="inline-flex min-h-tap items-center rounded-xl bg-accent px-4 font-semibold text-on-accent">Відкрити план там</a>
+          </div>}
           {!code && <div className="space-y-3">
-            {scan ? <Suspense fallback={<p className="text-sm text-muted">Вмикаю камеру…</p>}><QrScanner onCode={open} onClose={() => setScan(false)} /></Suspense>
+            {scan ? <Suspense fallback={<p className="text-sm text-muted">Вмикаю камеру…</p>}><QrScanner onCode={take} onClose={() => setScan(false)} /></Suspense>
               : <button type="button" onClick={() => setScan(true)} className="min-h-tap w-full rounded-xl bg-accent px-4 font-semibold text-on-accent">Сканувати QR камерою</button>}
-            <form className="space-y-2" onSubmit={(e) => { e.preventDefault(); const c = codeFromScan(pasted); if (c) open(c); else setPasteError('Це не посилання на план від клініки. Скопіюйте його повністю або відскануйте QR.'); }}>
+            <form className="space-y-2" onSubmit={(e) => { e.preventDefault(); const c = scanTarget(pasted, `${window.location.origin}${window.location.pathname}`); if (c) take(c); else setPasteError('Це не посилання на план від клініки. Скопіюйте його повністю або відскануйте QR.'); }}>
               <label className="block text-sm">Або вставте посилання чи код від клініки
                 <input value={pasted} onChange={(e) => { setPasted(e.target.value); setPasteError(''); }} autoComplete="off" autoCapitalize="off" spellCheck={false}
                   className="mt-1 block min-h-tap w-full rounded-xl border border-line bg-surface px-3" /></label>
