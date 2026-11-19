@@ -411,6 +411,13 @@ function PrescriptionForm({ plan, item, onClose }: { plan: PlanRow; item?: Presc
         </div>
       )}
       <Field label={P.dueDate}><input type="date" value={p.dueDate ?? ''} onChange={(e) => setP({ ...p, dueDate: e.target.value || undefined })} className={field} /></Field>
+      {p.kind === 'test' && <> {/* D193: a test on an empty stomach and the referral's hours — never filled in by the app */}
+        <label className="protocol-toggle-row min-h-tap">
+          <input type="checkbox" checked={!!p.fasting} onChange={(e) => { const { fasting: _f, ...rest } = p; setP(e.target.checked ? { ...p, fasting: true } : rest); }} className="protocol-switch" />
+          <span>{t.fastingTest.toggle}</span></label>
+        {(p.fasting || /натщ|натще/iu.test(p.title)) && <Field label={t.fastingTest.hours}><input inputMode="numeric" value={p.fastingHours ?? ''} placeholder={t.fastingTest.hoursPh} className={field}
+          onChange={(e) => { const n = Number(e.target.value); const { fastingHours: _h, ...rest } = p; setP(e.target.value.trim() && n > 0 && n <= 24 ? { ...p, fastingHours: Math.round(n) } : rest); }} /></Field>}
+      </>}
       <Field label={P.notes}><input value={p.notes ?? ''} onChange={(e) => setP({ ...p, notes: e.target.value || undefined })} className={field} /></Field>
       <Field label={P.source}><input value={p.source} onChange={(e) => setP({ ...p, source: e.target.value })} placeholder="Ендокринолог 02.10.2026" className={field} /></Field>
     </FormSheet>

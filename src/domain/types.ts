@@ -70,6 +70,9 @@ export interface Prescription {
   /** D192: an empty-stomach medicine — how many minutes before food, as the plan or the leaflet says; typed by the person, never filled in */
   beforeFoodMin?: number;
   dueDate?: ISODate; // for lab tests
+  /** D193: a test on an empty stomach (also read from its words), and the hours without food the referral gives */
+  fasting?: boolean;
+  fastingHours?: number;
   notes?: string;
   source: string;
   /** D138: explicitly confirmed structured activity; free lifestyle words alone never enable workouts. */

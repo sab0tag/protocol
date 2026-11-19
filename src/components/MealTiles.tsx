@@ -19,6 +19,7 @@ import { frequentItems } from '../domain/habits';
 import { medFoodNotes } from '../domain/medFood';
 import { blockKeyFor, hitLabels, mealBlocks, NEW_SNACK, recentSlotDays, sameFood, SLOTS, slotEntries, slotTime, tileState, usualForSlot, withFoodDose, yesterdaySlot, type MealBlock, type Slot, type TileState } from '../domain/mealSlots';
 import { dayTotals, mealNutrients, round, saltLimit, saltLine } from '../domain/nutrition';
+import { fastingMorning } from '../domain/fastingTest';
 import { beforeFood } from '../domain/beforeFood';
 import { dishItem, setPortions } from '../domain/recipes';
 import type { ItemCheck, RuleHit } from '../domain/rules';
@@ -132,6 +133,7 @@ function MealTile({ block, now, date, day, all, foods, recipes, plan, quiet, ope
             ? <span className="block text-sm">{L.withFood(dose.title, dose.time, name)}</span>
             : state === 'missed' ? <span className="text-muted"> — {L.notRecorded} · <span className="font-medium text-accent">{L.add}</span></span>
               : summary && <span className={`${state === 'planned' ? 'text-muted' : ''}`}> · {summary}</span>}
+          {slot === 0 && state !== 'recorded' && <FastingTestLine plan={plan} date={date} day={day} /> /* D193 */}
           {slot === 0 && state !== 'recorded' && <BeforeFoodLine plan={plan} day={day} /> /* D192 */}
           {state === 'recorded' && labels.length > 0 && <span className="mt-1 flex flex-wrap gap-1">{labels.map((x) => <PlanLabel key={x} text={x} />)}</span>}
         </span>
@@ -146,6 +148,14 @@ function MealTile({ block, now, date, day, all, foods, recipes, plan, quiet, ope
         {...(draft ? { draft, onDraftDone } : {})} />}
     </div>
   );
+}
+
+/** D193: a test on an empty stomach today — first the test; the morning's medicines are a question for the doctor, not advice. */
+function FastingTestLine({ plan, date, day }: { plan: Plan | undefined; date: string; day: DayEntry[] }) {
+  const m = fastingMorning(plan, date, day);
+  if (!m) return null;
+  return <span className="block text-sm text-warn" data-testid="fasting-test">{t.fastingTest.first(m.tests.join(', '))}
+    {m.meds.length > 0 && <span className="block">{t.fastingTest.meds(m.meds.join(', '))}</span>}</span>;
 }
 
 /** D192: an empty-stomach medicine marked — how long until breakfast; refreshed every half minute. */

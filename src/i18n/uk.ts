@@ -362,6 +362,11 @@ export const t = {
     place: (part: string, side: string) => `${part} ${side}`, later: 'Не зараз', saved: 'Місце уколу записано',
     hint: 'Місце краще міняти: так шкіра не ущільнюється. Дози й препарат — лише як призначив лікар.',
   },
+  fastingTest: { // D193: a test on an empty stomach, that morning on the breakfast tile
+    first: (tests: string) => `Спершу аналіз натщесерце: ${tests}. Сніданок — після нього.`,
+    meds: (meds: string) => `Ліки цього ранку (${meds}) — уточніть у лікаря, чи приймати до аналізу.`,
+    toggle: 'Натщесерце', hours: 'Скільки годин без їжі (як у направленні)', hoursPh: 'напр. 8 — або порожньо',
+  },
   fasting: { // D192: «Натщесерце → їжа» on the breakfast tile
     wait: (n: number, title: string) => `Сніданок через ${n} хв — після «${title}»`, empty: (title: string) => `«${title}» — натщесерце, до їжі`,
   },
