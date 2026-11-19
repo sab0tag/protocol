@@ -31,6 +31,7 @@ import { countOnce } from '../data/tally';
 import { activateClinicPlan } from '../data/carePlans';
 import { t } from '../i18n/uk';
 import { BODY_PARTS, restrictionText } from '../domain/trainingRules';
+import { currentStage, readRehab, rehabText } from '../domain/rehab';
 
 const P = t.plan;
 const field = 'mt-1 block min-h-tap w-full rounded-xl border border-line bg-bg px-3';
@@ -42,6 +43,7 @@ type Editing =
   | { what: 'constraint'; item?: Constraint }
   | { what: 'mode'; item?: Mode }
   | { what: 'restriction'; item?: Restriction }
+  | { what: 'rehab' }
   | { what: 'targets' }
   | { what: 'checkup' };
 
@@ -179,6 +181,12 @@ export function Plan({ section = 'home' }: { section?: PlanSection }) {
         ))}
       </Block>}
 
+      {/* D179: the rehabilitation complex — as the doctor gave it */}
+      {section === 'constraints' && <Block title={t.rehab.planTitle} empty={t.rehab.planEmpty} addLabel={plan.rehab ? P.edit : t.rehab.add} onAdd={() => setEditing({ what: 'rehab' })}>
+        {plan.rehab && <Item onEdit={() => setEditing({ what: 'rehab' })} title={t.rehab.title}
+          meta={[t.rehab.now(currentStage(plan.rehab).title, plan.rehab.perDay)]} source={plan.rehab.source} />}
+      </Block>}
+
       {/* D178: limits for training as a structure — the library and «Скласти тренування» show only what they allow */}
       {section === 'constraints' && <Block title={t.training.title} empty={t.training.empty} addLabel={t.training.add} onAdd={() => setEditing({ what: 'restriction' })}>
         {(plan.restrictions ?? []).map((r) => (
@@ -219,6 +227,7 @@ export function Plan({ section = 'home' }: { section?: PlanSection }) {
       {editing?.what === 'prescription' && <PrescriptionForm plan={plan} item={editing.item} onClose={() => setEditing(null)} />}
       {editing?.what === 'constraint' && <ConstraintForm plan={plan} item={editing.item} onClose={() => setEditing(null)} />}
       {editing?.what === 'mode' && <ModeForm plan={plan} item={editing.item} onClose={() => setEditing(null)} />}
+      {editing?.what === 'rehab' && <RehabForm plan={plan} onClose={() => setEditing(null)} />}
       {editing?.what === 'restriction' && <RestrictionForm plan={plan} item={editing.item} onClose={() => setEditing(null)} />}
       {editing?.what === 'targets' && <TargetsForm plan={plan} onClose={() => setEditing(null)} />}
       {editing?.what === 'checkup' && <CheckupForm plan={plan} onClose={() => setEditing(null)} />}
@@ -499,6 +508,30 @@ function ModeForm({ plan, item, onClose }: { plan: PlanRow; item?: Mode; onClose
       <p className="text-sm text-muted">{P.modeTargets}</p>
       <TargetFields value={m.targetsOverride} onChange={(v) => setM({ ...m, targetsOverride: v })} />
       <Field label={P.notesLines}><textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} className={`${field} py-2`} /></Field>
+    </FormSheet>
+  );
+}
+
+/** D179: the complex as text (one format with the clinic cabinet and a photo's draft); the stage being done stays when it is
+ *  still there, else the first. Saving never moves a stage on. */
+function RehabForm({ plan, onClose }: { plan: PlanRow; onClose: () => void }) {
+  const R = t.rehab;
+  const [text, setText] = useState(plan.rehab ? rehabText(plan.rehab.stages) : '');
+  const [perDay, setPerDay] = useState(plan.rehab?.perDay ?? 1), [source, setSource] = useState(plan.rehab?.source ?? '');
+  const stages = useMemo(() => readRehab(text), [text]);
+  const onSave = () => {
+    // the stage being done keeps its place (by order — titles may be reworded); an edit never moves it on
+    const old = plan.rehab, at = old ? Math.max(0, old.stages.findIndex((s) => s.id === old.stageId)) : 0;
+    return save({ rehab: { id: old?.id ?? newId(), perDay: Math.min(10, Math.max(1, perDay)), stages, stageId: stages[Math.min(at, stages.length - 1)]!.id, source: source.trim() } });
+  };
+  return (
+    <FormSheet title={R.planTitle} onClose={onClose} onSave={onSave} blocked={stages.length ? undefined : R.needText}
+      onDelete={plan.rehab ? () => save({ rehab: undefined }) : undefined}>
+      <Field label={R.text}><textarea value={text} onChange={(e) => setText(e.target.value)} rows={8} placeholder={R.textPh} className={`${field} py-2`} /></Field>
+      <p className="text-sm text-muted">{R.textHint}</p>
+      {stages.length > 0 && <p className="text-sm" data-testid="rehab-read">{stages.map((s) => `${s.title}: ${s.exercises.length}`).join(' · ')}</p>}
+      <Field label={R.perDay}><input type="number" inputMode="numeric" min={1} max={10} value={perDay} onChange={(e) => setPerDay(Math.round(Number(e.target.value) || 1))} className={field} /></Field>
+      <Field label={R.source_}><input value={source} onChange={(e) => setSource(e.target.value)} placeholder={R.sourcePh} className={field} /></Field>
     </FormSheet>
   );
 }

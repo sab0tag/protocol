@@ -42,6 +42,23 @@ export interface Restriction {
   active: boolean;
 }
 
+// D179 (task 7, step 5): a rehabilitation complex (ЛФК) as the doctor or the rehabilitologist wrote it. The app does not
+// write such exercises itself and never changes them: names, sets × reps or seconds, notes — as given; stages by date,
+// the next one only after «Так».
+export interface RehabExercise { id: string; name: string; /** «3 × 10», «10 × 5 с», as written */ dose?: string; note?: string }
+export interface RehabStage { id: string; title: string; /** the day the doctor planned it from; the switch still waits for «Так» */ from?: ISODate; exercises: RehabExercise[] }
+export interface RehabComplex {
+  id: string;
+  /** how many times a day the whole complex is done */
+  perDay: number;
+  stages: RehabStage[];
+  /** the stage being done now — moved only by the person's «Так» */
+  stageId: string;
+  /** «Ще ні» to the next stage on that day: asked again the next day */
+  notYet?: { stageId: string; on: ISODate };
+  source: string;
+}
+
 export interface Prescription {
   id: string;
   kind: 'medication' | 'supplement' | 'test' | 'lifestyle';
@@ -124,6 +141,8 @@ export interface Plan {
   lastExportAt?: ISODate;
   /** D178: limits for training as a structure; the old text constraints stay as they are and are not filtered by */
   restrictions?: Restriction[];
+  /** D179: the rehabilitation complex; with it the mode is «Реабілітація» */
+  rehab?: RehabComplex;
   /** D72: one goal for the week, chosen by the person on «Тиждень» */
   weekGoal?: { text: string; set: ISODate };
 }
@@ -224,6 +243,8 @@ export interface DayEntry {
   items?: MealItem[]; // meal
   waterMl?: number; // water
   workoutId?: string; // workout
+  /** D179: one session of the rehab complex (kind 'workout', no workoutId): the stage, pain 0–10 after it, swelling */
+  rehab?: { stageId: string; pain: number; swelling: boolean };
   symptoms?: string[]; // symptom (D56): «Мені погано» — what was felt, at `at`
   severity?: 1 | 2 | 3; // symptom: легко / помірно / сильно
   prescriptionId?: string; // med

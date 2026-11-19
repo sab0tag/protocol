@@ -193,3 +193,45 @@ test('a doctor’s limit as a structure: «без опори на ліву но�
   await expect(page.getByRole('button', { name: /^Як виконувати: Гоблет/ })).toHaveCount(0); // the model’s forbidden line dropped
   await expect(page.getByRole('button', { name: /^Як виконувати: Жим лежачи/ })).toBeVisible();
 });
+
+test('a rehabilitation complex: entered as written, «ЛФК N з M» on Today, a session with pain and swelling; the next stage only after «Так» (D179)', async ({ browser }) => {
+  const page = await device(browser, 'skip');
+  await page.goto('./#/plan/constraints');
+  await page.getByRole('button', { name: 'Додати комплекс' }).click();
+  const sheet = page.getByRole('dialog');
+  await sheet.getByLabel('Вправи й етапи').fill('Етап 1: без опори\nЗгинання стопи | 3 × 10 | повільно\nЕтап 2 з 01.01.2020: часткова опора\nХодьба з милицями | 5 хв');
+  await expect(sheet.getByTestId('rehab-read')).toHaveText('Етап 1: без опори: 1 · Етап 2: часткова опора: 1');
+  await sheet.getByLabel('Скільки разів на день').fill('2');
+  await sheet.getByLabel('Хто призначив').fill('Реабілітолог');
+  await sheet.getByRole('button', { name: 'Зберегти' }).click();
+  await expect(page.getByText(/зараз: Етап 1: без опори · 2 раз\(и\) на день/)).toBeVisible();
+
+  await page.goto('./#/');
+  const tile = page.getByTestId('quick-marks').getByRole('button', { name: /ЛФК/ }).first();
+  await expect(tile).toContainText('0 з 2');
+  await page.goto('./#/workout');
+  const rehab = page.getByTestId('rehab');
+  await expect(rehab.getByText('Згинання стопи')).toBeVisible();
+  await expect(rehab.getByText('3 × 10', { exact: false })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Скласти тренування з ІІ' })).toHaveCount(0); // nothing composed
+  await expect(page.getByText(/Ходьба з милицями/)).toHaveCount(0); // stage 2 is not on even though its date has passed
+  await rehab.getByRole('button', { name: 'Ще ні' }).click();
+  await expect(rehab.getByRole('group', { name: 'Наступний етап' })).toHaveCount(0);
+  await expect(rehab.getByText('Етап 1: без опори')).toBeVisible();
+
+  await rehab.getByRole('button', { name: 'Зробив(ла) комплекс' }).click();
+  await expect(rehab.getByRole('button', { name: 'Записати' })).toBeDisabled();
+  await rehab.getByRole('button', { name: '3', exact: true }).click();
+  await rehab.getByRole('button', { name: 'Ні', exact: true }).click();
+  await rehab.getByRole('button', { name: 'Записати' }).click();
+  await expect(toast(page)).toContainText('ЛФК записано: 1 з 2');
+  await expect(rehab.getByTestId('rehab-count')).toHaveText('Сьогодні: 1 з 2');
+  const stored = await page.evaluate(async () => {
+    const req = indexedDB.open('protocol'); await new Promise((r) => { req.onsuccess = r; });
+    const all = req.result.transaction('entries').objectStore('entries').getAll(); await new Promise((r) => { all.onsuccess = r; });
+    return (all.result as { kind: string; rehab?: { pain: number; swelling: boolean } }[]).filter((e) => e.rehab).map((e) => e.rehab);
+  });
+  expect(stored).toEqual([expect.objectContaining({ pain: 3, swelling: false })]);
+  await page.goto('./#/');
+  await expect(page.getByTestId('quick-marks').getByRole('button', { name: /ЛФК/ }).first()).toContainText('1 з 2');
+});

@@ -84,7 +84,8 @@ export async function activateClinicPlan(target: ProtocolDB, personId: string, p
       ? [{ ...i.content.value, ...sinceNow() }] : []);
     const limits = new Set(main.constraints.map(c => c.id)); // D171: the clinic's restrictions join the plan's, once
     const constraints = items.flatMap(i => i.content.type === 'constraint' && !limits.has(i.content.value.id) ? [i.content.value] : []);
-    await target.plan.update('main', { prescriptions: [...main.prescriptions, ...added], constraints: [...main.constraints, ...constraints] });
+    const rehab = items.flatMap(i => (i.content.type === 'rehab' ? [i.content.value] : []))[0]; // D179: the clinic's complex becomes the plan's
+    await target.plan.update('main', { prescriptions: [...main.prescriptions, ...added], constraints: [...main.constraints, ...constraints], ...(rehab ? { rehab } : {}) });
     await target.carePlans.update(planId, { status: 'active' });
     await target.carePlanItems.bulkPut(items.map(i => ({ ...i, provenance: { ...i.provenance, verification: 'verified' as const } })));
     return 'activated';

@@ -14,6 +14,8 @@ import { blankExercise, EQUIPMENT, pressHint, programmeWeek, startingSet, workou
 import { EXERCISES, exerciseOf, type Exercise } from '../data/exercises';
 import { adviceFor, lastNumbers, motivation } from '../domain/progression';
 import { allowedExercises, breaks, restrictionText } from '../domain/trainingRules';
+import { hasRehab } from '../domain/rehab';
+import { RehabSession } from './RehabSession';
 import { ExerciseCard, LevelBadge } from '../components/ExerciseCard';
 import { ExerciseLibrary } from '../components/ExerciseLibrary';
 import { ExampleNotice } from '../components/ExampleNotice';
@@ -26,7 +28,14 @@ const E = t.exercise;
 const dm = (d: string) => format(parseISO(d), 'EEEE, d MMMM', { locale: uk });
 
 /** «Тренування» (SPEC.md §5.6): the programme of the week, reps per set, each arm apart for one-arm work. */
+/** D179: with a rehabilitation complex in the plan the screen is that complex — no composer, no progression, no library. */
 export function Workout() {
+  const plan = usePlan();
+  if (plan === undefined) return null;
+  return hasRehab(plan) ? <RehabSession plan={plan} /> : <KettlebellWorkout />;
+}
+
+function KettlebellWorkout() {
   const { date, shift } = useUi();
   const plan = usePlan();
   const workouts = useWorkouts();

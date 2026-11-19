@@ -45,7 +45,8 @@ export type TrainingMode = 'general' | 'restricted' | 'rehab';
 export const activeRestrictions = (plan: Pick<Plan, 'restrictions'> | undefined, date: ISODate): Restriction[] =>
   (plan?.restrictions ?? []).filter((r) => r.active && (!r.until || r.until >= date));
 
-export function trainingMode(plan: Pick<Plan, 'restrictions'> | undefined, date: ISODate): TrainingMode {
+export function trainingMode(plan: Pick<Plan, 'restrictions' | 'rehab'> | undefined, date: ISODate): TrainingMode {
+  if (plan?.rehab?.stages.length) return 'rehab'; // D179: a complex from the doctor — shown as given, nothing composed
   return activeRestrictions(plan, date).length ? 'restricted' : 'general';
 }
 

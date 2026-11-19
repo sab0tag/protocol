@@ -23,11 +23,13 @@ const L = t.marks;
 
 interface Tile { key: string; label: string; state: string; full?: string; Icon: LucideIcon; tap: () => void; history: () => void }
 
-export function QuickMarks({ date, isToday, light, items, fluid, targets, entries, wellbeing, workoutDone, onWorkout, onUnwell, request, onRequestDone }: {
+export function QuickMarks({ date, isToday, light, items, fluid, targets, entries, wellbeing, workoutDone, rehab, onWorkout, onUnwell, request, onRequestDone }: {
   date: string; isToday: boolean; light: boolean; items: readonly CheckItem[];
   /** D169: what was drunk today (water, drinks, soups) and the plan's norm or limit */
   fluid: DayFluid; targets: Pick<Targets, 'waterMl' | 'waterMaxMl' | 'waterFrom'>;
   entries: readonly DayEntry[]; wellbeing: Wellbeing | undefined; workoutDone: boolean; onWorkout: () => void; onUnwell: () => void;
+  /** D179: a rehab complex in the plan — the tile is «ЛФК N з M» and opens the complex */
+  rehab?: { done: number; perDay: number };
   /** a shortcut's action (`#/do/meds`, `#/do/mood`): done once, as if the tile was tapped */
   request?: 'meds' | 'mood' | null; onRequestDone?: () => void;
 }) {
@@ -64,7 +66,8 @@ export function QuickMarks({ date, isToday, light, items, fluid, targets, entrie
       ...waterTile(water, notYet) }] : []),
     ...(can('wellbeing.log') ? [{ key: 'mood', label: L.mood, Icon: HeartPulse, history: go('/wellbeing/journal'), tap: () => setMoodSheet(true),
       state: wellbeing?.mood ? MOOD_WORDS[wellbeing.mood - 1]! : notYet }] : []),
-    ...(can('workout.log') ? [{ key: 'workout', label: L.workout, Icon: Dumbbell, history: go('/workout'), tap: tapWorkout,
+    ...(can('workout.log') ? [rehab ? { key: 'workout', label: t.rehab.tile, Icon: Dumbbell, history: go('/workout'), tap: go('/workout'), state: L.of(rehab.done, rehab.perDay) }
+      : { key: 'workout', label: L.workout, Icon: Dumbbell, history: go('/workout'), tap: tapWorkout,
       state: workoutDone ? L.done : plannedWorkout ? L.planned : notYet }] : []),
   ].sort((a, b) => order.indexOf(a.key as never) - order.indexOf(b.key as never)).slice(0, 4);
   useEffect(() => {

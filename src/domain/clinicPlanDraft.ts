@@ -2,7 +2,9 @@
 import { parseClinicPlan, type ClinicPlanV1 } from './planImport';
 
 export interface ClinicIdentity { organizationId: string; organizationName: string; displayName: string }
-export interface PlanForm { title: string; medications: string; restrictions: string; tests: string; followUp: string }
+export interface PlanForm { title: string; medications: string; restrictions: string; tests: string; followUp: string;
+  /** D179: the rehabilitation complex as lines (src/domain/rehab.ts); optional */
+  rehab?: string; rehabPerDay?: number }
 
 const lines = (s: string) => s.split('\n').map((l) => l.trim()).filter(Boolean);
 
@@ -18,11 +20,12 @@ export function composePlan(form: PlanForm, who: ClinicIdentity, newId: () => st
     medications.push({ name, dose, frequency, duration, instructions: rest.join(' | ') });
   }
   const restrictions = lines(form.restrictions), tests = lines(form.tests), followUp = form.followUp.trim();
-  if (!medications.length && !restrictions.length && !tests.length && !followUp) return { error: 'empty' };
+  const rehab = form.rehab?.trim() ? { perDay: Math.min(10, Math.max(1, Math.round(form.rehabPerDay ?? 1))), text: form.rehab.trim() } : undefined;
+  if (!medications.length && !restrictions.length && !tests.length && !followUp && !rehab) return { error: 'empty' };
   const plan = parseClinicPlan({
     schemaVersion: 1, planId: newId(), organizationId: who.organizationId, issuedAt: now().toISOString(),
     clinician: { displayName: who.displayName, organizationName: who.organizationName },
-    title, medications, restrictions, tests, ...(followUp ? { followUp } : {}),
+    title, medications, restrictions, tests, ...(followUp ? { followUp } : {}), ...(rehab ? { rehab } : {}),
   });
   return plan ? { plan } : { error: 'invalid' };
 }
