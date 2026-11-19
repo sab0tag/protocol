@@ -289,7 +289,7 @@ export function applyLines(plan: Plan, lines: DraftLine[], since?: { since: stri
   let nextCheckup = plan.nextCheckup;
   let rehab: RehabComplex | undefined; // D179: a complex from the sheet replaces the plan's (the newer paper)
   for (const l of lines) {
-    if (l.kind === 'rehab') { rehab = l.complex; placed?.set(l.key, 'rehab'); continue; }
+    if (l.kind === 'rehab') { rehab = { ...l.complex, since: since?.since ?? l.complex.since }; placed?.set(l.key, 'rehab'); continue; }
     if (l.kind === 'constraint') {
       const c = l.constraint;
       const i = constraints.findIndex((x) => sameConstraint(x, c));

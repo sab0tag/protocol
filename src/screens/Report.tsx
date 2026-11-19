@@ -10,6 +10,7 @@ import { db } from '../data/db';
 import { useAllEntries, useAllWellbeing, useFoods, useLabs, usePlan, useWeights, useWorkouts } from '../data/queries';
 import { dateOf, todayISO } from '../domain/dates';
 import { buildReport, habitLabel, prnLimitText, reportText, trackingLines, unscoredMedText, waterLines } from '../domain/report';
+import { rehabLines } from '../domain/rehabReport';
 import { labNumber } from '../domain/labs';
 import { useObservation } from '../app/observation';
 import { count } from '../data/tally';
@@ -154,6 +155,11 @@ export function Report() {
         </section>
       )}
 
+      {r.rehab && <section className="protocol-card rounded-2xl border border-line bg-surface p-3" data-testid="report-rehab">
+        <h2 className="mb-2 font-semibold">{t.rehab.title}</h2>
+        <div className="space-y-1 text-sm">{rehabLines(r.rehab, dmShort).map((line) => <p key={line}>{line}</p>)}</div>
+      </section> /* D182 */}
+
       <section className="protocol-card rounded-2xl border border-line bg-surface p-3">
         <h2 className="mb-2 font-semibold">{L.symptoms}</h2>
         {r.symptoms.length ? (
@@ -219,6 +225,6 @@ function Metric({ label, value }: { label: string; value: string }) {
 /** The sections that are in the text, so consent names what actually leaves the phone. */
 function sharedParts(r: ReturnType<typeof buildReport>): string[] {
   return [r.meds && 'прийом ліків', r.prn.length && 'ліки за потреби', r.skipDetails?.length && 'підтверджені пропуски та їх причини', r.labs.length && 'результати аналізів', r.weightStart != null && 'вага',
-    r.symptoms.length && 'симптоми', r.avgEnergy != null && 'енергія', r.workouts && 'тренування', r.menu && 'меню', r.questions.length && 'ваші питання']
+    r.symptoms.length && 'симптоми', r.avgEnergy != null && 'енергія', r.workouts && 'тренування', r.rehab && 'ЛФК: заняття, біль і набряк', r.menu && 'меню', r.questions.length && 'ваші питання']
     .filter((x): x is string => typeof x === 'string');
 }

@@ -57,6 +57,8 @@ export interface RehabComplex {
   /** «Ще ні» to the next stage on that day: asked again the next day */
   notYet?: { stageId: string; on: ISODate };
   source: string;
+  /** D182: the day it entered the plan — the report counts what was due from then */
+  since?: ISODate;
 }
 
 export interface Prescription {

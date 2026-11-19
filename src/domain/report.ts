@@ -1,4 +1,5 @@
 // «Звіт для лікаря» (SPEC.md §5.8). Pure: everything comes in, numbers come out.
+import { rehabLines, rehabReport, type RehabReport } from './rehabReport';
 import { weightQuality } from './weightQuality';
 import { addDays, differenceInCalendarDays, format, parseISO } from 'date-fns';
 import { buildChecklist } from './checklist';
@@ -60,6 +61,8 @@ export interface Report {
   lightDayWorkouts?: number;
   /** D169: water and drinks in litres over the days they were written; under the doctor's limit, the days over it */
   water?: { days: number; avgMl: number; maxMl?: number; over: { date: ISODate; overMl: number }[] };
+  /** D182: the rehabilitation complex — sessions done of those due, pain after them by day, the days with swelling, the limits */
+  rehab?: RehabReport;
 }
 
 export function buildReport(args: {
@@ -183,6 +186,7 @@ export function buildReport(args: {
     prn: prnReport(plan, entries, from, to),
     dietQuestions: plan ? dietConflicts(plan).map((x) => t.diet.conflict(x.code, t.diet.fields[x.field], x.target, x.range[0], x.range[1])) : [],
     labs: labs.filter((l) => inside(l.date)).sort((a, b) => b.date.localeCompare(a.date) || a.name.localeCompare(b.name)),
+    ...(rehabReport(plan, entries, from, to < today ? to : today) ?? {}),
   };
 }
 
@@ -260,6 +264,7 @@ export function reportText(r: Report, dm: (d: ISODate) => string): string {
     r.avgEnergy != null ? `Середня енергія: ${dec(r.avgEnergy)} з 5` : '',
     r.symptoms.length ? `Симптоми: ${r.symptoms.map((s) => `${s.name} — ${s.count}`).join('; ')}` : '',
     r.coincidences.length ? `Збіги в записах (підрахунок, не висновок):\n${r.coincidences.map((c) => `• ${c}`).join('\n')}` : '',
+    ...(r.rehab ? rehabLines(r.rehab, dm) : []),
     r.questions.length ? `Мої питання:\n${r.questions.map((q) => `• ${q}`).join('\n')}` : '',
   ];
   return lines.filter(Boolean).join('\n');

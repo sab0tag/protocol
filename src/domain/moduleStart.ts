@@ -10,7 +10,8 @@ const positive = (n: unknown) => typeof n === 'number' && Number.isFinite(n) && 
 export function starterModules(plan: Plan): { modules: ModuleFlags; weight: boolean } {
   const meds = plan.prescriptions.some((p) => p.kind === 'medication' || p.kind === 'supplement');
   return { modules: { meds, water: positive(plan.targets.waterMl) || positive(plan.targets.waterMaxMl) /* D169: a limit is counted too */, food: !meds, menu: false, assistant: false, wellbeing: false,
-    workout: plan.prescriptions.some(hasActivity), progress: false }, weight: positive(plan.targets.weightGoalKg) };
+    // D182: a rehabilitation complex from the doctor is training to record — the module starts on with it
+    workout: plan.prescriptions.some(hasActivity) || !!plan.rehab?.stages.length, progress: false }, weight: positive(plan.targets.weightGoalKg) };
 }
 
 export function newModuleProfile(events: readonly ModuleEvent[], plan: Plan): boolean {
@@ -42,7 +43,7 @@ function evidence(plan: Plan): Record<PlanModule, string> {
   return { meds: plan.prescriptions.some((p) => p.kind === 'medication' || p.kind === 'supplement') ? rx((p) => p.kind === 'medication' || p.kind === 'supplement') : '',
     food: food ? JSON.stringify([diet, plan.targets.kcal, plan.targets.proteinG, plan.targets.carbsG, plan.targets.fatG, plan.targets.calciumMg, plan.targets.lastMealBy]) : '',
     water: positive(plan.targets.waterMl) ? String(plan.targets.waterMl) : '', weight: positive(plan.targets.weightGoalKg) ? String(plan.targets.weightGoalKg) : '',
-    workout: plan.prescriptions.some(hasActivity) ? rx(hasActivity) : '' };
+    workout: plan.prescriptions.some(hasActivity) || plan.rehab?.stages.length ? JSON.stringify([rx(hasActivity), plan.rehab?.id ?? '']) : '' };
 }
 /** A new/changed positive prescription offers an opt-in; it never turns anything on or off. */
 export function planModuleSuggestions(before: Plan, after: Plan, events: readonly ModuleEvent[]): PlanModule[] {
