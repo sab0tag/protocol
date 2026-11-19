@@ -74,3 +74,20 @@ test('a QR that is not a plan is said so and sends nothing; a pasted link opens 
     expect(redeems).toHaveLength(1);
   } finally { await context.close(); }
 });
+
+test('a QR from the demo stand (another Protocol, its own server) is not tried here — it is opened there (D180)', async ({ browser, request }) => {
+  const code = await issuedCode(browser, request);
+  const context = await browser.newContext({ serviceWorkers: 'block', viewport: { width: 390, height: 844 } });
+  try {
+    const page = await context.newPage();
+    const redeems: string[] = [];
+    page.on('request', (r) => { if (r.url().endsWith('/v1/clinic/plans/redeem')) redeems.push(r.url()); });
+    await cameraShowing(page, `https://protocol-demo.beyondthesignal.to/#/plan/import?code=${code}`);
+    await page.goto('./#/plan/import');
+    await page.getByRole('button', { name: 'Сканувати QR камерою' }).click();
+    const there = page.getByTestId('qr-elsewhere');
+    await expect(there).toContainText('protocol-demo.beyondthesignal.to', { timeout: 15_000 });
+    await expect(there.getByRole('link', { name: 'Відкрити план там' })).toHaveAttribute('href', `https://protocol-demo.beyondthesignal.to/#/plan/import?code=${code}`);
+    expect(redeems).toEqual([]); // the one-time code was not tried on a server that does not have it
+  } finally { await context.close(); }
+});
