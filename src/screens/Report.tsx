@@ -9,7 +9,7 @@ import { useState } from 'react';
 import { db } from '../data/db';
 import { useAllEntries, useAllWellbeing, useFoods, useLabs, usePlan, useWeights, useWorkouts } from '../data/queries';
 import { dateOf, todayISO } from '../domain/dates';
-import { buildReport, habitLabel, prnLimitText, reportText, trackingLines, unscoredMedText, waterLines } from '../domain/report';
+import { buildReport, habitLabel, prnLimitText, reportText, trackingLines, unscoredMedText, waterLines, coverageLines } from '../domain/report';
 import { rehabLines } from '../domain/rehabReport';
 import { labNumber } from '../domain/labs';
 import { useObservation } from '../app/observation';
@@ -76,6 +76,7 @@ export function Report() {
           <input type="date" value={range.to} max={today} onChange={(e) => setRange({ ...range, to: e.target.value })} className={field} /></label>
       </div>
       <p className="hidden print:block">{dmy(r.from)} — {dmy(r.to)} · {L.days(r.days)}</p>
+      <div className="space-y-1" data-testid="report-coverage">{coverageLines(r).map((line, i) => <p key={line} className={i === 0 ? 'font-semibold' : 'text-sm text-muted'}>{line}</p>)}</div>{/* D189: coverage first */}
       <LightDayHistoryView history={r.lightDays} workouts={r.lightDayWorkouts} showEmpty />
       {r.tracking && <div className="space-y-1 text-sm text-muted">{trackingLines(r.tracking).map((line) => <p key={line}>{line}</p>)}</div>}
       {r.unscoredMedMarks && <p className="text-sm text-muted">{unscoredMedText(r.unscoredMedMarks)}</p>}

@@ -27,6 +27,9 @@ export const t = {
     emptyHistory: 'Підтверджених записів ще немає.',
   },
   weightQuality: {
+    // D189: dots alone under 4 weighings; from 4 — the 7-day average line
+    chartDots: 'Виміри ваги, кг — лінії не проводимо, доки вимірів менше 4', chartTrend: 'Виміри ваги, кг — лінія: середнє за 7 днів', avg7: 'Середнє за 7 днів',
+    howTo: 'Зважуйтесь вранці натщесерце 1–2 рази на тиждень — так видно зміну, а не коливання за день.',
     chart: 'Виміри ваги, кг', weekly: 'Тижневі середні та темп', changed: 'Вимір уже змінено в іншій вкладці. Відкрийте його для редагування ще раз.',
     history: 'Історія вимірів', needsReview: (n: number) => `Вимірів на перевірці: ${n}. До підсумків і графіка їх поки не включено.`,
     reportPending: (n: number) => `Виміри ваги на перевірці: ${n}. До розрахунків не включені.`,
@@ -55,6 +58,10 @@ export const t = {
   lightDay: {
     pending: 'На цьому пристрої зміни вже діють. Очікуємо підтвердження сервера для нагадувань на підключених пристроях.',
     enable: 'Легкий день', restore: 'Повернути звичайний день',
+    // D189: the week's context — why the day is light; the report marks it and draws no conclusion from it
+    why: 'Чому (необов’язково):', reasons: { ill: 'хворів', holiday: 'свята', trip: 'поїздка', other: 'інше' } as Record<string, string>,
+    reportContext: (lines: string) => `Контекст періоду: ${lines}. Висновків за ці дні не робимо.`,
+    contextDays: (reason: string, n: number) => `${reason} — ${n} дн.`,
     active: 'Сьогодні залишаємо ліки й допомогу. Решту можна записати за бажанням.',
     voluntary: 'Записати за бажанням', saved: 'Запис збережено', close: 'Закрити',
     voiceApply: 'Зробити сьогодні легким днем', voiceDone: 'На сьогодні ввімкнено легкий день.',
@@ -340,6 +347,12 @@ export const t = {
   picker: { // D54
     search: 'Продукт, страва або кілька через кому', done: 'Готово',
     addAll: (what: string) => `Додати: ${what}`,
+  },
+  injection: { // D189: the place of an injection, asked after the dose is marked
+    ask: (title: string) => `Куди був укол «${title}»?`, last: (where: string) => `Минулого разу — ${where}.`,
+    parts: { belly: 'живіт', thigh: 'стегно', arm: 'рука' } as Record<string, string>, sides: { left: 'ліворуч', right: 'праворуч' } as Record<string, string>,
+    place: (part: string, side: string) => `${part} ${side}`, later: 'Не зараз', saved: 'Місце уколу записано',
+    hint: 'Місце краще міняти: так шкіра не ущільнюється. Дози й препарат — лише як призначив лікар.',
   },
   nutrients: { // D188: salt, sugars, fibre, saturated fat — an unknown is «не відомо», a sum with unknowns «не менше»
     salt: 'Сіль', sugars: 'Цукри', fiber: 'Клітковина', satFat: 'Насичені жири', more: 'Більше нутрієнтів', unknown: 'не відомо',
@@ -959,6 +972,12 @@ export const t = {
   },
   report: {
     title: 'Звіт для лікаря', from: 'З', to: 'По',
+    // D189: coverage first; under 4 recorded days no averages and no conclusions
+    coverage: (n: number, of: number) => `Записано днів: ${n} з ${of}`,
+    fewData: 'Мало даних — середніх і висновків не рахуємо.',
+    foodAvg: (days: number, kcal: number, protein: number, carbs: number, salt?: string) =>
+      `Середнє за ${days} повних днів харчування: ${kcal} ккал, білок ${protein} г, вуглеводи ${carbs} г${salt ? `, сіль ~${salt} г` : ''}`,
+    partialDays: (n: number) => `Неповних днів харчування: ${n} — у середнє не входять.`,
     days: (n: number) => `${n} дн.`,
     checklist: 'План дня виконано', weight: 'Вага', workouts: 'Тренувань', energy: 'Середня енергія', of5: 'з 5',
     symptoms: 'Симптоми', noSymptoms: 'Симптомів не записано.',
@@ -1190,7 +1209,22 @@ export const t = {
     on: 'Увімкнути нагадування на цьому пристрої',
     off: 'Вимкнути на цьому пристрої',
     isOn: 'Нагадування увімкнені на цьому пристрої',
-    meals: 'Прийоми їжі з плану', meds: 'Ліки й добавки за часом з плану',
+    meals: 'Їжа — одне нагадування ввечері, лише про незаписане (і прийоми з «Меню»)', meds: 'Ліки й добавки за часом з плану',
+    mealsAt: 'Коли нагадати про незаписану їжу',
+    weightSunday: 'Зважування — у неділю зранку, у день підсумку тижня',
+    // D189: every reminder says what it is for, in one line
+    why: {
+      meals: 'Навіщо? Без записаних прийомів звіт лікарю не має з чого рахувати — нагадаємо лише про те, чого бракує.',
+      meds: 'Навіщо? Щоб не пропустити дозу з плану лікаря. Нагадування про ліки — завжди безкоштовні.',
+      visits: 'Навіщо? Щоб прийти на аналізи й візит підготовленим.',
+      weekly: 'Навіщо? Раз на тиждень побачити, як виконувався план.',
+      weight: 'Навіщо? Одне зважування в той самий день і час — так видно зміну, а не коливання.',
+      water: 'Навіщо? Щоб пити рівномірно протягом дня.',
+      morning: 'Навіщо? Побачити день одним повідомленням.',
+      evening: 'Навіщо? Підготувати потрібне на завтра.',
+      topup: 'Навіщо? Добрати до цілі лікаря, поки день не скінчився.',
+      repeat: 'Навіщо? Якщо перше нагадування пропустили.',
+    } as Record<string, string>,
     water: 'Вода', waterOff: 'не нагадувати', waterEvery: (h: number) => `кожні ${h} год (9:00–21:00)`,
     waterIfBehind: 'Лише якщо відстаю від норми на сьогодні', // D70
     topup: 'Підказка на вечір, якщо день недобирає за планом (калорії, білок, кальцій)', // D116

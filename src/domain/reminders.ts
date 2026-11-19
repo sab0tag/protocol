@@ -7,6 +7,8 @@ import { doseDue } from './checklist';
 import { adherenceResolved } from './adherence';
 import { observedPlannedEntry, observedTask, type Observation } from './observation';
 import type { DayEntry, Plan, Prescription } from './types';
+import { FOOD_COMPLETE } from './habits';
+import { mealCategoryFor } from './mealCategory';
 import { reminderAllowed, type ReminderPolicy } from '../../server/src/reminderPolicy';
 
 export interface ReminderSettings {
@@ -20,11 +22,14 @@ export interface ReminderSettings {
   evening: string; // D35: '' = off — tomorrow's prep tips, or «скласти меню?»
   visits: boolean; // D35: lab tests due and the next checkup
   weekly?: boolean; // D38: Sunday 19:00 — the week in numbers
-  weightDay?: number; // D38: 0 = off, 1–7 = ISO weekday of a weighing reminder (at the morning time or 08:00)
+  weightDay?: number; // D38: 0 = off, 1–7 = ISO weekday of a weighing reminder (at the morning time or 08:00); D189: on = 7, the weekly report's day
+  /** D189: the one evening food reminder — only about meals not written; '' or absent = 20:30 */
+  mealsAt?: string;
 }
+export const MEALS_AT = '20:30';
 
 export const DEFAULT_REMINDERS: ReminderSettings = { meals: true, meds: true, waterEveryH: 0, repeatMin: 15, morning: '07:30', evening: '20:30', visits: true,
-  weekly: true, weightDay: 1 };
+  weekly: true, weightDay: 7 };
 
 export type ReminderKind = 'meal' | 'med' | 'water' | 'morning' | 'evening' | 'test' | 'visit' | 'week' | 'weight' | 'topup';
 
@@ -50,6 +55,20 @@ export function scheduleStatus(scheduledAt: number | undefined, now: Date): { ki
   return { kind: until.getTime() > now.getTime() ? 'until' : 'ended', sent, until };
 }
 
+const MEAL_NAMES = ['сніданок', 'обід', 'вечерю'] as const;
+/** D189: breakfast, lunch, dinner with no meal written for the date (a snack is never asked for); a day marked «усе записано» — none */
+export function missingMeals(entries: DayEntry[], date: string): string[] {
+  const day = entries.filter((e) => dateOf(e.at) === date);
+  if (day.some((e) => e.kind === 'note' && e.checkKey === FOOD_COMPLETE && e.status === 'done')) return [];
+  const slots = new Set(day.filter((e) => e.kind === 'meal' && e.status === 'done').map((e) => mealCategoryFor(e.title, e.at)));
+  return MEAL_NAMES.filter((_, i) => !slots.has(i as 0 | 1 | 2));
+}
+/** «Не записано обід і вечерю — додати?» */
+export function mealsLeftText(missing: string[]): string {
+  const list = missing.length > 1 ? `${missing.slice(0, -1).join(', ')} і ${missing.at(-1)}` : missing[0] ?? '';
+  return `Не записано ${list} — додати?`;
+}
+
 export function reminders(args: { entries: DayEntry[]; plan: Plan | undefined; settings: ReminderSettings; now: Date;
   days?: number; snoozed?: Record<string, number>; topupAt?: string; policy?: ReminderPolicy }) {
   const { entries, plan, settings, now } = args;
@@ -63,6 +82,7 @@ export function reminders(args: { entries: DayEntry[]; plan: Plan | undefined; s
   const url = (d: string) => `./#/?date=${d}`;
   const at = (d: string, time: string) => new Date(`${d}T${time}:00`).getTime();
   const dates = Array.from({ length: days + 2 }, (_, i) => format(addDays(now, i - 1), 'yyyy-MM-dd'));
+  const today = format(now, 'yyyy-MM-dd');
   const push = (r: Reminder) => {
     if (args.policy && !reminderAllowed(args.policy, r.payload, r.at, t0)) return;
     const until = snoozed[r.key];
@@ -80,6 +100,16 @@ export function reminders(args: { entries: DayEntry[]; plan: Plan | undefined; s
       if (e.status !== 'planned') { done.push(key); continue; }
       push({ key, at: Date.parse(e.at), payload: { t: args.policy ? 'Їжа' : e.title, b: 'Час їсти — відкрийте, щоб відмітити', k: 'meal', u: url(dateOf(e.at)), tag: key, e: e.id,
         ...(args.policy && e.menu ? { m: true as const } : {}) } });
+    }
+    // D189: and one evening reminder only about what is not written. Today names the meals missing (every record sends the schedule
+    // again, so a day written in full has none); a day ahead says the day — opened that day, its schedule is sent again as today's.
+    const time = settings.mealsAt || MEALS_AT;
+    for (const d of dates) {
+      if (d < today) continue;
+      const missing = d === today ? missingMeals(entries, d) : ['day'];
+      if (!missing.length) { done.push(`meals:${d}`); continue; }
+      push({ key: `meals:${d}`, at: at(d, time), once: true,
+        payload: { t: 'Їжа', b: d === today ? mealsLeftText(missing) : 'Не записано їжу за день — додати?', k: 'meal', u: url(d), tag: `meals:${d}` } });
     }
   }
 
@@ -99,7 +129,6 @@ export function reminders(args: { entries: DayEntry[]; plan: Plan | undefined; s
 
   // D70: today the water reminder comes only when behind an even pace from 08:00 to 21:00 by more than a glass —
   // every water record re-sends the schedule, so a slot already covered is dropped; days ahead are sent as they are
-  const today = format(now, 'yyyy-MM-dd');
   const drunk = entries.filter((e) => e.kind === 'water' && e.status === 'done' && dateOf(e.at) === today).reduce((ml, e) => ml + (e.waterMl ?? 0), 0);
   const target = plan?.targets.waterMl;
   const behind = (h: number) => !target || drunk < (target * (h - PACE_FROM)) / (WATER_TO - PACE_FROM) - GLASS_ML;

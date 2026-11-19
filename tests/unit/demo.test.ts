@@ -26,7 +26,8 @@ describe('the example weeks and the report’s «Головне» (D79)', () => 
     expect(r.habits.find((h) => h.key === 'water')).toEqual({ key: 'water', met: 10, of: 14 }); // not all zeros, not all perfect
     expect(r.labs.map((l) => l.name)).toEqual(['Глюкоза натще', 'Феритин']);
     const text = reportText(r, (x) => x);
-    expect(text.split('\n')[1]).toBe('Ліки: відмічено прийнятими 11 з 14 доз у дні з записами (79 %)');
+    expect(text.split('\n')[1]).toBe('Записано днів: 15 з 15'); // D189: coverage first (weighings and wellbeing count too)
+    expect(text).toContain('Ліки: відмічено прийнятими 11 з 14 доз у дні з записами (79 %)');
     expect(text).toContain('Дані відсутні: 3 доз.');
     expect(text).not.toContain('Вітамін D — пропущено');
   });

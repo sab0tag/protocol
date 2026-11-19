@@ -184,3 +184,15 @@ export function labHint(known: LabRow | undefined, unit: string, value: number):
   if (last > 0 && (value / last > 1.5 || value / last < 1 / 1.5)) return { kind: 'far', before: last };
   return null;
 }
+
+/** D189: a line through the weight only from 4 weighings — then the average of the 7 days up to each weighing, not the raw dots
+ *  joined (two points drawn as a confident line was the very fault of Calorize). Fewer — no line at all. */
+export function weightTrend(weights: readonly { date: string; kg: number }[]): { date: string; kg: number; avg?: number }[] {
+  const sorted = [...weights].sort((a, b) => a.date.localeCompare(b.date));
+  if (sorted.length < 4) return sorted.map((w) => ({ date: w.date, kg: w.kg }));
+  return sorted.map((w) => {
+    const from = format(addDays(parseISO(w.date), -6), 'yyyy-MM-dd');
+    const week = sorted.filter((x) => x.date >= from && x.date <= w.date);
+    return { date: w.date, kg: w.kg, avg: Math.round((week.reduce((a, x) => a + x.kg, 0) / week.length) * 10) / 10 };
+  });
+}

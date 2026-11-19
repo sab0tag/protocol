@@ -6,6 +6,8 @@ import { applyLightDay } from '../app/lightDay';
 import { db } from '../data/db';
 import { todayISO } from '../domain/dates';
 import { lightDayOnDate } from '../domain/lightDay';
+import { DAY_CONTEXTS, dayContexts } from '../domain/modulePreferences';
+import { setTodayContext } from '../data/lightDay';
 import { policyFromEvents } from '../../server/src/reminderPolicy';
 import { t } from '../i18n/uk';
 
@@ -26,6 +28,12 @@ export function LightDayControl({ date, onlyEnable = false, compact = false, onD
       try { await applyLightDay(onlyEnable || !on); onDone?.(); } catch { setError(true); } finally { setBusy(false); }
     }} className={`min-h-tap rounded-xl border border-accent font-medium text-accent disabled:opacity-40 ${compact ? 'px-2' : 'px-3'}`}>{on ? t.lightDay.restore : t.lightDay.enable}</button>
     {on && <p className={compact ? 'basis-full' : ''}>{t.lightDay.active}</p>}
+    {on && <div role="group" aria-label={t.lightDay.why} className={`flex flex-wrap items-center gap-1 ${compact ? 'basis-full' : ''}`} data-testid="day-context">
+      <span className="text-muted">{t.lightDay.why}</span>
+      {DAY_CONTEXTS.map((r) => { const chosen = dayContexts(observation.events, date, date).get(date) === r; return (
+        <button key={r} type="button" aria-pressed={chosen} disabled={busy} onClick={() => void setTodayContext(db, chosen ? 'none' : r).catch(() => setError(true))}
+          className={`min-h-[2.25rem] rounded-full border px-3 ${chosen ? 'border-accent bg-accent/10 font-medium text-accent' : 'border-line'}`}>{t.lightDay.reasons[r]}</button>); })}
+    </div>/* D189 */}
     {(!compact || on || (meta && !synced)) && <p role="status" className={`text-muted ${compact ? 'basis-full' : ''}`}>{meta ? synced ? t.modules.synced : t.lightDay.pending : t.modules.local}</p>}
     {error && <p role="alert">{t.startFlow.error}</p>}
   </div>;

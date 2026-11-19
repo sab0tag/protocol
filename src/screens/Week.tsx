@@ -7,7 +7,8 @@ import { useState } from 'react';
 import { Loading } from '../components/Recovery';
 import { saved } from '../components/Toast';
 import { db } from '../data/db';
-import { useAllEntries, useFoods, usePlan, useWorkouts } from '../data/queries';
+import { useAllEntries, useFoods, usePlan, useWeights, useWorkouts } from '../data/queries';
+import { MIN_DAYS, recordCoverage } from '../domain/coverage';
 import { todayISO } from '../domain/dates';
 import { habits, weekSummary, type HabitKey } from '../domain/habits';
 import { motivation } from '../domain/progression';
@@ -29,10 +30,14 @@ export function Week() {
   const entries = useAllEntries();
   const workouts = useWorkouts();
   const foods = useFoods();
+  const weights = useWeights();
   const [goal, setGoal] = useState<string | null>(null);
-  if (!entries || !workouts || !foods || !observationReady) return <Loading />;
+  if (!entries || !workouts || !foods || !weights || !observationReady) return <Loading />;
   const today = todayISO();
   const summary = visibleWeek(weekSummary({ plan, entries, workouts, foods, today, observation }), context);
+  // D189: coverage first; under 4 recorded days — no averages, no «what went well», only «мало даних»
+  const cov = recordCoverage(entries, summary.from, summary.to, [...workouts.map((w) => w.date), ...weights.map((w) => w.date)]);
+  const few = cov.recorded < MIN_DAYS;
   const list = habits({ plan, entries, workouts, foods, today, observation }).filter((h) => habitVisible(h.key, context));
   const good = list.filter((h) => h.days7 > 0 && h.last7 >= Math.max(1, Math.ceil(h.days7 * 0.7)));
   const weakest = [...list].filter((h) => h.days7 > 0).sort((a, b) => a.last7 / a.days7 - b.last7 / b.days7)[0];
@@ -52,11 +57,11 @@ export function Week() {
     <section className="space-y-4 pt-4">
       <SceneHeader title={L.title} />
       <ExampleNotice plan={plan} />
-      <WeekCard summary={summary} />
+      <WeekCard summary={summary} coverage={cov} />
 
       <section aria-label={L.went} className="rounded-2xl border border-accent/30 bg-accent/10 p-3">
         <h2 className="mb-1 font-semibold">{L.went}</h2>
-        {good.length || m.week || m.records.length ? (
+        {few ? <p className="text-sm text-muted">{t.report.fewData}</p> : good.length || m.week || m.records.length ? (
           <ul className="list-disc space-y-1 pl-5 text-sm">
             {good.map((h) => <li key={h.key}>{L.habitLine(t.progress.habit[h.key], h.last7, h.days7)}</li>)}
             {m.week > 0 && <li>{t.workout.weekNumbers(m.week, String(m.tonnesWeek).replace('.', ','))}</li>}

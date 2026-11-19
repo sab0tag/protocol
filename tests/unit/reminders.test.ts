@@ -7,13 +7,14 @@ const plan = examplePlan(new Date('2026-10-01T12:00:00')); // Вітамін D a
 const now = new Date('2026-10-08T07:00:00');
 const OFF: ReminderSettings = { meals: false, meds: false, waterEveryH: 0, repeatMin: 15, morning: '', evening: '', visits: false };
 const meal = (id: string, at: string, status: DayEntry['status'] = 'planned'): DayEntry => ({ id, at, kind: 'meal', status, title: 'Обід', items: [] });
-const keys = (r: ReturnType<typeof reminders>) => r.items.map((i) => i.key);
+// D189: the evening «what is not written» reminder (meals:…) is tested on its own below
+const keys = (r: ReturnType<typeof reminders>) => r.items.map((i) => i.key).filter((k) => !k.startsWith('meals:'));
 
 describe('reminders', () => {
   it('planned meals and the medicine times, with generic words only', () => {
     const r = reminders({ entries: [meal('m1', '2026-10-08T13:00:00+03:00')], plan, settings: { ...OFF, meals: true, meds: true }, now, days: 1 });
     expect(keys(r)).toEqual(['med:2026-10-08:08:30', 'meal:m1:2026-10-08T13:00:00+03:00', 'med:2026-10-09:08:30']);
-    expect(r.items[0]!.payload).toMatchObject({ t: 'Ліки', k: 'med', h: '08:30', u: './#/?date=2026-10-08' });
+    expect(r.items.find((i) => i.key === 'med:2026-10-08:08:30')!.payload).toMatchObject({ t: 'Ліки', k: 'med', h: '08:30', u: './#/?date=2026-10-08' });
     expect(JSON.stringify(r.items)).not.toContain('Вітамін');
   });
 
@@ -58,7 +59,7 @@ describe('reminders', () => {
     const r = reminders({ entries: [meal('m1', '2026-10-08T13:00:00+03:00')], plan, settings: { ...OFF, meals: true }, now, days: 1,
       snoozed: { 'meal:m1:2026-10-08T13:00:00+03:00': until } });
     expect(r.done).toContain('meal:m1:2026-10-08T13:00:00+03:00');
-    expect(r.items.map((i) => [i.key, i.at])).toEqual([[`snooze:meal:m1:2026-10-08T13:00:00+03:00:${until}`, until]]);
+    expect(r.items.filter((i) => !i.key.startsWith('meals:')).map((i) => [i.key, i.at])).toEqual([[`snooze:meal:m1:2026-10-08T13:00:00+03:00:${until}`, until]]);
   });
 });
 
@@ -205,5 +206,20 @@ describe('what the reminders screen may say about the schedule (D150)', () => {
     expect(scheduleStatus(sent, now)).toMatchObject({ kind: 'until', until: new Date(2026, 10, 19, 9, 30) });
     expect(SCHEDULE_DAYS).toBe(30);
     expect(scheduleStatus(sent, new Date(2026, 10, 19, 9, 31))).toMatchObject({ kind: 'ended' });
+  });
+
+  it('D189: food — one evening reminder, only about what is not written; a day written in full has none', () => {
+    const done = (id: string, at: string, title: string): DayEntry => ({ id, at, kind: 'meal', status: 'done', title, items: [] });
+    const day = [done('b', '2026-10-08T08:00:00+03:00', 'Сніданок')];
+    const r = reminders({ entries: day, plan, settings: { ...OFF, meals: true }, now, days: 1 });
+    const today = r.items.find((i) => i.key === 'meals:2026-10-08')!;
+    expect(today.payload).toMatchObject({ t: 'Їжа', k: 'meal', b: 'Не записано обід і вечерю — додати?', u: './#/?date=2026-10-08' });
+    expect(new Date(today.at).toString()).toMatch(/Oct 08 2026 20:30/);
+    expect(r.items.find((i) => i.key === 'meals:2026-10-09')!.payload.b).toBe('Не записано їжу за день — додати?');
+    const full = [...day, done('l', '2026-10-08T13:00:00+03:00', 'Обід'), done('d', '2026-10-08T19:00:00+03:00', 'Вечеря')];
+    const r2 = reminders({ entries: full, plan, settings: { ...OFF, meals: true, mealsAt: '21:00' }, now, days: 1 });
+    expect(r2.items.some((i) => i.key === 'meals:2026-10-08')).toBe(false);
+    expect(r2.done).toContain('meals:2026-10-08');
+    expect(new Date(r2.items.find((i) => i.key === 'meals:2026-10-09')!.at).toString()).toMatch(/Oct 09 2026 21:00/);
   });
 });
