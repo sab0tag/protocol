@@ -1,7 +1,7 @@
 import { addDays, format, startOfDay } from 'date-fns';
 import type { ProtocolDB } from './db';
 import { appendModuleEvents } from './modulePreferences';
-import { lightDayChoice } from '../domain/modulePreferences';
+import { dayContexts, lightDayChoice, type DayContextReason } from '../domain/modulePreferences';
 import { lightDayNotice } from '../domain/lightDay';
 import { newId } from '../domain/dates';
 
@@ -26,6 +26,18 @@ export async function markLightDayNoticeShown(target: ProtocolDB, episode: strin
   return target.transaction('rw', target.moduleEvents, async () => {
     if (lightDayNotice(await target.moduleEvents.toArray(), now)?.episode !== episode) return false;
     await appendModuleEvents(target, [{ id: newId(), v: 1, at: now.toISOString(), kind: 'light-day-notice', date: format(now, 'yyyy-MM-dd'), episode }]);
+    return true;
+  });
+}
+
+/** D189: why today is light — or `none` to take the reason back. Today only, like the light day itself; a repeat is not written. */
+export async function setTodayContext(target: ProtocolDB, reason: DayContextReason | 'none', now = new Date()): Promise<boolean> {
+  const date = format(now, 'yyyy-MM-dd');
+  return target.transaction('rw', target.moduleEvents, async () => {
+    const events = await target.moduleEvents.toArray();
+    if ((dayContexts(events, date, date).get(date) ?? 'none') === reason) return false;
+    const last = events.filter((e) => e.kind === 'day-context' && e.date === date).map((e) => Date.parse(e.at)).sort((a, b) => b - a)[0] ?? 0;
+    await appendModuleEvents(target, [{ id: newId(), v: 1, at: new Date(Math.max(now.getTime(), last + 1)).toISOString(), kind: 'day-context', date, reason }]);
     return true;
   });
 }

@@ -15,6 +15,8 @@ import { observedCoincidences, pace, weeklyWeights, wellbeingCoincidences } from
 import type { DailyLimit, DayEntry, Food, ISODate, LabResult, Plan, WeightLog, Wellbeing, Workout } from './types';
 import { neutralDay, observedPlannedEntry, observedToday, trackingInfo, type Observation, type TrackingInfo, type TrackingKey } from './observation';
 import { lightDayHistory, type LightDayHistory } from './lightDay';
+import { foodAverage, MIN_DAYS, recordCoverage, type FoodAverage } from './coverage';
+import { dayContexts } from './modulePreferences';
 import { dayFluid, litres } from './fluid';
 
 export interface Report {
@@ -60,11 +62,19 @@ export interface Report {
   lightDays?: LightDayHistory;
   lightDayWorkouts?: number;
   /** D169: water and drinks in litres over the days they were written; under the doctor's limit, the days over it */
-  water?: { days: number; avgMl: number; maxMl?: number; over: { date: ISODate; overMl: number }[] };
+  water?: { days: number; avgMl: number; maxMl?: number; over: { date: ISODate; overMl: number }[]; noAverage?: true };
   /** D182: the rehabilitation complex — sessions done of those due, pain after them by day, the days with swelling, the limits */
   rehab?: RehabReport;
   /** D183: «Що я задав сам» — the person's own weight goal, a separate block, never mixed with the doctor's targets */
   ownGoal?: string;
+  /** D189: coverage first — days with anything recorded of the period's days; complete / partial food days */
+  coverage: { recorded: number; of: number; complete: number; partial: number };
+  /** D189: under 4 recorded days — no averages, no coincidences, no pace: «мало даних» */
+  fewData?: true;
+  /** D189: food averages over complete days only (a context day is not one of them) */
+  foodAvg?: FoodAverage;
+  /** D189: the period's context (a light day's reason): what and how many days — those days draw no conclusion */
+  context?: { reason: string; days: number }[];
 }
 
 export function buildReport(args: {
@@ -83,6 +93,11 @@ export function buildReport(args: {
   const devBy = new Map<string, number>();
   const inside = (d: ISODate) => d >= from && d <= to;
   const days = Math.max(0, differenceInCalendarDays(parseISO(to), parseISO(from)) + 1);
+  // D189: coverage before anything else; a day with a context is marked and left out of averages and coincidences
+  const cov = recordCoverage(entries, from, to < today ? to : today, [...weights.map((x) => x.date), ...wellbeing.map((x) => x.date), ...workouts.map((x) => x.date)]);
+  const few = cov.recorded < MIN_DAYS;
+  const contexts = observation && !observation.demo ? dayContexts(observation.events, from, to) : new Map<ISODate, string>();
+  const plain = (d: ISODate) => !contexts.has(d);
 
   let done = 0, total = 0;
   const hab = new Map<HabitKey, { met: number; of: number }>();
@@ -150,8 +165,15 @@ export function buildReport(args: {
   const unscoredMedMarks = observation ? facts.filter((e) => e.kind === 'med' && e.status === 'done' && !countedMarks.has(e.id)
     && !plan?.prescriptions.find((p) => p.id === e.prescriptionId)?.asNeeded).length : 0;
 
-  return {
+  const ctxCount = new Map<string, number>();
+  for (const r of contexts.values()) ctxCount.set(r, (ctxCount.get(r) ?? 0) + 1);
+  const avg = foodAverage(entries, foods, { ...cov, complete: cov.complete.filter(plain), partial: cov.partial.filter(plain) });
+  const report: Report = {
     from, to, days,
+    coverage: { recorded: cov.recorded, of: cov.of, complete: cov.complete.length, partial: cov.partial.length },
+    ...(few ? { fewData: true as const } : {}),
+    ...(avg ? { foodAvg: avg } : {}),
+    ...(ctxCount.size ? { context: [...ctxCount].map(([reason, n]) => ({ reason, days: n })) } : {}),
     ...(observation && !observation.demo ? { lightDays: lightDayHistory(observation.events, from, to, observation.now),
       lightDayWorkouts: workouts.filter((w) => inside(w.date) && neutralDay(observation, 'workout', w.date)).length } : {}),
     ...(tracking ? { tracking, observed: { workout: hasPeriod('workout') || workouts.some((w) => inside(w.date)),
@@ -161,7 +183,7 @@ export function buildReport(args: {
     ...(weightPending ? { weightPending } : {}),
     ...(w.length ? { weightStart: w[0]!.kg, weightNow: w.at(-1)!.kg } : {}),
     // D81: weekly averages over the period — the same count as «Прогрес», not first-to-last weighing
-    ...(pace(weeklyWeights(w), Infinity) !== undefined ? { weightPace: pace(weeklyWeights(w), Infinity)! } : {}),
+    ...(w.length >= MIN_DAYS && pace(weeklyWeights(w), Infinity) !== undefined ? { weightPace: pace(weeklyWeights(w), Infinity)! } : {}), // D189: no pace from fewer than 4 weighings
     ...(plan?.targets.maxWeightLossKgPerWeek != null ? { maxLossPerWeek: plan.targets.maxWeightLossKgPerWeek } : {}),
     ...waterReport(entries, foods, plan, from, to, observation),
     habits: (['protein', 'carbs', 'water', 'meds', 'plan'] as HabitKey[]).flatMap((key) => { const h = hab.get(key); return h ? [{ key, ...h }] : []; }),
@@ -170,8 +192,8 @@ export function buildReport(args: {
     workouts: workouts.filter((x) => inside(x.date) && !(observation && neutralDay(observation, 'workout', x.date))).length,
     ...(scored.length ? { avgEnergy: Math.round((scored.reduce((a, x) => a + (x.energy ?? 0), 0) / scored.length) * 10) / 10 } : {}),
     symptoms: [...counts.entries()].map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name)),
-    coincidences: [...observedCoincidences(entries.filter((e) => inside(dateOf(e.at))), foods, observation).map(coincidenceText),
-      ...wellbeingCoincidences(entries.filter((e) => inside(dateOf(e.at))), wellbeing.filter((x) => inside(x.date)), foods, plan, observation).map((p) => p.text)], // D71
+    coincidences: [...observedCoincidences(entries.filter((e) => inside(dateOf(e.at)) && plain(dateOf(e.at))), foods, observation).map(coincidenceText),
+      ...wellbeingCoincidences(entries.filter((e) => inside(dateOf(e.at)) && plain(dateOf(e.at))), wellbeing.filter((x) => inside(x.date) && plain(x.date)), foods, plan, observation).map((p) => p.text)], // D71; D189: no context day
     questions: plan?.questions ?? [],
     skipDetails: entries.filter((e) => e.status === 'skipped' && (e.kind === 'med' || e.kind === 'meal') && inside(dateOf(e.at)))
       .map((e) => ({ kind: e.kind as 'med' | 'meal', title: e.title, date: dateOf(e.at), plannedTime: e.kind === 'med' ? e.checkKey?.match(/^med:.+:(\d{2}:\d{2})$/)?.[1] ?? format(parseISO(e.at), 'HH:mm') : format(parseISO(e.plannedAt ?? e.at), 'HH:mm'),
@@ -191,6 +213,11 @@ export function buildReport(args: {
     ...(rehabReport(plan, entries, from, to < today ? to : today) ?? {}),
     ...(plan?.ownGoal ? { ownGoal: t.goal.report(plan.ownGoal.input.goalKg, plan.ownGoal.kcal, plan.ownGoal.proteinG, plan.ownGoal.perWeekKg, `${plan.ownGoal.setAt.slice(8, 10)}.${plan.ownGoal.setAt.slice(5, 7)}`) } : {}),
   };
+  if (!few) return report;
+  // D189: under 4 recorded days — the counts stay, averages and what looks like a conclusion do not
+  const { avgEnergy: _e, weightPace: _p, ...rest } = report;
+  // the days over the doctor's fluid limit are facts, not an average — they stay; the average litres do not
+  return { ...rest, coincidences: [], ...(report.water ? { water: { ...report.water, noAverage: true as const } } : {}) };
 }
 
 const dec = (n: number) => String(n).replace('.', ',');
@@ -233,12 +260,22 @@ function waterReport(entries: DayEntry[], foods: Map<string, Food>, plan: Plan |
 /** D169: the water lines of the report, in litres. */
 export function waterLines(w: NonNullable<Report['water']>, dm: (d: ISODate) => string): string[] {
   const W = t.water;
-  return [W.report(litres(w.avgMl), w.days), ...(w.maxMl ? [`${W.reportLimit(litres(w.maxMl), w.over.length, w.days)}${w.over.length ? `: ${w.over.map((x) => W.reportOverDay(dm(x.date), x.overMl)).join('; ')}` : ''}`] : [])];
+  return [...(w.noAverage ? [] : [W.report(litres(w.avgMl), w.days)]), ...(w.maxMl ? [`${W.reportLimit(litres(w.maxMl), w.over.length, w.days)}${w.over.length ? `: ${w.over.map((x) => W.reportOverDay(dm(x.date), x.overMl)).join('; ')}` : ''}`] : [])];
+}
+
+/** D189: coverage first, then «мало даних», the food averages of complete days and the period's context. */
+export function coverageLines(r: Report): string[] {
+  const R = t.report, a = r.foodAvg;
+  return [R.coverage(r.coverage.recorded, r.coverage.of), ...(r.fewData ? [R.fewData] : []),
+    ...(a ? [R.foodAvg(a.days, a.kcal, a.protein, a.carbs, a.saltG !== undefined ? String(a.saltG).replace('.', ',') : undefined)] : []),
+    ...(a?.partial ? [R.partialDays(a.partial)] : []),
+    ...(r.context?.length ? [t.lightDay.reportContext(r.context.map((c) => t.lightDay.contextDays(t.lightDay.reasons[c.reason] ?? c.reason, c.days)).join('; '))] : [])];
 }
 
 export function reportText(r: Report, dm: (d: ISODate) => string): string {
   const lines = [
     `Звіт за ${dm(r.from)} — ${dm(r.to)} (${r.days} дн.)`,
+    ...coverageLines(r),
     ...(r.lightDays ? [t.lightDay.summary(r.lightDays.count, r.lightDays.days), ...(r.lightDays.dates.length ? [t.lightDay.dates(r.lightDays.dates.map(dm).join(', ')), t.lightDay.hint] : [])] : []),
     ...(r.tracking ? trackingLines(r.tracking) : []),
     ...(r.unscoredMedMarks ? [unscoredMedText(r.unscoredMedMarks)] : []),

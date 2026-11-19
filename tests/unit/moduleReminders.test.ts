@@ -16,7 +16,7 @@ const generate = (policy?: ReminderPolicy, extra = {}) => reminders({ entries: [
 
 describe('module reminder policy (D136)', () => {
   it('keeps compatibility unchanged when no policy is passed and sends only generic words in the new mode', () => {
-    expect(generate().items.find((i) => i.payload.k === 'meal')?.payload.t).toBe('Private meal');
+    expect(generate().items.find((i) => i.key.startsWith('meal:'))?.payload.t).toBe('Private meal');
     expect(JSON.stringify(generate(emptyPolicy()).items)).not.toContain('Private');
     expect(generate().items.map((i) => i.key)).toEqual(generate(emptyPolicy()).items.map((i) => i.key));
   });

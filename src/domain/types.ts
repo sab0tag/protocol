@@ -255,6 +255,8 @@ export interface MealItem {
 }
 
 export type EntryKind = 'meal' | 'med' | 'water' | 'workout' | 'note' | 'symptom';
+/** D189: the place of an injection — three areas × two sides */
+export interface InjectionSite { part: 'belly' | 'thigh' | 'arm'; side: 'left' | 'right' }
 export type EntryStatus = 'planned' | 'done' | 'skipped';
 export type AdherenceState = 'completed' | 'completed_late' | 'skipped' | 'uncertain' | 'no_data';
 
@@ -293,6 +295,8 @@ export interface DayEntry {
   plannedAt?: ISODateTime;
   /** Explicit changes to a planned meal's schedule; the entry keeps its original identity. */
   scheduleChanges?: { from: ISODateTime; to: ISODateTime; changedAt: ISODateTime }[];
+  /** D189: where an injection prescribed by the doctor went (insulin, GLP-1) — asked after the dose is marked; no doses, no catalogue */
+  site?: InjectionSite;
   /** D119: how a meal was recorded — said in the voice window, or with lines from a photo of the plate; absent = typed or tapped */
   via?: 'voice' | 'photo';
   /** D174: a meal said aloud through Soniox (absent = the phone's engine) — for the pilot's `by_soniox` */

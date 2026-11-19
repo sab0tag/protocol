@@ -1,6 +1,6 @@
 import { format, parseISO } from 'date-fns';
 import { Loading } from '../components/Recovery';
-import { useAllEntries, useFoods, usePlan, useWorkouts } from '../data/queries';
+import { useAllEntries, useFoods, usePlan, useWeights, useWorkouts } from '../data/queries';
 import { habits, weekSummary, type Habit } from '../domain/habits';
 import { todayISO } from '../domain/dates';
 import { t } from '../i18n/uk';
@@ -11,6 +11,7 @@ import { SceneHeader } from '../components/SceneHeader';
 import { useObservation } from '../app/observation';
 import { ExampleNotice } from '../components/ExampleNotice';
 import { LightDayHistoryView } from '../components/LightDayHistory';
+import { MIN_DAYS, recordCoverage, type Coverage } from '../domain/coverage';
 
 const L = t.progress;
 
@@ -20,14 +21,16 @@ export function Motivation() {
   const entries = useAllEntries();
   const workouts = useWorkouts();
   const foods = useFoods();
+  const weights = useWeights();
   if (!entries || !workouts || !foods || !observationReady) return <Loading />;
+  const summary = weekSummary({ plan, entries, workouts, foods, today: todayISO(), observation });
 
   return (
     <section className="space-y-4 pt-4">
       <Link to="/progress" className="inline-flex min-h-tap items-center text-sm text-muted">{t.progress.title}</Link>
       <SceneHeader title={t.progress.motivationTitle} />
       <ExampleNotice plan={plan} />
-      <WeekCard summary={weekSummary({ plan, entries, workouts, foods, today: todayISO(), observation })} />
+      <WeekCard summary={summary} coverage={recordCoverage(entries, summary.from, summary.to, [...workouts.map((w) => w.date), ...(weights ?? []).map((w) => w.date)])} />
       <HabitsCard list={habits({ plan, entries, workouts, foods, today: todayISO(), observation })} showEmpty />
     </section>
   );
@@ -58,18 +61,20 @@ export function HabitsCard({ list, showEmpty = false }: { list: Habit[]; showEmp
   );
 }
 
-export function WeekCard({ summary }: { summary: ReturnType<typeof weekSummary> }) {
+export function WeekCard({ summary, coverage }: { summary: ReturnType<typeof weekSummary>; coverage?: Coverage }) {
+  const few = coverage !== undefined && coverage.recorded < MIN_DAYS; // D189
 
   const tiles: [string, string][] = [];
   if (summary.carbsOk !== undefined) tiles.push([L.weekCarbs, L.ofDays(summary.carbsOk, summary.knownDays?.carbs ?? summary.days)]);
   if (summary.proteinOk !== undefined) tiles.push([L.weekProtein, L.ofDays(summary.proteinOk, summary.knownDays?.protein ?? summary.days)]);
   if (summary.waterOk !== undefined) tiles.push([L.weekWater, L.ofDays(summary.waterOk, summary.knownDays?.water ?? summary.days)]);
-  if (summary.waterAvgMl !== undefined) tiles.push([t.water.tile, t.water.weekAvg(litres(summary.waterAvgMl))]); // D169
+  if (summary.waterAvgMl !== undefined && !few) tiles.push([t.water.tile, t.water.weekAvg(litres(summary.waterAvgMl))]); // D169
   if (summary.showWorkouts !== false) tiles.push([summary.lightDayWorkouts ? t.lightDay.scoredWorkouts : L.weekWorkouts, String(summary.workouts)]);
-  if (summary.checklistPct !== undefined) tiles.push([L.weekChecklist, `${summary.checklistPct} %`]);
+  if (summary.checklistPct !== undefined && !few) tiles.push([L.weekChecklist, `${summary.checklistPct} %`]);
   return (
     <section className="protocol-card rounded-2xl border border-line bg-surface p-5">
       <h2 className="mb-2 font-semibold">{L.week} <span className="text-sm font-normal text-muted">· {format(parseISO(summary.from), 'dd.MM')}–{format(parseISO(summary.to), 'dd.MM')}</span></h2>
+      {coverage && <p className="mb-2 font-medium" data-testid="week-coverage">{t.report.coverage(coverage.recorded, coverage.of)}{few ? <span className="block text-sm font-normal text-muted">{t.report.fewData}</span> : null}</p>}
       <LightDayHistoryView history={summary.lightDays} workouts={summary.lightDayWorkouts} />
       {summary.days === 0 ? <p className="text-muted">{L.weekNoData}</p> : (
         <dl className="grid grid-cols-2 gap-3 tabular sm:grid-cols-3">

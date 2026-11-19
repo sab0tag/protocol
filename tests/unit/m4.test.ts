@@ -87,8 +87,11 @@ describe('report (§5.8)', () => {
       workouts: [{ id: 'w', date: '2026-10-01', durationMin: 30, equipment: '', exercises: [] }],
       wellbeing: [{ date: '2026-10-01', energy: 3, symptoms: ['Втома'] }, { date: '2026-10-02', energy: 4, symptoms: ['Втома', 'Здуття'] }],
       weights: [{ date: '2026-10-01', kg: 98 }, { date: '2026-10-02', kg: 97.8 }] });
-    expect(r).toMatchObject({ days: 2, workouts: 1, avgEnergy: 3.5, weightStart: 98, weightNow: 97.8,
+    expect(r).toMatchObject({ days: 2, workouts: 1, weightStart: 98, weightNow: 97.8,
       symptoms: [{ name: 'Втома', count: 2 }, { name: 'Здуття', count: 1 }] });
+    // D189: two recorded days of two — under 4: the counts stay, no average energy, «мало даних»
+    expect(r).toMatchObject({ coverage: { recorded: 2, of: 2 }, fewData: true });
+    expect(r.avgEnergy).toBeUndefined();
     // day 1: vitamin + workout of 4 (med, water, workout, dinner); day 2: 0 of 3 (no workout: rest day) → 2 / 7
     expect(r.checklistPct).toBe(29);
     expect(reportText(r, (d) => d)).toContain('Мої питання:\n• Чи можна каву?');
@@ -137,8 +140,8 @@ describe('report — how the plan went (D40)', () => {
       kind: 'meal' as const, status, title: 'Обід', items: [{ foodId: 'chicken-breast', name: 'Куряче філе', grams: g }], ...(menu ? { menu: {} } : {}) });
     const r = buildReport({ from: '2026-09-01', to: '2026-09-15', plan, workouts: [], wellbeing: [], foods,
       entries: [meal('a', '2026-09-02', 450, 'done'), meal('b', '2026-09-03', 450, 'skipped'), meal('c', '2026-09-04', 450, 'planned'), meal('d', '2026-09-05', 200, 'done', false)],
-      weights: [{ date: '2026-09-01', kg: 100 }, { date: '2026-09-15', kg: 98.6 }] });
-    expect(r.weightPace).toBe(-0.7);
+      weights: [{ date: '2026-09-01', kg: 100 }, { date: '2026-09-02', kg: 100 }, { date: '2026-09-14', kg: 98.6 }, { date: '2026-09-15', kg: 98.6 }] });
+    expect(r.weightPace).toBe(-0.7); // D189: a pace needs 4+ weighings
     // R06: a day only skipped or only planned has no food eaten — no result; 200 g in a day not marked full — unknown
     expect(r.habits).toContainEqual({ key: 'protein', met: 1, of: 1 });
     expect(r.menu).toEqual({ done: 1, skipped: 1, open: 1 });

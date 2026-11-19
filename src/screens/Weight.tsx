@@ -6,7 +6,7 @@ import { Loading } from '../components/Recovery';
 import { AlertTriangle } from 'lucide-react';
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { usePlan, useWeights } from '../data/queries';
-import { pace, tooFastTwoWeeks, weeklyWeights, weightSummary, type WeekWeight } from '../domain/progress';
+import { pace, tooFastTwoWeeks, weeklyWeights, weightSummary, type WeekWeight, weightTrend } from '../domain/progress';
 import type { WeightLog } from '../domain/types';
 import { t } from '../i18n/uk';
 
@@ -50,7 +50,8 @@ export function WeightCard() {
           <p className={`mb-2 text-sm ${max != null && -pace(weeks)! > max ? 'text-warn' : 'text-muted'}`}>
             {L.pace(signed(pace(weeks)!))}{max != null ? L.paceLimit(kg(max)) : ''}</p>
         )}
-        {quality.accepted.length > 1 && <WeightChart weights={quality.accepted} />}
+        {quality.accepted.length > 0 && <WeightChart weights={quality.accepted} />}
+        <p className="mt-1 text-xs text-muted">{t.weightQuality.howTo}</p>
         {weeks.length > 1 && <details className="mt-3"><summary className="min-h-tap cursor-pointer py-2 text-sm text-muted">{t.weightQuality.weekly}</summary><WeeklyChart weeks={weeks} max={max} /></details>}
         <WeightReview weights={weights} />
       </section>
@@ -94,20 +95,24 @@ function WeeklyChart({ weeks, max }: { weeks: WeekWeight[]; max?: number }) {
   );
 }
 
-/** Actual accepted measurements on a continuous time axis; no generated points or quarantined values. */
+/** Actual accepted measurements on a continuous time axis; no generated points or quarantined values. D189: under 4 weighings
+ *  the dots alone — no line through two points; from 4 the days' dots pale and the line of the 7-day average. */
 function WeightChart({ weights }: { weights: WeightLog[] }) {
-  const data = weights.map(row => ({ ...row, at: new Date(`${row.date}T12:00:00`).getTime() }));
+  const trend = weightTrend(weights);
+  const lined = trend.some((x) => x.avg !== undefined);
+  const data = trend.map(row => ({ ...row, at: new Date(`${row.date}T12:00:00`).getTime() }));
   const label = (at: number) => format(new Date(at), 'd.MM');
-  return <figure aria-label={t.weightQuality.chart}>
-    <figcaption className="mb-2 text-sm text-muted">{t.weightQuality.chart}</figcaption>
+  return <figure aria-label={t.weightQuality.chart} data-testid="weight-chart" data-lined={lined}>
+    <figcaption className="mb-2 text-sm text-muted">{lined ? t.weightQuality.chartTrend : t.weightQuality.chartDots}</figcaption>
     <div className="h-44 w-full min-w-0 text-xs">
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={data} margin={{ top: 12, right: 12, left: 0, bottom: 0 }}>
           <CartesianGrid stroke="rgb(var(--line))" vertical={false} />
           <XAxis dataKey="at" type="number" domain={['dataMin', 'dataMax']} tickFormatter={label} minTickGap={30} stroke="rgb(var(--muted))" />
           <YAxis domain={['auto', 'auto']} width={42} tickFormatter={kg} stroke="rgb(var(--muted))" />
-          <Tooltip labelFormatter={at => label(Number(at))} formatter={value => [`${kg(Number(value))} ${L.kg}`, L.weight]} contentStyle={{ background: 'rgb(var(--surface))', borderColor: 'rgb(var(--line))', borderRadius: 12 }} />
-          <Line dataKey="kg" type="linear" stroke="rgb(var(--accent))" strokeWidth={2} dot={{ r: 3, fill: 'rgb(var(--accent))' }} isAnimationActive={false} />
+          <Tooltip labelFormatter={at => label(Number(at))} formatter={(value, name) => [`${kg(Number(value))} ${L.kg}`, name === 'avg' ? t.weightQuality.avg7 : L.weight]} contentStyle={{ background: 'rgb(var(--surface))', borderColor: 'rgb(var(--line))', borderRadius: 12 }} />
+          <Line dataKey="kg" type="linear" stroke="none" dot={{ r: 3, fill: 'rgb(var(--accent))', fillOpacity: lined ? 0.35 : 1 }} isAnimationActive={false} />
+          {lined && <Line dataKey="avg" type="monotone" stroke="rgb(var(--accent))" strokeWidth={2.5} dot={false} isAnimationActive={false} />}
         </LineChart>
       </ResponsiveContainer>
     </div>

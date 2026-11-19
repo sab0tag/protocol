@@ -7,7 +7,7 @@ import { BellRing } from 'lucide-react';
 import { format } from 'date-fns';
 import { useState } from 'react';
 import { db } from '../data/db';
-import { DEFAULT_REMINDERS, scheduleStatus, type ReminderSettings } from '../domain/reminders';
+import { DEFAULT_REMINDERS, scheduleStatus, type ReminderSettings, MEALS_AT } from '../domain/reminders';
 import { t } from '../i18n/uk';
 import { ApiError } from '../sync/api';
 import { disablePush, enablePush, needsHomeScreen, pushSchedule, pushSupported, sendTest } from '../sync/push';
@@ -89,29 +89,31 @@ export function Reminders() {
           {([['meals', L.meals], ['meds', L.meds], ['visits', L.visits], ['weekly', L.weekly]] as const)
             .filter(([k]) => k === 'visits' || can(k === 'meals' ? 'food.log' : k === 'meds' ? 'meds.reminders' : 'progress.week')).map(([k, label]) => (
             <label key={k} className="protocol-toggle-row min-h-tap">
-              <input type="checkbox" checked={!!s[k]} onChange={(e) => void change({ [k]: e.target.checked })} className="protocol-switch" />
-              <span>{label}</span>
+              <input type="checkbox" checked={!!s[k]} onChange={(e) => void change({ [k]: e.target.checked })} className="protocol-switch" aria-label={label} />
+              <span>{label}<span className="block text-xs text-muted">{L.why[k]}</span></span>
             </label>
           ))}
+          {s.meals && can('food.log') && <label className="block"><span className="text-sm text-muted">{L.mealsAt}</span>
+            <select value={s.mealsAt || MEALS_AT} onChange={(e) => void change({ mealsAt: e.target.value })} className={select} data-testid="meals-at">
+              {['19:00', '19:30', '20:00', '20:30', '21:00', '21:30', '22:00'].map((x) => <option key={x} value={x}>{x}</option>)}
+            </select></label>}
           {(can('meds.reminders') || can('food.log')) && <label className="block"><span className="text-sm text-muted">{L.morning}</span>
             <select value={s.morning} onChange={(e) => void change({ morning: e.target.value })} className={select}>
               <option value="">{L.timeOff}</option>
               {['06:30', '07:00', '07:30', '08:00', '08:30', '09:00'].map((x) => <option key={x} value={x}>{x}</option>)}
-            </select></label>}
+            </select><span className="mt-1 block text-xs text-muted">{L.why.morning}</span></label>}
           {can('menu.evening') && can('food.log') && <label className="block"><span className="text-sm text-muted">{L.evening}</span>
             <select value={s.evening} onChange={(e) => void change({ evening: e.target.value })} className={select}>
               <option value="">{L.timeOff}</option>
               {['19:00', '19:30', '20:00', '20:30', '21:00', '21:30'].map((x) => <option key={x} value={x}>{x}</option>)}
-            </select></label>}
-          {can('wellbeing.weight') && <label className="block"><span className="text-sm text-muted">{L.weight}</span>
-            <select value={s.weightDay ?? 0} onChange={(e) => void change({ weightDay: Number(e.target.value) })} className={select}>
-              <option value={0}>{L.weightOff}</option>
-              {[1, 2, 3, 4, 5, 6, 7].map((d) => <option key={d} value={d}>{L.weekdays[d]}</option>)}
-            </select></label>}
+            </select><span className="mt-1 block text-xs text-muted">{L.why.evening}</span></label>}
+          {can('wellbeing.weight') && <label className="protocol-toggle-row min-h-tap"> {/* D189: the morning of the weekly summary's day */}
+            <input type="checkbox" checked={(s.weightDay ?? 0) > 0} onChange={(e) => void change({ weightDay: e.target.checked ? 7 : 0 })} className="protocol-switch" aria-label={L.weightSunday} />
+            <span>{L.weightSunday}<span className="block text-xs text-muted">{L.why.weight}</span></span></label>}
           {can('water.reminders') && <div><label className="block"><span className="text-sm text-muted">{L.water}</span>
             <select value={s.waterEveryH} onChange={(e) => void change({ waterEveryH: Number(e.target.value) as ReminderSettings['waterEveryH'] })} className={select}>
               <option value={0}>{L.waterOff}</option><option value={2}>{L.waterEvery(2)}</option><option value={3}>{L.waterEvery(3)}</option>
-            </select></label>
+            </select><span className="mt-1 block text-xs text-muted">{L.why.water}</span></label>
             {s.waterEveryH > 0 && (
               <label className="protocol-toggle-row mt-2 min-h-tap text-sm">
                 <input type="checkbox" checked={s.waterIfBehind !== false} onChange={(e) => void change({ waterIfBehind: e.target.checked })}
@@ -119,13 +121,13 @@ export function Reminders() {
                 <span>{L.waterIfBehind}</span></label>
             )}</div>}
           {can('menu.topup') && can('food.log') && can('assistant.chat') && <label className="protocol-toggle-row min-h-tap text-sm"> {/* D116 */}
-            <input type="checkbox" checked={s.topup !== false} onChange={(e) => void change({ topup: e.target.checked })} className="protocol-switch" />
-            <span>{L.topup}</span></label>}
+            <input type="checkbox" checked={s.topup !== false} onChange={(e) => void change({ topup: e.target.checked })} className="protocol-switch" aria-label={L.topup} />
+            <span>{L.topup}<span className="block text-xs text-muted">{L.why.topup}</span></span></label>}
           {(can('meds.reminders') || can('food.log')) && <label className="block"><span className="text-sm text-muted">{L.repeat}</span>
             <select value={s.repeatMin} onChange={(e) => void change({ repeatMin: Number(e.target.value) as ReminderSettings['repeatMin'] })} className={select}>
               <option value={0}>{L.repeatOff}</option>
               {[10, 15, 30].map((m) => <option key={m} value={m}>{L.repeatEvery(m)}</option>)}
-            </select></label>}
+            </select><span className="mt-1 block text-xs text-muted">{L.why.repeat}</span></label>}
         </div>
       )}
     </section>

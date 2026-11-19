@@ -11,8 +11,13 @@ export type ModuleChoice = EventBase & Provenance & { kind: 'module'; module: Mo
 export type WeightChoice = EventBase & Provenance & { kind: 'weight'; enabled: boolean };
 export type LightDayChoice = EventBase & { kind: 'light-day'; date: ISODate; enabled: boolean; source: 'manual' | 'voice'; from?: number; until?: number };
 export type LightDayNotice = EventBase & { kind: 'light-day-notice'; date: ISODate; episode: ISODate };
+/** D189: why a day is light — «хворів / свята / поїздка / інше»; a separate event, so a plain light day stays readable by older
+ *  clients (an event they do not know is skipped, never an error). `none` takes the reason back. */
+export const DAY_CONTEXTS = ['ill', 'holiday', 'trip', 'other'] as const;
+export type DayContextReason = (typeof DAY_CONTEXTS)[number];
+export type DayContext = EventBase & { kind: 'day-context'; date: ISODate; reason: DayContextReason | 'none' };
 export type ModuleOfferEvent = EventBase & { kind: 'offer'; module: ModuleId; offerId: string; action: 'shown' | 'yes' | 'later' | 'no' };
-export type ModuleEvent = ModuleChoice | WeightChoice | LightDayChoice | LightDayNotice | ModuleOfferEvent | OnboardingEvent | (EventBase & { kind: 'initialised' });
+export type ModuleEvent = ModuleChoice | WeightChoice | LightDayChoice | LightDayNotice | DayContext | ModuleOfferEvent | OnboardingEvent | (EventBase & { kind: 'initialised' });
 export type OnboardingEvent = EventBase & ({ kind: 'onboarding-started' } | { kind: 'onboarded'; date: ISODate; progressAt: ISODateTime });
 export interface ModulePreferences { modules: ModuleFlags; overrides: FeatureOverrides }
 
@@ -49,6 +54,9 @@ export function isModuleEvent(value: unknown): value is ModuleEvent {
         || (e.until as number) - (e.from as number) > 25 * 3_600_000) return false;
       fields.push('from', 'until');
     }
+  } else if (e.kind === 'day-context') {
+    if (!isLocalDate(e.date) || ![...DAY_CONTEXTS, 'none'].some((r) => r === e.reason)) return false;
+    fields = ['date', 'reason'];
   } else if (e.kind === 'light-day-notice') {
     if (!isLocalDate(e.date) || !isLocalDate(e.episode) || e.episode > e.date) return false;
     fields = ['date', 'episode'];
@@ -114,3 +122,14 @@ export function lightDayChoice(events: readonly ModuleEvent[], date: ISODate): L
 }
 
 export const isLightDay = (events: readonly ModuleEvent[], date: ISODate): boolean => lightDayChoice(events, date)?.enabled ?? false;
+
+/** D189: the latest reason per date in [from, to] (none — not set or taken back). */
+export function dayContexts(events: readonly ModuleEvent[], from: ISODate, to: ISODate): Map<ISODate, DayContextReason> {
+  const latest = new Map<ISODate, DayContext>();
+  for (const e of events) {
+    if (e.kind !== 'day-context' || e.date < from || e.date > to) continue;
+    const old = latest.get(e.date);
+    if (!old || e.at > old.at || (e.at === old.at && e.id > old.id)) latest.set(e.date, e);
+  }
+  return new Map([...latest].filter(([, e]) => e.reason !== 'none').map(([d, e]) => [d, e.reason as DayContextReason]));
+}
