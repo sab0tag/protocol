@@ -380,3 +380,21 @@
   expect: { items_dropped_shown: ["Рис білий варений"], text_mentions_dropped: false }
   status: fixed
   found: 2026-10-25
+
+# ── черга агента, задача 9 (D187): хвости помічника ──
+
+- id: chat-103-kcal-no-card
+  scenario: chat_route
+  say: "що з'їсти на перекус?"
+  model_reply: { topic: food, text: "Банан — близько 103 ккал, підійде на перекус." }
+  expect: { card: none, model_called: true }
+  status: fixed
+  found: 2026-11-19
+
+- id: chat-ambulance-not-needed-no-card
+  scenario: chat_route
+  say: "трохи важко в шлунку після обіду, що з'їсти на вечерю?"
+  model_reply: { topic: food, text: "Швидку викликати не потрібно — на вечерю краще щось легке, наприклад кефір." }
+  expect: { card: none, model_called: true }
+  status: fixed
+  found: 2026-11-19

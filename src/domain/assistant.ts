@@ -51,8 +51,11 @@ export function routeQuestion(text: string, plan: Plan, date: string = new Date(
 /** D130: the model said to call for help now — its answer is never replaced by the softer «запишіть у звіт»: the 103 card. Only
  *  unambiguous words: the numbers, the ambulance named, «негайно зателефонуйте / викличте»; a «швидка вечеря», «терміново не
  *  треба» or «негайно» alone are ordinary words and bring no card. */
-const URGENT = /(?<!\d)(?:103|112)(?!\d)|швидк\S*\s+(?:допомог|медичн\S*\s+допомог)|виклич\S*\s+швидку|негайно\s+(?:зателефонуйте|телефонуйте|викличте|звертайтеся)|скор\S*\s+помощ|вызов\S*\s+скорую|немедленно\s+(?:позвоните|звоните|вызовите|обратитесь)/iu;
-export const urgentReply = (text: string) => URGENT.test(text);
+const URGENT = /(?<!\d|\d[,.])(?:103|112)(?!\s*(?:[,.]\d+)?\s*(?:ккал|кал|гр|г(?!\p{L})|мг|мкг|мл|л(?!\p{L})|кг|хв|%|разів|kcal))(?!\d|[,.]\d)|швидк\S*\s+(?:допомог|медичн\S*\s+допомог)|виклич\S*\s+швидку|негайно\s+(?:зателефонуйте|телефонуйте|викличте|звертайтеся)|скор\S*\s+помощ|вызов\S*\s+скорую|немедленно\s+(?:позвоните|звоните|вызовите|обратитесь)/iu;
+// D187: «швидку викликати не потрібно», «без швидкої допомоги можна обійтися» — the ambulance named to say it is NOT needed. Such a
+// phrase is taken out before the check; a «не чекайте — викличте швидку» is not one of them and still brings the card.
+const NOT_NEEDED = /(?:не\s+(?:треба|потрібно|варто|потрібна|обов[’']?язково)\s+(?:\S+\s+){0,2}?(?:виклик\S*\s+)?швидк\S*(?:\s+допомог\S*)?|швидк\S*(?:\s+допомог\S*)?\s+(?:\S+\s+)?(?:не\s+(?:потрібн\S*|треба|варто))|без\s+швидк\S*(?:\s+допомог\S*)?|не\s+нужно\s+(?:вызывать\s+)?скор\S*(?:\s+помощ\S*)?|скор\S*\s+(?:помощ\S*\s+)?(?:вызывать\s+)?не\s+нужн\S*)/giu;
+export const urgentReply = (text: string) => URGENT.test(text.replace(NOT_NEEDED, ' '));
 
 /** The model's answer as the person sees it: the 103 card when it says to call now; the app's words for a medicine, a symptom or
  *  the plan; otherwise its own words. */
@@ -73,8 +76,18 @@ export function historyFor(msgs: { role: 'user' | 'assistant'; text: string; car
 
 /** D132: words of danger or despair, or a model's «call now» — such a message is not kept and never sent again. */
 export const unsafe = (text: string) => crisisInText(text) || dangerInText(text) || urgentReply(text);
-/** A talk kept on the phone: what is unsafe goes (once, on loading — the talks kept before D130 included). */
-export const scrubTalk = <M extends { text: string; card?: string; danger?: true }>(msgs: M[]): M[] => msgs.filter((m) => !m.card && !m.danger && !unsafe(m.text));
+/** A talk kept on the phone, cleaned on loading by the same rule as a new talk (D187): a card clears the talk, so only what came
+ *  after the last card — or after the last unsafe message, which today would have brought one, together with the answer it
+ *  got — stays; then what is unsafe goes. Talks kept before D130 had no cards: their words before a danger never return. */
+export const scrubTalk = <M extends { role?: 'user' | 'assistant'; text: string; card?: string; danger?: true }>(msgs: M[]): M[] => {
+  let from = 0;
+  msgs.forEach((m, i) => {
+    if (!m.card && !m.danger && !unsafe(m.text)) return;
+    from = i + 1;
+    if (m.role === 'user' && msgs[i + 1]?.role === 'assistant') from = i + 2; // the old answer to those words goes with them
+  });
+  return msgs.slice(from).filter((m) => !m.card && !m.danger && !unsafe(m.text));
+};
 
 /** Boundaries 1–4: these are answered by the app's own words, never by the model's. */
 export function fixedAnswer(topic: Topic, plan: Plan): string | undefined {
@@ -104,13 +117,19 @@ export function lineOf(name: string, grams: number, foods: Food[], recipes: Reci
  *  no food still shown has), so the text never recommends what the cards do not show. */
 export function withoutDropped(text: string, dropped: string[], shown: string[]): string {
   if (!dropped.length) return text;
-  // D132: by the head word of a food's name («Рис білий варений» → «рис», «Печінка куряча» → «печі»): short words count too —
-  // «рис» was missed for being three letters, and «зваріть до неї рис» stayed under cards without the rice
+  // D132: short words count too — «рис» was missed for being three letters. D187: every telling word of the name, not only the
+  // first — «Каша рисова» next to a shown «Каша вівсяна» kept «зваріть рисову кашу» (the shared «каша» saved it). Telling: not in
+  // brackets («(сире)»), not a cooking word («варений», «білий»), not a word a shown food has. A text word matches a stem it
+  // starts with, or a short form of it («рис» ↔ «рисова»).
   const words = (s: string) => s.toLocaleLowerCase('uk').split(/[^\p{L}’']+/u).filter((w) => w.length >= 3);
   const stem = (w: string) => (w.length <= 4 ? w : w.slice(0, 4));
-  const keep = new Set(shown.map((n) => words(n)[0]).filter((w): w is string => !!w).map(stem));
-  const stems = [...new Set(dropped.map((n) => words(n)[0]).filter((w): w is string => !!w).map(stem))].filter((s) => !keep.has(s));
-  return text.split(/(?<=[.!?…])\s+/u).filter((x) => !stems.some((s) => words(x).some((w) => w.startsWith(s)))).join(' ');
+  const COOKING = /^(?:варен|відвар|смажен|тушкован|запечен|печен|свіж|біл|сушен|копчен|консерв|знежир|натурал|домашн|сирий|сира|сире|сирі)/u;
+  const named = (n: string) => words(n.replace(/\([^)]*\)/gu, ' ')).filter((w) => !COOKING.test(w)).map(stem);
+  const keep = new Set(shown.flatMap(named));
+  const stems = [...new Set(dropped.flatMap(named))].filter((s) => !keep.has(s));
+  const SMALL = new Set(['або', 'але', 'без', 'для', 'при', 'від', 'під', 'над', 'щоб', 'ніж', 'все', 'вже', 'так', 'там', 'тут', 'чим', 'які', 'яка', 'яке', 'цей', 'цю', 'той', 'вам', 'вас', 'нам', 'неї', 'них', 'їх', 'день', 'раз', 'дня']);
+  const hits = (w: string) => stems.some((s) => w.startsWith(s) || (!SMALL.has(w) && s.startsWith(w)));
+  return text.split(/(?<=[.!?…])\s+/u).filter((x) => !words(x).some(hits)).join(' ');
 }
 
 /** R03: each food the model named, checked against the plan in the real day (`entries` — the day and the week before). */

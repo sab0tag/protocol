@@ -3,7 +3,7 @@ import { FOODS } from '../../src/data/foods';
 import { RECIPES } from '../../src/data/recipes';
 import { examplePlan } from '../../src/data/seed.example';
 import { asksTopup, brings, dayContext, fixedAnswer, lineOf, passing } from '../../src/domain/assistant';
-import { withoutDropped } from '../../src/domain/assistant';
+import { scrubTalk, urgentReply, withoutDropped } from '../../src/domain/assistant';
 import { dishItem } from '../../src/domain/recipes';
 
 const plan = examplePlan(new Date('2026-10-24T12:00:00')); // lactose, glycemia, oxalate; Вітамін D
@@ -41,5 +41,40 @@ describe('the assistant around the model (D117)', () => {
     const text = 'Підійде печінка куряча — багато заліза. Гречка з яйцем — швидко. Або кефір на ніч.';
     expect(withoutDropped(text, ['Печінка куряча'], ['Гречка варена', 'Кефір 2,5 %'])).toBe('Гречка з яйцем — швидко. Або кефір на ніч.');
     expect(withoutDropped(text, ['Гречка з куркою'], ['Гречка варена'])).toBe(text); // «гречка» is still shown — nothing to take out
+  });
+});
+
+describe('D187: the assistant’s tails', () => {
+  it('a food taken out is not recommended by any telling word of its name — a shared «каша» no longer saves «рисову кашу»', () => {
+    const text = 'Зваріть рисову кашу на воді. Вівсянка теж підійде. До неї — трохи ягід.';
+    expect(withoutDropped(text, ['Каша рисова'], ['Каша вівсяна'])).toBe('Вівсянка теж підійде. До неї — трохи ягід.');
+    expect(withoutDropped('Відваріть курячу грудку. Додайте гречку.', ['Куряче філе (сире)'], ['Гречка варена'])).toBe('Додайте гречку.');
+    // a short form in the text: «рис» for «Каша рисова»
+    expect(withoutDropped('Можна рис. Або гречку.', ['Каша рисова'], ['Гречка варена'])).toBe('Або гречку.');
+    // cooking words and brackets say nothing: «варена» does not take out a sentence about another boiled food
+    expect(withoutDropped('Гречка варена — добре.', ['Рис білий варений'], ['Гречка варена'])).toBe('Гречка варена — добре.');
+    // small words never match a short stem: «при» stays when «Приправа» goes
+    expect(withoutDropped('Їжте повільно при вечері. Приправа — ні.', ['Приправа універсальна'], [])).toBe('Їжте повільно при вечері.');
+  });
+  it('the 103 card only for a call to call — not for 103 kcal, nor for «швидку викликати не потрібно»', () => {
+    expect(urgentReply('Банан додасть близько 103 ккал.')).toBe(false);
+    expect(urgentReply('Це 112 г вуглеводів на день.')).toBe(false);
+    expect(urgentReply('Швидку викликати не потрібно — запишіть у звіт для лікаря.')).toBe(false);
+    expect(urgentReply('Не треба викликати швидку, але скажіть лікарю.')).toBe(false);
+    expect(urgentReply('Негайно телефонуйте 103.')).toBe(true);
+    expect(urgentReply('Не чекайте — викличте швидку.')).toBe(true);
+    expect(urgentReply('Швидка допомога не потрібна, але якщо біль посилиться — телефонуйте 103.')).toBe(true);
+  });
+  it('a kept talk: what came before a danger never returns, nor the old answer to it', () => {
+    const kept = scrubTalk([
+      { role: 'user' as const, text: 'у мене завтра аналізи, що їсти?' },
+      { role: 'assistant' as const, text: 'Легка вечеря до 19:00.' },
+      { role: 'user' as const, text: 'тисне в грудях і віддає в руку' },
+      { role: 'assistant' as const, text: 'Спробуйте прилягти й випити води.' },
+      { role: 'user' as const, text: 'що з’їсти на сніданок?' },
+      { role: 'assistant' as const, text: 'Вівсянка з ягодами.' },
+    ]);
+    expect(kept.map((m) => m.text)).toEqual(['що з’їсти на сніданок?', 'Вівсянка з ягодами.']);
+    expect(scrubTalk([{ role: 'user' as const, text: 'привіт' }, { role: 'assistant' as const, text: '', card: 'crisis' }, { role: 'user' as const, text: 'дякую' }]).map((m) => m.text)).toEqual(['дякую']);
   });
 });
