@@ -28,7 +28,7 @@ function rig(over: Partial<{ key: () => Promise<{ key: string; model: string; ma
     audio: () => { audio.made(); return { sampleRate: 48000, attach: (_s: MediaStream, onChunk: (b: ArrayBuffer) => void) => { chunk = onChunk; }, stop: audio.stop }; },
     onHidden: (f) => { hiddenAt(); hidden = f; return () => { hidden = null; }; },
   };
-  const on = { interim: vi.fn(), final: vi.fn(), error: vi.fn(), end: vi.fn(), left: vi.fn() };
+  const on = { interim: vi.fn(), final: vi.fn(), error: vi.fn(), end: vi.fn(), left: vi.fn(), socket: vi.fn() };
   const fallback = vi.fn((on: unknown, _b: string[]) => (over.fallback ? (over.fallback as (o: unknown) => () => void)(on) : () => undefined));
   const outcome = vi.fn();
   const key = vi.fn(over.key ?? (async () => ({ key: 'snx_temp_x', model: 'stt-rt-v6', maxSeconds: 60 })));
@@ -90,6 +90,15 @@ describe('the stops — the stream is ended and the socket closed', () => {
     expect(ws.closed).toBe(true);
     expect(r.on.final).toHaveBeenCalledWith('гречка з куркою', 'гречка з куркою, це все');
     expect(r.on.end).toHaveBeenCalledTimes(1);
+  });
+
+  it('the socket’s open time is told once, for the experiment’s cost (D175)', async () => {
+    const r = rig(); await tick(); const ws = r.sockets[0]!; ws.open();
+    ws.say([{ text: 'склянка води', is_final: true }]);
+    await tick(1000);
+    r.stop(); ws.say([], true);
+    expect(r.on.socket).toHaveBeenCalledTimes(1);
+    expect(r.on.socket.mock.calls[0]![0]).toBeGreaterThanOrEqual(1000);
   });
 
   it('silence: 2.5 s after the last word (the socket closed within 3 s even without Soniox’s answer)', async () => {

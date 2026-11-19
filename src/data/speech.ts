@@ -37,6 +37,8 @@ export function voiceConsent(): VoiceConsent {
   if (sonioxOffered()) return read(SONIOX_CONSENT) === 'yes' ? 'ok' : 'soniox';
   return read(D95_KEY()) === '1' ? 'ok' : 'browser';
 }
+/** D175: one consent on its own — the experiment page asks both, since it runs both engines */
+export const consentGiven = (kind: Exclude<VoiceConsent, 'ok'>) => (kind === 'soniox' ? read(SONIOX_CONSENT) === 'yes' : read(D95_KEY()) === '1');
 export function giveVoiceConsent(kind: Exclude<VoiceConsent, 'ok'>) { if (kind === 'soniox') save(SONIOX_CONSENT, 'yes'); else save(D95_KEY(), '1'); }
 /** «Ще → Налаштування → Голос»: the person's choice; «Телефон» is never overridden by the server */
 export const voiceEngineChoice = (): 'phone' | 'soniox' => (read(VOICE_ENGINE) === 'phone' ? 'phone' : 'soniox');
@@ -65,7 +67,12 @@ export type { ListenHandlers };
 /** Listen once (until a pause, or «це все» at the end — D105): the words as they come (`interim`), then the final text
  *  without the stop words. Returns stop(). Safari on iPhone often ends without ever marking a result final — then the
  *  last words heard are the text (they were shown and never reached the draft, D105). */
-export function listen(on: ListenHandlers, before: string[] = [], opts: { tap?: boolean } = {}): () => void {
+export function listen(on: ListenHandlers, before: string[] = [], opts: { tap?: boolean; engine?: 'soniox' | 'browser' } = {}): () => void {
+  // D175: the experiment (#/dev/speech) names the engine — Soniox without the fallback (a failure is a lost phrase, not
+  // the phone's words), the phone's engine as itself; the Soniox consent is asked on that page before
+  if (opts.engine === 'browser') return browserListen(on, before);
+  if (opts.engine === 'soniox') return listenSoniox(on, before, { key: async () => speechKey((await import('../sync/runner')).currentKeys() ?? null),
+    fallback: browserListen, fallbackAllowed: () => false });
   // D173: Soniox when the person agreed to it, did not choose the phone's engine, and the server gives this device a key now.
   // D174: only from a tap — a recording started by itself (a shortcut's auto-start) has no gesture, and iPhone would keep its
   // audio suspended; it goes to the phone's engine.

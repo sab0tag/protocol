@@ -103,6 +103,17 @@ export const t = {
     source: 'Інструкція', report: (n: number) => `Перетини препарат + їжа: ${n}`,
   },
   update: { coming: 'Завантажую нову версію — сторінка оновиться сама за кілька секунд' }, // D106
+  devSpeech: { // D175: the voice experiment page (for the owner and the test voices, not for patients)
+    title: 'Експеримент: голос', off: 'Сторінку експерименту вимкнено. Відкрийте застосунок з «?speechdev=on».',
+    intro: 'Прочитайте фразу двічі: «Запис 1» і «Запис 2» — різні рушії, порядок випадковий. Зберігаються лише текст і час, звук — ніде.',
+    speaker: 'Хто говорить', condition: 'Умови', conditions: { quiet: 'тихо', kitchen: 'кухня', street: 'вулиця' } as Record<string, string>,
+    phrase: (n: number, of: number) => `Фраза ${n} з ${of}`, card: (c: string) => `На екрані вже: «${c}»`,
+    record: (n: number) => `Запис ${n}`, again: (n: number) => `Запис ${n} ще раз`, listening: 'Слухаю…', heard: 'Почуто', none: 'нічого не почуто',
+    prev: 'Попередня', next: 'Далі', runs: (n: number) => `Записів на цьому телефоні: ${n}`,
+    export: 'Вивантажити JSON', clear: 'Стерти записи', clearAsk: 'Стерти всі записи експерименту на цьому телефоні?',
+    noSoniox: 'Сервер зараз не дає цьому пристрою ключ Soniox: записи Soniox будуть порожні. Потрібні SPEECH_ENGINE=soniox-test і ID цього пристрою в SPEECH_TEST_VAULTS.',
+    testId: (id: string) => `ID цього пристрою: ${id}`,
+  },
   voiceSettings: { // D174: «Ще → Налаштування → Голос»
     title: 'Голос', phone: 'Телефон', soniox: 'Soniox',
     phoneHint: 'Голос розпізнає ваш телефон: на Android — Google, на iPhone — Apple.',

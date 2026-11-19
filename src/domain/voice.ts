@@ -2,6 +2,7 @@
 // logic: food goes through readMeal (the same reading as the typed field), the plan check through src/domain/rules, a
 // medicine is matched to the plan's own prescriptions, water by its words. A quantity nobody said is shown and asked,
 // never taken for granted; nothing is written until the person taps «Записати».
+import { spokenForm } from './spokenForm';
 import { fold } from './meds';
 import { amountText, candidates, parseQuery, readMeal, sameWord, splitPhrase, withoutStop, type MealContext } from './foodSearch';
 import { setPortions } from './recipes';
@@ -61,7 +62,14 @@ export function readUtterance(spoken: string, ctx: VoiceContext, into: VoiceDraf
   const meal = MEAL_SAID.exec(text); // D107: «два яйця, це було на сніданок» — the meal, said after the food
   if (meal) { d.title = MEAL_OF[meal[1]!.toLowerCase()]; text = text.slice(0, meal.index).trim(); }
   if (!d.title) d.title = TITLES.find(([re]) => re.test(text))?.[1];
-  for (const raw of splitPhrase(text)) {
+  // D175: «гречка з куркою, 200 грамів» — an amount alone after a food is that food's amount, not a food of its own
+  const parts: string[] = [];
+  for (const p of splitPhrase(text)) {
+    const q = parseQuery(clean(p));
+    if (parts.length && !q.text && q.qty !== undefined && waterOf(p) === undefined) parts[parts.length - 1] = `${clean(p)} ${parts[parts.length - 1]}`;
+    else parts.push(p);
+  }
+  for (const raw of parts) {
     const water = waterOf(raw);
     if (water !== undefined) { d.waterMl += water; continue; }
     const med = medOf(raw, ctx);
@@ -277,7 +285,7 @@ export function applyCommand(text: string, d: VoiceDraft, ctx: VoiceContext): Vo
  *  (so «скасуй» brings the draft before it back), a question or a clear waits for a tap, nothing is ever written. */
 export function step(prev: VoiceSession, text: string, ctx: VoiceContext): VoiceSession {
   const s: VoiceSession = { draft: prev.draft, history: prev.history }; // a question, a clear or a note do not outlive the next words
-  const words = withoutStop(text);
+  const words = spokenForm(withoutStop(text)); // D175: the same normalisation as the one field
   if (!words) return prev;
   const c = command(words, s.draft, ctx);
   if (c?.undo) {

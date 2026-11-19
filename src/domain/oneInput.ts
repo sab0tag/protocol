@@ -4,6 +4,7 @@
 // «чи можна метформін?» must not become a tick) → commands: a light day, an edit of the last card, a medicine of today's
 // plan (only after «Так»), water → food (readMeal, through the voice reading) → nothing. Pure: the corpus
 // tests/fixtures/one-input.yaml runs through this function.
+import { spokenForm } from './spokenForm';
 import { withoutStop } from './foodSearch';
 import { fold } from './meds';
 import { normalize } from './nutrition';
@@ -43,7 +44,8 @@ export type OneInput =
   | { kind: 'water'; ml: number }
   | { kind: 'food'; draft: VoiceDraft };
 
-const clean = (s: string) => normalize(withoutStop(s)).replace(/[.!,;:]+/gu, ' ').replace(/\s+/gu, ' ').trim();
+// D175: a point between digits stays — «0.5 л води»
+const clean = (s: string) => normalize(withoutStop(s)).replace(/(?<!\d)[.,]+|[.,]+(?!\d)|[!;:]+/gu, ' ').replace(/\s+/gu, ' ').trim();
 
 // ------------------------------------------------------------------ a question
 const ASK_WORD = /^(?:що|чи|можна|порадь|порадьте|підкажи|підкажіть)(?=\s|$)/u;
@@ -119,6 +121,11 @@ export function readOneInput(text: string, ctx: OneInputContext): OneInput {
   if (dangerInText(raw)) return { kind: 'danger' }; // D97
   if (isQuestion(raw)) return ctx.assistant ? { kind: 'question', text: raw } : { kind: 'assistant-off', text: raw };
   if (lightDayCommand(raw)) return { kind: 'light-day' }; // D139
+  return readSaid(spokenForm(raw), ctx);
+}
+
+/** D175: the rest reads the words in the form the reading takes (numbers in digits, the Russian words of food) */
+function readSaid(raw: string, ctx: OneInputContext): OneInput {
   const s = clean(raw);
   if (UNDO.test(s)) return { kind: 'undo' };
   if (ctx.card && EDIT_START.test(s) && waterCommand(raw) === undefined) { // D107: a command on the card still on screen
