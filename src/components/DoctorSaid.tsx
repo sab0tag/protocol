@@ -8,6 +8,7 @@ import { constraintWords, medicineWords, whoWords } from '../domain/planWords';
 import { untilVisit } from '../domain/results';
 import type { Plan } from '../domain/types';
 import { t } from '../i18n/uk';
+import { DoctorQuestions } from './DoctorQuestions';
 
 const L = t.said;
 const dmy = (d: string) => d.split('-').reverse().join('.');
@@ -20,7 +21,7 @@ export function DoctorSaid({ plan, pieces, goals }: { plan: Plan; pieces?: Map<s
   const who = whoWords([...plan.prescriptions.map((p) => p.source), ...plan.constraints.map((c) => c.source)]);
   const history = <Link to="/plan/history" className="flex min-h-tap items-center gap-2 px-1 text-sm font-medium text-accent">
     <History size={18} aria-hidden />{t.versions.open}</Link>;
-  if (!meds.length && !limits.length && !tests.length && !plan.nextCheckup && !goals) return <div className="space-y-3"><p className="protocol-card p-4">{L.empty}</p>{history}</div>;
+  if (!meds.length && !limits.length && !tests.length && !plan.nextCheckup && !goals) return <div className="space-y-3"><p className="protocol-card p-4">{L.empty}</p><DoctorQuestions plan={plan} />{history}</div>;
   const visit = plan.nextCheckup;
   return (
     <div className="space-y-4">
@@ -40,6 +41,7 @@ export function DoctorSaid({ plan, pieces, goals }: { plan: Plan; pieces?: Map<s
           {visit?.tests.length ? visit.tests.join(', ') : undefined}</Row>
         {tests.map((p) => <Row key={p.id} to="/plan/checkup" piece={pieces?.get(p.id)} title={p.title}>{p.dueDate ? `до ${dmy(p.dueDate)}` : L.tests}</Row>)}
       </Part>
+      <DoctorQuestions plan={plan} />{/* D191 */}
       {history}
     </div>
   );
