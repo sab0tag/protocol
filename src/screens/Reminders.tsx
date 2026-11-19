@@ -89,7 +89,7 @@ export function Reminders() {
           {([['meals', L.meals], ['meds', L.meds], ['visits', L.visits], ['weekly', L.weekly]] as const)
             .filter(([k]) => k === 'visits' || can(k === 'meals' ? 'food.log' : k === 'meds' ? 'meds.reminders' : 'progress.week')).map(([k, label]) => (
             <label key={k} className="protocol-toggle-row min-h-tap">
-              <input type="checkbox" checked={!!s[k]} onChange={(e) => void change({ [k]: e.target.checked })} className="protocol-switch" />
+              <input type="checkbox" checked={!!s[k]} onChange={(e) => void change({ [k]: e.target.checked })} className="protocol-switch" aria-label={label} />
               <span>{label}<span className="block text-xs text-muted">{L.why[k]}</span></span>
             </label>
           ))}
@@ -108,7 +108,7 @@ export function Reminders() {
               {['19:00', '19:30', '20:00', '20:30', '21:00', '21:30'].map((x) => <option key={x} value={x}>{x}</option>)}
             </select><span className="mt-1 block text-xs text-muted">{L.why.evening}</span></label>}
           {can('wellbeing.weight') && <label className="protocol-toggle-row min-h-tap"> {/* D189: the morning of the weekly summary's day */}
-            <input type="checkbox" checked={(s.weightDay ?? 0) > 0} onChange={(e) => void change({ weightDay: e.target.checked ? 7 : 0 })} className="protocol-switch" />
+            <input type="checkbox" checked={(s.weightDay ?? 0) > 0} onChange={(e) => void change({ weightDay: e.target.checked ? 7 : 0 })} className="protocol-switch" aria-label={L.weightSunday} />
             <span>{L.weightSunday}<span className="block text-xs text-muted">{L.why.weight}</span></span></label>}
           {can('water.reminders') && <div><label className="block"><span className="text-sm text-muted">{L.water}</span>
             <select value={s.waterEveryH} onChange={(e) => void change({ waterEveryH: Number(e.target.value) as ReminderSettings['waterEveryH'] })} className={select}>
@@ -121,7 +121,7 @@ export function Reminders() {
                 <span>{L.waterIfBehind}</span></label>
             )}</div>}
           {can('menu.topup') && can('food.log') && can('assistant.chat') && <label className="protocol-toggle-row min-h-tap text-sm"> {/* D116 */}
-            <input type="checkbox" checked={s.topup !== false} onChange={(e) => void change({ topup: e.target.checked })} className="protocol-switch" />
+            <input type="checkbox" checked={s.topup !== false} onChange={(e) => void change({ topup: e.target.checked })} className="protocol-switch" aria-label={L.topup} />
             <span>{L.topup}<span className="block text-xs text-muted">{L.why.topup}</span></span></label>}
           {(can('meds.reminders') || can('food.log')) && <label className="block"><span className="text-sm text-muted">{L.repeat}</span>
             <select value={s.repeatMin} onChange={(e) => void change({ repeatMin: Number(e.target.value) as ReminderSettings['repeatMin'] })} className={select}>

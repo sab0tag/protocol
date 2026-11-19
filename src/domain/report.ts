@@ -62,7 +62,7 @@ export interface Report {
   lightDays?: LightDayHistory;
   lightDayWorkouts?: number;
   /** D169: water and drinks in litres over the days they were written; under the doctor's limit, the days over it */
-  water?: { days: number; avgMl: number; maxMl?: number; over: { date: ISODate; overMl: number }[] };
+  water?: { days: number; avgMl: number; maxMl?: number; over: { date: ISODate; overMl: number }[]; noAverage?: true };
   /** D182: the rehabilitation complex — sessions done of those due, pain after them by day, the days with swelling, the limits */
   rehab?: RehabReport;
   /** D183: «Що я задав сам» — the person's own weight goal, a separate block, never mixed with the doctor's targets */
@@ -215,8 +215,9 @@ export function buildReport(args: {
   };
   if (!few) return report;
   // D189: under 4 recorded days — the counts stay, averages and what looks like a conclusion do not
-  const { avgEnergy: _e, weightPace: _p, water: _w, ...rest } = report;
-  return { ...rest, coincidences: [] };
+  const { avgEnergy: _e, weightPace: _p, ...rest } = report;
+  // the days over the doctor's fluid limit are facts, not an average — they stay; the average litres do not
+  return { ...rest, coincidences: [], ...(report.water ? { water: { ...report.water, noAverage: true as const } } : {}) };
 }
 
 const dec = (n: number) => String(n).replace('.', ',');
@@ -259,7 +260,7 @@ function waterReport(entries: DayEntry[], foods: Map<string, Food>, plan: Plan |
 /** D169: the water lines of the report, in litres. */
 export function waterLines(w: NonNullable<Report['water']>, dm: (d: ISODate) => string): string[] {
   const W = t.water;
-  return [W.report(litres(w.avgMl), w.days), ...(w.maxMl ? [`${W.reportLimit(litres(w.maxMl), w.over.length, w.days)}${w.over.length ? `: ${w.over.map((x) => W.reportOverDay(dm(x.date), x.overMl)).join('; ')}` : ''}`] : [])];
+  return [...(w.noAverage ? [] : [W.report(litres(w.avgMl), w.days)]), ...(w.maxMl ? [`${W.reportLimit(litres(w.maxMl), w.over.length, w.days)}${w.over.length ? `: ${w.over.map((x) => W.reportOverDay(dm(x.date), x.overMl)).join('; ')}` : ''}`] : [])];
 }
 
 /** D189: coverage first, then «мало даних», the food averages of complete days and the period's context. */
