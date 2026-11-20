@@ -2,6 +2,7 @@
 // any of them no number at all, only «спершу з лікарем» (or, for words of distress about food, a soft word about a specialist).
 // Otherwise the numbers with why, the honest price of a slow pace, and «Зберегти як мою ціль» — never a doctor's number,
 // which always wins. Two weeks later with a new weight — «оновити?»; a plateau of three weeks — the record and the activity first.
+import { normsDraft } from '../domain/norms';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -74,7 +75,7 @@ export function WeightGoal() {
           <div className="mt-1 flex flex-wrap gap-2">{[750, 600, 500, 300].map((d) => (
             <button key={d} type="button" aria-pressed={deficit === d} onClick={() => setDeficit(d)}
               className={`min-h-tap rounded-full border-2 px-3 font-semibold ${deficit === d ? 'border-accent text-accent' : 'border-line'}`}>{d < 500 ? G.slowChoice(d) : `−${d}`}</button>))}</div></fieldset>
-        <p className="text-xs text-muted">{G.notDoctor}. {G.draft}</p>
+        <p className="text-xs text-muted">{G.notDoctor}.{normsDraft() ? ` ${G.draft}` : ''}</p>{/* D196 */}
         <button type="button" onClick={() => void save()} className="min-h-tap w-full rounded-xl bg-accent px-4 font-semibold text-on-accent">{G.save}</button>
       </div>}
       {!complete && !stops.length && <p className="text-sm text-muted">{G.fill}</p>}

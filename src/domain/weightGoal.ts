@@ -9,10 +9,11 @@ import { addDays, differenceInCalendarDays, format, parseISO } from 'date-fns';
 import type { GoalInput, ISODate, OwnGoal, Plan, WeightLog } from './types';
 export type { GoalInput, OwnGoal } from './types';
 import { weeklyWeights } from './progress';
+import { NORMS } from './norms';
 
-export const KCAL_FLOOR = 1200;
+export const KCAL_FLOOR = NORMS.goal.kcalFloor; // D196: the drafts live in norms.ts
 export const KCAL_PER_KG = 7700;
-export const DEFICIT_DEFAULT = 600;
+export const DEFICIT_DEFAULT = NORMS.goal.deficitDefault;
 
 /** Mifflin–St Jeor, kcal a day at rest. */
 export const bmr = (i: Pick<GoalInput, 'sex' | 'age' | 'heightCm' | 'weightKg'>) =>
@@ -33,7 +34,7 @@ export function multiplier(stepsPerDay?: number, trainingMinPerWeek?: number): {
 export type StopReason = 'glucose-lowering' | 'pregnancy' | 'bmi-low' | 'goal-bmi-low' | 'minor' | 'kidney-heart' | 'eating';
 /** Insulin and medicines lowering sugar with a risk of hypoglycaemia (ATC A10A insulins, A10BB sulfonylureas, A10BX glinides),
  *  by the code or by the name/INN as written — a draft list for a doctor to approve. */
-const HYPO_ATC = /^A10A|^A10BB|^A10BX0[23]/;
+const HYPO_ATC = NORMS.stopMeds.glinides ? /^A10A|^A10BB|^A10BX0[23]/ : /^A10A|^A10BB/; // D196: glinides by caution, see norms.ts
 const HYPO_NAMES = /інсулін|insulin|інсуман|лантус|туджео|левемір|новорапід|хумалог|апідра|актрапід|протафан|хумулін|тресіба|гліклазид|диабетон|діабетон|глімепірид|амарил|глібенкламід|манініл|гліпізид|гліквідон|репаглінід|натеглінід/iu;
 const ORGANS = /нирк|ниркова|хзн|ххн|діаліз|серцев|серце|серцева недостатн|інфаркт|кардіо|почк|сердечн/iu;
 const EATING = /переїда\S*.*(?:вин|сором)|(?:вин|сором)\S*.*переїда|блюю\S*\s+після\s+їжі|викликаю\s+блювоту|блювот\S*\s+після\s+їжі|голоду\S*\s+(?:по\s+)?\d+\s+дн|довго\s+голод|не\s+їм\s+(?:по\s+)?\d+\s+дн|компульсив|булімі|анорекс|переедан\S*.*вин|рвот\S*\s+после\s+еды|голодаю/iu;
@@ -71,7 +72,7 @@ export interface GoalPlan {
 const r10 = (n: number) => Math.round(n / 10) * 10;
 export function goalPlan(i: GoalInput, plan: Pick<Plan, 'targets'> | undefined, today: ISODate): GoalPlan {
   const b = bmr(i), m = multiplier(i.stepsPerDay, i.trainingMinPerWeek), tdee = b * m.value;
-  const wanted = Math.min(750, Math.max(0, Math.round(i.deficit ?? DEFICIT_DEFAULT)));
+  const wanted = Math.min(NORMS.goal.deficitKcal[1], Math.max(0, Math.round(i.deficit ?? DEFICIT_DEFAULT)));
   const kcal = Math.max(KCAL_FLOOR, r10(tdee - wanted));
   const deficit = Math.max(0, Math.round(tdee - kcal));
   // the pace never faster than 1 kg a week (750 a day is ≈ 0.7; the floor can only make it slower)
@@ -83,7 +84,7 @@ export function goalPlan(i: GoalInput, plan: Pick<Plan, 'targets'> | undefined, 
   return {
     bmr: Math.round(b), multiplier: m.value, multiplierWhy: m.why, tdee: Math.round(tdee), deficit, kcal, floored: kcal === KCAL_FLOOR && tdee - wanted < KCAL_FLOOR,
     perWeekKg, weeks, goalDate: format(addDays(parseISO(today), weeks * 7), 'yyyy-MM-dd'),
-    proteinG: [Math.round(1.2 * i.weightKg), Math.round(1.6 * i.weightKg)],
+    proteinG: [Math.round(NORMS.goal.proteinPerKg[0] * i.weightKg), Math.round(NORMS.goal.proteinPerKg[1] * i.weightKg)],
     ...(plan?.targets.carbsG?.max !== undefined ? { carbsMaxG: plan.targets.carbsG.max } : {}),
     slow: deficit < 500, firstVisibleWeeks,
   };

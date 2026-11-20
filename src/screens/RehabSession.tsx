@@ -2,6 +2,7 @@
 // current stage's exercises with their doses and notes; «Зробив(ла)» → pain 0–10 in one tap and swelling yes / no → one
 // record. The next stage is asked about when its date comes and taken only after «Так». Nothing here composes, adds
 // sets or weight, or suggests a harder exercise.
+import { normsDraft } from '../domain/norms';
 import { format } from 'date-fns';
 import { useState } from 'react';
 import { SceneHeader } from '../components/SceneHeader';
@@ -41,6 +42,7 @@ export function RehabSession({ plan }: { plan: PlanRow }) {
         <p className="text-sm">{t.painStop[alert]}</p>
         <p className="text-lg font-semibold">{t.painStop.text}</p>
         <p className="text-sm text-muted">{t.painStop.why}</p>
+        {normsDraft() && <p className="text-xs text-muted">{t.water.draft}</p>}{/* D196 */}
       </div>}
       <p className="text-sm font-semibold" data-testid="rehab-count">{R.count(done, c.perDay)}</p>
       {ask && <div role="group" aria-label={R.askTitle} className="protocol-card space-y-2 p-4">
