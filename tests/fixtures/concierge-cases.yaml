@@ -244,6 +244,15 @@
   status: open
   found: 2026-11-17
 
+- id: chat-text-names-unoffered-food
+  scenario: chat
+  profile: example
+  input: "порадь перекус без молочного"
+  note: "живий прогін 20.11 (docs/eval/2026-11-20-assistant-live.md): 2 з 3 відповідей радять «жменю мигдалю» лише в тексті — у картках мигдалю немає, а в плані оксалати; withoutDropped (D187) бачить тільки те, що модель запропонувала рядком"
+  expect: { must_not: [names_food_failing_plan] }
+  status: open
+  found: 2026-11-20
+
 # ── розмова: що робить код до й після моделі (D130) — перевіряється без моделі ──
 # say — питання; model_reply — що відповіла б модель; history — розмова до питання; plan_targets — цілі плану
 # expect: card (danger-103 | crisis-7333), model_called, history_cleared, history_without (ці слова не йдуть з наступним питанням)

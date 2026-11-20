@@ -4,7 +4,7 @@
 // model, money): `npm run eval:assistant`. A throwaway vault of its own; logs nothing (log: false). Prints every answer for the
 // analyst's read.
 vi.mock('../../src/sync/runner', () => ({ currentKeys: () => keys }));
-import { writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { expect, test, vi } from 'vitest';
 import { answer, type Answer } from '../../src/app/assistantAnswer';
 import { FOODS } from '../../src/data/foods';
@@ -46,7 +46,8 @@ test('the field’s questions, live, three runs each', async () => {
     seen.push(`«${c.q}» #${i + 1}: ${'card' in a ? `[картка ${a.card}]` : 'consent' in a ? '[згода]' : `${a.text}${a.items?.length ? ` → ${a.items.map((x) => x.name).join(', ')}` : ''}`}`);
     for (const check of c.checks) { const p = check(a); if (p) bad.push(`«${c.q}» #${i + 1}: ${p}`); }
   }
-  writeFileSync('test-results/assistant-eval.txt', [...seen, '', ...bad].join('\n')); // for the analyst's read
+  mkdirSync('eval-results', { recursive: true }); // not test-results: Playwright empties that
+  writeFileSync('eval-results/assistant-eval.txt', [...seen, '', ...bad].join('\n')); // for the analyst's read
   console.log(seen.join('\n'));
   expect(bad).toEqual([]);
 });
