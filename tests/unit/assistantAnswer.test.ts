@@ -45,6 +45,14 @@ describe('the answer, one for «Помічник» and the field (D166)', () => 
     expect(chat).not.toHaveBeenCalled();
   });
 
+  it('D199: «трохи нудить — що з’їсти?» is not «що добрати»: the model is asked, and its «symptoms» answer is the app’s words', async () => {
+    reply({ topic: 'symptoms', text: 'Спробуйте імбирний чай.' });
+    const a = await answer('трохи нудить після обіду — що з’їсти?', day(examplePlan()), { consent: true, log: false, history: [] });
+    expect(chat).toHaveBeenCalled();
+    expect('text' in a && a.text).toMatch(/скаже лікар/);
+    expect('items' in a ? a.items ?? [] : []).toEqual([]);
+  });
+
   it('«що добрати?» is the code’s, with no model and no consent', async () => {
     const a = await answer('що добрати до вечора?', day(examplePlan()), { consent: false, log: false, history: [] });
     expect(a).toEqual(topupReply(day(examplePlan())));

@@ -12,7 +12,10 @@ import type { DayEntry, Food, MealItem, Plan, Recipe, Targets } from './types';
 
 /** «Що добрати до вечора?», «чим добрати білок», «що ще з'їсти» — a short question the code answers by itself. */
 const ASKS = /добрат|недобира|не\s+вистача|чим\s+добрати|що\s+(?:б\s+)?(?:ще\s+)?(?:з[’'ʼ]?їсти|поїсти|перекусити)/iu;
-export const asksTopup = (text: string) => ASKS.test(text) && text.trim().split(/\s+/).length <= 7 && !/лише|тільки|є\s+вдома|вдома/iu.test(text);
+// D199: «трохи нудить — що з’їсти?» is about how one feels, not what is missing: never the code's «що добрати» (the model's topic
+// «symptoms» then gives the app's words, D127)
+const FEELING = /нуд(?:ить|ило|ота|оту|оти)|тошн|болить|болі(?!\p{L})|біль|боли[тм]|печі[яюї]|печет|изжог|здут|вздут|пронос|діаре|диаре|закреп|запор|запаморо|головокруж|слабкіст|слабость|блюв|блював|рвот|важк\S*\s+(?:в|у)\s+шлунк|тяжест\S*\s+в\s+желуд|крутить\s+(?:живіт|живот)/iu;
+export const asksTopup = (text: string) => ASKS.test(text) && text.trim().split(/\s+/).length <= 7 && !/лише|тільки|є\s+вдома|вдома/iu.test(text) && !FEELING.test(text);
 
 const r = (n: number) => Math.round(n);
 

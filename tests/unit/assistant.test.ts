@@ -14,6 +14,9 @@ describe('the assistant around the model (D117)', () => {
   it('«що добрати?» is the code’s question; «у мене вдома лише…» goes to the model', () => {
     for (const q of ['Що добрати до вечора?', 'чим добрати білок', 'що ще з’їсти', 'недобираю калорії']) expect(asksTopup(q), q).toBe(true);
     for (const q of ['у мене вдома лише яйця і гречка, що добрати?', 'чи можна мені банан?', 'що приготувати з курки']) expect(asksTopup(q), q).toBe(false);
+    // D199: how one feels is not what is missing — the model, whose «symptoms» topic gives the app's words
+    for (const q of ['трохи нудить після обіду — що з’їсти?', 'печія, що з’їсти?', 'болить живіт, що поїсти?', 'тошнит, что съесть?', 'важко в шлунку, що ще з’їсти?']) expect(asksTopup(q), q).toBe(false);
+    for (const q of ['що ще з’їсти на вечерю?', 'чим добрати білок до вечора?']) expect(asksTopup(q), q).toBe(true);
   });
   it('medicines, symptoms, changing the plan — the app’s own words; medicines quote the plan', () => {
     expect(fixedAnswer('medicine', plan)).toMatch(/запитайте лікаря або фармацевта.*Вітамін D 2000 МО/);
