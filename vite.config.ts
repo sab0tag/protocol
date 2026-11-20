@@ -59,7 +59,7 @@ export default defineConfig({
           { name: 'Записати їжу', short_name: 'Їжа', url: './#/do/food', icons: [{ src: 'icon-192.png', sizes: '192x192', type: 'image/png' }] },
         ],
       },
-      workbox: { navigateFallbackDenylist: [/^\/landing(?:\/|$)/], globPatterns: ['**/*.{js,css,html,svg,png,jpg,webp,woff2}'], importScripts: ['reminder-policy.js', 'push-sw.js'] }, // D136: one policy for API, client and worker
+      workbox: { navigateFallbackDenylist: [/^\/landing(?:\/|$)/], globPatterns: ['**/*.{js,css,html,svg,png,jpg,webp,woff2}'], globIgnores: ['**/onest-*.woff2'], /* D198: the preview font comes from the network only for those who turn it on */ importScripts: ['reminder-policy.js', 'push-sw.js'] }, // D136: one policy for API, client and worker
     }),
   ],
   test: {
