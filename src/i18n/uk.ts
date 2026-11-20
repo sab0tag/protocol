@@ -362,6 +362,13 @@ export const t = {
     place: (part: string, side: string) => `${part} ${side}`, later: 'Не зараз', saved: 'Місце уколу записано',
     hint: 'Місце краще міняти: так шкіра не ущільнюється. Дози й препарат — лише як призначив лікар.',
   },
+  zone: { // D195: «перенести час прийому?» after a time zone change
+    away: (diff: string) => `Ви в іншому часовому поясі (${diff} год). Перенести час прийому ліків?`,
+    local: 'За місцевим часом', localHint: (t: string) => `${t} — на годиннику тут`,
+    home: 'Як удома', homeHint: (t: string, here: string) => `${t} удома = ${here} тут`,
+    back: 'Ви знову вдома. Повернути час прийому ліків, як був?', backYes: 'Повернути', keep: 'Залишити як є',
+    hint: 'Без відповіді нічого не змінюється. Час можна змінити й у плані.', saved: 'Час прийому змінено',
+  },
   side: { // D194: a new medicine's side effects, the first 14 days
     ask: (title: string, day: number) => `Є побічні від «${title}»? День ${day} з 14`, no: 'Ні', yes: 'Так',
     which: 'Які? Одним-двома словами', save: 'Записати', saved: 'Записано — буде у звіті для лікаря',

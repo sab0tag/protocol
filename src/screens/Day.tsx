@@ -30,6 +30,7 @@ import { useSync } from '../sync/runner';
 import { SimpleEntrySheet } from './SimpleEntrySheet';
 import { NowCard } from '../components/NowCard';
 import { InjectionSiteCard } from '../components/InjectionSiteCard';
+import { ZoneCard } from '../components/ZoneCard';
 import { SideEffectsCard } from '../components/SideEffectsCard';
 import { DoctorQuestions } from '../components/DoctorQuestions';
 import { visitSoon } from '../domain/doctorQuestions';
@@ -205,6 +206,7 @@ export function Day() {
       <div data-testid="focused-day-now">
         {entries && <NowCard compact entries={entries} plan={plan} date={date} observation={observation} onConfirm={setConfirming} onReschedule={setRescheduling} />}
       </div>
+      {isToday && plan && !context.demo && <ZoneCard plan={plan} /> /* D195 */}
       {entries && all && plan && <InjectionSiteCard day={entries} all={all} prescriptions={plan.prescriptions} /> /* D189 */}
       {isToday && entries && plan && <SideEffectsCard plan={plan} day={entries} /> /* D194 */}
       {isToday && plan && visitSoon(plan, date) !== null && <DoctorQuestions plan={plan} soon={visitSoon(plan, date)!} /> /* D191 */}

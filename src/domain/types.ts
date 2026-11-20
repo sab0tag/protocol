@@ -158,6 +158,8 @@ export interface Plan {
   /** D21: the last visit to the doctor (the report starts from it) and «Мої питання» for the next one. */
   lastVisit?: ISODate;
   questions?: string[];
+  /** D195: the home time zone, the zones answered, and a «як удома» shift of the medicines' times to undo at home */
+  zone?: { home: string; asked?: string[]; shift?: { zone: string; minutes: number } };
   /** D191: questions asked at a visit — the doctor's answer in one line, the date; the open list is `questions` */
   answered?: { q: string; a: string; at: ISODate }[];
   /** D22: the last JSON export — the weekly reminder counts from it. */

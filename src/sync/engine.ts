@@ -209,7 +209,7 @@ export interface PlanVersion { source: string; at: number; plan: Row }
 export async function planFromRecords(keys: Keys, records: { k: string; v: string | null }[], source: string): Promise<PlanVersion | null> {
   const whole = await recordKey(keys, `plan:${PLAN}`);
   const parts = new Map<string, string>();
-  const fields = ['constraints', 'prescriptions', 'targets', 'modes', 'nextCheckup', 'profile', 'onboardedAt', 'lastVisit', 'questions', 'answered', 'lastExportAt'];
+  const fields = ['constraints', 'prescriptions', 'targets', 'modes', 'nextCheckup', 'profile', 'onboardedAt', 'lastVisit', 'questions', 'answered', 'zone', 'lastExportAt'];
   for (const f of fields) parts.set(await recordKey(keys, `plan:${PLAN}#${f}`), f);
   let plan: Row | null = null, at = 0;
   const byField: Record<string, { v: unknown; at: number }> = {};
