@@ -1,6 +1,7 @@
 // D183 («Очередь агента», task 8): the weight goal helper. The code counts every number — the model never does. Calories:
 // Mifflin–St Jeor × an activity multiplier counted from numbers (steps a day, minutes of training a week — not a category),
-// minus a deficit of 500–750 kcal, never below 1200 a day. The pace follows from the deficit, the goal date from the pace.
+// minus a deficit of 500–750 kcal, never below the lower calorie limit for the sex (1200 women / 1500 men, D197) — less only by a
+// doctor's prescription. The pace follows from the deficit, the goal date from the pace.
 // Protein 1.2–1.6 g per kg; carbohydrates never above the plan's own limit. Stop conditions come first: with any of them no
 // deficit is counted at all and the app says «ціль щодо ваги — спершу з лікарем». Everything set here is the person's own
 // goal, never a doctor's prescription: a doctor's number always wins and is never overwritten. Pure; numbers are drafts by the
@@ -9,11 +10,10 @@ import { addDays, differenceInCalendarDays, format, parseISO } from 'date-fns';
 import type { GoalInput, ISODate, OwnGoal, Plan, WeightLog } from './types';
 export type { GoalInput, OwnGoal } from './types';
 import { weeklyWeights } from './progress';
-import { NORMS } from './norms';
+import { kcalFloor, NORMS } from './norms';
 
-export const KCAL_FLOOR = NORMS.goal.kcalFloor; // D196: the drafts live in norms.ts
 export const KCAL_PER_KG = 7700;
-export const DEFICIT_DEFAULT = NORMS.goal.deficitDefault;
+export const DEFICIT_DEFAULT = NORMS.deficit.default; // D196/D197: the drafts live in norms.ts
 
 /** Mifflin–St Jeor, kcal a day at rest. */
 export const bmr = (i: Pick<GoalInput, 'sex' | 'age' | 'heightCm' | 'weightKg'>) =>
@@ -32,9 +32,9 @@ export function multiplier(stepsPerDay?: number, trainingMinPerWeek?: number): {
 
 // --------------------------------------------------------------- stop conditions
 export type StopReason = 'glucose-lowering' | 'pregnancy' | 'bmi-low' | 'goal-bmi-low' | 'minor' | 'kidney-heart' | 'eating';
-/** Insulin and medicines lowering sugar with a risk of hypoglycaemia (ATC A10A insulins, A10BB sulfonylureas, A10BX glinides),
- *  by the code or by the name/INN as written — a draft list for a doctor to approve. */
-const HYPO_ATC = NORMS.stopMeds.glinides ? /^A10A|^A10BB|^A10BX0[23]/ : /^A10A|^A10BB/; // D196: glinides by caution, see norms.ts
+/** Insulin and medicines lowering sugar with a risk of hypoglycaemia (ATC A10A insulins, A10BB sulfonylureas, A10BX02/03
+ *  meglitinides — ADA Standards of Care 2025, section 6), by the code or by the name/INN as written (norms.ts `stopMeds`). */
+const hypoAtc = (atc: string) => NORMS.stopMeds.atc.some((code) => atc.startsWith(code));
 const HYPO_NAMES = /інсулін|insulin|інсуман|лантус|туджео|левемір|новорапід|хумалог|апідра|актрапід|протафан|хумулін|тресіба|гліклазид|диабетон|діабетон|глімепірид|амарил|глібенкламід|манініл|гліпізид|гліквідон|репаглінід|натеглінід/iu;
 const ORGANS = /нирк|ниркова|хзн|ххн|діаліз|серцев|серце|серцева недостатн|інфаркт|кардіо|почк|сердечн/iu;
 const EATING = /переїда\S*.*(?:вин|сором)|(?:вин|сором)\S*.*переїда|блюю\S*\s+після\s+їжі|викликаю\s+блювоту|блювот\S*\s+після\s+їжі|голоду\S*\s+(?:по\s+)?\d+\s+дн|довго\s+голод|не\s+їм\s+(?:по\s+)?\d+\s+дн|компульсив|булімі|анорекс|переедан\S*.*вин|рвот\S*\s+после\s+еды|голодаю/iu;
@@ -43,7 +43,7 @@ export const eatingDistress = (text: string) => EATING.test(text);
 export function stopReasons(plan: Pick<Plan, 'prescriptions' | 'constraints' | 'targets'> | undefined, i: Partial<GoalInput>, words = ''): StopReason[] {
   const out: StopReason[] = [];
   const meds = (plan?.prescriptions ?? []).filter((p) => p.kind === 'medication' && !(p.until && p.until < new Date().toISOString().slice(0, 10)));
-  if (meds.some((p) => (p.med?.atc && HYPO_ATC.test(p.med.atc)) || HYPO_NAMES.test(`${p.title} ${p.med?.inn ?? ''} ${p.med?.name ?? ''}`))) out.push('glucose-lowering');
+  if (meds.some((p) => (p.med?.atc && hypoAtc(p.med.atc)) || HYPO_NAMES.test(`${p.title} ${p.med?.inn ?? ''} ${p.med?.name ?? ''}`))) out.push('glucose-lowering');
   if (i.pregnant) out.push('pregnancy');
   if (i.age !== undefined && i.age < 18) out.push('minor');
   const m = i.heightCm ? i.heightCm / 100 : 0;
@@ -57,7 +57,9 @@ export function stopReasons(plan: Pick<Plan, 'prescriptions' | 'constraints' | '
 // --------------------------------------------------------------- the goal
 export interface GoalPlan {
   bmr: number; multiplier: number; multiplierWhy: string; tdee: number;
-  deficit: number; kcal: number; floored: boolean;
+  deficit: number; kcal: number;
+  /** the deficit would go under the lower limit for the sex: held at it (less — only by a doctor's prescription) */
+  floored: boolean; floor: number;
   /** kg a week the deficit gives */
   perWeekKg: number;
   /** weeks to the goal at that pace, and the date */
@@ -72,19 +74,20 @@ export interface GoalPlan {
 const r10 = (n: number) => Math.round(n / 10) * 10;
 export function goalPlan(i: GoalInput, plan: Pick<Plan, 'targets'> | undefined, today: ISODate): GoalPlan {
   const b = bmr(i), m = multiplier(i.stepsPerDay, i.trainingMinPerWeek), tdee = b * m.value;
-  const wanted = Math.min(NORMS.goal.deficitKcal[1], Math.max(0, Math.round(i.deficit ?? DEFICIT_DEFAULT)));
-  const kcal = Math.max(KCAL_FLOOR, r10(tdee - wanted));
+  const wanted = Math.min(NORMS.deficit.kcal[1], Math.max(0, Math.round(i.deficit ?? DEFICIT_DEFAULT)));
+  const floor = kcalFloor(i.sex);
+  const kcal = Math.max(floor, r10(tdee - wanted));
   const deficit = Math.max(0, Math.round(tdee - kcal));
   // the pace never faster than 1 kg a week (750 a day is ≈ 0.7; the floor can only make it slower)
-  const perWeekKg = Math.min(1, Math.round(((deficit * 7) / KCAL_PER_KG) * 100) / 100);
+  const perWeekKg = Math.min(NORMS.pace.maxKgPerWeek, Math.round(((deficit * 7) / KCAL_PER_KG) * 100) / 100);
   const toLose = Math.max(0, i.weightKg - i.goalKg);
   const weeks = perWeekKg > 0 ? Math.ceil(toLose / perWeekKg) : 0;
   // a loss below the week-to-week swing of the scale (≈ 0.5 kg) is seen only after a few weeks
   const firstVisibleWeeks = perWeekKg > 0 ? Math.max(1, Math.ceil(1.5 / perWeekKg)) : 0;
   return {
-    bmr: Math.round(b), multiplier: m.value, multiplierWhy: m.why, tdee: Math.round(tdee), deficit, kcal, floored: kcal === KCAL_FLOOR && tdee - wanted < KCAL_FLOOR,
+    bmr: Math.round(b), multiplier: m.value, multiplierWhy: m.why, tdee: Math.round(tdee), deficit, kcal, floored: kcal === floor && tdee - wanted < floor, floor,
     perWeekKg, weeks, goalDate: format(addDays(parseISO(today), weeks * 7), 'yyyy-MM-dd'),
-    proteinG: [Math.round(NORMS.goal.proteinPerKg[0] * i.weightKg), Math.round(NORMS.goal.proteinPerKg[1] * i.weightKg)],
+    proteinG: [Math.round(NORMS.protein.perKg[0] * i.weightKg), Math.round(NORMS.protein.perKg[1] * i.weightKg)],
     ...(plan?.targets.carbsG?.max !== undefined ? { carbsMaxG: plan.targets.carbsG.max } : {}),
     slow: deficit < 500, firstVisibleWeeks,
   };
@@ -96,7 +99,7 @@ export function explain(g: GoalPlan): string[] {
   return [
     `У спокої організм витрачає близько ${g.bmr} ккал на день (формула Міффліна — Сан-Жеора).`,
     `З вашою активністю — ${g.multiplierWhy} — це близько ${g.tdee} ккал.`,
-    `Мінус ${g.deficit} ккал на день — ${g.kcal} ккал${g.floored ? ` (не нижче ${KCAL_FLOOR})` : ''}.`,
+    `Мінус ${g.deficit} ккал на день — ${g.kcal} ккал${g.floored ? ` (не нижче ${g.floor}; менше — лише за призначенням лікаря)` : ''}.`,
     `Це близько ${n(g.perWeekKg)} кг на тиждень; до цілі — ${g.weeks} тиж.`,
     ...(g.slow ? [`${n(g.perWeekKg)} кг/тиж — менше, ніж коливання ваги; перший результат побачите через ~${g.firstVisibleWeeks} тижнів.`] : []),
     `Білок — ${g.proteinG[0]}–${g.proteinG[1]} г на день (1,2–1,6 г на кг); діапазон варто підтвердити в лікаря.`,

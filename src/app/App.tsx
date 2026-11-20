@@ -49,6 +49,7 @@ import { FeaturesProvider, useFeatures } from './features';
 import { FeatureUnavailable } from '../components/FeatureUnavailable';
 import { Modules } from '../screens/Modules';
 import { Weight } from '../screens/Weight';
+import { ClinicNorms } from '../screens/ClinicNorms';
 import { WeightGoal } from '../screens/WeightGoal';
 import type { FeatureId } from '../domain/features';
 
@@ -71,7 +72,7 @@ const SCREENS = {
   quickLinks: <QuickLinks />, frictions: <Frictions />, pilot: <Pilot />, week: <Week />, plan: <Plan />,
   planPrescriptions: <Plan section="prescriptions" />, planConstraints: <Plan section="constraints" />,
   planGoals: <Plan section="goals" />, planCheckup: <Plan section="checkup" />,
-  planScan: <PlanScanScreen />, planHistory: <PlanHistory />, planImport: <PlanImportScreen />, clinicPortal: <ClinicPortalScreen />, clinicInvite: <ClinicInvitationScreen />,
+  planScan: <PlanScanScreen />, planHistory: <PlanHistory />, planImport: <PlanImportScreen />, clinicPortal: <ClinicPortalScreen />, clinicInvite: <ClinicInvitationScreen />, clinicNorms: <ClinicNorms />,
   onboarding: <Onboarding />, progress: <Progress />, progressInsights: <Insights />, progressMotivation: <Motivation />,
   progressLabs: <Labs />, report: <Report />, dishes: <Dishes />, foods: <MyFoods />, data: <Data />,
   more: <More />, moreCategory: <MoreCategory />, about: <About />, conciergeLog: <ConciergeLog />,
@@ -88,7 +89,7 @@ function OnboardingGate({ children }: { children: ReactNode }) {
   const plan = usePlan();
   const onboarded = useUi((s) => s.onboarded);
   const { pathname } = useLocation();
-  if (plan && !plan.onboardedAt && !onboarded && !['/welcome', '/sync', '/clinic', '/clinic/invite', '/plan/import'].includes(pathname)) return <Navigate to="/welcome" replace />;
+  if (plan && !plan.onboardedAt && !onboarded && !['/welcome', '/sync', '/clinic', '/clinic/invite', '/clinic/norms', '/plan/import'].includes(pathname)) return <Navigate to="/welcome" replace />;
   return <>{children}</>;
 }
 
