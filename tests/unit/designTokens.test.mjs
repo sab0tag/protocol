@@ -84,3 +84,27 @@ describe('direction C meets the spec\'s contrast in both themes (D163)', () => {
     expect(block(paletteC, ':root[data-palette="c"] {').danger).toBeUndefined();
   });
 });
+
+// D198: direction 01 «Сітка» (src/styles/palette-grid.css) — the same pairs as C; the action is not red, danger stays the only red.
+const paletteGrid = readFileSync(join(process.cwd(), 'src/styles/palette-grid.css'), 'utf8');
+describe('direction 01 «Сітка» meets the same contrast in both themes (D198)', () => {
+  const g = {
+    light: withBase(themes.light, block(paletteGrid, ':root[data-palette="grid"] {')),
+    dark: withBase(themes.dark, block(paletteGrid, ':root[data-palette="grid"][data-theme="dark"] {')),
+  };
+  const large = [['line', 'surface', 'field and button border'], ['line', 'bg', 'border on the screen'], ['water', 'surface', 'water meter'],
+    ['accent', 'surface', 'main action on a card']];
+  const text = [...pairs, ['on-accent', 'accent', 'label on the main action'], ['on-accent', 'ok', 'label on «Прийняв»'], ['muted', 'warn-bg', 'secondary text on a plan remark']];
+  for (const [theme, set] of Object.entries(g)) {
+    for (const [fg, bg, what] of text) it(`${theme}: ${what} (${fg} on ${bg}) ≥ 4.5`, () => expect(contrast(set[fg], set[bg])).toBeGreaterThanOrEqual(4.5));
+    for (const [fg, bg, what] of large) it(`${theme}: ${what} (${fg} on ${bg}) ≥ 3`, () => expect(contrast(set[fg], set[bg])).toBeGreaterThanOrEqual(3));
+  }
+  it('the system dark theme uses the same values as the explicit one', () => {
+    expect(block(paletteGrid, ':root[data-palette="grid"]:not([data-theme]) {')).toEqual(block(paletteGrid, ':root[data-palette="grid"][data-theme="dark"] {'));
+  });
+  it('the action is not red; danger is not redefined', () => {
+    const [r, gg, b] = block(paletteGrid, ':root[data-palette="grid"] {').accent;
+    expect(b > r && b > gg).toBe(true);
+    expect(block(paletteGrid, ':root[data-palette="grid"] {').danger).toBeUndefined();
+  });
+});

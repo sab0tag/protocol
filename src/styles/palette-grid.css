@@ -1,0 +1,33 @@
+/* Direction 01 «Сітка» (Мюллер-Брокманн; canvas «Протокол — 10 направлений», artboard 01) — for the owner to compare with C,
+   previewed like D163: off until `data-palette="grid"` is on <html> (?palette=grid; ?palette=default turns it off). The same
+   token names as index.css, so a component never names a colour. From the artboard: paper #F2F0EB, ink #111, secondary
+   #5A5650, hairline rules, no rounded corners, no shadows, Onest. The owner's change (20.11): the action is NOT red — cobalt
+   #1D3FBF; red stays only for danger (the 103 / 7333 cards), as in every direction. Pairs checked by designTokens.test.mjs. */
+@import '@fontsource-variable/onest/index.css';
+
+:root[data-palette="grid"] {
+  --bg: 242 240 235; --surface: 250 249 246; --ink: 17 17 17; --muted: 90 86 80; --line: 120 115 108;
+  --surface-secondary: 232 229 222; --accent-hover: 22 50 158; --accent-pressed: 17 40 128; --on-accent: 255 255 255;
+  --accent: 29 63 191; --warn: 120 70 0; --warn-bg: 240 230 208; --water: 31 95 150;
+  --ok: 22 101 52; --ok-bg: 226 238 226; --pending: 31 95 150; --pending-bg: 228 236 246;
+  --font-sans: 'Onest Variable';
+  --radius-lg: 0; --radius-xl: 0; --radius-2xl: 0; --radius-full: 0;
+  --protocol-radius-card: 0; --protocol-radius-control: 0; --protocol-shadow-card: none;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-palette="grid"]:not([data-theme]) {
+    --bg: 17 17 17; --surface: 28 28 27; --ink: 242 240 235; --muted: 178 173 165; --line: 125 121 115;
+    --surface-secondary: 38 38 36; --accent-hover: 170 190 255; --accent-pressed: 115 140 240; --on-accent: 17 17 17;
+    --accent: 140 165 255; --warn: 240 190 120; --warn-bg: 60 44 20; --water: 110 170 230;
+    --ok: 120 215 150; --ok-bg: 24 52 34; --pending: 150 185 240; --pending-bg: 26 38 62;
+    color-scheme: dark;
+  }
+}
+:root[data-palette="grid"][data-theme="dark"] {
+  --bg: 17 17 17; --surface: 28 28 27; --ink: 242 240 235; --muted: 178 173 165; --line: 125 121 115;
+  --surface-secondary: 38 38 36; --accent-hover: 170 190 255; --accent-pressed: 115 140 240; --on-accent: 17 17 17;
+  --accent: 140 165 255; --warn: 240 190 120; --warn-bg: 60 44 20; --water: 110 170 230;
+  --ok: 120 215 150; --ok-bg: 24 52 34; --pending: 150 185 240; --pending-bg: 26 38 62;
+  color-scheme: dark;
+}

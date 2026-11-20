@@ -13,7 +13,9 @@ export default {
         pending: token('pending'), 'pending-bg': token('pending-bg'), disabled: token('disabled'),
         paper: token('paper'), scrim: token('scrim'), // D190
       },
-      fontFamily: { sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'sans-serif'] },
+      // the direction's font and corners are tokens too (palette-grid.css sets them; unset — Inter and the usual radii)
+      fontFamily: { sans: ['var(--font-sans, Inter)', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'sans-serif'] },
+      borderRadius: { DEFAULT: 'var(--radius, 0.25rem)', md: 'var(--radius-md, 0.375rem)', lg: 'var(--radius-lg, 0.5rem)', xl: 'var(--radius-xl, 0.75rem)', '2xl': 'var(--radius-2xl, 1rem)', full: 'var(--radius-full, 9999px)' },
       minHeight: { tap: '44px' }, minWidth: { tap: '44px' },
       // D190: the type scale in one place — captions never under 13 px, body 16 px, line height 1.45
       fontSize: { xs: ['0.8125rem', { lineHeight: '1.45' }], sm: ['0.875rem', { lineHeight: '1.45' }], base: ['1rem', { lineHeight: '1.45' }] },

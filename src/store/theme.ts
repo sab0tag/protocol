@@ -31,20 +31,23 @@ export function initializeTheme(): void {
 // D163: the direction-C palette, previewed before it becomes the default (step 6 of the simplification spec).
 // `?palette=c` turns it on for this device, `?palette=default` turns it off; the choice is kept like the theme.
 const PALETTE_KEY = 'protocol.palette';
-export type Palette = 'default' | 'c';
+export type Palette = 'default' | 'c' | 'grid'; // D198: 01 «Сітка», for the owner to compare with C
+const PALETTES: readonly Palette[] = ['default', 'c', 'grid'];
+const isPalette = (v: string | null): v is Palette => !!v && (PALETTES as readonly string[]).includes(v);
 
 export function readPalette(search: string = location.search): Palette {
   const asked = new URLSearchParams(search).get('palette');
   try {
-    if (asked === 'c' || asked === 'default') localStorage.setItem(PALETTE_KEY, asked);
-    return localStorage.getItem(PALETTE_KEY) === 'c' ? 'c' : 'default';
+    if (isPalette(asked)) localStorage.setItem(PALETTE_KEY, asked);
+    const kept = localStorage.getItem(PALETTE_KEY);
+    return isPalette(kept) ? kept : 'default';
   } catch {
-    return asked === 'c' ? 'c' : 'default';
+    return isPalette(asked) ? asked : 'default';
   }
 }
 
 export function applyPalette(palette: Palette): void {
-  if (palette === 'c') document.documentElement.dataset.palette = 'c';
+  if (palette !== 'default') document.documentElement.dataset.palette = palette;
   else document.documentElement.removeAttribute('data-palette');
 }
 

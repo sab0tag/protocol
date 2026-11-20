@@ -14,12 +14,14 @@
     "eval:prescriptions": "VITE_API_URL=https://api.beyondthesignal.to TZ=Europe/Kyiv vitest run --config vitest.eval.config.ts tests/eval/prescriptions.eval.ts",
     "build:e2e": "VITE_API_URL=http://localhost:8099 vite build --outDir dist-e2e",
     "eval:assistant": "VITE_API_URL=https://api.beyondthesignal.to TZ=Europe/Kyiv vitest run --config vitest.eval.config.ts tests/eval/assistant.eval.ts",
+    "eval:concierge-chat": "VITE_API_URL=https://api.beyondthesignal.to TZ=Europe/Kyiv vitest run --config vitest.eval.config.ts tests/eval/conciergeChat.eval.ts",
     "eval:dishes": "VITE_API_URL=https://api.beyondthesignal.to vitest run --config vitest.eval.config.ts tests/eval/dishes.eval.ts",
     "demo:reset": "sh demo/reset.sh",
     "norms:export": "node scripts/norms-export.ts",
     "speech:report": "TZ=Europe/Kyiv node scripts/speech-report.ts"
   },
   "dependencies": {
+    "@fontsource-variable/onest": "^5.3.1",
     "@fontsource/inter": "^5.3.0",
     "date-fns": "^4.4.0",
     "dexie": "^4.4.6",
