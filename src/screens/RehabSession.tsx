@@ -42,7 +42,7 @@ export function RehabSession({ plan }: { plan: PlanRow }) {
         <p className="text-sm">{t.painStop[alert]}</p>
         <p className="text-lg font-semibold">{t.painStop.text}</p>
         <p className="text-sm text-muted">{t.painStop.why}</p>
-        {normsDraft() && <p className="text-xs text-muted">{t.water.draft}</p>}{/* D196 */}
+        {normsDraft('rehabPain', 'rehabRising') && <p className="text-xs text-muted">{t.water.draft}</p>}{/* D196 */}
       </div>}
       <p className="text-sm font-semibold" data-testid="rehab-count">{R.count(done, c.perDay)}</p>
       {ask && <div role="group" aria-label={R.askTitle} className="protocol-card space-y-2 p-4">

@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { ClinicStaffAccess } from './ClinicStaffAccess';
 import { identityEnabled, identitySession, identityLogout, identityLoginURL, type IdentitySession, type IdentityContext } from '../sync/identityApi';
 import { useEffect, useRef, useState } from 'react';
@@ -69,6 +70,7 @@ export function ClinicPortalScreen() {
   return (
     <section className="space-y-4 pt-4">
       <h1 className="text-2xl font-semibold">Кабінет клініки</h1>
+      <p className="text-sm"><Link to="/clinic/norms" className="inline-flex min-h-tap items-center underline underline-offset-4">Норми застосунку на перевірку — за спеціальностями</Link></p>{/* D197 */}
       {!me && !checking && <div className="space-y-2 rounded-xl border p-4 text-sm">
         <h2 className="font-semibold">Перший вхід лікаря</h2>
         <p>Адміністратор клініки надсилає персональне запрошення. Відкрийте посилання з листа, увійдіть із підтвердженою адресою та другим фактором, перегляньте ролі й прийміть запрошення.</p>
