@@ -72,7 +72,7 @@ function FoodCard({ food }: { food: Food }) {
       <div className="flex gap-2">
         <button type="button" disabled={!changed || !edited.name.trim()}
           onClick={() => void saved(db.foods.put({ ...edited, name: edited.name.trim() }), t.toast.saved)}
-          className="min-h-tap rounded-xl bg-accent px-3 font-medium text-surface disabled:opacity-40">{L.save}</button>
+          className="min-h-tap rounded-xl bg-accent px-3 font-medium text-on-accent disabled:opacity-40">{L.save}</button>
         {asking
           ? <button type="button" onClick={() => void saved(removeFood(food), t.toast.deleted(food.name))}
               className="min-h-tap rounded-xl bg-warn px-3 font-medium text-surface">{L.confirmDelete(food.name)}</button>

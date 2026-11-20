@@ -1,5 +1,13 @@
 // All interface texts (SPEC.md §12). Ukrainian only in v0.
 export const t = {
+  ask: { // D191: «Запитати лікаря»
+    title: 'Питання лікарю', empty: 'Питань поки немає. Напишіть у полі «запитати лікаря, …» або тут.',
+    add: 'Додати', placeholder: 'Що хочу спитати', remove: (q: string) => `Прибрати: ${q}`,
+    soon: (n: number) => n === 0 ? 'Візит сьогодні — ваші питання:' : n === 1 ? 'Візит завтра — ваші питання:' : `Візит через ${n} дн. — ваші питання:`,
+    asked: 'Спитав', answer: 'Відповідь лікаря одним рядком', save: 'Зберегти', answered: 'Відповіді лікаря',
+    oneField: (q: string) => `Додати до питань лікарю: «${q}»?`, added: 'Додано до питань лікарю', yes: 'Додати',
+    open: 'Усі питання',
+  },
   said: { // D165: «Мій план» as «Що сказав лікар»
     title: 'Що сказав лікар', newConclusion: 'Новий висновок', who: 'Призначив', noWho: 'Хто призначив — не вказано',
     meds: 'Ліки', food: 'Їжа', goals: 'Цілі', next: 'Що далі', tests: 'Аналізи', change: 'Змінити',
@@ -360,6 +368,21 @@ export const t = {
     home: 'Як удома', homeHint: (t: string, here: string) => `${t} удома = ${here} тут`,
     back: 'Ви знову вдома. Повернути час прийому ліків, як був?', backYes: 'Повернути', keep: 'Залишити як є',
     hint: 'Без відповіді нічого не змінюється. Час можна змінити й у плані.', saved: 'Час прийому змінено',
+  },
+  side: { // D194: a new medicine's side effects, the first 14 days
+    ask: (title: string, day: number) => `Є побічні від «${title}»? День ${day} з 14`, no: 'Ні', yes: 'Так',
+    which: 'Які? Одним-двома словами', save: 'Записати', saved: 'Записано — буде у звіті для лікаря',
+    hint: 'Лише відмітка для лікаря: що це і що робити, скаже він.',
+    report: 'Побічні нового препарату', reportLine: (title: string, since: string, asked: number, yes: number) => `${title} (з ${since}): відповідей ${asked}, «так» — ${yes}`,
+    reportYes: (list: string) => `Що відмічено: ${list}`,
+  },
+  fastingTest: { // D193: a test on an empty stomach, that morning on the breakfast tile
+    first: (tests: string) => `Спершу аналіз натщесерце: ${tests}. Сніданок — після нього.`,
+    meds: (meds: string) => `Ліки цього ранку (${meds}) — уточніть у лікаря, чи приймати до аналізу.`,
+    toggle: 'Натщесерце', hours: 'Скільки годин без їжі (як у направленні)', hoursPh: 'напр. 8 — або порожньо',
+  },
+  fasting: { // D192: «Натщесерце → їжа» on the breakfast tile
+    wait: (n: number, title: string) => `Сніданок через ${n} хв — після «${title}»`, empty: (title: string) => `«${title}» — натщесерце, до їжі`,
   },
   nutrients: { // D188: salt, sugars, fibre, saturated fat — an unknown is «не відомо», a sum with unknowns «не менше»
     salt: 'Сіль', sugars: 'Цукри', fiber: 'Клітковина', satFat: 'Насичені жири', more: 'Більше нутрієнтів', unknown: 'не відомо',
@@ -1341,7 +1364,8 @@ export const t = {
     emptyShort: { prescriptions: 'Ще немає — додайте або сфотографуйте висновок', constraints: 'Ще немає — додайте, якщо лікар назвав',
       goals: 'Ще немає — як домовились із лікарем', checkup: 'Дату ще не внесено' }, source: 'Джерело', reason: 'Причина',
     title_: 'Назва', kind: 'Тип', dose: 'Доза (зі слів лікаря)', times: 'Час прийому (через кому, 08:30, 20:00)',
-    withFood: 'Під час їжі', dueDate: 'Здати до', notes: 'Примітки', tag: 'Що це за обмеження',
+    withFood: 'Під час їжі', beforeFood: 'За скільки хвилин до їжі (як у плані чи в інструкції)', beforeFoodPh: 'напр. 30 — або порожньо', // D192
+    dueDate: 'Здати до', notes: 'Примітки', tag: 'Що це за обмеження',
     from: 'З', to: 'По', notesLines: 'Нотатки (кожна з нового рядка)', tests: 'Аналізи (кожен з нового рядка)', date: 'Дата',
     finish: (title: string, noDose: boolean, noTime: boolean) => `${title} — не вказано ${noDose && noTime ? 'дозу й час прийому' : noDose ? 'дозу' : 'час прийому'}.${noTime ? ' Без часу нагадувань не буде.' : ''} Доповніть у «Плані».`,
     finishAction: 'Доповнити', // D100

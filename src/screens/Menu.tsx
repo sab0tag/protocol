@@ -160,7 +160,7 @@ export function Menu() {
         <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
           {/* D167: three chips instead of a calendar; a date field only for «Інший день» */}
           <div className="min-w-0"><span className="text-sm text-muted">{L.date}</span>
-            <div className="mt-1 flex flex-wrap gap-1.5" role="group" aria-label={L.date}>
+            <div className="mt-1 flex flex-wrap gap-2" role="group" aria-label={L.date}>
               {left.length > 0 && <button type="button" aria-pressed={date === today && !isOther} onClick={() => { setOtherDay(false); setDate(today); }} className={chip(date === today && !isOther)}>{L.chipToday}</button>}
               <button type="button" aria-pressed={date === tomorrow() && !isOther} onClick={() => { setOtherDay(false); setDate(tomorrow()); }} className={chip(date === tomorrow() && !isOther)}>{L.chipTomorrow}</button>
               <button type="button" aria-pressed={isOther} onClick={() => setOtherDay(true)} className={chip(isOther)}>{L.chipOther}</button>
@@ -184,7 +184,7 @@ export function Menu() {
             <p className="text-sm text-muted">{L.needsSync}</p>
             <div className="flex flex-wrap gap-2">
               <button type="button" onClick={() => navigate(`/sync?back=${encodeURIComponent(`/menu?date=${date}${wish ? `&wish=${encodeURIComponent(wish)}` : ''}`)}`)}
-                className="flex min-h-tap items-center gap-2 rounded-xl bg-accent px-3 font-medium text-surface">{L.enableSync}</button>
+                className="flex min-h-tap items-center gap-2 rounded-xl bg-accent px-3 font-medium text-on-accent">{L.enableSync}</button>
               {likeYesterdayButton}
             </div>
           </div>
@@ -192,12 +192,12 @@ export function Menu() {
           <div className="space-y-2 rounded-xl border border-accent/40 p-2 text-sm">
             <p>{L.consent}</p>
             <button type="button" onClick={async () => { await db.meta.update('sync', { menuConsent: true }); setConsent(false); void make(true); }}
-              className="min-h-tap rounded-xl bg-accent px-3 font-medium text-surface">{L.allow}</button>
+              className="min-h-tap rounded-xl bg-accent px-3 font-medium text-on-accent">{L.allow}</button>
           </div>
         ) : (
           <div className="flex flex-wrap gap-2">
             <button type="button" onClick={() => void make()} disabled={!!busy}
-              className="flex min-h-tap items-center gap-2 rounded-xl bg-accent px-3 font-medium text-surface disabled:opacity-40">
+              className="flex min-h-tap items-center gap-2 rounded-xl bg-accent px-3 font-medium text-on-accent disabled:opacity-40">
               <Sparkles size={18} aria-hidden />{drafts.length ? L.again : L.make}</button>
             {likeYesterdayButton}
           </div>
@@ -271,7 +271,7 @@ export function Menu() {
           {replacing && <p className="text-sm text-muted">{L.replaces}</p>}
           {!meta?.reminders?.on && <p className="text-sm text-muted">{t.remind.menuHint}</p>}
           <button type="button" onClick={() => void accept()}
-            className="min-h-tap w-full rounded-xl bg-accent px-4 font-medium text-surface">
+            className="min-h-tap w-full rounded-xl bg-accent px-4 font-medium text-on-accent">
             {L.accept(drafts.length > 1 ? `${format(parseISO(drafts[0]!.date), 'd')}–${format(parseISO(last), 'd MMMM', { locale: uk })}`
               : format(parseISO(last), 'd MMMM', { locale: uk }))}</button>
         </>

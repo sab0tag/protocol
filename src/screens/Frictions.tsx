@@ -53,7 +53,7 @@ export function Frictions() {
         <label className="block"><span className="text-sm text-muted">{L.words}</span>
           <input value={text} onChange={(e) => setText(e.target.value)} placeholder={L.wordsPh} maxLength={300}
             className="mt-1 block min-h-tap w-full rounded-xl border border-line bg-bg px-3" /></label>
-        <button type="submit" className="min-h-tap w-full rounded-xl bg-accent px-4 font-medium text-surface">{L.save}</button>
+        <button type="submit" className="min-h-tap w-full rounded-xl bg-accent px-4 font-medium text-on-accent">{L.save}</button>
       </form>
 
       {list && list.length > 0 && (
@@ -79,7 +79,7 @@ export function Frictions() {
                         <textarea value={writing.text} onChange={(e) => setWriting({ id: f.id, text: e.target.value })} maxLength={1000} rows={3}
                           className="mt-1 block w-full rounded-xl border border-line bg-bg p-2 text-sm" /></label>
                       <div className="flex gap-2">
-                        <button type="button" onClick={() => void send()} disabled={!writing.text.trim()} className="min-h-tap flex-1 rounded-xl bg-accent px-3 font-medium text-surface disabled:opacity-40">{t.pilot.note.go}</button>
+                        <button type="button" onClick={() => void send()} disabled={!writing.text.trim()} className="min-h-tap flex-1 rounded-xl bg-accent px-3 font-medium text-on-accent disabled:opacity-40">{t.pilot.note.go}</button>
                         <button type="button" onClick={() => setWriting(null)} className="min-h-tap rounded-xl border border-line px-3">{t.pilot.note.cancel}</button>
                       </div>
                     </div>

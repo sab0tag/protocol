@@ -39,7 +39,7 @@ export function RecognizedPanel({ title, rows: given, note, onAdd, notFound, add
               <p className="flex flex-wrap items-center gap-1 pb-1 pl-8 text-sm"><span className="text-muted">{t.meal.orOther}</span>
                 {r.others.map((o) => (
                   <button key={o.foodId ?? o.name} type="button" onClick={() => setChosen((c) => ({ ...c, [k]: o }))}
-                    className="min-h-[2.25rem] rounded-full border border-line px-2">{o.name}</button>
+                    className="min-h-tap rounded-full border border-line px-2">{o.name}</button>
                 ))}</p>
             )}
           </li>
@@ -47,7 +47,7 @@ export function RecognizedPanel({ title, rows: given, note, onAdd, notFound, add
       </ul>
       {picked.length > 0 && (
         <button type="button" onClick={() => onAdd(picked, rows.filter((r) => !r.item).map((r) => r.text))}
-          className="mt-1 min-h-tap w-full rounded-xl bg-accent px-3 font-medium text-surface">{(addLabel ?? t.meal.addRecognized)(picked.length)}</button>
+          className="mt-1 min-h-tap w-full rounded-xl bg-accent px-3 font-medium text-on-accent">{(addLabel ?? t.meal.addRecognized)(picked.length)}</button>
       )}
     </div>
   );

@@ -67,7 +67,12 @@ export interface Prescription {
   title: string;
   dose?: string; // entered by the user from the doctor's words
   schedule?: { times: string[]; withFood?: boolean };
+  /** D192: an empty-stomach medicine — how many minutes before food, as the plan or the leaflet says; typed by the person, never filled in */
+  beforeFoodMin?: number;
   dueDate?: ISODate; // for lab tests
+  /** D193: a test on an empty stomach (also read from its words), and the hours without food the referral gives */
+  fasting?: boolean;
+  fastingHours?: number;
   notes?: string;
   source: string;
   /** D138: explicitly confirmed structured activity; free lifestyle words alone never enable workouts. */
@@ -155,6 +160,8 @@ export interface Plan {
   questions?: string[];
   /** D195: the home time zone, the zones answered, and a «як удома» shift of the medicines' times to undo at home */
   zone?: { home: string; asked?: string[]; shift?: { zone: string; minutes: number } };
+  /** D191: questions asked at a visit — the doctor's answer in one line, the date; the open list is `questions` */
+  answered?: { q: string; a: string; at: ISODate }[];
   /** D22: the last JSON export — the weekly reminder counts from it. */
   lastExportAt?: ISODate;
   /** D178: limits for training as a structure; the old text constraints stay as they are and are not filtered by */
@@ -299,6 +306,8 @@ export interface DayEntry {
   scheduleChanges?: { from: ISODateTime; to: ISODateTime; changedAt: ISODateTime }[];
   /** D189: where an injection prescribed by the doctor went (insulin, GLP-1) — asked after the dose is marked; no doses, no catalogue */
   site?: InjectionSite;
+  /** D194: a new medicine's daily question (kind 'note', checkKey side:<id>) — side effects yes / no and the person's word */
+  side?: { yes: boolean; text?: string };
   /** D119: how a meal was recorded — said in the voice window, or with lines from a photo of the plate; absent = typed or tapped */
   via?: 'voice' | 'photo';
   /** D174: a meal said aloud through Soniox (absent = the phone's engine) — for the pilot's `by_soniox` */

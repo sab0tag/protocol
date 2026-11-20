@@ -153,7 +153,7 @@ export function VoiceSheet({ date, plan, foods, recipes, today, yesterday, meds,
       <p className="text-sm">{need === 'soniox' ? L.sonioxConsent : L.consent}</p>
       {/* «Так» starts the recording from this very tap — the audio is made inside the gesture (iPhone) */}
       <button type="button" onClick={() => { if (need !== 'ok') giveVoiceConsent(need); setOk(true); autoStarted.current = true; if (speechSupported()) start(); }}
-        className="mt-3 min-h-tap w-full rounded-xl bg-accent px-4 font-medium text-surface">{need === 'soniox' ? L.sonioxOk : L.consentOk}</button>
+        className="mt-3 min-h-tap w-full rounded-xl bg-accent px-4 font-medium text-on-accent">{need === 'soniox' ? L.sonioxOk : L.consentOk}</button>
     </Sheet>
   );
 
@@ -162,7 +162,7 @@ export function VoiceSheet({ date, plan, foods, recipes, today, yesterday, meds,
     <Sheet title={L.title} onClose={onClose}>
       <div className="flex items-center gap-3">
         <button type="button" onClick={() => (busy ? stop.current() : start())} aria-label={busy ? L.listening : empty ? L.listen : L.again}
-          className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-full ${busy ? 'animate-pulse bg-warn text-surface' : 'bg-accent text-surface'}`}>
+          className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-full ${busy ? 'animate-pulse bg-warn text-on-accent' : 'bg-accent text-on-accent'}`}>
           {busy ? <Square size={22} aria-hidden /> : <Mic size={24} aria-hidden />}</button>
         <p role="status" className="min-h-[3rem] flex-1 text-sm">{busy ? heard || L.listening : empty ? L.hint : L.more}{busy && left !== null && <span className="block font-semibold">{L.left(left)}</span>}</p>
       </div>
@@ -210,7 +210,7 @@ export function VoiceSheet({ date, plan, foods, recipes, today, yesterday, meds,
       )}
       {now.note && ( /* D107: what the last command did — so a wrong reading is seen, with a way back */
         <p role="status" className="mt-2 flex items-center gap-2 text-sm"><span className="flex-1 text-muted">{now.note}</span>
-          {now.history.length > 0 && now.note !== C.undone && <button type="button" onClick={undo} className="min-h-[2rem] px-1 text-accent underline">{C.undo}</button>}</p>
+          {now.history.length > 0 && now.note !== C.undone && <button type="button" onClick={undo} className="min-h-tap px-1 text-accent underline">{C.undo}</button>}</p>
       )}
       {!empty && (
         <div className="mt-3 space-y-3" aria-label={L.meal}>
@@ -219,14 +219,14 @@ export function VoiceSheet({ date, plan, foods, recipes, today, yesterday, meds,
               <div className="flex flex-wrap items-center gap-2">
                 {t.meal.names.map((n) => (
                   <button key={n} type="button" aria-pressed={(draft.title ?? defaultTitle(time)) === n} onClick={() => edit((d) => ({ ...d, title: n }))}
-                    className={`min-h-[2.25rem] rounded-full border px-3 text-sm ${(draft.title ?? defaultTitle(time)) === n ? 'border-accent bg-accent/10 text-accent' : 'border-line'}`}>{n}</button>
+                    className={`min-h-tap rounded-full border px-3 text-sm ${(draft.title ?? defaultTitle(time)) === n ? 'border-accent bg-accent/10 text-accent' : 'border-line'}`}>{n}</button>
                 ))}
                 <label className="ml-auto text-sm"><span className="sr-only">{L.time}</span>
-                  <input type="time" value={time} onChange={(e) => setTime(e.target.value)} className="min-h-[2.25rem] rounded-lg border border-line bg-bg px-2" /></label>
+                  <input type="time" value={time} onChange={(e) => setTime(e.target.value)} className="min-h-tap rounded-lg border border-line bg-bg px-2" /></label>
               </div>
               {shown.items.filter((x) => !x.sure).length > 1 && ( /* D109: one tap for all, instead of one per line */
                 <button type="button" onClick={() => edit((d) => ({ ...d, items: d.items.map((x) => (x.sure ? x : { ...x, item: options(x.item)[1]!, sure: true })) }), L.allUsualDone)}
-                  className="min-h-[2.25rem] rounded-full border border-accent px-3 text-sm text-accent">{L.allUsual}</button>
+                  className="min-h-tap rounded-full border border-accent px-3 text-sm text-accent">{L.allUsual}</button>
               )}
               <ul className="space-y-2">
                 {draft.items.map((x, i) => {
@@ -238,14 +238,14 @@ export function VoiceSheet({ date, plan, foods, recipes, today, yesterday, meds,
                           {x.sure /* D109: an amount nobody said is not shown as if it were — «1 порція» beside «не названо» read as recorded */
                             ? <span className="text-muted"> · {amountText(x.item)}{needsGrams(x.item) ? ` ≈ ${approxG(x.item.grams)} г` : ''}</span>
                             : <span className="text-warn"> · {L.noAmount}</span>}</span>
-                        <button type="button" onClick={() => setItem(i, null)} aria-label={`${t.meal.remove}: ${x.item.name}`} className="flex h-8 w-8 items-center justify-center text-muted"><X size={16} aria-hidden /></button>
+                        <button type="button" onClick={() => setItem(i, null)} aria-label={`${t.meal.remove}: ${x.item.name}`} className="flex h-11 w-11 items-center justify-center text-muted"><X size={16} aria-hidden /></button>
                       </div>
                       {hits.length > 0 && <p className="text-xs text-warn">{[...new Set(hits.map((h) => h.message))].join(' · ')}</p>}
                       {!x.sure && (
                         <div className="mt-1 flex flex-wrap items-center gap-1" role="group" aria-label={`${L.unsure} ${x.item.name}`}>
                           <span className="text-xs text-warn">{L.unsure}</span>
                           {options(x.item).map((o) => (
-                            <button key={o.grams} type="button" onClick={() => setItem(i, o)} className="min-h-[2.25rem] rounded-full border border-line px-2 text-xs">{amountText(o)}</button>
+                            <button key={o.grams} type="button" onClick={() => setItem(i, o)} className="min-h-tap rounded-full border border-line px-2 text-xs">{amountText(o)}</button>
                           ))}
                         </div>
                       )}
@@ -257,7 +257,7 @@ export function VoiceSheet({ date, plan, foods, recipes, today, yesterday, meds,
                 <div key={text} className="text-sm">
                   <p className="flex items-start gap-2"><span className="flex-1 text-warn">«{text}» — {t.meal.notFound}</span>
                     <button type="button" onClick={() => edit((d) => ({ ...d, notFound: d.notFound.filter((n) => n !== text) }))}
-                      className="min-h-[2rem] px-1 text-muted underline">{L.drop}</button></p>
+                      className="min-h-tap px-1 text-muted underline">{L.drop}</button></p>
                   {can('food.not-found') && <ConciergeNotFound text={text} plan={plan} foods={foods} recipes={recipes} date={date}
                     onAdd={(s) => edit((d) => ({ ...d, notFound: d.notFound.filter((n) => n !== text), items: [...d.items, { item: s.item, said: text, sure: true }] }))} />}</div>
               ))}
@@ -273,7 +273,7 @@ export function VoiceSheet({ date, plan, foods, recipes, today, yesterday, meds,
       {draft.notFound.length > 0 && !danger && <p className="mt-3 text-sm text-warn">{L.unread(draft.notFound.length)}</p>}
       <div className="mt-3 flex gap-2">
         <button type="button" disabled={(!dayCommand && (!ready(draft) || blocked.length > 0)) || saving || !!danger} onClick={() => void save()}
-          className="min-h-tap flex-1 rounded-xl bg-accent px-4 font-medium text-surface disabled:opacity-40">{dayCommand ? t.lightDay.voiceApply : L.save}</button>
+          className="min-h-tap flex-1 rounded-xl bg-accent px-4 font-medium text-on-accent disabled:opacity-40">{dayCommand ? t.lightDay.voiceApply : L.save}</button>
         <button type="button" onClick={onClose} className="min-h-tap rounded-xl border border-line px-4">{L.cancel}</button>
       </div>
     </Sheet>

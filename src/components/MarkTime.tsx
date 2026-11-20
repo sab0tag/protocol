@@ -86,7 +86,7 @@ export function TimeChoice({ title, planned, date, meal, allowUncertain, onPick,
             <label className="block flex-1"><span className="text-sm text-muted">{L.other}</span>
               <input type="time" value={other} onChange={(e) => setOther(e.target.value)} required autoFocus
                 className="mt-1 block min-h-tap w-full rounded-xl border border-line bg-bg px-3" /></label>
-            <button type="submit" className="min-h-tap rounded-xl bg-accent px-4 font-medium text-surface">{L.save}</button>
+            <button type="submit" className="min-h-tap rounded-xl bg-accent px-4 font-medium text-on-accent">{L.save}</button>
           </form>
         )}
       {allowUncertain && <SheetButton onClick={() => pick({ uncertain: true })}><HelpCircle size={20} />{L.uncertain}</SheetButton>}
@@ -106,7 +106,7 @@ export function SkipChoice({ title, onConfirm, onClose }: { title: string; onCon
     </label>
     <div className="mt-4 flex justify-end gap-2">
       <button type="button" onClick={onClose} className="min-h-tap rounded-xl px-4">Скасувати</button>
-      <button type="button" onClick={() => { onClose(); onConfirm(reason.trim() || undefined); }} className="min-h-tap rounded-xl bg-accent px-4 font-medium text-surface">Підтвердити пропуск</button>
+      <button type="button" onClick={() => { onClose(); onConfirm(reason.trim() || undefined); }} className="min-h-tap rounded-xl bg-accent px-4 font-medium text-on-accent">Підтвердити пропуск</button>
     </div>
   </Sheet>;
 }

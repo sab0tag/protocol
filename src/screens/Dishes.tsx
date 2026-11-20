@@ -84,7 +84,7 @@ export function Dishes() {
       <div role="group" aria-label={L.catalog.filters} className="flex min-w-0 gap-2 overflow-x-auto pb-1">
         {filters.map((value) => (
           <button key={value} type="button" aria-pressed={filter === value} onClick={() => setFilter(value)}
-            className={`min-h-tap shrink-0 rounded-full px-3 text-sm font-medium ${filter === value ? 'bg-accent text-surface' : 'border border-line bg-surface text-muted'}`}>
+            className={`min-h-tap shrink-0 rounded-full px-3 text-sm font-medium ${filter === value ? 'bg-accent text-on-accent' : 'border border-line bg-surface text-muted'}`}>
             {filterLabel(value)}
           </button>
         ))}
@@ -115,7 +115,7 @@ export function Dishes() {
           <summary className="min-h-tap cursor-pointer font-medium">{L.harch(diet, cards.length)}</summary>
           <p className="mb-2 text-xs text-warn">{L.harchHint}</p>
           <ul className="divide-y divide-line text-sm">{cards.map((d) => { const n = mealNutrients(d.items, foods); return (
-            <li key={d.card} className="py-1.5"><span className="font-medium">{d.name}</span>
+            <li key={d.card} className="py-2"><span className="font-medium">{d.name}</span>
               <span className="block text-xs text-muted">{d.category} · {d.outputG} г · {round(n.kcal)} ккал · Б {round(n.protein)} · В {round(n.carbs)}</span></li>); })}</ul>
         </details>); })()}
 
@@ -137,7 +137,7 @@ function ExportPanel({ recipes, foods }: { recipes: Recipe[]; foods: Map<string,
     <section aria-label={L.list.export} className="space-y-2 protocol-card rounded-2xl border border-line bg-surface p-3">
       <p className="text-sm text-muted">{L.list.exportHint}</p>
       <div className="flex flex-wrap gap-2">
-        <button type="button" onClick={() => download(json())} className="flex min-h-tap items-center gap-2 rounded-xl bg-accent px-3 font-medium text-surface"><Download size={18} aria-hidden />{L.list.saveFile}</button>
+        <button type="button" onClick={() => download(json())} className="flex min-h-tap items-center gap-2 rounded-xl bg-accent px-3 font-medium text-on-accent"><Download size={18} aria-hidden />{L.list.saveFile}</button>
         <button type="button" onClick={() => download(csv())} className="flex min-h-tap items-center gap-2 rounded-xl border border-line px-3"><FileText size={18} aria-hidden />{L.list.saveCsv}</button>
         {canShare && <button type="button" onClick={() => void navigator.share({ files: [json()], title: json().name }).catch(() => undefined)}
           className="flex min-h-tap items-center gap-2 rounded-xl border border-accent px-3 font-medium text-accent"><Share2 size={18} aria-hidden />{L.list.share}</button>}
@@ -160,11 +160,11 @@ function Card({ recipe, foods, favorite, onToggleFavorite }: {
         <div className="min-w-0 flex-1">
           <p className="truncate font-semibold">{recipe.name}</p>
           {recipe.needsMake
-            ? <p className="mt-0.5 text-xs text-warn">{L.list.draftMark}</p>
-            : <p className="mt-0.5 text-sm text-muted">{sumGrams(recipe.items)} г · {round(n.kcal)} ккал</p>}
+            ? <p className="mt-1 text-xs text-warn">{L.list.draftMark}</p>
+            : <p className="mt-1 text-sm text-muted">{sumGrams(recipe.items)} г · {round(n.kcal)} ккал</p>}
         </div>
         {!recipe.needsMake && <button type="button" aria-label={favorite ? t.meal.removeFavorite(recipe.name) : t.meal.addFavorite(recipe.name)}
-          aria-pressed={favorite} onClick={onToggleFavorite} className={`flex min-h-tap min-w-tap shrink-0 items-center justify-center ${favorite ? 'text-red-500' : 'text-muted'}`}>
+          aria-pressed={favorite} onClick={onToggleFavorite} className={`flex min-h-tap min-w-tap shrink-0 items-center justify-center ${favorite ? 'text-danger' : 'text-muted'}`}>
           <Heart size={20} fill={favorite ? 'currentColor' : 'none'} aria-hidden />
         </button>}
         <button type="button" aria-label={`${expanded ? L.catalog.hide : L.catalog.more}: ${recipe.name}`} aria-expanded={expanded}

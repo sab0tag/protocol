@@ -37,7 +37,7 @@ for (const width of [320, 390]) test(`real clinic issue → QR screen → patien
     const issuedResponse = await response; expect(issuedResponse.status()).toBe(201);
     const issued = await issuedResponse.json() as { deliveryId: string; code: string };
     await expect(doctor.getByText(/Покажіть пацієнту цей QR/)).toBeVisible();
-    await expect(doctor.locator('div.bg-white > svg')).toBeVisible();
+    await expect(doctor.locator('div.bg-paper > svg')).toBeVisible();
 
     const patient = await patientContext.newPage();
     await patient.goto(`./#/plan/import?code=${issued.code}`);

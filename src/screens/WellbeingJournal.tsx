@@ -33,7 +33,7 @@ export function WellbeingJournal() {
           <h1 className="text-2xl font-semibold">{t.well.journal}</h1>
           <p className="text-sm text-muted">{t.well.journalHint}</p>
         </div>
-        <button type="button" onClick={addToday} className="flex min-h-tap shrink-0 items-center rounded-xl bg-accent px-3 font-medium text-surface">
+        <button type="button" onClick={addToday} className="flex min-h-tap shrink-0 items-center rounded-xl bg-accent px-3 font-medium text-on-accent">
           {t.well.addToday}
         </button>
       </header>

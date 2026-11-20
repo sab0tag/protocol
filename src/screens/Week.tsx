@@ -93,7 +93,7 @@ export function Week() {
             </div>
             <label className="block"><span className="text-sm text-muted">{L.own}</span>
               <input value={goal} onChange={(e) => setGoal(e.target.value)} maxLength={120} className="mt-1 block min-h-tap w-full rounded-xl border border-line bg-bg px-3" /></label>
-            <button type="submit" disabled={!goal.trim()} className="min-h-tap rounded-xl bg-accent px-3 font-medium text-surface disabled:opacity-40">{L.save}</button>
+            <button type="submit" disabled={!goal.trim()} className="min-h-tap rounded-xl bg-accent px-3 font-medium text-on-accent disabled:opacity-40">{L.save}</button>
           </form>
         )}
       </section>

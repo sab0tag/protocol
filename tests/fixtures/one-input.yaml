@@ -153,3 +153,20 @@
   say: "бабусин пиріжок"
   expect: { kind: food }
   status: fixed
+
+# ── «Запитати лікаря» (черга агента, задача 13.1, D191): у список питань лікарю, не помічнику ──
+
+- id: doctor-question-coffee
+  say: "запитати лікаря, чи можна каву з Омепразолом"
+  expect: { kind: doctor-question }
+  status: fixed
+
+- id: doctor-question-spytaty
+  say: "спитати у лікаря чи можна плавати"
+  expect: { kind: doctor-question }
+  status: fixed
+
+- id: question-still-assistant
+  say: "чи можна каву з Омепразолом?"
+  expect: { kind: question }
+  status: fixed
