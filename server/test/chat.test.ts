@@ -8,3 +8,16 @@ describe('the assistant’s words on the way out (D117, R04)', () => {
     expect(r.numbersDropped).toBe(4);
   });
 });
+
+describe('D201: the chat request for the prompt cache', () => {
+  it('the base, sorted, is in the cached block after the instructions; the question is not', async () => {
+    const { chatOpts } = await import('../src/chat.ts');
+    const { requestOf } = await import('../src/claude.ts');
+    const a = chatOpts({ model: 'm', effort: 'low' }, { text: 'що на вечерю?', history: [], names: ['Яйце', 'Гречка', 'Яйце'], context: { kcal: 1 } });
+    const b = chatOpts({ model: 'm', effort: 'low' }, { text: 'а банан?', history: [{ role: 'user', text: 'що на вечерю?' }], names: ['Гречка', 'Яйце'], context: { kcal: 2 } });
+    expect(a.reference).toBe('База (точні назви):\nГречка\nЯйце');
+    expect(requestOf(a).system).toEqual(requestOf(b).system); // the same prefix whatever the question, the day or the order of the names
+    expect(a.content).not.toContain('Гречка');
+    expect(a.content).toContain('Людина: що на вечерю?');
+  });
+});

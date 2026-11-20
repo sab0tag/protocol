@@ -94,8 +94,8 @@ const PAGE = 1000;
 const MAX_IMAGE = 2_000_000; // decoded bytes; the app sends ~1280 px JPEG of 150–400 KB
 
 /** $ per million tokens, input / output (D36: an estimate; the Anthropic console has the real bill); a cache read — 0.1× input
- *  unless the model's own price is given (D123: $0.20 on Opus 5.5), a 5-minute cache write — 1.25× input. */
-const READ: Record<string, number> = { 'claude-opus-5-5': 0.2, 'claude-sonnet-5-5': 0.2 };
+ *  unless the model's own price is given (D123: $0.20 on Opus 5.5; D201: $0.10 on Sonnet 5.5), a 5-minute cache write — 1.25× input. */
+const READ: Record<string, number> = { 'claude-opus-5-5': 0.2, 'claude-sonnet-5-5': 0.1 };
 const PRICES: Record<string, [number, number]> = {
   'claude-opus-5-5': [4, 20], 'claude-opus-5': [5, 25], 'claude-opus-4-8': [5, 25], 'claude-opus-4-7': [5, 25],
   'claude-sonnet-5-5': [2, 10], 'claude-sonnet-5': [2, 10], 'claude-sonnet-4-6': [3, 15], 'claude-haiku-4-5': [1, 5],
@@ -143,6 +143,8 @@ export function createApp(deps: Deps) {
   const spent = (vault: string, kind: string, usage: Usage | undefined, hold: Hold) => {
     if (!usage) return;
     const usd = usdMicro(usage);
+    // D201: one line per call — the kind, the model and its tokens, the cache apart; no vault, no content
+    console.log(`ai ${kind} ${usage.model} in=${usage.input} cw=${usage.cacheWrite ?? 0} cr=${usage.cacheRead ?? 0} out=${usage.output}`);
     store.addUsage(vault, kind, usd, now());
     store.addDaySpend(now().toISOString().slice(0, 10), usd);
     if (hold.ok) hold.commit(usd);
