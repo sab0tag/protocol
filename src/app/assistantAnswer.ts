@@ -8,7 +8,8 @@ import { format } from 'date-fns';
 import { inDemo } from '../data/db';
 import { keep, kept } from '../data/kept';
 import { profileKey } from '../data/profiles';
-import { dayContext, historyFor, lineOf, passing, routeQuestion, scrubTalk, shownReply, withoutDropped } from '../domain/assistant';
+import { dayContext, failingInText, historyFor, lineOf, passing, routeQuestion, scrubTalk, shownReply, withoutDropped } from '../domain/assistant';
+import { itemFor } from '../domain/foodSearch';
 import { appVersion, planVersion } from '../domain/concierge';
 import { atLocal, newId } from '../domain/dates';
 import { passes } from '../domain/evaluate';
@@ -80,7 +81,10 @@ export async function answer(words: string, d: Day, o: { consent: boolean; log: 
     if (reply.fixed) return { text: reply.text };
     const lines = r.items.flatMap((x) => { const it = lineOf(x.name, x.grams, [...d.foods.values()], d.recipes, dishItem); return it ? [it] : []; });
     const { shown, dropped, why } = passing(lines, d.plan, d.date, d.foods, d.all); // what fails the plan in the real day is not shown (R03)
-    const said = withoutDropped(r.text, dropped, shown.map((x) => x.name)); // R04: nor said
+    // D200: a food named only in the words is checked like a line; one that fails the plan is not offered in words either
+    const unsaid = failingInText(r.text, [...d.foods.values()], lines.map((x) => x.name), words,
+      (f) => !passes({ plan: d.plan, date: d.date, foods: d.foods, entries: d.all }, itemFor(f, {})));
+    const said = withoutDropped(withoutDropped(r.text, dropped, shown.map((x) => x.name)), unsaid, shown.map((x) => x.name), { turnedDown: true }); // R04: nor said
     const text = lines.length && !shown.length ? `${said ? `${said} ` : ''}${L.allDropped(dropped.join(', '))}` : said || L.empty;
     return { text, ...(shown.length ? { items: shown } : {}), ...(shown.length && why.length ? { notOffered: why } : {}) };
   } catch (e) {

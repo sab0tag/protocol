@@ -116,23 +116,57 @@ export function lineOf(name: string, grams: number, foods: Food[], recipes: Reci
 }
 
 /** Only what passes the whole plan check is shown (the rest is a finding for the log, never a suggestion). */
+// The words of a food's name that tell it apart (R04, D132, D187): not in brackets («(сире)»), not a cooking word, stems of four
+// letters; a text word matches a stem it starts with, or a short form of it («рис» ↔ «рисова»).
+const tokens = (s: string) => s.toLocaleLowerCase('uk').split(/[^\p{L}’']+/u).filter((w) => w.length >= 3);
+const stem = (w: string) => (w.length <= 4 ? w : w.slice(0, 4));
+const COOKING = /^(?:варен|відвар|смажен|тушкован|запечен|печен|свіж|біл|сушен|копчен|консерв|знежир|натурал|домашн|сирий|сира|сире|сирі)/u;
+const telling = (n: string) => tokens(n.replace(/\([^)]*\)/gu, ' ')).filter((w) => !COOKING.test(w)).map(stem);
+const SMALL = new Set(['або', 'але', 'без', 'для', 'при', 'від', 'під', 'над', 'щоб', 'ніж', 'все', 'вже', 'так', 'там', 'тут', 'чим', 'які', 'яка', 'яке', 'цей', 'цю', 'той', 'вам', 'вас', 'нам', 'неї', 'них', 'їх', 'день', 'раз', 'дня']);
+const matches = (w: string, s: string) => w.startsWith(s) || (!SMALL.has(w) && s.startsWith(w));
+const sentences = (text: string) => text.split(/(?<=[.!?…])\s+/u);
+
 /** R04: the model's words without the foods the check took out — a sentence naming one is dropped (by the words of its name that
- *  no food still shown has), so the text never recommends what the cards do not show. */
-export function withoutDropped(text: string, dropped: string[], shown: string[]): string {
+ *  no food still shown has), so the text never recommends what the cards do not show. D200: `spare` keeps a sentence that only
+ *  names the food to say no to it. */
+export function withoutDropped(text: string, dropped: string[], shown: string[], o: { turnedDown?: boolean } = {}): string {
   if (!dropped.length) return text;
-  // D132: short words count too — «рис» was missed for being three letters. D187: every telling word of the name, not only the
-  // first — «Каша рисова» next to a shown «Каша вівсяна» kept «зваріть рисову кашу» (the shared «каша» saved it). Telling: not in
-  // brackets («(сире)»), not a cooking word («варений», «білий»), not a word a shown food has. A text word matches a stem it
-  // starts with, or a short form of it («рис» ↔ «рисова»).
-  const words = (s: string) => s.toLocaleLowerCase('uk').split(/[^\p{L}’']+/u).filter((w) => w.length >= 3);
-  const stem = (w: string) => (w.length <= 4 ? w : w.slice(0, 4));
-  const COOKING = /^(?:варен|відвар|смажен|тушкован|запечен|печен|свіж|біл|сушен|копчен|консерв|знежир|натурал|домашн|сирий|сира|сире|сирі)/u;
-  const named = (n: string) => words(n.replace(/\([^)]*\)/gu, ' ')).filter((w) => !COOKING.test(w)).map(stem);
-  const keep = new Set(shown.flatMap(named));
-  const stems = [...new Set(dropped.flatMap(named))].filter((s) => !keep.has(s));
-  const SMALL = new Set(['або', 'але', 'без', 'для', 'при', 'від', 'під', 'над', 'щоб', 'ніж', 'все', 'вже', 'так', 'там', 'тут', 'чим', 'які', 'яка', 'яке', 'цей', 'цю', 'той', 'вам', 'вас', 'нам', 'неї', 'них', 'їх', 'день', 'раз', 'дня']);
-  const hits = (w: string) => stems.some((s) => w.startsWith(s) || (!SMALL.has(w) && s.startsWith(w)));
-  return text.split(/(?<=[.!?…])\s+/u).filter((x) => !words(x).some(hits)).join(' ');
+  const keep = new Set(shown.flatMap(telling));
+  const stems = [...new Set(dropped.flatMap(telling))].filter((s) => !keep.has(s));
+  const hits = (w: string) => w.length >= 3 && stems.some((s) => matches(w, s));
+  // D200 `turnedDown`: a name right after «не / без / замість / уникайте…» (three words back) turns the food down — the sentence stays
+  const offers = (x: string) => { const ws = x.toLocaleLowerCase('uk').split(/[^\p{L}’']+/u).filter(Boolean);
+    return ws.some((w, i) => hits(w) && !(o.turnedDown && ws.slice(Math.max(0, i - 3), i).some((p) => NO.has(p)))); };
+  return sentences(text).filter((x) => !offers(x)).join(' ');
+}
+const NO = new Set(['не', 'ні', 'без', 'замість', 'уникайте', 'уникати', 'обмежте', 'обмежити', 'відмовтеся', 'менше', 'вместо', 'избегайте', 'нельзя', 'откажитесь']);
+// «цукор у крові», «рівень цукру» — the blood's sugar, not a food
+const BLOOD = /цук\S*\s+(?:у|в)\s+крові|рів\S*\s+цукру|(?:підн|підійм|підвищ|стриб|скач|поднима|повыша)\S*\s+(?:\S+\s+)?(?:цук|сахар)\S*|(?:цук|сахар)\S*\s+(?:\S+\s+)?(?:підн|підійм|підвищ|стриб|скач|поднима|повыша)\S*|сахар\S*\s+в\s+крови|уров\S*\s+сахара/giu;
+
+/** D200: foods of the base the model named only in its words — not among its lines and not asked about in the question. They are
+ *  checked like its lines; the words never offer one that fails the plan (live run 20.11: «жменю мигдалю» with an oxalate plan). */
+// longer stems than R04's: here a false hit would cut a good sentence («помірно» is not «помідор»)
+const long = (n: string) => tokens(n.replace(/\([^)]*\)/gu, ' ')).filter((w) => !COOKING.test(w)).map((w) => (w.length <= 4 ? w : w.slice(0, Math.max(4, w.length - 2))));
+export function namedOnlyInText(text: string, foods: Food[], lines: string[], asked: string): Food[] {
+  const said = tokens(text.replace(BLOOD, ' ')), question = tokens(asked), listed = new Set(lines), onCards = new Set(lines.flatMap(long));
+  return foods.filter((f) => {
+    if (listed.has(f.name)) return false;
+    const st = long(f.name);
+    if (st.every((s) => onCards.has(s))) return false; // «яйце» of a shown «Яйце варене» is that one, not «Яйце смажене»
+    if (!st.length || !st.every((s) => said.some((w) => w.startsWith(s)))) return false;
+    return !st.every((s) => question.some((w) => w.startsWith(s))); // the person asked about it: the answer is about it
+  });
+}
+
+/** D200: of the foods named only in words, those to take out of the text: failing the plan — and only when every food the same
+ *  words could mean fails («яйцем» may be «Яйце варене» as well as «Яйце смажене»: then it is not taken out). */
+export function failingInText(text: string, foods: Food[], lines: string[], asked: string, fails: (f: Food) => boolean): string[] {
+  const groups = new Map<string, { names: string[]; allFail: boolean }>();
+  for (const f of namedOnlyInText(text, foods, lines, asked)) {
+    const key = long(f.name).sort().join(' '), g = groups.get(key) ?? { names: [], allFail: true };
+    g.names.push(f.name); g.allFail &&= fails(f); groups.set(key, g);
+  }
+  return [...groups.values()].filter((g) => g.allFail).flatMap((g) => g.names);
 }
 
 /** R03: each food the model named, checked against the plan in the real day (`entries` — the day and the week before). */

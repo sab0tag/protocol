@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { FOODS } from '../../src/data/foods';
 import { RECIPES } from '../../src/data/recipes';
 import { examplePlan } from '../../src/data/seed.example';
-import { asksTopup, brings, dayContext, fixedAnswer, lineOf, passing } from '../../src/domain/assistant';
+import { asksTopup, brings, dayContext, fixedAnswer, lineOf, failingInText, namedOnlyInText, passing } from '../../src/domain/assistant';
+import { itemFor } from '../../src/domain/foodSearch';
+const itemForName = (n: string) => itemFor(FOODS.find((f) => f.name === n)!, {});
 import { scrubTalk, urgentReply, withoutDropped } from '../../src/domain/assistant';
 import { dishItem } from '../../src/domain/recipes';
 import { ZERO } from '../../src/domain/nutrition';
@@ -80,5 +82,32 @@ describe('D187: the assistant’s tails', () => {
     ]);
     expect(kept.map((m) => m.text)).toEqual(['що з’їсти на сніданок?', 'Вівсянка з ягодами.']);
     expect(scrubTalk([{ role: 'user' as const, text: 'привіт' }, { role: 'assistant' as const, text: '', card: 'crisis' }, { role: 'user' as const, text: 'дякую' }]).map((m) => m.text)).toEqual(['дякую']);
+  });
+});
+
+describe('D200: a food named only in the words is checked like a line', () => {
+  const plan = examplePlan(); // oxalate, lactose, glycemia
+  const foods = [...FOODS];
+  const almonds = 'Для перекусу без молочного добре підійде варене яйце з огірком. Можна додати жменю мигдалю й яблуко. Мигдаль трохи багатий на оксалати.';
+  it('finds the almonds of the live run (20.11) and nothing that only looks alike', () => {
+    expect(namedOnlyInText(almonds, foods, ['Яйце варене', 'Огірок', 'Яблуко'], 'порадь перекус без молочного').map((f) => f.name)).toEqual(['Мигдаль']);
+    expect(namedOnlyInText('Їжте помірно й без поспіху.', foods, [], 'що на вечерю?').map((f) => f.name)).not.toContain('Помідор');
+  });
+  it('a name that may mean a food passing the plan is not taken out («яйцем» — варене or смажене)', () => {
+    const foodsMap = new Map(FOODS.map((f) => [f.id, f]));
+    const fails = (f: (typeof FOODS)[number]) => !passing([itemForName(f.name)], plan, '2026-11-20', foodsMap).shown.length;
+    expect(failingInText('На вечерю — гречка з яйцем.', foods, [], 'що на вечерю?', fails)).toEqual([]);
+    expect(failingInText(almonds, foods, ['Яйце варене', 'Огірок', 'Яблуко'], 'порадь перекус без молочного', fails)).toEqual(['Мигдаль']);
+  });
+  it('what the person asked about stays — the answer is about it', () => {
+    expect(namedOnlyInText('Картоплю план радить обмежити.', foods, [], 'можна мені картоплю?')).toEqual([]);
+  });
+  it('the sentence offering it goes; a sentence turning it down stays', () => {
+    expect(withoutDropped(almonds, ['Мигдаль'], ['Яйце варене', 'Огірок', 'Яблуко'], { turnedDown: true })).toBe('Для перекусу без молочного добре підійде варене яйце з огірком.');
+    expect(withoutDropped('Замість рису візьміть гречку. Рис — теж варіант.', ['Рис білий варений'], ['Гречка варена'], { turnedDown: true })).toBe('Замість рису візьміть гречку.');
+    // live #3: «а не окремо» in the same sentence does not save the almonds it offers
+    expect(withoutDropped('Можна додати жменю мигдалю: краще їсти разом з іншою їжею, а не окремо. Ще варіант — сардини.', ['Мигдаль'], [], { turnedDown: true })).toBe('Ще варіант — сардини.');
+    for (const t of ['Так цукор у крові підніматиметься повільніше.', 'Стиглий банан досить швидко підіймає цукор.']) expect(namedOnlyInText(t, foods, [], 'можна банан?').map((f) => f.name), t).not.toContain('Цукор');
+    void plan;
   });
 });

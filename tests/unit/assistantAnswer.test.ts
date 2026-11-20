@@ -53,6 +53,16 @@ describe('the answer, one for «Помічник» and the field (D166)', () => 
     expect('items' in a ? a.items ?? [] : []).toEqual([]);
   });
 
+  it('D200: a food the model only names in its words and the plan does not pass is not offered in words either (live run 20.11)', async () => {
+    reply({ topic: 'food', text: 'Для перекусу без молочного добре підійде варене яйце з огірком — швидко і з білком. Можна додати жменю мигдалю й яблуко: повільні вуглеводи та корисні жири. Мигдаль трохи багатий на оксалати, тож краще в невеликій кількості.',
+      items: [{ name: 'Яйце варене', grams: 55 }, { name: 'Огірок', grams: 100 }, { name: 'Яблуко', grams: 150 }] });
+    const a = await answer('порадь перекус без молочного', day(examplePlan()), { consent: true, log: false, history: [] });
+    if (!('text' in a)) throw new Error('words expected');
+    expect(a.text).not.toMatch(/мигдал/iu);
+    expect(a.text).toContain('варене яйце з огірком');
+    expect(a.items?.map((x) => x.name)).toEqual(['Яйце варене', 'Огірок', 'Яблуко']);
+  });
+
   it('«що добрати?» is the code’s, with no model and no consent', async () => {
     const a = await answer('що добрати до вечора?', day(examplePlan()), { consent: false, log: false, history: [] });
     expect(a).toEqual(topupReply(day(examplePlan())));
