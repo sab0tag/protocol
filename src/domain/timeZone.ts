@@ -44,8 +44,8 @@ export function shiftTimes(prescriptions: Prescription[], minutes: number): Pres
 }
 
 /** The plan after an answer: away — «local» (remember the zone) or «home» (shift and remember); at home — «back» or «keep». */
-export function answerZone(plan: Pick<Plan, 'prescriptions' | 'zone'>, here: string, answer: 'local' | 'home' | 'back' | 'keep', minutes: number): Pick<Plan, 'prescriptions' | 'zone'> {
-  const zone: ZoneState = plan.zone ?? { home: here };
+export function answerZone(plan: Pick<Plan, 'prescriptions' | 'zone'>, here: string, answer: 'local' | 'home' | 'back' | 'keep', minutes: number, home = here): Pick<Plan, 'prescriptions' | 'zone'> {
+  const zone: ZoneState = plan.zone ?? { home };
   const asked = [...new Set([...(zone.asked ?? []), here])];
   if (answer === 'local') return { prescriptions: plan.prescriptions, zone: { ...zone, asked } };
   if (answer === 'home') return { prescriptions: shiftTimes(plan.prescriptions, minutes), zone: { ...zone, asked, shift: { zone: here, minutes } } };

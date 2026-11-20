@@ -3,7 +3,8 @@ import { device, seed, toast, ymd } from './helpers';
 import { emptyPlan } from '../../src/data/seed.example';
 import { t } from '../../src/i18n/uk';
 
-// D195: the browser runs in Europe/Kyiv; a plan whose home is Warsaw is «away, +1 год». Nothing moves without an answer.
+// D195: the browser runs in Europe/Kyiv; a plan whose home is Warsaw is «away, +1 год». Nothing moves without an answer; opening the
+// app never writes the plan by itself (the home zone stays on the phone).
 const times = (page: Page) => page.evaluate(async () => {
   const r = indexedDB.open('protocol'); await new Promise((ok) => { r.onsuccess = ok; });
   const g = r.result.transaction('plan').objectStore('plan').get('main'); await new Promise((ok) => { g.onsuccess = ok; });
@@ -34,4 +35,18 @@ test('back home with a shift: «Повернути» moves the times back', asyn
   await card.getByRole('button', { name: t.zone.backYes }).click();
   await expect(card).toHaveCount(0);
   expect(await times(page)).toEqual(['09:30']);
+});
+
+test('a plan without a home zone is not written on opening — home is kept on the phone', async ({ browser }) => {
+  const page = await device(browser, 'skip');
+  await seed(page, [plan(undefined)]);
+  await page.goto('./#/');
+  await expect(page.getByTestId('zone-card')).toHaveCount(0);
+  const zone = await page.evaluate(async () => {
+    const r = indexedDB.open('protocol'); await new Promise((ok) => { r.onsuccess = ok; });
+    const g = r.result.transaction('plan').objectStore('plan').get('main'); await new Promise((ok) => { g.onsuccess = ok; });
+    return (g.result as { zone?: unknown }).zone ?? null;
+  });
+  expect(zone).toBeNull();
+  expect(await page.evaluate(() => localStorage.getItem('protocol.homeZone'))).toBeTruthy();
 });

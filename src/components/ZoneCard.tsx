@@ -1,6 +1,5 @@
-// D195: after a time zone change — «перенести час прийому?» on «Сьогодні»; nothing moves without an answer. The first time the app
-// sees a zone it remembers it as home, silently.
-import { useEffect } from 'react';
+// D195: after a time zone change — «перенести час прийому?» on «Сьогодні»; nothing moves without an answer. The first zone this
+// phone sees is home — kept on the phone, never written into the plan by itself (the plan changes only on an answer).
 import { db } from '../data/db';
 import { answerZone, deviceZone, zoneQuestion } from '../domain/timeZone';
 import type { Plan } from '../domain/types';
@@ -11,13 +10,19 @@ const L = t.zone;
 const moved = (time: string, minutes: number) => { const [h, m] = time.split(':').map(Number); const x = (((h! * 60 + m! + minutes) % 1440) + 1440) % 1440; return `${String(Math.floor(x / 60)).padStart(2, '0')}:${String(x % 60).padStart(2, '0')}`; };
 const hours = (minutes: number) => `${minutes > 0 ? '+' : '−'}${String(Math.abs(minutes) / 60).replace('.', ',')}`;
 
+const HOME = 'protocol.homeZone';
+function phoneHome(here: string): string {
+  try { const kept = localStorage.getItem(HOME); if (kept) return kept; localStorage.setItem(HOME, here); } catch { /* private mode */ }
+  return here;
+}
+
 export function ZoneCard({ plan }: { plan: Plan }) {
   const here = deviceZone();
-  useEffect(() => { if (!plan.zone?.home) void db.plan.update('main', { zone: { home: here } }); }, [plan.zone?.home, here]);
-  const q = zoneQuestion(plan.zone, here, new Date());
+  const home = plan.zone?.home ?? phoneHome(here);
+  const q = zoneQuestion(plan.zone ?? { home }, here, new Date());
   if (!q) return null;
   const first = plan.prescriptions.find((p) => (p.kind === 'medication' || p.kind === 'supplement') && p.schedule?.times.length)?.schedule?.times[0] ?? '08:00';
-  const write = (answer: 'local' | 'home' | 'back' | 'keep') => void saved(db.plan.update('main', answerZone(plan, here, answer, q.minutes)), L.saved);
+  const write = (answer: 'local' | 'home' | 'back' | 'keep') => void saved(db.plan.update('main', answerZone(plan, here, answer, q.minutes, home)), L.saved);
   const button = 'min-h-tap rounded-xl border-2 px-3 py-2 text-left';
   return (
     <section aria-label={q.kind === 'away' ? L.away(hours(q.minutes)) : L.back} className="protocol-card mb-3 space-y-2 p-3" data-testid="zone-card">
