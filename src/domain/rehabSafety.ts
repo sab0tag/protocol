@@ -6,11 +6,12 @@
 //   the plan has a rehab complex or a doctor's limit for training (the app's sign of an injury). The text is a draft until a
 //   doctor reads and signs it — said so on screen.
 // - «Помічник» answers a question about exercises in that state only from the plan, with «запитайте лікаря» — never the model.
+import { NORMS, normsDraft } from './norms';
 import type { DayEntry, ISODate, Plan } from './types';
 import { activeRestrictions, restrictionText } from './trainingRules';
 import { currentStage } from './rehab';
 
-export const PAIN_STOP = 7;
+export const PAIN_STOP = NORMS.rehab.painStop; // D196: the drafts live in norms.ts
 
 /** The doctor's words for the red flags — a draft (by NHS «after a fracture / with a cast» advice), not yet signed by a doctor. */
 export const RED_FLAGS = [
@@ -19,7 +20,7 @@ export const RED_FLAGS = [
   'Литка болить і набрякла',
   'Задишка або біль у грудях',
 ] as const;
-export const RED_FLAGS_SIGNED = false; // the owner sets true once a traumatologist has read and signed the list
+export const RED_FLAGS_SIGNED = !normsDraft(); // D196: signed with the whole norms file (norms.ts reviewedBy)
 
 const FLAG_WORDS = [
   /(?:біль|болить|боли\S*)\s+(?:\S+\s+){0,3}(?:під|под)\s+(?:гіпс|гипс|пов[’'ʼ]?язк)/iu,
@@ -44,12 +45,13 @@ export function painAlert(entries: readonly DayEntry[], today: ISODate): 'high' 
   const byDay = new Map<string, number>();
   for (const e of sessions) { const d = e.at.slice(0, 10); byDay.set(d, Math.max(byDay.get(d) ?? 0, e.rehab!.pain)); }
   const days = [...byDay.keys()].sort();
-  if (days.at(-1) !== today || days.length < 3) return null;
-  const last = days.slice(-3);
+  const n = NORMS.rehab.risingDays;
+  if (days.at(-1) !== today || days.length < n) return null;
+  const last = days.slice(-n);
   // three days in a row, by the calendar, each higher than the day before
   const consecutive = last.every((d, i) => i === 0 || Date.parse(`${d}T12:00:00Z`) - Date.parse(`${last[i - 1]}T12:00:00Z`) === 86_400_000);
   const v = last.map((d) => byDay.get(d)!);
-  return consecutive && v[0]! < v[1]! && v[1]! < v[2]! ? 'rising' : null;
+  return consecutive && v.every((x, i) => i === 0 || v[i - 1]! < x) ? 'rising' : null;
 }
 
 const EXERCISE_Q = /вправ|тренув|займат|навантаж|присід|присед|біга|бега|ходи(ти|ть)|ходьб|гир|упражн|нагрузк|спорт|розтяж|растяж/iu;
