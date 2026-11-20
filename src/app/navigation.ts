@@ -25,6 +25,7 @@ export const ROUTES = {
   planScan:     { path: '/plan/scan',        feature: 'plan.scan' },
   planHistory:  { path: '/plan/history',     feature: 'plan' },
   clinicInvite: { path: '/clinic/invite', feature: 'clinic.portal' },
+  clinicNorms:  { path: '/clinic/norms',  feature: 'clinic.portal' }, // D197: the norms for doctors to check
   clinicPortal: { path: '/clinic',          feature: 'clinic.portal' },
   planImport:   { path: '/plan/import',      feature: 'plan' },
   onboarding:   { path: '/welcome',         feature: 'onboarding' },
@@ -76,7 +77,7 @@ const isOneOf = (pathname: string, ids: readonly StaticRouteId[]) => ids.some((i
 
 /** Where «Назад» leads when a screen was opened directly (a link, a reload) and there is no in-app history. */
 export function parentPath(pathname: string): string {
-  if (pathname === '/clinic/invite') return '/clinic'; // D168: the staff's screens — «Кабінет клініки», then «Ще»
+  if (pathname === '/clinic/invite' || pathname === '/clinic/norms') return '/clinic'; // D168: the staff's screens — «Кабінет клініки», then «Ще»
   if (pathname === '/clinic') return '/more';
   if (pathname.startsWith('/plan/')) return '/plan';
   if (pathname.startsWith('/progress/') || ['/week', '/report', '/weight'].includes(pathname)) return '/progress';

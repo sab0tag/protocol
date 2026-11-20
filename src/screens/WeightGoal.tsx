@@ -2,7 +2,7 @@
 // any of them no number at all, only «спершу з лікарем» (or, for words of distress about food, a soft word about a specialist).
 // Otherwise the numbers with why, the honest price of a slow pace, and «Зберегти як мою ціль» — never a doctor's number,
 // which always wins. Two weeks later with a new weight — «оновити?»; a plateau of three weeks — the record and the activity first.
-import { normsDraft } from '../domain/norms';
+import { kcalFloor, normsDraft } from '../domain/norms';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -53,7 +53,7 @@ export function WeightGoal() {
         <p className="font-semibold">{G.current(own.input.goalKg, own.kcal, own.proteinG, own.perWeekKg)}</p>
         <p className="text-muted">{G.notDoctor} · {G.setOn(own.setAt.slice(8, 10) + '.' + own.setAt.slice(5, 7))}</p>
         {due && <p role="note">{G.recount(due.kg)} <button type="button" className="min-h-tap underline" onClick={() => setF({ ...f, weightKg: String(due.kg) })}>{G.recountYes}</button></p>}
-        {flat && <p role="note" data-testid="plateau">{G.plateau}</p>}
+        {flat && <p role="note" data-testid="plateau">{G.plateau(kcalFloor(own.input.sex))}</p>}
         <button type="button" className="min-h-tap underline" onClick={() => void saved(db.plan.update('main', { ownGoal: undefined }), G.removed)}>{G.remove}</button>
       </div>}
       {doctorKcal !== undefined && <p className="protocol-card p-3 text-sm">{G.doctorWins(doctorKcal)}</p>}
@@ -75,7 +75,7 @@ export function WeightGoal() {
           <div className="mt-1 flex flex-wrap gap-2">{[750, 600, 500, 300].map((d) => (
             <button key={d} type="button" aria-pressed={deficit === d} onClick={() => setDeficit(d)}
               className={`min-h-tap rounded-full border-2 px-3 font-semibold ${deficit === d ? 'border-accent text-accent' : 'border-line'}`}>{d < 500 ? G.slowChoice(d) : `−${d}`}</button>))}</div></fieldset>
-        <p className="text-xs text-muted">{G.notDoctor}.{normsDraft() ? ` ${G.draft}` : ''}</p>{/* D196 */}
+        <p className="text-xs text-muted">{G.notDoctor}.{normsDraft('deficit', 'kcalFloor', 'pace', 'firstStage', 'protein', 'stopMeds') ? ` ${G.draft}` : ''}</p>{/* D196/D197 */}
         <button type="button" onClick={() => void save()} className="min-h-tap w-full rounded-xl bg-accent px-4 font-semibold text-on-accent">{G.save}</button>
       </div>}
       {!complete && !stops.length && <p className="text-sm text-muted">{G.fill}</p>}
