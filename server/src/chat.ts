@@ -6,7 +6,7 @@
 // before the person sees it. A question on medicines, symptoms or changing the plan is answered by the app's own words.
 import Anthropic from '@anthropic-ai/sdk';
 import { z } from 'zod';
-import { structured, type Effort, type Usage } from './claude.ts';
+import { structured, type Effort, type StructuredOpts, type Usage } from './claude.ts';
 
 export const PROMPT_CHAT = 'concierge-chat-2'; // D130: the topic of the last question only
 export const TOPICS = ['food', 'medicine', 'symptoms', 'plan', 'other'] as const;
@@ -32,11 +32,18 @@ const SYSTEM = `Ти — помічник у застосунку, що допо
 Пропонуй лише продукти й страви зі списку бази (items), не більше трьох, ті, що швидко приготувати й що проходять обмеження плану. Якщо в плані немає цілі — не радь її добирати.
 Не можна: міняти чи пропонувати міняти план, цілі, обмеження, дієту чи дози; радити щось про ліки (дозу, пропуск, сумісність, чи можна з їжею) — тоді topic = medicine; тлумачити симптоми, самопочуття чи аналізи — тоді topic = symptoms; пропонувати добавки чи спортпит, яких немає в плані; осуджувати. Що з’їдено, записує людина сама — ти нічого не записуєш.`;
 
+/** D201: the request — the base's names (sorted, the same for everyone with the same base) go into the cached block after the
+ *  instructions; the day, the talk and the question after it. */
+export function chatOpts(opts: { model: string; effort: Effort }, { text, history, names, context }: ChatInput): StructuredOpts<ReturnType<typeof chatSchema>> {
+  const base = [...new Set(names)].sort((a, b) => a.localeCompare(b, 'uk')) as [string, ...string[]];
+  return { model: opts.model, effort: opts.effort, maxTokens: 1200, system: SYSTEM, schema: chatSchema(base),
+    reference: `База (точні назви):\n${base.join('\n')}`,
+    content: `Стан дня й план (пораховано застосунком):\n${JSON.stringify(context)}\n\nРозмова досі:\n${history.map((m) => `${m.role === 'user' ? 'Людина' : 'Помічник'}: ${m.text}`).join('\n') || '—'}\n\nЛюдина: ${text}` };
+}
+
 export function claudeChat(opts: { model: string; effort: Effort; client?: Anthropic }): ChatReader {
   const client = opts.client ?? new Anthropic({ timeout: 45_000, maxRetries: 1 });
-  return ({ text, history, names, context }) => structured(client, { model: opts.model, effort: opts.effort, maxTokens: 1200, system: SYSTEM,
-    schema: chatSchema([...new Set(names)] as [string, ...string[]]),
-    content: `Стан дня й план (пораховано застосунком):\n${JSON.stringify(context)}\n\nРозмова досі:\n${history.map((m) => `${m.role === 'user' ? 'Людина' : 'Помічник'}: ${m.text}`).join('\n') || '—'}\n\nЛюдина: ${text}\n\nБаза (точні назви):\n${names.join('\n')}` });
+  return (input) => structured(client, chatOpts(opts, input));
 }
 
 /** The code's check on the way out: no sentence with a number (boundary 6), only the base's names, sane grams. */

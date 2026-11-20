@@ -54,6 +54,7 @@ const identity = (() => {
   }
 })();
 const effort = (env.PHOTO_EFFORT ?? 'low') as 'low' | 'medium' | 'high';
+const foodEffort = (env.FOOD_PHOTO_EFFORT ?? env.PHOTO_EFFORT ?? 'low') as 'low' | 'medium' | 'high'; // D201
 const backups = env.BACKUP_DIR ?? '/backups';
 const vapid = vapidKeys(store, env);
 const send = webPushSender(vapid, env.VAPID_SUBJECT ?? 'https://protocol.beyondthesignal.to');
@@ -89,8 +90,10 @@ const app = createApp({
   backupAgeH: () => backupAgeH(backups, new Date()),
   backups: { list: () => listBackups(backups), records: (name, vault) => backupRecords(backups, name, vault) },
   origins: (env.ALLOWED_ORIGINS ?? 'https://protocol.beyondthesignal.to').split(',').map((s) => s.trim()),
-  recognize: env.ANTHROPIC_API_KEY ? claudeRecognizer({ model: env.PHOTO_MODEL ?? 'claude-opus-5-5', effort }) : undefined,
-  label: env.ANTHROPIC_API_KEY ? claudeLabel({ model: env.PHOTO_MODEL ?? 'claude-opus-5-5', effort }) : undefined,
+  // D201: food photos and labels have their own model (FOOD_PHOTO_MODEL); tests, discharge papers and the medicine box stay on
+  // PHOTO_MODEL. Unset — the same as PHOTO_MODEL, so nothing changes until the eval says so.
+  recognize: env.ANTHROPIC_API_KEY ? claudeRecognizer({ model: env.FOOD_PHOTO_MODEL ?? env.PHOTO_MODEL ?? 'claude-opus-5-5', effort: foodEffort }) : undefined,
+  label: env.ANTHROPIC_API_KEY ? claudeLabel({ model: env.FOOD_PHOTO_MODEL ?? env.PHOTO_MODEL ?? 'claude-opus-5-5', effort: foodEffort }) : undefined,
   labs: env.ANTHROPIC_API_KEY ? claudeLabs({ model: env.PHOTO_MODEL ?? 'claude-opus-5-5', effort }) : undefined, // D68
   conclusion: env.ANTHROPIC_API_KEY ? claudeConclusion({ model: env.PHOTO_MODEL ?? 'claude-opus-5-5', effort }) : undefined, // D80
   medbox: env.ANTHROPIC_API_KEY ? claudeMedbox({ model: env.PHOTO_MODEL ?? 'claude-opus-5-5', effort }) : undefined, // D89

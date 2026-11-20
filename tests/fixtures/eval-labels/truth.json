@@ -1,0 +1,63 @@
+{
+ "yogurt-greek": {
+  "readable": true,
+  "kcal": 69,
+  "protein": 7.5,
+  "fat": 2,
+  "carbs": 4,
+  "calciumMg": 110
+ },
+ "buckwheat": {
+  "readable": true,
+  "kcal": 343,
+  "protein": 13,
+  "fat": 3.4,
+  "carbs": 62
+ },
+ "cottage-pack": {
+  "readable": true,
+  "kcal": 121,
+  "protein": 17,
+  "fat": 5,
+  "carbs": 1.8
+ },
+ "cookies-serving": {
+  "readable": true,
+  "kcal": 467,
+  "protein": 6.7,
+  "fat": 20,
+  "carbs": 66.7
+ },
+ "milk": {
+  "readable": true,
+  "kcal": 52,
+  "protein": 2.8,
+  "fat": 2.5,
+  "carbs": 4.7,
+  "calciumMg": 120
+ },
+ "chocolate-kj-first": {
+  "readable": true,
+  "kcal": 545,
+  "protein": 7.8,
+  "fat": 39,
+  "carbs": 37
+ },
+ "hummus-english": {
+  "readable": true,
+  "kcal": 266,
+  "protein": 7,
+  "fat": 21,
+  "carbs": 9
+ },
+ "buckwheat-tilted": {
+  "readable": true,
+  "kcal": 343,
+  "protein": 13,
+  "fat": 3.4,
+  "carbs": 62
+ },
+ "front-no-table": {
+  "readable": false
+ }
+}

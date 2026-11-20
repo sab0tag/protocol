@@ -3,7 +3,7 @@
 // base, runs its own dish check and shows a draft — nothing is written until the person accepts it.
 import Anthropic from '@anthropic-ai/sdk';
 import { z } from 'zod';
-import { structured, type Effort, type Usage } from './claude.ts';
+import { structured, type Effort, type StructuredOpts, type Usage } from './claude.ts';
 
 export interface MenuInput {
   date: string;
@@ -41,21 +41,24 @@ const SYSTEM = `Ти складаєш меню на один день для л�
 Зазвичай: сніданок, обід, вечеря і 1–2 перекуси. Віддавай перевагу тому, що людина часто їсть, але не повторюй один і той самий продукт у кожному прийомі.
 Поради — практичні: що приготувати заздалегідь, як розподілити воду, чим перекусити в дорозі. Не давай медичних порад, не згадуй ліки й добавки, не змінюй цілей лікаря.`;
 
+/** D201: the request — instructions and the person's base cached (D123), the day after them. */
+export function menuOpts(opts: { model: string; effort: Effort }, input: MenuInput): StructuredOpts<ReturnType<typeof menuSchema>> {
+  const names = [...new Set([...input.foods, ...input.dishes])].sort((a, b) => a.localeCompare(b, 'uk')) as [string, ...string[]]; // D123: the same schema every time
+  const lines = [
+    `Дата: ${input.date}`,
+    `Цілі на день: ${Object.entries(input.targets).map(([k, v]) => `${k}=${v}`).join(', ') || 'не задано'}`,
+    `Обмеження лікаря:\n${input.rules.map((r) => `- ${r}`).join('\n') || '- немає'}`,
+    `Людина часто їсть: ${input.usual.join('; ') || '—'}`,
+    input.wish ? `Побажання на цей день: ${input.wish}` : '',
+    input.avoid.length ? `Попередні дні вже мають: ${input.avoid.join('; ')} — склади інакше, щоб не повторювалось.` : '',
+  ].filter(Boolean);
+  const sorted = (xs: string[]) => [...new Set(xs)].sort((a, b) => a.localeCompare(b, 'uk'));
+  // D123: the person's dishes and foods — the long part, the same from day to day — as a cached block after the instructions
+  return { model: opts.model, effort: opts.effort, maxTokens: 8000, system: SYSTEM, schema: menuSchema(names),
+    reference: `Страви людини: ${sorted(input.dishes).join('; ') || '—'}\n\nПродукти: ${sorted(input.foods).join('; ')}`, content: lines.join('\n\n') };
+}
+
 export function claudeMenu(opts: { model: string; effort: Effort; client?: Anthropic }): MenuMaker {
   const client = opts.client ?? new Anthropic({ timeout: 180_000, maxRetries: 1 });
-  return async (input) => {
-    const names = [...new Set([...input.foods, ...input.dishes])].sort((a, b) => a.localeCompare(b, 'uk')) as [string, ...string[]]; // D123: the same schema every time
-    const lines = [
-      `Дата: ${input.date}`,
-      `Цілі на день: ${Object.entries(input.targets).map(([k, v]) => `${k}=${v}`).join(', ') || 'не задано'}`,
-      `Обмеження лікаря:\n${input.rules.map((r) => `- ${r}`).join('\n') || '- немає'}`,
-      `Людина часто їсть: ${input.usual.join('; ') || '—'}`,
-      input.wish ? `Побажання на цей день: ${input.wish}` : '',
-      input.avoid.length ? `Попередні дні вже мають: ${input.avoid.join('; ')} — склади інакше, щоб не повторювалось.` : '',
-    ].filter(Boolean);
-    const sorted = (xs: string[]) => [...new Set(xs)].sort((a, b) => a.localeCompare(b, 'uk'));
-    // D123: the person's dishes and foods — the long part, the same from day to day — as a cached block after the instructions
-    return structured(client, { model: opts.model, effort: opts.effort, maxTokens: 8000, system: SYSTEM, schema: menuSchema(names),
-      reference: `Страви людини: ${sorted(input.dishes).join('; ') || '—'}\n\nПродукти: ${sorted(input.foods).join('; ')}`, content: lines.join('\n\n') });
-  };
+  return (input) => structured(client, menuOpts(opts, input));
 }

@@ -4,7 +4,7 @@
 // written until the person records the workout. Like the menu: the doctor decides, the model only helps to do it.
 import Anthropic from '@anthropic-ai/sdk';
 import { z } from 'zod';
-import { structured, type Effort, type Usage } from './claude.ts';
+import { structured, type Effort, type StructuredOpts, type Usage } from './claude.ts';
 
 export interface WorkoutInput {
   exercises: { id: string; name: string; level: number; pattern: string; unilateral: boolean; timed: boolean }[];
@@ -37,18 +37,22 @@ const SYSTEM = `Ти складаєш тренування з гирею на с
 Однобічні вправи — повтори на кожну руку чи ногу. Для вправ на час — секунди, повтори null.
 Порада — коротка, по-людськи, з опорою на цифри із записів; без медичних порад, без діагнозів, не змінюй обмежень лікаря.`;
 
+/** D201: the request — instructions, the equipment and the exercise list (the same from session to session for the same levels
+ *  and limits) cached; the records, the doctor's limits, the time and the wish after them. */
+export function workoutOpts(opts: { model: string; effort: Effort }, input: WorkoutInput): StructuredOpts<ReturnType<typeof workoutSchema>> {
+  const ids = [...new Set(input.exercises.map((e) => e.id))] as [string, ...string[]]; // an enum must not repeat
+  const reference = `Інвентар: ${input.equipment}.\n\nВправи (id — назва, рівень 1–3, тип руху, однобічна, на час):\n${input.exercises.map((e) =>
+      `- ${e.id} — ${e.name}, рівень ${e.level}, ${e.pattern}${e.unilateral ? ', однобічна' : ''}${e.timed ? ', на час' : ''}`).join('\n')}`;
+  const lines = [
+    `Час: до ${input.minutes} хв.`,
+    `Останні тренування:\n${input.history.map((h) => `- ${h.date} (${h.feeling || 'без оцінки'}): ${h.items.join('; ')}`).join('\n') || '- ще немає'}`,
+    `Обмеження лікаря:\n${input.rules.map((r) => `- ${r}`).join('\n') || '- немає'}`,
+    input.wish ? `Побажання на сьогодні: ${input.wish}` : '',
+  ].filter(Boolean);
+  return { model: opts.model, effort: opts.effort, maxTokens: 4000, system: SYSTEM, schema: workoutSchema(ids), reference, content: lines.join('\n\n') };
+}
+
 export function claudeWorkout(opts: { model: string; effort: Effort; client?: Anthropic }): WorkoutMaker {
   const client = opts.client ?? new Anthropic({ timeout: 120_000, maxRetries: 1 });
-  return async (input) => {
-    const ids = [...new Set(input.exercises.map((e) => e.id))] as [string, ...string[]]; // an enum must not repeat
-    const lines = [
-      `Інвентар: ${input.equipment}. Час: до ${input.minutes} хв.`,
-      `Вправи (id — назва, рівень 1–3, тип руху, однобічна, на час):\n${input.exercises.map((e) =>
-        `- ${e.id} — ${e.name}, рівень ${e.level}, ${e.pattern}${e.unilateral ? ', однобічна' : ''}${e.timed ? ', на час' : ''}`).join('\n')}`,
-      `Останні тренування:\n${input.history.map((h) => `- ${h.date} (${h.feeling || 'без оцінки'}): ${h.items.join('; ')}`).join('\n') || '- ще немає'}`,
-      `Обмеження лікаря:\n${input.rules.map((r) => `- ${r}`).join('\n') || '- немає'}`,
-      input.wish ? `Побажання на сьогодні: ${input.wish}` : '',
-    ].filter(Boolean);
-    return structured(client, { model: opts.model, effort: opts.effort, maxTokens: 4000, system: SYSTEM, schema: workoutSchema(ids), content: lines.join('\n\n') });
-  };
+  return (input) => structured(client, workoutOpts(opts, input));
 }

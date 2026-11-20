@@ -4,7 +4,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
-import { structured, type Effort, type Usage } from './claude.ts';
+import { structured, type Effort, type StructuredOpts, type Usage } from './claude.ts';
 
 export const PROMPT_NOT_FOUND = 'concierge-not-found-1';
 export function notFoundSchema(names: [string, ...string[]]) {
@@ -15,10 +15,16 @@ export type NotFoundReader = (text: string, names: string[]) => Promise<{ result
 const SYSTEM = `Людина записує, що з’їла, і написала страву чи продукт, якого немає в базі застосунку. Обери зі списку бази до 3 найближчих за складом і способом приготування — найближчий перший.
 Лише назви зі списку. Якщо це не їжа або нічого не схоже — порожній список. Нічого не радь і не коментуй.`;
 
+/** D201: the base (sorted) in the cached block after the instructions; only the person's words after it. */
+export function notFoundOpts(opts: { model: string; effort: Effort }, text: string, names: string[]): StructuredOpts<ReturnType<typeof notFoundSchema>> {
+  const base = [...new Set(names)].sort((a, b) => a.localeCompare(b, 'uk')) as [string, ...string[]];
+  return { model: opts.model, effort: opts.effort, maxTokens: 400, system: SYSTEM, schema: notFoundSchema(base),
+    reference: `База:\n${base.join('\n')}`, content: `Що написала людина: «${text}»` };
+}
+
 export function claudeNotFound(opts: { model: string; effort: Effort; client?: Anthropic }): NotFoundReader {
   const client = opts.client ?? new Anthropic({ timeout: 30_000, maxRetries: 1 });
-  return (text, names) => structured(client, { model: opts.model, effort: opts.effort, maxTokens: 400, system: SYSTEM,
-    schema: notFoundSchema([...new Set(names)] as [string, ...string[]]), content: `Що написала людина: «${text}»\n\nБаза:\n${names.join('\n')}` });
+  return (text, names) => structured(client, notFoundOpts(opts, text, names));
 }
 
 // ---------------------------------------------------------------- the log (D91)

@@ -2,7 +2,7 @@
 // matches the names to its food base and shows the result as a «Розпізнано» draft that the person confirms.
 import Anthropic from '@anthropic-ai/sdk';
 import { z } from 'zod';
-import { structured, type Effort, type Usage } from './claude.ts';
+import { structured, type Effort, type StructuredOpts, type Usage } from './claude.ts';
 
 export const PhotoItem = z.object({
   name: z.string().describe('Коротка назва українською, як людина записала б у щоденник: «гречка варена», «яйце варене»'),
@@ -38,9 +38,13 @@ const SYSTEM = `Ти допомагаєш людині вести щоденни
 
 const sorted = (xs: string[]) => [...new Set(xs)].sort((a, b) => a.localeCompare(b, 'uk'));
 
+export function photoOpts(opts: { model: string; effort: Effort }, { image, foods, dishes }: PhotoInput): StructuredOpts<typeof PhotoResult> {
+  return { model: opts.model, effort: opts.effort, maxTokens: 4000, system: SYSTEM, schema: PhotoResult,
+    reference: `Продукти людини: ${sorted(foods).join('; ') || '—'}\nСтрави людини: ${sorted(dishes).join('; ') || '—'}`, // D123: cached
+    content: [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: image } }] };
+}
+
 export function claudeRecognizer(opts: { model: string; effort: Effort; client?: Anthropic }): Recognizer {
   const client = opts.client ?? new Anthropic({ timeout: 90_000, maxRetries: 1 });
-  return ({ image, foods, dishes }) => structured(client, { model: opts.model, effort: opts.effort, maxTokens: 4000, system: SYSTEM, schema: PhotoResult,
-    reference: `Продукти людини: ${sorted(foods).join('; ') || '—'}\nСтрави людини: ${sorted(dishes).join('; ') || '—'}`, // D123: cached
-    content: [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: image } }] });
+  return (input) => structured(client, photoOpts(opts, input));
 }
