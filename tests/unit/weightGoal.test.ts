@@ -27,11 +27,12 @@ describe('the numbers (code only)', () => {
     expect(g.proteinG).toEqual([116, 155]); // 1.2–1.6 g/kg, not 194
     expect(g.weeks).toBe(Math.ceil(10 / g.perWeekKg));
   });
-  it('never below 1200; never faster than 1 kg a week; a small deficit says its honest price', () => {
+  it('never below the lower limit for the sex (1200 for a woman); never faster than 1 kg a week; a small deficit says its honest price', () => {
     const small: GoalInput = { sex: 'female', age: 60, heightCm: 152, weightKg: 58, goalKg: 54 };
     const g = goalPlan(small, emptyPlan(), '2026-11-19');
     expect(g.kcal).toBe(1200);
     expect(g.floored).toBe(true);
+    expect(explain(g).join(' ')).toContain('не нижче 1200; менше — лише за призначенням лікаря');
     expect(g.slow).toBe(true);
     expect(explain(g).join(' ')).toMatch(/менше, ніж коливання ваги; перший результат побачите через ~\d+ тижн/);
     expect(goalPlan({ ...owner, deficit: 2000 }, emptyPlan(), '2026-11-19').perWeekKg).toBeLessThanOrEqual(1);

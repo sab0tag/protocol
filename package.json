@@ -17,6 +17,7 @@
     "eval:concierge-chat": "VITE_API_URL=https://api.beyondthesignal.to TZ=Europe/Kyiv vitest run --config vitest.eval.config.ts tests/eval/conciergeChat.eval.ts",
     "eval:dishes": "VITE_API_URL=https://api.beyondthesignal.to vitest run --config vitest.eval.config.ts tests/eval/dishes.eval.ts",
     "demo:reset": "sh demo/reset.sh",
+    "norms:export": "node scripts/norms-export.ts",
     "speech:report": "TZ=Europe/Kyiv node scripts/speech-report.ts"
   },
   "dependencies": {

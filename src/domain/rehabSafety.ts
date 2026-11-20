@@ -11,7 +11,7 @@ import type { DayEntry, ISODate, Plan } from './types';
 import { activeRestrictions, restrictionText } from './trainingRules';
 import { currentStage } from './rehab';
 
-export const PAIN_STOP = NORMS.rehab.painStop; // D196: the drafts live in norms.ts
+export const PAIN_STOP = NORMS.rehabPain.painStop; // D196/D197: the drafts live in norms.ts
 
 /** The doctor's words for the red flags — a draft (by NHS «after a fracture / with a cast» advice), not yet signed by a doctor. */
 export const RED_FLAGS = [
@@ -20,7 +20,7 @@ export const RED_FLAGS = [
   'Литка болить і набрякла',
   'Задишка або біль у грудях',
 ] as const;
-export const RED_FLAGS_SIGNED = !normsDraft(); // D196: signed with the whole norms file (norms.ts reviewedBy)
+export const RED_FLAGS_SIGNED = !normsDraft('redFlags'); // D197: signed with its own review in norms.ts
 
 const FLAG_WORDS = [
   /(?:біль|болить|боли\S*)\s+(?:\S+\s+){0,3}(?:під|под)\s+(?:гіпс|гипс|пов[’'ʼ]?язк)/iu,
@@ -45,7 +45,7 @@ export function painAlert(entries: readonly DayEntry[], today: ISODate): 'high' 
   const byDay = new Map<string, number>();
   for (const e of sessions) { const d = e.at.slice(0, 10); byDay.set(d, Math.max(byDay.get(d) ?? 0, e.rehab!.pain)); }
   const days = [...byDay.keys()].sort();
-  const n = NORMS.rehab.risingDays;
+  const n = NORMS.rehabRising.days;
   if (days.at(-1) !== today || days.length < n) return null;
   const last = days.slice(-n);
   // three days in a row, by the calendar, each higher than the day before

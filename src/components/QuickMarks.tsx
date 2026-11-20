@@ -10,7 +10,7 @@ import { db } from '../data/db';
 import { atLocal, newId } from '../domain/dates';
 import { dosesNow, GLASS_ML, medsState, MOOD_WORDS, openDoses } from '../domain/quickMarks';
 import { litres, waterState, withWater, type DayFluid, type WaterState } from '../domain/fluid';
-import { NORMS } from '../domain/norms';
+import { NORMS, normsDraft } from '../domain/norms';
 import type { CheckItem } from '../domain/checklist';
 import type { DayEntry, Targets, Wellbeing } from '../domain/types';
 import { t } from '../i18n/uk';
@@ -165,14 +165,14 @@ function WaterSheet({ fluid, targets, state, entries, onClose }: { fluid: DayFlu
             ? state.met ? `${W.normMet(litres(state.normMl))}${state.overMl >= 50 ? `, ${W.normOver(litres(state.overMl))}` : ''}` : W.of(litres(state.totalMl), litres(state.normMl))
             : W.todayLong(litres(state.totalMl))}</p>
           {fluid.drinks.length > 0 && <p className="text-sm text-muted">{W.drinksLine(fluid.drinks, litres(fluid.drinksMl))}</p>}
-          {state.kind === 'norm' && targets.waterFrom === 'efsa' && <p className="text-sm text-muted">{W.guideIsSet}{NORMS.reviewedBy ? '' : ` ${W.draft}`}</p>}
+          {state.kind === 'norm' && targets.waterFrom === 'efsa' && <p className="text-sm text-muted">{W.guideIsSet}{normsDraft('water') ? ` ${W.draft}` : ''}</p>}
           {state.kind === 'free' && <div className="space-y-2 rounded-2xl border border-line p-3" data-testid="water-guide">
             <p className="text-sm">{W.guide}</p>
             <div className="flex flex-wrap gap-2">
               {([[NORMS.water.drinksMl.female, W.guideWomen], [NORMS.water.drinksMl.male, W.guideMen]] as const).map(([ml, who]) => (
                 <button key={ml} type="button" onClick={() => setGuide(ml)} className="min-h-tap rounded-full border-2 border-line px-4 font-semibold">{W.guideSet(litres(ml), who)}</button>))}
             </div>
-            <p className="text-xs text-muted">{W.guideNote}{NORMS.reviewedBy ? '' : ` ${W.draft}`}</p>
+            <p className="text-xs text-muted">{W.guideNote}{normsDraft('water') ? ` ${W.draft}` : ''}</p>
           </div>}
         </>}
         <section aria-label={W.records}>
