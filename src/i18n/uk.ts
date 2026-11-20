@@ -362,6 +362,13 @@ export const t = {
     place: (part: string, side: string) => `${part} ${side}`, later: 'Не зараз', saved: 'Місце уколу записано',
     hint: 'Місце краще міняти: так шкіра не ущільнюється. Дози й препарат — лише як призначив лікар.',
   },
+  side: { // D194: a new medicine's side effects, the first 14 days
+    ask: (title: string, day: number) => `Є побічні від «${title}»? День ${day} з 14`, no: 'Ні', yes: 'Так',
+    which: 'Які? Одним-двома словами', save: 'Записати', saved: 'Записано — буде у звіті для лікаря',
+    hint: 'Лише відмітка для лікаря: що це і що робити, скаже він.',
+    report: 'Побічні нового препарату', reportLine: (title: string, since: string, asked: number, yes: number) => `${title} (з ${since}): відповідей ${asked}, «так» — ${yes}`,
+    reportYes: (list: string) => `Що відмічено: ${list}`,
+  },
   fastingTest: { // D193: a test on an empty stomach, that morning on the breakfast tile
     first: (tests: string) => `Спершу аналіз натщесерце: ${tests}. Сніданок — після нього.`,
     meds: (meds: string) => `Ліки цього ранку (${meds}) — уточніть у лікаря, чи приймати до аналізу.`,

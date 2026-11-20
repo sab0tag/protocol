@@ -17,6 +17,7 @@ import { neutralDay, observedPlannedEntry, observedToday, trackingInfo, type Obs
 import { lightDayHistory, type LightDayHistory } from './lightDay';
 import { foodAverage, MIN_DAYS, recordCoverage, type FoodAverage } from './coverage';
 import { dayContexts } from './modulePreferences';
+import { sideReport, type SideReport } from './sideEffects';
 import { dayFluid, litres } from './fluid';
 
 export interface Report {
@@ -67,6 +68,8 @@ export interface Report {
   rehab?: RehabReport;
   /** D183: «Що я задав сам» — the person's own weight goal, a separate block, never mixed with the doctor's targets */
   ownGoal?: string;
+  /** D194: a new medicine's first 14 days — answers and the «так» days with their words */
+  sideEffects?: SideReport[];
   /** D189: coverage first — days with anything recorded of the period's days; complete / partial food days */
   coverage: { recorded: number; of: number; complete: number; partial: number };
   /** D189: under 4 recorded days — no averages, no coincidences, no pace: «мало даних» */
@@ -171,6 +174,7 @@ export function buildReport(args: {
   const report: Report = {
     from, to, days,
     coverage: { recorded: cov.recorded, of: cov.of, complete: cov.complete.length, partial: cov.partial.length },
+    ...(sideReport(plan, entries, from, to).length ? { sideEffects: sideReport(plan, entries, from, to) } : {}),
     ...(few ? { fewData: true as const } : {}),
     ...(avg ? { foodAvg: avg } : {}),
     ...(ctxCount.size ? { context: [...ctxCount].map(([reason, n]) => ({ reason, days: n })) } : {}),
@@ -272,6 +276,12 @@ export function coverageLines(r: Report): string[] {
     ...(r.context?.length ? [t.lightDay.reportContext(r.context.map((c) => t.lightDay.contextDays(t.lightDay.reasons[c.reason] ?? c.reason, c.days)).join('; '))] : [])];
 }
 
+/** D194: the side effects of a new medicine, as answered — counts and words, no conclusion. */
+export function sideLines(r: Report, dm: (d: ISODate) => string): string[] {
+  return (r.sideEffects ?? []).flatMap((s) => [t.side.reportLine(s.title, dm(s.since), s.asked, s.yes.length),
+    ...(s.yes.length ? [t.side.reportYes(s.yes.map((y) => `${y.text || 'так'} (${dm(y.date)})`).join('; '))] : [])]);
+}
+
 export function reportText(r: Report, dm: (d: ISODate) => string): string {
   const lines = [
     `Звіт за ${dm(r.from)} — ${dm(r.to)} (${r.days} дн.)`,
@@ -305,6 +315,7 @@ export function reportText(r: Report, dm: (d: ISODate) => string): string {
     r.symptoms.length ? `Симптоми: ${r.symptoms.map((s) => `${s.name} — ${s.count}`).join('; ')}` : '',
     r.coincidences.length ? `Збіги в записах (підрахунок, не висновок):\n${r.coincidences.map((c) => `• ${c}`).join('\n')}` : '',
     ...(r.rehab ? rehabLines(r.rehab, dm) : []),
+    ...(r.sideEffects?.length ? [`${t.side.report}:`, ...sideLines(r, dm)] : []),
     r.ownGoal ?? '',
     r.questions.length ? `Мої питання:\n${r.questions.map((q) => `• ${q}`).join('\n')}` : '',
   ];

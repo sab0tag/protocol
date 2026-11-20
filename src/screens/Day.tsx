@@ -30,6 +30,7 @@ import { useSync } from '../sync/runner';
 import { SimpleEntrySheet } from './SimpleEntrySheet';
 import { NowCard } from '../components/NowCard';
 import { InjectionSiteCard } from '../components/InjectionSiteCard';
+import { SideEffectsCard } from '../components/SideEffectsCard';
 import { DoctorQuestions } from '../components/DoctorQuestions';
 import { visitSoon } from '../domain/doctorQuestions';
 import { DayHeader } from '../components/DayHeader';
@@ -205,6 +206,7 @@ export function Day() {
         {entries && <NowCard compact entries={entries} plan={plan} date={date} observation={observation} onConfirm={setConfirming} onReschedule={setRescheduling} />}
       </div>
       {entries && all && plan && <InjectionSiteCard day={entries} all={all} prescriptions={plan.prescriptions} /> /* D189 */}
+      {isToday && entries && plan && <SideEffectsCard plan={plan} day={entries} /> /* D194 */}
       {isToday && plan && visitSoon(plan, date) !== null && <DoctorQuestions plan={plan} soon={visitSoon(plan, date)!} /> /* D191 */}
       {checklist && entries && <QuickMarks date={date} isToday={isToday} light={light} items={checklist.items} entries={entries}
         fluid={dayFluid(entries, foods ?? new Map(), date)} targets={{ ...targets, ...(plan?.targets.waterMaxMl ? { waterMaxMl: plan.targets.waterMaxMl } : {}), ...(plan?.targets.waterFrom ? { waterFrom: plan.targets.waterFrom } : {}) }} /* D169 */
